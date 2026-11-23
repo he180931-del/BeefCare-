@@ -92,6 +92,8 @@ describe('purchase entry page in backend mode', () => {
     const numberInputs = within(dialog).getAllByRole('spinbutton')
     await user.clear(numberInputs[0])
     await user.type(numberInputs[0], '236')
+    // An entered weight needs a basis even when the voucher is priced per head (GBR-92).
+    await user.click(within(dialog).getByRole('radio', { name: 'Cân thực tế' }))
     // Per head: the line amount field replaces the per-kg unit price.
     const amount = dialog.querySelector('#entry-cow-total-amount') as HTMLInputElement
     await user.clear(amount)
@@ -105,18 +107,20 @@ describe('purchase entry page in backend mode', () => {
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')).toBe(true))
-    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', pricingBasis: 'PER_HEAD' })
+    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/attachments'))).toBe(true))
 
     first.unmount()
     render(<MemoryRouter initialEntries={['/herd-entry/new?id=PN-BACKEND-0041']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
     expect(await screen.findByDisplayValue('PN-BACKEND-0041')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByText('purchase.pdf')).toBeInTheDocument()
 
     await user.type(screen.getByRole('textbox', { name: 'Người nhập' }), 'Anh A')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ 1 con/ }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/post'))).toBe(true))
+    expect(requests.find((request) => request.method === 'PUT' && request.path.endsWith('/entry-vouchers/41'))?.body).toMatchObject({ pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     expect(serverVoucher?.status).toBe('POSTED')
   }, 20000)
 })

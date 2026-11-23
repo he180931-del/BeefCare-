@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { EmptyBlock, ErrorBlock, LoadingBlock, Note, Segmented } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import { messageOf, RichText, useViewer } from '../components/shared'
 import { formatFull, formatTime, ROLE_LABEL } from '../domain/format'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 
 type Tab = 'unread' | 'all'
 
 function TechnicianList() {
   const viewer = useViewer()
   const [tab, setTab] = useState<Tab>('unread')
-  const list = useQuery(() => announcementsApi.list(viewer), [viewer])
+  const { list } = useAnnouncementUseCases({ viewer, loadList: true })
   if (list.loading && !list.data) return <TechnicianLayout title="Thông báo trại" back="/kt"><LoadingBlock /></TechnicianLayout>
   if (list.error != null || !list.data) return <TechnicianLayout title="Thông báo trại" back="/kt"><ErrorBlock message={messageOf(list.error, 'Không tải được thông báo.')} onRetry={list.refetch} /></TechnicianLayout>
 
@@ -24,7 +23,7 @@ function TechnicianList() {
       <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={[{ value: 'unread', label: `Chưa đọc (${unread.length})` }, { value: 'all', label: `Tất cả (${received.length})` }]} />
       {shown.length === 0 && <EmptyBlock title={tab === 'unread' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo'} sub="Thông báo mới từ Quản lý và Chủ trại sẽ hiện ở đây." />}
       {shown.map((a) => (
-        <Link key={a.id} to={`/kt/thong-bao/${a.id}${a.latestVersionId === null ? '' : `?versionId=${a.latestVersionId}`}`} className="flex flex-col gap-1 rounded-lg border border-field bg-white px-3.5 py-3 text-inherit no-underline">
+        <Link key={a.id} to={`/kt/thong-bao/${a.id}${a.latestVersionId === null ? '' : `?versionId=${a.latestVersionId}`}`} className="flex flex-col gap-1 rounded-2xl border border-field bg-white p-4 text-inherit no-underline focus-visible:outline-2 focus-visible:outline-brand">
           <span className="flex items-center gap-2">
             {a.unread && <span role="img" aria-label="Chưa đọc" className="size-2 shrink-0 rounded-full bg-brand" />}
             <span className={`text-[13px] text-[#212121] ${a.unread ? 'font-semibold' : ''}`}>{a.title}</span>
@@ -42,7 +41,7 @@ function TechnicianDetail() {
   const [params] = useSearchParams()
   const versionIdParam = params.get('versionId')
   const [readTime, setReadTime] = useState<string | null>(null)
-  const detail = useQuery(() => announcementsApi.get(id, viewer), [id, viewer])
+  const { detail, markRead } = useAnnouncementUseCases({ viewer, detailId: id })
   const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
     ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
 
@@ -50,9 +49,9 @@ function TechnicianDetail() {
   useEffect(() => {
     if (!detail.data || !selectedVersion?.unread || selectedVersion.id !== detail.data.versions[0]?.id) return
     let active = true
-    announcementsApi.markRead(viewer, id).then((r) => { if (active) setReadTime(r?.readTime ?? null) }, () => undefined)
+    markRead(id).then((r) => { if (active) setReadTime(r?.readTime ?? null) }, () => undefined)
     return () => { active = false }
-  }, [detail.data, id, selectedVersion, viewer])
+  }, [detail.data, id, markRead, selectedVersion])
 
   if (detail.loading && !detail.data) return <TechnicianLayout title="Thông báo" back="/kt/thong-bao"><LoadingBlock /></TechnicianLayout>
   if (detail.error != null || !detail.data) return <TechnicianLayout title="Thông báo" back="/kt/thong-bao"><ErrorBlock message={messageOf(detail.error, 'Không tải được thông báo.')} onRetry={detail.refetch} /></TechnicianLayout>
@@ -62,7 +61,7 @@ function TechnicianDetail() {
   const at = readTime ?? a.readTime
   return (
     <TechnicianLayout title="Thông báo" back="/kt/thong-bao">
-      <article className="flex flex-col gap-2 rounded-lg border border-field bg-white p-3.5">
+      <article className="flex flex-col gap-2 rounded-2xl border border-field bg-white p-4">
         <h2 className="m-0 text-sm font-semibold text-[#212121]">{selectedVersion?.title ?? a.title}</h2>
         <p className="m-0 text-[11px] text-muted">{`${a.authorName} · ${ROLE_LABEL[a.authorRole]} · ${formatFull(selectedVersion?.publishedTime ?? a.publishedTime!)} · phiên bản ${selectedVersion?.versionNo ?? a.versions[0]?.versionNo ?? 1}`}</p>
         <RichText text={selectedVersion?.body ?? a.body} />

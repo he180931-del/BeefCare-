@@ -3,9 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { financeApi } from '../api/financeApi'
+import { financeError } from '../api/financeError'
+import { useFinanceBankTransactions, useFinanceCategories, useFinanceFarms, useFinanceRecord, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
 import { RecordDialogs } from '../components/RecordDialogs'
 import { categoryLabel, DEMO_TODAY, FINANCE_CATEGORIES, formatDateTime, formatVnd } from '../domain/financeRules'
@@ -23,17 +22,18 @@ export default function RecordFormPage() {
   const navigate = useNavigate()
   const [m, open, close] = useModalParam()
   const [flash, setFlash] = useFlash()
-  const [fields, setFields] = useState<RecordFields>(() => ({ ...EMPTY, occurredOn: financeApi.now() }))
+  const useCases = usePlatformFinanceUseCases()
+  const [fields, setFields] = useState<RecordFields>(() => ({ ...EMPTY, occurredOn: useCases.now() }))
   const [errors, setErrors] = useState<RecordErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pick, setPick] = useState<BankTransactionChoice | null>(null)
   const [conflict, setConflict] = useState<BankTransactionChoice | null>(null)
   const [busy, setBusy] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const farms = useQuery(() => financeApi.listFarms(), [])
-  const categoryQuery = useQuery(() => financeApi.listCategories(), [])
-  const bank = useQuery(() => financeApi.listBankTransactions(), [m])
-  const { data, loading, error, refetch } = useQuery(async () => (code ? financeApi.getRecord(code) : null), [code, reloadKey])
+  const farms = useFinanceFarms()
+  const categoryQuery = useFinanceCategories()
+  const bank = useFinanceBankTransactions(m)
+  const { data, loading, error, refetch } = useFinanceRecord(code, reloadKey)
   const record = data?.record ?? null
   const [historyPage, setHistoryPage] = useState(1)
   const history = record?.history ?? []
@@ -52,39 +52,39 @@ export default function RecordFormPage() {
   }, [record, bank.data, fields.sourceEvidenceId])
 
   if (loading && code && !data) return <Layout title="Khoản thu chi"><LoadingBlock /></Layout>
-  if (error) return <Layout title="Khoản thu chi"><ErrorBlock message={userFacingError(error, 'Không tải được khoản thu chi.')} onRetry={refetch} /></Layout>
+  if (error) return <Layout title="Khoản thu chi"><ErrorBlock message={financeError(error, 'Không tải được khoản thu chi.')} onRetry={refetch} /></Layout>
 
   const editable = !record || record.state === 'DRAFT'
   const set = (p: Partial<RecordFields>) => setFields((f) => ({ ...f, ...p }))
   const title = record ? `Khoản thu chi ${record.recordCode}` : 'Khoản thu chi mới'
   const sub = !record ? 'Nhập khoản thu hoặc chi của nền tảng. Lưu nháp trước, kiểm tra rồi ghi sổ.' : record.state === 'DRAFT' ? 'Chỉ khoản nháp được sửa. Khi ghi sổ, khoản này không thể sửa nữa.' : record.state === 'POSTED' ? 'Khoản đã ghi sổ chỉ đọc; sửa sai bằng Hủy bỏ kèm lý do.' : 'Khoản đã hủy bỏ chỉ đọc; có thể tạo nháp thay thế.'
-  const categoryError = financeApi.isBackend() && !!categoryQuery.error
-  const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? (financeApi.isBackend() ? [] : FINANCE_CATEGORIES[fields.type])
+  const categoryError = useCases.isBackend() && !!categoryQuery.error
+  const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? (useCases.isBackend() ? [] : FINANCE_CATEGORIES[fields.type])
   const changeReload = () => setReloadKey((k) => k + 1)
 
   const save = async (): Promise<FinanceRecord | null> => {
-    const found = validateRecordFields(fields, financeApi.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
+    const found = validateRecordFields(fields, useCases.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
     setErrors(found)
     if (categoryError) { setFormError('Chưa tải được danh mục tài chính từ máy chủ. Vui lòng thử lại.'); return null }
     if (Object.keys(found).length) return null
     setBusy(true); setFormError(null)
     try {
       if (!record) {
-        const created = await financeApi.createDraft(fields)
+        const created = await useCases.createDraft(fields)
         navigate(`${FINANCE_BASE}/${created.recordCode}`, { state: { flash: { tone: 'ok', text: `Khoản thu chi ${created.recordCode} đã được lưu ở trạng thái nháp.` } } })
         return created
       }
-      const saved = await financeApi.saveDraft(record.recordCode, fields, record.version)
+      const saved = await useCases.saveDraft(record.recordCode, fields, record.version)
       setFlash({ tone: 'ok', text: `Khoản thu chi ${saved.recordCode} đã được lưu ở trạng thái nháp.` })
       changeReload()
       return saved
     } catch (e) {
-      setFormError(userFacingError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.'))
+      setFormError(financeError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.'))
       return null
     } finally { setBusy(false) }
   }
   const startPost = async () => {
-    const found = validateRecordFields(fields, financeApi.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
+    const found = validateRecordFields(fields, useCases.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
     setErrors(found)
     if (Object.keys(found).length) { open('kiem-tra'); return }
     const saved = await save()

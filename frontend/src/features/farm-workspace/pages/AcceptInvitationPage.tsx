@@ -1,24 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BackendError } from '../../../shared/api/backendClient'
-import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
+import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
 import { CONTACT, INVITATION_PATH, rememberInvitationLink } from '../../authentication'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { enterFarm } from '../components/enterFarm'
 import { RoleSummary } from '../components/PermissionChecklist'
 import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, formatDateTime, inviteStatusLabel, roleLabel } from '../components/WorkspaceUi'
+import { useFarmWorkspaceUseCase } from '../hooks/useFarmWorkspaceUseCase'
 import type { InvitationPreview } from '../types'
 
-const Fact = ({ label, children }: { label: string; children: ReactNode }) => <div><dt className="text-[11px] text-subtle">{label}</dt><dd className="m-0 mt-0.5 text-[13px] font-medium text-ink">{children}</dd></div>
-const Panel = ({ title, badge, children }: { title: string; badge: ReactNode; children: ReactNode }) => (
-  <section className="flex flex-col gap-4 rounded-2xl border border-field bg-white p-6">
-    <div className="flex items-center justify-between gap-3"><h1 className="m-0 text-sm font-semibold text-ink">{title}</h1>{badge}</div>
-    {children}
-  </section>
-)
-
+const Fact = ({ label, children }: { label: string; children: ReactNode }) => <div><dt className="text-[11px] text-subtle">{label}</dt><dd className="m-0 mt-0.5 wrap-anywhere text-[13px] font-medium text-ink">{children}</dd></div>
 /** Time the invitee sees MSG-FE03-10 before the farm home loads (the full reload clears page messages). */
 export const JOINED_NOTICE_MS = 1000
 
@@ -57,17 +50,15 @@ export default function AcceptInvitationPage() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { invitationPreview, acceptInvitation } = useFarmWorkspaceUseCase({ invitationToken: token || null, signedInEmail: signedIn, refreshKey: revision })
 
   useEffect(() => {
-    let current = true
-    setView({ kind: 'loading' }); setError(null)
+    setError(null)
     if (!token) { setView({ kind: 'invalid', status: 'INVALID' }); return }
-    farmWorkspaceApi.previewInvitation(token, signedIn).then(
-      (invite) => { if (current) setView({ kind: 'ready', invite }) },
-      (reason) => { if (current) setView(stateFor(reason) ?? { kind: 'error', message: farmWorkspaceError(reason, 'Không tải được lời mời. Vui lòng thử lại.') }) },
-    )
-    return () => { current = false }
-  }, [token, signedIn, revision])
+    if (invitationPreview.loading) { setView({ kind: 'loading' }); return }
+    if (invitationPreview.data) { setView({ kind: 'ready', invite: invitationPreview.data }); return }
+    if (invitationPreview.error) setView(stateFor(invitationPreview.error) ?? { kind: 'error', message: farmWorkspaceError(invitationPreview.error, 'Không tải được lời mời. Vui lòng thử lại.') })
+  }, [invitationPreview.data, invitationPreview.error, invitationPreview.loading, token])
 
   const open = async (farmId: number) => {
     try {
@@ -82,7 +73,7 @@ export default function AcceptInvitationPage() {
     if (saving) return
     setSaving(true); setError(null)
     try {
-      const joined = await farmWorkspaceApi.acceptInvitation(token, signedIn)
+      const joined = await acceptInvitation(token, signedIn)
       // MSG-FE03-10, then open the farm home of the new role (SCR-48 / SCR-74).
       setNotice(`Bạn đã tham gia ${joined.farmName} với vai trò ${roleLabel(joined.role)}.`)
       setView({ kind: 'ready', invite: { ...invite, status: 'ACCEPTED', membershipId: joined.membershipId } })
@@ -113,12 +104,12 @@ export default function AcceptInvitationPage() {
     </div>
   )
 
-  if (view.kind === 'loading') return shell(<LoadingBlock />, 'Đang kiểm tra lời mời…')
-  if (view.kind === 'error') return shell(<ErrorBlock message={view.message} onRetry={() => setRevision((value) => value + 1)} />, 'Chưa tải được lời mời; lời mời vẫn giữ nguyên trạng thái.')
+  if (view.kind === 'loading') return shell(<LoadingBlock variant="panel" />, 'Đang kiểm tra lời mời…')
+  if (view.kind === 'error') return shell(<ErrorBlock variant="panel" message={view.message} onRetry={() => setRevision((value) => value + 1)} />, 'Chưa tải được lời mời; lời mời vẫn giữ nguyên trạng thái.')
 
   if (view.kind === 'invalid') {
     return shell(
-      <Panel title="Lời mời không còn hiệu lực" badge={<Badge tone="err">{invalidLabel(view.status)}</Badge>}>
+      <Panel headingAs="h1" title="Lời mời không còn hiệu lực" actions={<Badge tone="err">{invalidLabel(view.status)}</Badge>}>
         {/* MSG-FE03-08 with the status and expiry time (SCR-15) */}
         <Note tone="err">Lời mời không còn hiệu lực ({invalidLabel(view.status)}).{view.expiresAt ? ` Hết hạn lúc ${formatDateTime(view.expiresAt)}.` : ''}</Note>
         <p className="m-0 text-xs text-subtle">Chưa có tư cách thành viên nào được tạo từ liên kết này; hãy liên hệ Chủ trại để được mời lại. Hỗ trợ: {CONTACT.email} · <a href={CONTACT.phoneHref}>{CONTACT.phone}</a></p>
@@ -130,7 +121,7 @@ export default function AcceptInvitationPage() {
 
   if (view.kind === 'mismatch') {
     return shell(
-      <Panel title="Lời mời được gửi tới email khác" badge={<Badge tone="err">Không khớp email</Badge>}>
+      <Panel headingAs="h1" title="Lời mời được gửi tới email khác" actions={<Badge tone="err">Không khớp email</Badge>}>
         {/* MSG-FE03-09; the farm details stay hidden (UC-FE03-04 E2) */}
         <Note tone="err">Lời mời này được gửi tới email khác. Hãy đăng nhập bằng email được mời để chấp nhận.</Note>
         <dl className="m-0 grid gap-3"><Fact label="Email đang đăng nhập">{signedIn || '—'}</Fact></dl>
@@ -145,7 +136,7 @@ export default function AcceptInvitationPage() {
 
   if (view.kind === 'inactive') {
     return shell(
-      <Panel title="Trang trại chưa thể nhận thành viên" badge={<Badge tone="warn">Đang chờ</Badge>}>
+      <Panel headingAs="h1" title="Trang trại chưa thể nhận thành viên" actions={<Badge tone="warn">Đang chờ</Badge>}>
         {/* MSG-FE03-04; the invitation stays PENDING (UC-FE03-04 E3) */}
         <Note tone="warn">Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>
         <p className="m-0 text-xs text-subtle">Lời mời vẫn đang chờ. Hãy mở lại liên kết khi dịch vụ của trang trại hoạt động trở lại, trước khi lời mời hết hạn.</p>
@@ -159,10 +150,10 @@ export default function AcceptInvitationPage() {
   const zone = invite.timeZone
   if (invite.status === 'ACCEPTED') {
     return shell(
-      <Panel title="Bạn đã tham gia trang trại" badge={<Badge tone="ok">Đã chấp nhận</Badge>}>
+      <Panel headingAs="h1" title="Bạn đã tham gia trang trại" actions={<Badge tone="ok">Đã chấp nhận</Badge>}>
         {/* AF2: the existing membership is shown; nothing new is created */}
         {notice ? <Note tone="ok">{notice}</Note> : <Note tone="ok">Bạn đã là thành viên của {invite.farmName} với vai trò {roleLabel(invite.role)}.</Note>}
-        <dl className="m-0 grid gap-3 sm:grid-cols-2"><Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact></dl>
+        <dl className="m-0 grid gap-4 @min-[440px]:grid-cols-2"><Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact></dl>
         {error && <Note tone="err">{error}</Note>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button size="lg" onClick={() => navigate('/')}>Về trang chủ</Button>
@@ -174,8 +165,8 @@ export default function AcceptInvitationPage() {
   }
 
   return shell(
-    <Panel title="Lời mời tham gia trang trại" badge={<Badge tone="warn">Chờ bạn chấp nhận</Badge>}>
-      <dl className="m-0 grid gap-3 sm:grid-cols-2">
+    <Panel headingAs="h1" title="Lời mời tham gia trang trại" actions={<Badge tone="warn">Chờ bạn chấp nhận</Badge>}>
+      <dl className="m-0 grid gap-4 @min-[440px]:grid-cols-2">
         <Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact>
         <Fact label="Mời bởi">{invite.invitedBy ?? '—'}</Fact><Fact label="Gửi lúc">{formatDateTime(invite.sentAt, zone)}</Fact>
         <Fact label="Email được mời">{invite.email}</Fact><Fact label="Hết hạn">{formatDateTime(invite.expiresAt, zone)}</Fact>

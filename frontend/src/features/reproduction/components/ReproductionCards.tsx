@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Badge, Card, KV, Table, Td, Th } from '../../../shared/ui'
+import { Badge, KV, Panel, Table, Td, Th } from '../../../shared/ui'
 import {
   METHOD_TEXT, NO_WEIGHING, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, hasNoWeighing, isDueSoon, windowBar,
 } from '../domain/reproductionRules'
@@ -22,7 +22,7 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
     ['Không có ca bệnh mở', e.noOpenHealthCase ? 'Không có' : 'Có ca mở', e.noOpenHealthCase],
   ]
   return (
-    <Card title="Điều kiện xét phối" sub="Tham khảo, không chặn ghi phối" actions={<Badge tone={met ? 'ok' : 'err'}>{met ? 'Đạt 3/3' : `Chưa đạt ${met3}/3`}</Badge>}>
+    <Panel title="Điều kiện xét phối" sub="Tham khảo" actions={<Badge tone={met ? 'ok' : 'err'}>{met ? 'Đạt 3/3' : `Chưa đạt ${met3}/3`}</Badge>}>
       <Table stack={false}>
         <thead><tr><Th>Tiêu chí</Th><Th>Giá trị</Th><Th>Kết quả</Th></tr></thead>
         <tbody>
@@ -35,7 +35,7 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
           ))}
         </tbody>
       </Table>
-    </Card>
+    </Panel>
   )
 }
 
@@ -47,22 +47,22 @@ export function WindowCard({ profile }: { profile: ReproductionFemale }) {
   const today = window.from.slice(0, 10) === now.slice(0, 10)
   const range = `${hhmm(window.from)} – ${hhmm(window.to)}`
   return (
-    <Card title="Cửa sổ phối gợi ý" sub="Tính từ thời điểm động dục + tham số của trại">
+    <Panel tone="ok" title="Cửa sổ phối gợi ý">
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <KV k="Thời điểm động dục"><span className="whitespace-nowrap">{formatDateTime(profile.statusAt)}</span></KV>
         <KV k="Khung phối gợi ý"><span className="whitespace-nowrap">{today ? `${range} hôm nay` : `${formatDateTime(window.from).slice(0, 5)} ${range}`}</span></KV>
       </div>
       <div className="mt-4" aria-hidden="true">
-        <div className="relative h-2.5 rounded-full bg-chip">
+        <div className="relative h-2.5 rounded-full bg-white">
           <div className="absolute h-full rounded-full bg-brand" style={{ left: `${bar.left}%`, width: `${bar.width}%` }} />
           <div className="absolute -top-1 h-[18px] w-0.5 bg-err-fg" style={{ left: `${bar.now}%` }} />
         </div>
-        <div className="relative mt-1.5 h-3 text-[10px] text-muted">
+        <div className="relative mt-1.5 h-3 text-[10px] text-label">
           {[4, 8, 12, 16, 20, 24].map((hour) => <span key={hour} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${(hour / 24) * 100}%`, ...(hour === 24 ? { transform: 'translateX(-100%)' } : {}) }}>{String(hour).padStart(2, '0')}:00</span>)}
         </div>
       </div>
-      <p className="m-0 mt-2 text-[11px] text-muted">Vạch đỏ: bây giờ ({hhmm(now)})</p>
-    </Card>
+      <p className="m-0 mt-2 text-[11px] text-label">Vạch đỏ: bây giờ ({hhmm(now)})</p>
+    </Panel>
   )
 }
 
@@ -77,7 +77,8 @@ export function LastBreedingCard({ profile }: { profile: ReproductionFemale }) {
   const checks = profile.events.filter((event) => event.type === 'PREGNANCY_CHECK' && event.status === 'VALID' && event.linkedBreedingId === breeding.id).length
   const sire = [breeding.sireLabel, breeding.semenCode].filter(Boolean).join(' · ') || '—'
   return (
-    <Card
+    <Panel
+      tone={due ? 'warn' : 'default'}
       title="Lần phối gần nhất"
       sub={due ? 'Đủ 30 ngày sau phối · có thể khám thai' : `Còn ${30 - days} ngày đến lúc có thể khám thai`}
       actions={<Badge tone={due ? 'warn' : 'outline'}>{due ? 'Đến hạn khám thai' : 'Chưa đến hạn khám'}</Badge>}
@@ -92,7 +93,7 @@ export function LastBreedingCard({ profile }: { profile: ReproductionFemale }) {
         <KV k="Số lần khám">{checks}</KV>
         <KV k="Có thể khám từ"><span className="whitespace-nowrap">{formatDate(addDaysText(breeding.occurredAt, 30))}</span></KV>
       </div>
-    </Card>
+    </Panel>
   )
 }
 
@@ -109,7 +110,8 @@ export function PregnancyCard({ profile }: { profile: ReproductionFemale }) {
   const carried = breeding ? daysBetween(breeding.occurredAt, now) : preg.estimatedMonths != null ? preg.estimatedMonths * 30 + daysBetween(preg.confirmedAt, now) : null
   const soon = isDueSoon(profile, now)
   return (
-    <Card
+    <Panel
+      tone={soon ? 'warn' : 'default'}
       title="Thai kỳ hiện tại"
       sub={left == null ? 'Chưa tính được ngày dự kiến đẻ' : left >= 0 ? `Còn ${left} ngày đến ngày dự kiến đẻ` : `Quá ngày dự kiến đẻ ${-left} ngày`}
       actions={soon ? <Badge tone="warn" icon="baby-carriage">Sắp đẻ</Badge> : undefined}
@@ -124,7 +126,7 @@ export function PregnancyCard({ profile }: { profile: ReproductionFemale }) {
         <KV k="Cơ sở tính">{basis ? BASIS_RULE[basis] : 'Chưa đủ dữ liệu'}</KV>
         <KV k="Số ngày mang thai">{carried == null ? '—' : `${carried} ngày`}</KV>
       </div>
-    </Card>
+    </Panel>
   )
 }
 
@@ -135,7 +137,7 @@ const calfLine = (calving: CalvingRecord) => calving.calves.filter((calf) => cal
 export function CalfHistoryCard({ profile }: { profile: ReproductionFemale }) {
   const calvings = profile.calvings.filter((calving) => calving.status === 'VALID')
   return (
-    <Card title="Lịch sử sinh bê">
+    <Panel title="Lịch sử sinh bê">
       <Table stack={false}>
         <thead><tr><Th>Ngày đẻ</Th><Th>Kết quả bê</Th><Th>Đăng ký</Th></tr></thead>
         <tbody>
@@ -157,6 +159,6 @@ export function CalfHistoryCard({ profile }: { profile: ReproductionFemale }) {
           {!calvings.length && <tr><Td colSpan={3} className="py-6 text-center text-muted">Chưa có lần đẻ nào.</Td></tr>}
         </tbody>
       </Table>
-    </Card>
+    </Panel>
   )
 }

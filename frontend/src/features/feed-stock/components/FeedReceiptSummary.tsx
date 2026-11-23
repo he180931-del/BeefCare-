@@ -14,21 +14,25 @@ export default function FeedReceiptSummary({ rows, suppliers }: { rows: readonly
   const owingNote = summary && summary.owedAmount !== null
     ? summary.owingCodes.length ? `${summary.owingCodes.length} phiếu · ${summary.owingCodes.join(', ')}` : 'Không còn phiếu nào chưa trả đủ'
     : 'Chưa có dữ liệu thanh toán trong danh sách receipt.'
+  const owing = summary?.owedAmount ?? 0
+  // Bento (Figma Tab 21 ①b): khối nổi bật là lượng nhập trong kỳ; công nợ chỉ tô vàng khi còn nợ thật.
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <section aria-label="Chỉ số phiếu nhập kho" className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(2,minmax(0,1fr))]">
       <Metric
-        compact
+        surface="panel"
+        tone="emphasis"
         label="Nhập kho 30 ngày qua"
         value={summary ? formatKg(summary.receivedKg, 0) : '—'}
         sub={summary ? `${summary.receiptCount} phiếu · ${formatVnd(summary.totalPayable)}` : 'Chưa tải được dữ liệu'}
       />
-      <Metric compact warn label="Còn nợ nhà cung cấp" value={summary && summary.owedAmount !== null ? formatVnd(summary.owedAmount) : '—'} sub={owingNote} />
+      <Metric compact surface="panel" tone={owing > 0 ? 'warn' : 'default'} warn={owing > 0} label="Còn nợ nhà cung cấp" value={summary && summary.owedAmount !== null ? formatVnd(summary.owedAmount) : '—'} sub={owingNote} />
       <Metric
         compact
+        surface="panel"
         label="Nhà cung cấp đang giao dịch"
         value={active ? active.length : '—'}
         sub={active?.length ? `${active.slice(0, 3).map((supplier) => shortSupplierName(supplier.name)).join(' · ')}${active.length > 3 ? ' · …' : ''}` : 'Chưa tải được nhà cung cấp'}
       />
-    </div>
+    </section>
   )
 }

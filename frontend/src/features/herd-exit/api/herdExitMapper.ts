@@ -1,7 +1,7 @@
-import type { Payment } from '../../../types'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import type { ExitDetail, ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
-import type { ExitChecks } from './herdExitBackendApi'
+import type { ExitDetail, ExitDraft, ExitPayment, ExitStatus, ExitType, HerdExit, LossKind } from '../types'
+import type { ExitChecks, ExitVoidCheck } from './herdExitBackendApi'
+import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
 export const LIFE_STAGE_LABELS: Record<string, string> = {
@@ -18,7 +18,7 @@ export const statusFromBackend = (status: unknown): ExitStatus => {
   if (status === 'PENDING') return 'Chờ xác nhận'
   return 'Nháp'
 }
-export const typeFromBackend = (type: unknown): ExitType => type === 'DEATH' ? 'Chết / mất' : type === 'CULL' ? 'Loại thải' : type === 'OTHER' ? 'Khác' : 'Bán'
+export const typeFromBackend = (type: unknown, loss = false): ExitType => type === 'DEATH' || loss ? 'Chết / mất' : type === 'CULL' ? 'Loại thải' : type === 'OTHER' ? 'Khác' : 'Bán'
 export const exitType = (type: unknown) => type === 'Chết / mất' ? 'DEATH' : type === 'Loại thải' ? 'CULL' : type === 'Khác' ? 'OTHER' : 'SALE'
 export const pricingBasis = (value: unknown) => value === 'con' || value === 'PER_HEAD' ? 'PER_HEAD' as const : 'PER_KG' as const
 export const lossKind = (value: unknown) => {
@@ -36,10 +36,7 @@ export const lossTypeLabel = (value: unknown) => {
   return textValue(value)
 }
 
-export const paymentRows = (value: unknown): Payment[] => asRows(value).map((row) => ({
-  date: textValue(row.paymentDate ?? row.date), by: textValue(row.recordedBy ?? row.createdBy, '—'),
-  method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', ref: textValue(row.reference, '—'), amount: numberValue(row.amount),
-}))
+export const paymentRows = (value: unknown): ExitPayment[] => mapVoucherPayments(value)
 
 export const mapDocument = (value: unknown, root: string, voucherId: number) => {
   const document = asRecord(value)
@@ -72,8 +69,25 @@ export const mapChecks = (value: unknown): ExitChecks => {
     })),
   }))
   return {
-    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: numberValue(row.version), exitDate: textValue(row.exitDate), cattle,
+    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, exitDate: textValue(row.exitDate), cattle,
     occupancy: asRows(row.occupancy).map((item) => ({ penId: numberValue(item.penId), penCode: textValue(item.penCode), capacity: numberValue(item.capacity), before: numberValue(item.before), after: numberValue(item.after) })),
+  }
+}
+
+export const mapVoidCheck = (value: unknown): ExitVoidCheck => {
+  const row = asRecord(value)
+  const message = row.message == null ? undefined : asRecord(row.message)
+  return {
+    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, voidable: row.voidable === true,
+    cattle: asRows(row.cattle).map((cow) => {
+      const last = cow.lastPen == null ? null : asRecord(cow.lastPen)
+      return {
+        cattleId: numberValue(cow.cattleId), cattleCode: textValue(cow.cattleCode), needsPenOverride: cow.needsPenOverride === true,
+        lastPen: last === null ? null : { penId: numberValue(last.penId), penCode: textValue(last.penCode), active: last.active === true, freePlaces: numberValue(last.freePlaces) },
+      }
+    }),
+    occupancyAfter: asRows(row.occupancyAfter).map((pen) => ({ penId: numberValue(pen.penId), penCode: textValue(pen.penCode), capacity: numberValue(pen.capacity), before: numberValue(pen.before), after: numberValue(pen.after) })),
+    message: message ? { code: textValue(message.code), text: textValue(message.text) } : undefined,
   }
 }
 
@@ -81,6 +95,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   const row = asRecord(value)
   const lines = asRows(row.lines)
   const buyer = asRecord(row.buyer)
+  const sourceHealthCase = asRecord(row.sourceHealthCase)
+  const sourceHealthCaseId = nullableNumber(sourceHealthCase.id)
   const buyerName = textValue(buyer.label ?? buyer.name ?? row.buyerName)
   const total = nullableNumber(row.totalReceivable ?? row.totalAmount)
   const due = nullableNumber(row.outstanding ?? row.outstandingAmount)
@@ -90,8 +106,10 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     weight: numberValue(line.exitWeightKg), estimated: Boolean(line.estimated), barn: textValue(line.penCode),
     current: statusFromBackend(row.status) === 'Đã xuất' ? 'EXITED' : textValue(line.herdStatus), amount: numberValue(line.lineAmount), unitPrice: numberValue(line.unitPrice),
   }))
+  const isLoss = row.exitType === 'DEATH' || Boolean(row.loss) || row.lossKind === 'DIED' || row.lossKind === 'MISSING'
+  const persistedLossKind = row.lossKind === 'MISSING' ? 'MISSING' : isLoss ? 'DIED' : undefined
   const detail: ExitDetail = {
-    death: Boolean(row.loss), lossType: lossTypeLabel(row.lossKind), date: textValue(row.exitDate),
+    death: isLoss, ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind } : {}), lossType: lossTypeLabel(row.lossKind), date: textValue(row.exitDate),
     reason: textValue(row.deathCause), disposal: textValue(row.carcassDisposal), buyer: buyerName,
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note),
     by: textValue(asRecord(row.confirmedBy).label ?? row.confirmedBy, '—'),
@@ -99,16 +117,18 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     cowsTotal: numberValue(row.cattleAmount), deduction: numberValue(row.deductions), payments: paymentRows(row.payments), docs: mapDocuments(documents, root, voucherId),
     history: asRows(row.history).map((item) => textValue(item.text ?? item.type)).filter(Boolean),
   }
-  if (Boolean(row.loss)) {
+  if (isLoss) {
     detail.cow = cows[0]
-    detail.source = textValue(asRecord(row.sourceHealthCase).label)
+    detail.sourceHealthCaseId = sourceHealthCaseId ?? undefined
+    detail.source = textValue(sourceHealthCase.label)
     detail.reporter = textValue(asRecord(row.reportedBy).label)
     detail.barnShift = textValue(lines[0]?.penCode)
   }
   const draft: ExitDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
-    type: typeFromBackend(row.exitType), date: textValue(row.exitDate), buyerId: buyer.id == null ? '' : String(buyer.id),
+    type: typeFromBackend(row.exitType, isLoss), date: textValue(row.exitDate), buyerId: buyer.id == null ? '' : String(buyer.id),
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate),
-    note: textValue(row.exitType === 'OTHER' ? row.destination ?? row.note : row.exitType === 'DEATH' ? row.deathCause ?? row.note : row.note),
+    ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind, deathCause: textValue(row.deathCause), carcassDisposal: textValue(row.carcassDisposal) } : {}),
+    note: textValue(row.exitType === 'OTHER' && !isLoss ? row.destination ?? row.note : isLoss ? row.deathCause ?? row.note : row.note),
     pricing: row.pricingBasis === 'PER_HEAD' ? 'con' : 'kg', deduction: numberValue(row.deductions), collected: numberValue(row.depositCollected ?? row.amountCollected),
     method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', dueDate: textValue(row.collectionDueDate),
     docs: mapDocuments(documents, root, voucherId),
@@ -121,10 +141,10 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     })),
   } : undefined
   return {
-    id: textValue(row.code), backendId: numberValue(row.id), version: numberValue(row.version), date: textValue(row.exitDate),
-    type: typeFromBackend(row.exitType), who: buyerName || textValue(row.destination ?? row.deathCause),
+    id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.exitDate),
+    type: typeFromBackend(row.exitType, isLoss), who: buyerName || textValue(row.destination ?? row.deathCause),
     sub: textValue(row.note), count: numberValue(row.cattleCount, lines.length), weight: numberValue(row.totalWeightKg),
-    total, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),
+    total, collected: nullableNumber(row.amountCollected) ?? undefined, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),
   }
 }
 

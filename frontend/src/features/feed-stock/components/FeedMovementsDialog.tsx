@@ -2,11 +2,10 @@ import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { Link } from 'react-router-dom'
 import { Badge, EmptyBlock, ErrorBlock, LoadingBlock, Modal, ModalButton, ModalFooter, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedMovements } from '../api/feedMovementApi'
 import { formatDate, formatKg, formatMoney } from '../domain/feedLabels'
 import type { FeedStockRow } from '../types'
 import type { FeedMovement } from '../types/feedMovement'
+import { useFeedMovements } from '../hooks/useFeedStockQueries'
 
 const TYPE_LABELS: Record<string, string> = {
   RECEIPT: 'Nhập kho',
@@ -29,8 +28,8 @@ function Source({ row }: { row: FeedMovement }) {
 
 /** SCR-77 "Xem": stock movements of one feed (time, type, quantity, unit cost, balance after, source document). */
 export default function FeedMovementsDialog({ feed, onClose }: { feed: FeedStockRow; onClose: () => void }) {
-  const query = useQuery(() => listFeedMovements(feed.feedItemId), [feed.feedItemId])
-  const rows = query.data ?? []
+  const query = useFeedMovements(feed.feedItemId)
+  const rows = query.movements
   return (
     <Modal title={`Biến động tồn kho ${feed.code} · ${feed.name}`} sub={`Tồn hiện tại ${formatKg(feed.onHandKg)} · mới nhất ở trên cùng`} topTitle="Thức ăn › Tồn kho" width={840} onClose={onClose}>
       {query.loading && !query.data && <LoadingBlock>Đang tải biến động tồn kho…</LoadingBlock>}
@@ -55,7 +54,7 @@ export default function FeedMovementsDialog({ feed, onClose }: { feed: FeedStock
           </tbody>
         </Table>
       )}
-      <ModalFooter className="!px-0 !pb-0"><ModalButton onClick={onClose}>Đóng</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton onClick={onClose}>Đóng</ModalButton></ModalFooter>
     </Modal>
   )
 }

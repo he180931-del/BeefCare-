@@ -1,8 +1,5 @@
 import type { AnnouncementRole, AudienceSelection, Member } from '../types'
-
-export const TITLE_MAX = 150
-export const BODY_MAX = 5000
-export const REASON_MAX = 500
+import { validateText } from '../validation/announcementValidation'
 
 export type AnnouncementErrorCode = 'FORBIDDEN' | 'CONFLICT' | 'NOT_ALLOWED' | 'NO_RECIPIENT' | 'VALIDATION' | 'NOT_FOUND'
 
@@ -52,22 +49,11 @@ export const audienceLabel = (a: AudienceSelection) => {
   return parts.filter(Boolean).join(', ') || 'Chưa chọn'
 }
 
-const FIELD = { title: 'Tiêu đề', body: 'Nội dung', reason: 'Lý do đính chính' } as const
-const MAX = { title: TITLE_MAX, body: BODY_MAX, reason: REASON_MAX } as const
-
-/** MSG-COM-06 và giới hạn độ dài. Trả về lỗi theo trường. */
-export function validateText(values: Partial<Record<'title' | 'body' | 'reason', string>>) {
-  const errors: Partial<Record<'title' | 'body' | 'reason', string>> = {}
-  for (const key of Object.keys(values) as Array<keyof typeof FIELD>) {
-    const text = values[key] ?? ''
-    if (!text.trim()) errors[key] = `${FIELD[key]} là bắt buộc.`
-    else if (text.length > MAX[key]) errors[key] = `${FIELD[key]} tối đa ${MAX[key].toLocaleString('vi-VN')} ký tự.`
-  }
-  return errors
-}
-
 export function assertText(values: Partial<Record<'title' | 'body' | 'reason', string>>) {
   const errors = validateText(values)
   const field = (Object.keys(errors) as Array<keyof typeof errors>)[0]
   if (field) throw new AnnouncementError('VALIDATION', errors[field]!, field)
 }
+
+/** Compatibility exports for existing feature tests/adapters during the move. */
+export { BODY_MAX, REASON_MAX, TITLE_MAX, validateText } from '../validation/announcementValidation'

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, Panel, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { healthApi } from '../api/healthApi'
 import { fmtDate, fmtMonth, OUTCOME_LABEL } from '../domain/healthFormat'
 import { isWithdrawalActive, MSG } from '../domain/healthRules'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
+import { useHealthFormOptions, useHealthProfile } from '../hooks/useHealthProfile'
 import type { HealthCaseCard, HealthTimelineRow, PendingExit } from '../types'
 import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
@@ -36,8 +36,9 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const caseId = sourceId == null ? null : params.get('case')
   const [toast, showToast] = useToast()
   const [notice, setNotice] = useState<PendingExit | null>(null)
-  const { data: profile, loading, error, refetch } = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('Không tải được dữ liệu sức khỏe.')) : healthApi.getProfile(cattleCode, caseId ?? undefined)), [cattleCode, caseId, demo])
-  const { data: options } = useQuery(() => healthApi.formOptions(), [])
+  const { now } = useHealthCaseCommands()
+  const { data: profile, loading, error, refetch } = useHealthProfile(cattleCode, caseId, demo)
+  const { data: options } = useHealthFormOptions()
 
   if (loading && !profile) return <LoadingBlock />
   if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
@@ -47,7 +48,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const exited = cattle.status === 'EXITED'
   const canAdd = canRecord && !exited && !pendingExit
   const canEdit = canRecord && !exited
-  const withdrawing = isWithdrawalActive(profile.withdrawalEndDate, healthApi.now())
+  const withdrawing = isWithdrawalActive(profile.withdrawalEndDate, now())
   const saved = (message: string) => { showToast(message); dialog.close(); refetch() }
 
   const target: HealthCaseCard | undefined = activeCases.find((c) => c.caseCode === dialog.caseCode) ?? activeCases[0]
@@ -60,15 +61,16 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
     <div className="flex flex-col gap-4">
       {exited && <Note tone="err">{MSG.exited(cattle.code, cattle.exitDate ?? '', cattle.exitType ?? 'Xuất')}</Note>}
       {pendingExit && !exited && <Note tone="warn">Chờ xác nhận chết / mất: {cattle.code} chưa nhận thêm sự kiện chăm sóc mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất. Vẫn sửa hoặc hủy được các bản ghi đã có.</Note>}
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
-          {activeCases.length === 0 && <Card><EmptyBlock title="Chưa có ca sức khỏe đang mở" sub="Bò hiện không có ca đang mở hoặc theo dõi mạn tính." action={openCaseButton || undefined} /></Card>}
+          {activeCases.length === 0 && <Card variant="panel"><EmptyBlock title="Chưa có ca sức khỏe đang mở"  action={openCaseButton || undefined} /></Card>}
           {activeCases.map((c) => (
             <CaseCard key={c.id} card={c} rows={timeline.filter((r) => r.caseId === c.id)} canAdd={canAdd} canEdit={canEdit} onAction={openDialog} onEdit={(r) => dialog.open('correct', { entry: String(r.id) })} />
           ))}
         </div>
         <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Tình trạng sức khỏe">
+          {/* Bento (Figma Tab 17 ③b): khối tình trạng đỏ nhạt khi bò đang điều trị hoặc đang ngưng sử dụng thịt. */}
+          <Panel tone={withdrawing || profile.healthState === 'UNDER_TREATMENT' ? 'err' : 'default'} title={<span className="text-sm font-semibold">Tình trạng sức khỏe</span>}>
             <div className="grid grid-cols-2 gap-3">
               <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
               <Meta label="Ca đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
@@ -76,8 +78,8 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
               <Meta label="Ca mạn tính">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
             </div>
             {withdrawing && <Note tone="warn">Không xuất bán trước ngày hết ngưng sử dụng thịt.</Note>}
-          </Card>
-          <Card title="Các ca trước">
+          </Panel>
+          <Card variant="panel" title="Các ca trước">
             {previousCases.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có ca nào đã đóng.</p> : (
               <Table stack={false}>
                 <thead><tr><Th>Mã ca</Th><Th>Dấu hiệu</Th><Th>Kết quả</Th></tr></thead>

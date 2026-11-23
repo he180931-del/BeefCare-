@@ -7,10 +7,8 @@ import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRati
 import { listFeedStock } from './feedStockApi'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
-
-type MutationOptions = { key?: string }
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`
-export const newFeedRationCommandKey = commandKey
+import { newFeedCommandKey, type FeedCommandOptions } from './command'
+export const newFeedRationCommandKey = () => newFeedCommandKey('feed-ration')
 
 function mapRation(value: unknown): FeedRation {
   const row = asRecord(value)
@@ -81,7 +79,7 @@ export function createFeedRationApi({
       if (!row) throw new Error(`Không tìm thấy khẩu phần ${id}.`)
       return row
     },
-    async saveVersion(input: SaveFeedRationInput, options: MutationOptions = {}) {
+    async saveVersion(input: SaveFeedRationInput, options: FeedCommandOptions = {}) {
       if (mode === 'backend') {
         const body = {
           rationCode: input.rationCode ?? null,
@@ -95,21 +93,21 @@ export function createFeedRationApi({
           components: input.components,
           baseVersion: input.baseVersion ?? null,
         }
-        return mapRation(await transport.command(transport.farmPath(farmId, '/feed/rations'), body, { key: options.key ?? commandKey() }))
+        return mapRation(await transport.command(transport.farmPath(farmId, '/feed/rations'), body, { key: options.key ?? newFeedCommandKey('feed-ration') }))
       }
       const currentStock = await getFeedStock()
       return demoStore.saveVersion(input, currentStock)
     },
-    async cancelVersion(id: number, versionNo: number, version: number, options: MutationOptions = {}) {
+    async cancelVersion(id: number, versionNo: number, version: number, options: FeedCommandOptions = {}) {
       if (mode === 'backend') {
         const url = transport.farmPath(farmId, `/feed/rations/${id}/versions/${versionNo}/cancel`)
-        return mapRation(await transport.command(url, { version }, { key: options.key ?? commandKey() }))
+        return mapRation(await transport.command(url, { version }, { key: options.key ?? newFeedCommandKey('feed-ration') }))
       }
       return demoStore.cancelVersion(id, versionNo, version)
     },
-    async stop(id: number, endDate: string, version: number, options: MutationOptions = {}) {
+    async stop(id: number, endDate: string, version: number, options: FeedCommandOptions = {}) {
       if (mode === 'backend') {
-        return mapRation(await transport.command(transport.farmPath(farmId, `/feed/rations/${id}/stop`), { endDate, version }, { key: options.key ?? commandKey() }))
+        return mapRation(await transport.command(transport.farmPath(farmId, `/feed/rations/${id}/stop`), { endDate, version }, { key: options.key ?? newFeedCommandKey('feed-ration') }))
       }
       return demoStore.stop(id, endDate, version)
     },
@@ -124,10 +122,10 @@ export const feedRationServerBacked = backendMode === 'backend'
 /** Reads the server list in backend mode; writes persist only to the separate local ration demo store. */
 export const listFeedRations = () => feedRationApi.list()
 export const getFeedRation = (id: string) => feedRationApi.get(id)
-export const saveFeedRationVersion = (input: SaveFeedRationInput, options?: MutationOptions) => feedRationApi.saveVersion(input, options)
-export const cancelFeedRationVersion = (id: number, versionNo: number, version: number, options?: MutationOptions) => feedRationApi.cancelVersion(id, versionNo, version, options)
-export const stopFeedRation = (id: number, endDate: string, version: number, options?: MutationOptions) => feedRationApi.stop(id, endDate, version, options)
-export const saveFeedRationDemoVersion = (input: SaveFeedRationInput, options?: MutationOptions) => feedRationApi.saveVersion(input, options)
+export const saveFeedRationVersion = (input: SaveFeedRationInput, options?: FeedCommandOptions) => feedRationApi.saveVersion(input, options)
+export const cancelFeedRationVersion = (id: number, versionNo: number, version: number, options?: FeedCommandOptions) => feedRationApi.cancelVersion(id, versionNo, version, options)
+export const stopFeedRation = (id: number, endDate: string, version: number, options?: FeedCommandOptions) => feedRationApi.stop(id, endDate, version, options)
+export const saveFeedRationDemoVersion = (input: SaveFeedRationInput, options?: FeedCommandOptions) => feedRationApi.saveVersion(input, options)
 export const resetFeedRationDemoStore = () => demo.feedRation.resetFeedRationDemoStore()
 
 export async function listFeedRationPens(): Promise<FeedRationPenOption[]> {

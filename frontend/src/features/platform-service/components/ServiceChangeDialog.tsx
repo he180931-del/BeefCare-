@@ -2,8 +2,7 @@ import { useRef, useState } from 'react'
 import { BackendError } from '../../../shared/api/backendClient'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { DISCARD_PROMPT, ErrorBlock, Icon, Info, LoadingBlock, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { platformServiceApi } from '../api/platformServiceApi'
+import { useFarmServiceCommands, useFarmServicePreview } from '../hooks/usePlatformServiceUseCase'
 import type { FarmOverview, FarmServicePreview, ServiceStatus } from '../types'
 import { fmtDate } from '../domain/dates'
 import { STATUS_LABEL } from '../domain/servicePeriods'
@@ -34,7 +33,8 @@ function periodText(p: FarmServicePreview) {
  */
 export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { farm: FarmOverview; mode: 'suspend' | 'restore'; onClose: () => void; onDone: (message: string) => void }) {
   const restore = mode === 'restore'
-  const preview = useQuery(() => platformServiceApi.getFarmService(farm.farmId), [farm.farmId])
+  const preview = useFarmServicePreview(farm.farmId)
+  const { suspendFarm, restoreFarm } = useFarmServiceCommands()
   const [reason, setReason] = useState('')
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState(false)
@@ -56,7 +56,7 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
     keys.current.set(signature, key)
     const res = await run(async () => {
       try {
-        return await (restore ? platformServiceApi.restoreFarm(farm.farmId, cmd, { idempotencyKey: key }) : platformServiceApi.suspendFarm(farm.farmId, cmd, { idempotencyKey: key }))
+        return await (restore ? restoreFarm(farm.farmId, cmd, { idempotencyKey: key }) : suspendFarm(farm.farmId, cmd, { idempotencyKey: key }))
       } catch (reasonError) {
         throw new Error(changeError(reasonError, name))
       }
@@ -106,7 +106,7 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
       {error ? <p role="alert" className="mt-2 text-[12px] text-err-fg">{error}</p> : null}
       {discarding ? <Note tone="warn">{DISCARD_PROMPT.question}</Note> : null}
       {/* No extra footer padding: the buttons line up with the content edge, as in the other dialogs of SCR-16. */}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         {discarding ? (
           <>
             <ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton>

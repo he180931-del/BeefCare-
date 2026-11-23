@@ -1,18 +1,25 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
-import type { Payment } from '../../../types'
+import type { ExitPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
-import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks } from './herdExitBackendApi'
+import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks, type ExitVoidCheck, type ExitVoidSelections } from './herdExitBackendApi'
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import { getExitDraftState } from '../domain/exitDraft'
 import { demo } from '../../../demo/demoModules'
+import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 import type { Pen } from '../../pen-management'
 import type { Cattle } from '../../cattle'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 
 const backendApi = createHerdExitBackendApi({ transport: backendTransport, farmId: activeFarmId })
 const usingBackend = backendMode === 'backend'
+
+export const exitPaymentVoidEnabled = usingBackend
+export const voidExitPayment = (paymentId: number, input: VoidVoucherPaymentInput) => usingBackend
+  ? backendApi.voidPayment(paymentId, input)
+  : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export { getExitDraftState }
 
@@ -34,23 +41,24 @@ export const herdExitApi = {
     }
   },
   create: (record: Omit<HerdExit, 'id'> & Partial<Pick<HerdExit, 'id'>>) => usingBackend
-    ? backendApi.save({ id: record.id, record })
+    ? backendApi.save({ record })
     : demo.exitLocal.localApi.create(record),
-  update: async (id: string, patch: Partial<HerdExit>) => {
+  update: async (id: string, patch: Partial<HerdExit>, snapshot?: VoucherSnapshot) => {
     if (!usingBackend) return demo.exitLocal.localApi.update(id, patch)
+    const expectedVersion = requireVersion(snapshot?.expectedVersion)
     const current = await backendApi.get(id)
-    return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
+    return backendApi.save({ id, expectedVersion, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
   },
   reset: () => usingBackend ? Promise.resolve([] as HerdExit[]) : demo.exitLocal.localApi.reset(),
-  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
-    ? backendApi.recordPayment(id, payment)
+  recordPayment: (id: string, payment: Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }, snapshot?: VoucherPaymentSnapshot) => usingBackend
+    ? backendApi.recordPayment(id, payment, snapshot ?? { voucherVersion: undefined })
     : demo.exitLocal.localApi.get(id).then((row) => demo.exitLocal.localApi.update(id, {
       due: Math.max((row.due ?? 0) - payment.amount, 0),
       detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
     })),
 }
 
-export const saveHerdExit = (input: { id?: string; record: Partial<HerdExit>; cattleRows?: CattleInput[]; documents?: File[] }) => {
+export const saveHerdExit = (input: { id?: string; expectedVersion?: number; record: Partial<HerdExit>; cattleRows?: CattleInput[]; documents?: File[] }) => {
   if (usingBackend) return backendApi.save(input)
   const docs = (input.documents ?? []).map((file) => ({
     name: file.name,
@@ -77,7 +85,7 @@ export const saveHerdExit = (input: { id?: string; record: Partial<HerdExit>; ca
   })
 }
 
-export const confirmHerdExit = async (id: string, expectedVersion: number): Promise<HerdExit> => {
+export const confirmHerdExit = async (id: string, expectedVersion: number | undefined): Promise<HerdExit> => {
   if (usingBackend) return backendApi.confirm(id, expectedVersion)
   const current = await demo.exitLocal.localApi.get(id)
   return demo.exitLocal.saveLocal({
@@ -97,12 +105,12 @@ export const removeExitAttachment = async (id: string, attachmentId: number): Pr
   await backendApi.removeAttachment(id, attachmentId)
 }
 
-export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }) => usingBackend
-  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu xuất'))
+export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot & ExitVoidSelections) => usingBackend
+  ? backendApi.voidVoucher(id, { ...snapshot, expectedVersion: snapshot?.expectedVersion, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
   : demo.exitLocal.cancelExit(id, cattleRows, patch)
 
-export const dismissHerdExit = (id: string, reason: string, expectedVersion?: number) => usingBackend
-  ? backendApi.dismissVoucher(id, reason, expectedVersion)
+export const dismissHerdExit = (id: string, reason: string, expectedVersion: number | undefined, backendId?: number) => usingBackend
+  ? backendApi.dismissVoucher(id, reason, expectedVersion, backendId)
   : demo.exitLocal.localApi.update(id, { status: 'Đã bác', reason })
 
 export const listSelectableExitCattle = async (): Promise<ExitCandidate[]> => {
@@ -144,8 +152,10 @@ export function exitCollectionDefaults(): { date: string; reference: string; sta
 /** Giá trị ban đầu của popup hủy phiếu xuất; máy chủ thật bắt đầu không có lý do. */
 export const exitCancelDefaults = (): { reason: string } => (usingBackend ? { reason: '' } : demo.exitLocal.cancelDefaults())
 
-/** Sĩ số chuồng để báo trước khi hủy. Máy chủ thật kiểm sức chứa lúc hủy nên không có danh sách trước (null). */
-export const listExitCancelPens = (): Promise<Pen[] | null> => (usingBackend ? Promise.resolve(null) : demo.exitLocal.pens.list())
+export const exitVoidCheck = (id: string, backendId?: number): Promise<ExitVoidCheck | null> => usingBackend ? backendApi.voidCheck(id, backendId) : Promise.resolve(null)
+
+/** Canonical occupancy for replacement choices; the server rechecks when voiding. */
+export const listExitCancelPens = (): Promise<Pen[] | null> => (usingBackend ? backendApi.listPens() : demo.exitLocal.pens.list())
 
 /**
  * Bò của phiếu còn gắn với phiếu hay không, điều kiện để hủy. Máy chủ thật tự kiểm khi hủy (`serverChecked`); bản mô phỏng

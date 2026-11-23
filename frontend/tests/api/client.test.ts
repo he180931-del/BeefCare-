@@ -1,10 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createCollection, createCollectionSchema } from '../../src/api/client'
-import type { CollectionRow } from '../../src/api/client'
-import { MemoryStorage } from '../../src/api/testUtils'
-import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/api/collectionSchemas'
-import type { Cattle, HerdEntry, HerdExit, Pen } from '../../src/types'
+import { createCollection, createCollectionSchema } from '../../src/demo/api/client'
+import type { CollectionRow } from '../../src/demo/api/client'
+import { MemoryStorage } from '../support/memoryStorage'
+import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/demo/api/collectionSchemas'
+import type { Cattle } from '../../src/features/cattle/types'
+import type { HerdEntry } from '../../src/features/herd-entry/types'
+import type { HerdExit } from '../../src/features/herd-exit/types'
+import type { Pen } from '../../src/features/pen-management/types'
 
 const memoryStorage = () => new MemoryStorage()
 type TestRow = CollectionRow & { id: string; count?: number; status?: string }

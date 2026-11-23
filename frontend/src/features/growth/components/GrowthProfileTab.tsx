@@ -3,15 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, EmptyBlock, ErrorBlock, LoadingBlock, Metric, Note, Panel, Table, Td, Th, type MetricTone } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useCanRecordCare } from '../../authorization'
-import { growthApi } from '../api/growthApi'
 import { addDays, dayFloat, fmtDate, fmtDateTime, fmtDayMonth, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
-import { finishingProgress, weightAtNextWeighing, type FinishingProgress } from '../domain/growthRules'
+import { adgBasis, adgBasisText, finishingProgress, validWeights, weightAtNextWeighing, type FinishingProgress } from '../domain/growthRules'
+import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import type { GrowthProfile, GrowthProjection, GrowthRecord } from '../types'
 import GrowthChart, { ChartLegend } from './GrowthChart'
 import GrowthCorrectModal from './GrowthCorrectModal'
+import GrowthDeleteModal from './GrowthDeleteModal'
 import GrowthRecordModal from './GrowthRecordModal'
 
 const HISTORY_ROWS = 5
@@ -21,7 +21,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   const [modal, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<string | null>(null)
-  const { data, loading, error, refetch } = useQuery(() => growthApi.getProfile(cattleCode), [cattleCode])
+  const { data, loading, error, refetch } = useGrowthProfile(cattleCode)
 
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tăng trưởng.')} onRetry={refetch} />
@@ -32,9 +32,10 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
     next.delete('r')
     setParams(next)
   }
-  const openCorrect = (id: number) => {
+  /** Mở popup Sửa ('correct') hoặc Xóa ('delete') cho một lần đo; giữ trên URL để mở lại được từ dòng thời gian. */
+  const openRecordModal = (kind: 'correct' | 'delete', id: number) => {
     const next = new URLSearchParams(params)
-    next.set('m', 'correct')
+    next.set('m', kind)
     next.set('r', String(id))
     setParams(next)
   }
@@ -50,6 +51,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   const correctTarget = modal === 'correct'
     ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
     : undefined
+  const deleteTarget = modal === 'delete' ? data.records.find((r) => String(r.id) === params.get('r') && r.status === 'VALID') : undefined
 
   const { projection } = data
   return (
@@ -65,14 +67,14 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
           <div className="col-span-full">
             <Note tone="warn">
               {`Chờ xác nhận chết / mất: ${data.cattle.code} không ghi được lần cân mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất.`}
-              {canWrite && ' Vẫn sửa hoặc loại trừ được các bản ghi cân đã có.'}
+              {canWrite && ' Vẫn sửa hoặc xóa được các bản ghi cân đã có.'}
             </Note>
           </div>
         )}
         {projection ? <FinishingBlocks profile={data} projection={projection} /> : <WeighingSummary profile={data} />}
         <Panel
           title="Cân nặng theo thời gian"
-          sub="Chỉ vẽ bản ghi hợp lệ"
+         
           actions={<ChartLegend />}
           className={`col-span-full ${projection ? '@min-[1024px]:col-span-8' : ''}`}
         >
@@ -85,15 +87,26 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
           </section>
         )}
         {!modal && recordId != null && !selectedRecord && <div className="col-span-full"><Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note></div>}
-        <History profile={data} selectedRecord={!modal ? selectedRecord : undefined} canWrite={canWrite} onCorrect={openCorrect} />
+        <History
+          profile={data}
+          selectedRecord={!modal ? selectedRecord : undefined}
+          canWrite={canWrite}
+          onCorrect={(id) => openRecordModal('correct', id)}
+          onDelete={(id) => openRecordModal('delete', id)}
+        />
       </div>
       {canWrite && !exitPending && modal === 'record' && <GrowthRecordModal cattleCode={cattleCode} onClose={closeModal} onSaved={saved} />}
       {canWrite && correctTarget && <GrowthCorrectModal key={correctTarget.id} record={correctTarget} onClose={closeAll} onSaved={saved} />}
+      {canWrite && deleteTarget && <GrowthDeleteModal key={deleteTarget.id} record={deleteTarget} onClose={closeAll} onDeleted={saved} />}
     </div>
   )
 }
 
 const adgValue = (adg: number | undefined) => (adg === undefined ? '—' : `${fmtDec(adg, 2)} kg/ngày`)
+
+/** Giải thích ADG theo các lần cân thật trong kỳ (không ghi cứng "60/90 ngày" khi dữ liệu ngắn hơn). */
+const adgSub = (profile: GrowthProfile, adg: number | undefined, windowDays: number) =>
+  adgBasisText(adg, adgBasis(validWeights(profile.records), windowDays, profile.today), windowDays)
 
 /** Lần cân tới: đỏ khi đã quá ngày, vàng khi là việc sắp tới (docs/BeefCare-Bento-Grid.md §3); luôn kèm chữ. */
 function nextWeighing(profile: GrowthProfile): { tone: MetricTone; status?: string } {
@@ -104,7 +117,7 @@ function nextWeighing(profile: GrowthProfile): { tone: MetricTone; status?: stri
 }
 
 const BcsMetric = ({ profile: { latestBcs } }: { profile: GrowthProfile }) => (
-  <Metric surface="panel" compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} sub={latestBcs === undefined ? 'Chưa có điểm thể trạng' : 'Điểm thể trạng · thang trại v1'} />
+  <Metric surface="panel" compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} sub={latestBcs === undefined ? 'Chưa có điểm thể trạng' : 'Điểm thể trạng'} />
 )
 
 const CountMetric = ({ profile: { count, correctedCount } }: { profile: GrowthProfile }) => (
@@ -118,7 +131,7 @@ function WeighingSummary({ profile }: { profile: GrowthProfile }) {
   return (
     <section aria-label="Chỉ số tăng trưởng" className="col-span-full grid min-w-0 grid-cols-2 gap-4 @min-[640px]:grid-cols-3 @min-[880px]:grid-cols-5 @min-[1024px]:gap-6">
       <Metric surface="panel" compact label="Cân gần nhất" value={latest ? `${fmtKg(latest.kg)} kg` : '—'} sub={latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'} />
-      <Metric surface="panel" compact label="Tăng cân · ADG 90 ngày" value={adgValue(adg90)} sub={adg90 === undefined ? 'Chưa đủ 2 lần cân hợp lệ' : 'Mức tăng cân bình quân mỗi ngày'} />
+      <Metric surface="panel" compact label="Tăng cân bình quân (ADG)" value={adgValue(adg90)} sub={adgSub(profile, adg90, 90)} />
       <Metric surface="panel" tone={next.tone} compact label="Lần cân tới" value={nextWeighingDate ? fmtDate(nextWeighingDate) : '—'} sub={next.status ?? (nextWeighingDate ? 'Theo chu kỳ cân của trại' : 'Chưa có lịch cân')} />
       <BcsMetric profile={profile} />
       <CountMetric profile={profile} />
@@ -134,18 +147,16 @@ function FinishingBlocks({ profile, projection }: { profile: GrowthProfile; proj
   const nextKg = progress && weightAtNextWeighing(progress.currentKg, progress.currentAt, profile.nextWeighingDate, adg60)
   return (
     <>
-      <Projection projection={projection} />
+      <Projection projection={projection} adgDays={adgBasis(validWeights(profile.records), 60, profile.today)?.days} />
       <Progress progress={progress} />
       <section aria-label="Tăng cân và lần cân tới" className="col-span-full grid min-w-0 grid-cols-2 gap-4 @min-[640px]:col-span-4 @min-[640px]:grid-cols-1 @min-[880px]:col-span-full @min-[880px]:grid-cols-2 @min-[1024px]:col-span-3 @min-[1024px]:grid-cols-1 @min-[1024px]:gap-6">
         <Metric
           surface="panel"
           tone={adg60 !== undefined && adg60 > 0 ? 'ok' : 'default'}
           compact
-          label="Tăng cân · ADG 60 ngày"
+          label="Tăng cân bình quân (ADG)"
           value={adgValue(adg60)}
-          sub={adg60 === undefined
-            ? 'Chưa đủ 2 lần cân hợp lệ trong 60 ngày'
-            : `≈ ${fmtKg(Math.round(adg60 * 30))} kg/tháng · ADG 90 ngày: ${profile.adg90 === undefined ? '—' : fmtDec(profile.adg90, 2)}`}
+          sub={adg60 === undefined ? adgSub(profile, adg60, 60) : `${adgSub(profile, adg60, 60)} · ≈ ${fmtKg(Math.round(adg60 * 30))} kg/tháng`}
         />
         <Metric
           surface="panel"
@@ -154,14 +165,14 @@ function FinishingBlocks({ profile, projection }: { profile: GrowthProfile; proj
           label={profile.nextWeighingDate ? `Cân tới · ${fmtDate(profile.nextWeighingDate)}` : 'Lần cân tới'}
           value={nextKg === undefined ? (profile.nextWeighingDate ? '—' : 'Chưa có lịch') : `≈ ${fmtKg(Math.round(nextKg))} kg`}
           // Số "≈ kg" luôn đi kèm chữ "ước tính" (docs/BeefCare-Bento-Grid.md §4), kể cả khi lần cân đã quá hạn.
-          sub={[next.status, nextKg === undefined ? 'Chưa đủ dữ liệu ADG 60 ngày để ước tính cân' : 'Ước tính nếu giữ ADG 60 ngày'].filter(Boolean).join(' · ')}
+          sub={[next.status, nextKg === undefined ? 'Chưa đủ dữ liệu ADG để ước tính cân' : 'Ước tính nếu giữ ADG hiện tại'].filter(Boolean).join(' · ')}
         />
       </section>
     </>
   )
 }
 
-function Projection({ projection }: { projection: GrowthProjection }) {
+function Projection({ projection, adgDays }: { projection: GrowthProjection; adgDays?: number }) {
   const { state, targetKg, missingKg, adg60, days, projectedDate } = projection
   const projected = state === 'PROJECTED'
   const baseDate = projectedDate && days !== undefined ? addDays(projectedDate, -days) : undefined
@@ -190,7 +201,7 @@ function Projection({ projection }: { projection: GrowthProjection }) {
       <dl className="m-0 mt-auto grid grid-cols-2 gap-3 border-t border-white/25 pt-3 @min-[640px]:grid-cols-3">
         <div><dt className="text-xs text-side-text">Mục tiêu</dt><dd className="m-0 mt-1 font-semibold">{`≥ ${fmtKg(targetKg)} kg`}</dd></div>
         <div><dt className="text-xs text-side-text">Còn thiếu</dt><dd className="m-0 mt-1 font-semibold">{`${fmtKg(missingKg)} kg`}</dd></div>
-        <div><dt className="text-xs text-side-text">Tính theo</dt><dd className="m-0 mt-1 font-semibold">{`ADG 60 ngày · ${adg60 === undefined ? '—' : fmtDec(adg60, 2)}`}</dd></div>
+        <div><dt className="text-xs text-side-text">Tính theo</dt><dd className="m-0 mt-1 font-semibold">{adg60 === undefined ? 'ADG · —' : `ADG ${fmtDec(adg60, 2)} kg/ngày${adgDays === undefined ? '' : ` · ${adgDays} ngày`}`}</dd></div>
       </dl>
     </Panel>
   )
@@ -224,21 +235,25 @@ function Progress({ progress }: { progress?: FinishingProgress }) {
   )
 }
 
-function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: GrowthProfile; selectedRecord?: GrowthRecord; canWrite: boolean; onCorrect: (id: number) => void }) {
+interface RowActions { canWrite: boolean; onCorrect: (id: number) => void; onDelete: (id: number) => void }
+
+function History({ profile, selectedRecord, canWrite, onCorrect, onDelete }: RowActions & { profile: GrowthProfile; selectedRecord?: GrowthRecord }) {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const [all, setAll] = useState(false)
-  const rows = selectedRecord ? [selectedRecord] : [...profile.records].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
+  // Lần đo đã xóa (EXCLUDED) không hiện trong lịch sử đo; chỉ còn xem được khi mở đúng bản ghi đó từ dòng thời gian.
+  const visible = profile.records.filter((r) => r.status === 'VALID')
+  const rows = selectedRecord ? [selectedRecord] : [...visible].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   const shown = all ? rows : rows.slice(0, HISTORY_ROWS)
   return (
     <Panel
       title={selectedRecord ? 'Bản ghi tăng trưởng đã chọn' : 'Lịch sử đo'}
       sub={selectedRecord
         ? 'ADG (mức tăng cân bình quân mỗi ngày) tính từ lần cân hợp lệ trước đó.'
-        : 'Mới nhất ở trên · nhấn tiêu đề cột Thời điểm đo để đổi thứ tự. ADG (mức tăng cân bình quân mỗi ngày) của từng dòng tính từ lần cân hợp lệ trước đó; dòng đã loại trừ in xám và không được tính.'}
+        : 'Mới nhất ở trên · nhấn tiêu đề cột Thời điểm đo để đổi thứ tự. ADG (mức tăng cân bình quân mỗi ngày) của từng dòng tính từ lần cân hợp lệ trước đó.'}
       className="col-span-full"
     >
       {rows.length === 0 ? (
-        <EmptyBlock title="Chưa có lần đo nào" sub="Các lần cân và chấm BCS sẽ hiện ở đây." />
+        <EmptyBlock title="Chưa có lần đo nào"  />
       ) : (
         <Table>
           <thead>
@@ -248,7 +263,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: Gr
             </tr>
           </thead>
           <tbody>
-            {shown.map((r) => <HistoryRow key={r.id} r={r} adg={profile.rowAdg[r.id]} canWrite={canWrite} onCorrect={onCorrect} />)}
+            {shown.map((r) => <HistoryRow key={r.id} r={r} adg={profile.rowAdg[r.id]} canWrite={canWrite} onCorrect={onCorrect} onDelete={onDelete} />)}
           </tbody>
         </Table>
       )}
@@ -259,7 +274,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: Gr
   )
 }
 
-function HistoryRow({ r, adg, canWrite, onCorrect }: { r: GrowthRecord; adg?: number; canWrite: boolean; onCorrect: (id: number) => void }) {
+function HistoryRow({ r, adg, canWrite, onCorrect, onDelete }: RowActions & { r: GrowthRecord; adg?: number }) {
   const excluded = r.status !== 'VALID'
   const method = r.method ? `${METHOD_LABEL[r.method]} · ${r.basis ? BASIS_LABEL[r.basis] : ''}` : '—'
   return (
@@ -274,9 +289,18 @@ function HistoryRow({ r, adg, canWrite, onCorrect }: { r: GrowthRecord; adg?: nu
       <Td>{excluded || adg === undefined ? '—' : fmtDec(adg, 2)}</Td>
       <Td>{r.measuredByName}</Td>
       <Td>
-        {r.status === 'EXCLUDED' ? <Badge tone="outline">Đã loại trừ</Badge> : r.corrected ? <Badge tone="info">Hợp lệ · Đã sửa</Badge> : <Badge tone="ok" icon="circle-check">Hợp lệ</Badge>}
+        {r.status === 'EXCLUDED' ? <Badge tone="outline">Đã xóa</Badge> : r.corrected ? <Badge tone="info">Hợp lệ · Đã sửa</Badge> : <Badge tone="ok" icon="circle-check">Hợp lệ</Badge>}
       </Td>
-      {canWrite && <Td>{excluded ? '—' : <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa · Loại trừ</Button>}</Td>}
+      {canWrite && (
+        <Td>
+          {excluded ? '—' : (
+            <span className="inline-flex gap-3">
+              <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa</Button>
+              <Button variant="link" className="text-err-fg" onClick={() => onDelete(r.id)}>Xóa</Button>
+            </span>
+          )}
+        </Td>
+      )}
     </tr>
   )
 }

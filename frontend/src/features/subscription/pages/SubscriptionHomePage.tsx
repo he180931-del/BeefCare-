@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Panel, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Facts, ICON_BTN, ServiceBadge, type Fact } from '../components/shared'
+import { Facts, ServiceBadge, type Fact } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../hooks/useFarmScope'
@@ -22,11 +22,11 @@ function ServiceFacts({ o, openHref }: { o: SubscriptionOverview; openHref: stri
     ['Ngày kết thúc đã xác nhận', o.latestEnd ? fmtDate(o.latestEnd) : '—'],
     ['Mở gia hạn từ', o.renewalOpensAt ? fmtDate(o.renewalOpensAt) : '—'],
     ['Tạm ngưng', o.suspended ? `Có (từ ${o.suspendedSince ? fmtDate(o.suspendedSince) : '—'})` : 'Không', o.suspended ? 'warn' : undefined],
-    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-brand" to={openHref}>Mở hướng dẫn</Link></span> : '—'],
+    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-white underline focus-visible:outline-white" to={openHref}>Mở hướng dẫn</Link></span> : '—'],
     ['Bảng giá hiện hành', price ? `${versionLabel(price.id)} · từ ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
     ['Kỳ tương lai', o.futurePeriods.length ? o.futurePeriods.map((p) => fmtPeriod(p.start, p.end)).join(', ') : '—'],
   ]
-  return <Facts items={items} cols={4} />
+  return <Facts items={items} cols={4} onDark />
 }
 
 export default function SubscriptionHomePage() {
@@ -49,30 +49,30 @@ export default function SubscriptionHomePage() {
 
   return (
     <Layout title={TITLE}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 @min-[1024px]:gap-6">
         <PageHeader title={TITLE} sub={data.farmName}>
-          <Button className={ICON_BTN} onClick={() => navigate(to('/goi-dich-vu/lich-su'))}><Icon name="history" size={16} /> Lịch sử thanh toán</Button>
-          <Button variant="primary" disabled={!elig.ok} onClick={() => navigate(to(first ? '/dang-ky-goi' : '/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
+          <Button size="bento" onClick={() => navigate(to('/goi-dich-vu/lich-su'))}><Icon name="history" size={16} /> Lịch sử thanh toán</Button>
+          <Button variant="primary" size="bento" disabled={!elig.ok} onClick={() => navigate(to(first ? '/dang-ky-goi' : '/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
         </PageHeader>
         {notice}
-        <Card title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
+        <Panel tone="emphasis" title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
           <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment ? subscriptionApi.paymentRouteId(data.pendingPayment) : ''}`, { from: 'subscription' })} />
-        </Card>
-        <Card title="Bảng giá gói BeefCare">
+        </Panel>
+        <Card variant="panel" title="Bảng giá gói BeefCare">
           {data.currentPrices ? (
             <TermCards prices={data.currentPrices} />
           ) : (
             <Note tone="warn">
               <span className="flex flex-wrap items-center justify-between gap-2">
                 Hiện chưa lấy được bảng giá gói.
-                <Button size="sm" className={ICON_BTN} onClick={refetch}><Icon name="refresh" size={14} /> Thử lại</Button>
+                <Button size="sm" onClick={refetch}><Icon name="refresh" size={14} /> Thử lại</Button>
               </span>
             </Note>
           )}
         </Card>
-        <Card title="Các kỳ đã mua">
+        <Card variant="panel" title="Các kỳ đã mua">
           {periods.length ? (
-            <Table>
+            <Table variant="panel">
               <thead><tr><Th>Kỳ dịch vụ</Th><Th>Mã thanh toán</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Trạng thái</Th></tr></thead>
               <tbody>
                 {periods.map((p) => (

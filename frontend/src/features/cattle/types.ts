@@ -1,8 +1,8 @@
-import type { PenCode } from '../pen-management'
-
 export type CattleStatus = 'ACTIVE' | 'EXIT_PENDING' | 'EXITED' | 'VOIDED'
 
 export type CattleCode = string
+/** Serialized pen identifier; kept local to avoid a type dependency cycle with Pen Management. */
+export type PenCode = string
 
 export type Tone = 'ok' | 'err' | 'warn' | 'info' | 'grey'
 export interface StatusChip { label: string; tone?: Tone }
@@ -132,4 +132,25 @@ export interface CattleInput {
   date?: string
   withdrawalUntil?: string
   [key: string]: unknown
+}
+
+/** Production-facing cattle view model. Demo seed data may satisfy this shape but does not own it. */
+export type CattleViewModel = Cattle & {
+  barn: string
+  photoUrl?: string
+  status: CattleStatus
+  ageShort: string
+  ageLong: string
+  months: number
+  purpose: string
+  stage: string
+  inList: boolean
+  weight: number | null
+  weightDate: string
+  headerBadges: Array<[string, Tone]>
+  qr: string
+  qrHistory: NonNullable<Cattle['qrHistory']>
+  barnHistory: NonNullable<Cattle['barnHistory']>
+  events: NonNullable<Cattle['events']>
+  care: CattleCare
 }

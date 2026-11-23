@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, NoticeDialog, Textarea } from '../../../shared/ui'
 import { followUpToast } from '../domain/healthMessages'
 import { fmtDate, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthCaseCard, HealthFormOptions, Progress } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { caseLine, DateTimeInput, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
 
 export default function FollowUpDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
-  const [observedAt, setObservedAt] = useState(() => healthApi.now())
+  const { now, recordFollowUp } = useHealthCaseCommands()
+  const [observedAt, setObservedAt] = useState(() => now())
   const [temp, setTemp] = useState('')
   const [progress, setProgress] = useState<Progress | ''>('')
   const [description, setDescription] = useState('')
@@ -16,7 +17,7 @@ export default function FollowUpDialog({ card, cattleCode, options, onClose, onS
   const { errors } = form
 
   const save = () => form.run(async () => {
-    await healthApi.recordFollowUp(card.id, { expectedVersion: card.version, observedAt, temperatureC: parseTemperature(temp), progress, description, observer: options.members[0] })
+    await recordFollowUp(card.id, { expectedVersion: card.version, observedAt, temperatureC: parseTemperature(temp), progress, description, observer: options.members[0] })
     onSaved(followUpToast(card.caseCode))
   })
 
@@ -33,7 +34,7 @@ export default function FollowUpDialog({ card, cattleCode, options, onClose, onS
         <RadioGroup name="fu-progress" value={progress} onChange={setProgress} options={PROGRESSES.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }))} />
       </Field>
       <Field label="Mô tả *" id="fu-desc" hint={hint(errors.description, 'Tối đa 1.000 ký tự')}><Textarea id="fu-desc" rows={2} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={form.saving}>Lưu theo dõi</ModalButton>

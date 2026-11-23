@@ -1,22 +1,21 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { BackendError } from '../../../shared/api/backendClient'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
-import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm'
-import { STORAGE_BLOCKED, SetupLayout, Stepper, enterFarm, farmWorkspaceError } from '../../farm-workspace'
-import { subscriptionApi } from '../api/subscriptionApi'
+import { SetupLayout, Stepper } from '../../farm-workspace'
 import { useIsPhone, useTick } from '../components/shared'
 import CancelRequestDialog from '../components/CancelRequestDialog'
 import DevTransferSimulator from '../components/DevTransferSimulator'
+import PaidTransfer from '../components/PaidTransfer'
 import { useStateDialog } from '../components/StateDialog'
 import { PhoneTransfer, ProgressCard, QrCard, TransferInfoCard } from '../components/TransferParts'
 import { useFarmScope } from '../hooks/useFarmScope'
-import { fmtDateTime, fmtPeriod, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
+import { fmtDateTime, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
 import { useOverview } from '../hooks/useOverview'
 import { usePaymentStatus } from '../hooks/usePaymentStatus'
+import { useSubscriptionBoundary } from '../hooks/useSubscriptionUseCase'
 
 const TITLE = 'Hướng dẫn chuyển khoản'
 
@@ -27,18 +26,17 @@ export default function TransferPage() {
   const navigate = useNavigate()
   const demo = useDemoState()
   const phone = useIsPhone()
+  const subscription = useSubscriptionBoundary()
   useTick() // bộ đếm ngược chạy theo đồng hồ của store
   const payment = usePaymentStatus(farmId, id, demo === 'bank-paid' || demo === 'result-unavailable' ? demo : undefined)
   const overview = useOverview(farmId)
-  const now = subscriptionApi.now()
+  const now = subscription.now()
   const loaded = payment.payment
   const current = loaded?.state === 'PENDING' && now >= toMs(loaded.expiresAt) ? { ...loaded, state: 'EXPIRED' as const } : loaded
   const checking = payment.checking
   const notice = payment.notice
   const [cancelling, setCancelling] = useState(false)
   const [pageNotice, setPageNotice] = useState<string | null>(null)
-  const [entering, setEntering] = useState(false)
-  const [enterError, setEnterError] = useState<string | null>(null)
   const from = params.get('from')
   const expired = current?.state === 'EXPIRED'
   const dialog = useStateDialog({
@@ -66,36 +64,20 @@ export default function TransferPage() {
 
   const closeTo = from === 'lich-su' ? to('/goi-dich-vu/lich-su') : from === 'onboarding' ? '/chon-trai' : to('/goi-dich-vu')
   const close = () => navigate(closeTo)
+  if (current.state === 'PAID') {
+    return shell(<PaidTransfer key={`${farmId}:${current.id}`} farmId={farmId} payment={current}
+      checkAccess={subscription.entersFarmAfterPayment} onClose={close} />)
+  }
+
   const farmOverview = overview.data?.farmId === farmId ? overview.data : null
   const farmName = farmOverview?.farmName ?? ''
   const firstPurchase = farmOverview != null && farmOverview.periods.every((p) => p.paymentCode === current.quoteRef
     || current.purchasedStart != null && toMs(p.start) > toMs(current.purchasedStart))
-  const paid = current.state === 'PAID'
   const pending = current.state === 'PENDING'
   const cancelled = current.state === 'CANCELLED'
   // D38: same rule as A18 — unexpired PENDING and no transfer received yet (bước 2 của tiến trình còn "Đang chờ").
   const cancellable = pending && !current.receivedAt && now < toMs(current.expiresAt)
   const openCancel = () => { setPageNotice(null); setCancelling(true) }
-  // UC-FE02-02: open the paid farm through the same check as SCR-09 so this tab keeps it; a plain route change would land on
-  // Select Farm (farm screens need the farm of the tab). The demo stores of service and farm workspace do not share farms, so
-  // the demo keeps the farm for the tab without that check.
-  const openFarm = async () => {
-    if (!subscriptionApi.entersFarmAfterPayment) {
-      if (writeCurrentFarmId(farmId)) pageLoader.load('/tong-quan')
-      else setEnterError(STORAGE_BLOCKED)
-      return
-    }
-    if (entering) return
-    setEntering(true); setEnterError(null)
-    try {
-      const blocked = await enterFarm(farmId)
-      if (blocked) { setEnterError(blocked); setEntering(false) }
-    } catch (reason) {
-      const fallback = 'Chưa vào được trang trại. Vui lòng thử lại.'
-      // farmWorkspaceError maps the FE-02 codes; a network failure is not a BackendError and needs the shared Vietnamese text.
-      setEnterError(reason instanceof BackendError ? farmWorkspaceError(reason, fallback) : userFacingError(reason, fallback)); setEntering(false)
-    }
-  }
 
   return shell(
     <>
@@ -106,21 +88,10 @@ export default function TransferPage() {
         ) : (
           <PageHeader title={TITLE} sub={`Yêu cầu ${current.quoteRef} · ${termLabel(current.durationYears)} · ${farmName}`}>
             {/* SCR-59 #12: a secondary button (red text), not a solid red one beside "Đóng hướng dẫn". */}
-            {cancellable && <Button className="!text-err-fg" onClick={openCancel}>Hủy yêu cầu</Button>}
-            <Button onClick={close}>Đóng hướng dẫn</Button>
+            {cancellable && <Button size="bento" className="!text-err-fg" onClick={openCancel}>Hủy yêu cầu</Button>}
+            <Button size="bento" onClick={close}>Đóng hướng dẫn</Button>
           </PageHeader>
         )}
-        {paid && (
-          <Note tone="ok">
-            <span className="flex flex-wrap items-center justify-between gap-2">
-              <span>Thanh toán {current.quoteRef} đã được xác nhận. Kỳ dịch vụ {current.purchasedStart && current.purchasedEnd ? fmtPeriod(current.purchasedStart, current.purchasedEnd) : '—'}.</span>
-              {firstPurchase
-                ? <Button variant="primary" size="sm" disabled={entering} onClick={() => void openFarm()}>Vào trại</Button>
-                : <Button variant="primary" size="sm" onClick={() => navigate(to('/goi-dich-vu'))}>Về gói dịch vụ</Button>}
-            </span>
-          </Note>
-        )}
-        {paid && enterError && <Note tone="err">{enterError}</Note>}
         {pending && !phone && (
           <Note tone="info">
             Chuyển đúng {fmtVnd(current.amountVnd)} với nội dung {current.quoteRef} trước {fmtDateTime(current.expiresAt)}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận.
@@ -146,9 +117,9 @@ export default function TransferPage() {
         {phone ? (
           <PhoneTransfer payment={current} now={now} checking={checking} onCheck={() => void check()} onClose={close} onCancel={cancellable ? openCancel : undefined} />
         ) : (
-          <div className="grid items-start gap-4 lg:grid-cols-[376px_minmax(0,1fr)]">
-            <QrCard payment={current} now={now} />
-            <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
+            <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4"><QrCard payment={current} now={now} /></div>
+            <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4 @min-[1024px]:gap-6">
               <TransferInfoCard payment={current} />
               <ProgressCard payment={current} checking={checking} onCheck={() => void check()} onHistory={() => navigate(to('/goi-dich-vu/lich-su'))} />
             </div>

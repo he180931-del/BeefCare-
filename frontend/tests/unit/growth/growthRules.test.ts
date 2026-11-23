@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { finishingProgress, weightAtNextWeighing } from '../../../src/features/growth/domain/growthRules'
+import { adgBasis, adgBasisText, adgForWindow, finishingProgress, validWeights, weightAtNextWeighing } from '../../../src/features/growth/domain/growthRules'
 import type { GrowthRecord } from '../../../src/features/growth/types'
 
 const record = (id: number, measuredAt: string, weightKg: number | undefined, patch: Partial<GrowthRecord> = {}): GrowthRecord => ({
@@ -40,5 +40,21 @@ describe('cân ước tính vào lần cân tới', () => {
   it('không ước tính khi thiếu ADG 60 ngày hoặc chưa có lịch cân', () => {
     expect(weightAtNextWeighing(318, '2026-10-10T07:20', '2026-11-09', undefined)).toBeUndefined()
     expect(weightAtNextWeighing(318, '2026-10-10T07:20', undefined, 0.44)).toBeUndefined()
+  })
+})
+
+describe('căn cứ ADG hiển thị theo số ngày thật, không ghi cứng tên kỳ', () => {
+  const today = '2026-11-22'
+  it('ADG 60 ngày của bò mới cân 40 ngày ghi "tính trên 40 ngày", bỏ lần cân ngoài kỳ', () => {
+    const weights = validWeights([record(1, '2026-09-01T07:00', 300), record(2, '2026-10-13T07:00', 330), record(3, '2026-11-22T07:00', 362)])
+    const basis = adgBasis(weights, 60, today)
+    expect(basis).toEqual({ from: '2026-10-13', to: '2026-11-22', days: 40, count: 2 })
+    expect(adgBasisText(adgForWindow(weights, 60, `${today}T23:59`), basis, 60)).toBe('Tính trên 40 ngày · 2 lần cân (13/10 → 22/11)')
+  })
+  it('nói rõ lý do khi chưa có ADG: hai lần cân quá gần hoặc chưa đủ lần cân trong kỳ', () => {
+    const close = validWeights([record(1, '2026-11-13T07:00', 340), record(2, '2026-11-22T07:00', 350)])
+    expect(adgBasisText(undefined, adgBasis(close, 60, today), 60)).toBe('2 lần cân chỉ cách 9 ngày · cần từ 14 ngày')
+    const single = validWeights([record(1, '2026-11-01T07:00', 340)])
+    expect(adgBasisText(undefined, adgBasis(single, 90, today), 90)).toBe('Cần ≥ 2 lần cân cách nhau từ 14 ngày trong 90 ngày gần nhất')
   })
 })

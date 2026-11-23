@@ -4,9 +4,8 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, EmptyBlock, ErrorBlock, FilterSelect, Icon, LoadingBlock, Metric, PageHeader, SearchInput, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useFarmReminders } from '../hooks/useFarmOverviewUseCases'
 import { dayHeading, ReminderDetailModal, ReminderRow, URGENCY_STYLE } from '../components/ReminderParts'
 import { countUrgency, EMPTY_FILTERS, filterReminders, reminderGroupKey, TYPE_LABEL, typeOptionsFor, type DateRange, type ReminderFilters } from '../domain/reminderRules'
 import { viewerRole } from '../domain/viewer'
@@ -57,7 +56,7 @@ export default function RemindersPage() {
   const [applied, setApplied] = useState<ReminderFilters>(initialFilters.filters)
   const [tab, setTab] = useState<Urgency | 'ALL'>(initialFilters.tab)
   const [calendar, setCalendar] = useState(false)
-  const { data, loading, error, refetch } = useQuery(() => farmOverviewApi.listReminders(role), [role])
+  const { data, loading, error, refetch } = useFarmReminders(role)
 
   useEffect(() => {
     const next = routeFilters(params, role)
@@ -121,10 +120,11 @@ export default function RemindersPage() {
           <Button type="submit" variant="primary">Lọc</Button>
         </form>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Metric dot="#c46b56" label="Quá hạn" value={counts.OVERDUE} note="Cần xử lý sớm" />
-          <Metric dot="#d3a142" label="Hôm nay" value={counts.TODAY} note="Trong ngày hôm nay" />
-          <Metric dot="#4a9b6a" label="7 ngày tới" value={counts.UPCOMING} note="Sắp đến hạn" />
+        {/* Bento (Figma Tab 15 ①b): Quá hạn là khối nổi bật xanh đậm; 7 ngày tới vàng nhạt khi có việc sắp đến hạn. */}
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-3">
+          <Metric surface="panel" tone="emphasis" dot="#c46b56" label="Quá hạn" value={counts.OVERDUE} note="Cần xử lý sớm" />
+          <Metric surface="panel" dot="#d3a142" label="Hôm nay" value={counts.TODAY} note="Trong ngày hôm nay" />
+          <Metric surface="panel" tone={counts.UPCOMING ? 'warn' : 'default'} dot="#4a9b6a" label="7 ngày tới" value={counts.UPCOMING} note="Sắp đến hạn" />
         </div>
 
         <Segmented options={TABS} value={tab} onChange={changeTab} />
@@ -134,7 +134,7 @@ export default function RemindersPage() {
             <h2 className="m-0 text-[17px] font-bold text-[#183528]">Danh sách nhắc việc</h2>
             <span className="text-[11px] text-subtle">{visible.length} kết quả</span>
           </div>
-          <div className="rounded-md border border-edge bg-white">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-field bg-white">
             {groups.length === 0 ? <EmptyBlock title="Không có nhắc việc phù hợp" sub="Thử đổi bộ lọc hoặc chọn tab khác." /> : groups.map((g) => (
               <div key={g.key}>
                 <div className={`px-4 pb-1 pt-3 text-[10px] font-bold ${g.headCls}`}>{`${g.heading} · ${g.items.length}`}</div>

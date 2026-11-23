@@ -13,7 +13,11 @@ export function validateMeasurement(input: MeasurementInput, ctx: { now: string;
   else if (measuredAt > ctx.now) e.measuredAt = 'Thời điểm không được ở tương lai.'
   else if (measuredAt.slice(0, 10) < ctx.herdEntryDate) e.measuredAt = `Thời điểm không được trước ngày nhập đàn (${fmtDate(ctx.herdEntryDate)}).`
 
-  if (!present(weightKg) && !present(bcs)) e.form = 'Nhập cân nặng, BCS hoặc cả hai.'
+  // D51: chữ gõ sai trong ô số (NaN) báo ngay dưới ô, không bị coi là "chưa nhập".
+  if (Number.isNaN(weightKg)) e.weightKg = 'Cân nặng phải là số, ví dụ 325 hoặc 325,5.'
+  if (Number.isNaN(heartGirthCm)) e.heartGirthCm = 'Vòng ngực phải là số, ví dụ 165.'
+  if (Number.isNaN(bodyLengthCm)) e.bodyLengthCm = 'Dài thân chéo phải là số, ví dụ 135.'
+  if (!present(weightKg) && !present(bcs) && !Number.isNaN(weightKg)) e.form = 'Nhập cân nặng, BCS hoặc cả hai.'
   if (present(weightKg)) {
     if (weightKg < WEIGHT_MIN || weightKg > WEIGHT_MAX) e.weightKg = 'Cân nặng phải từ 1 đến 1.500 kg.'
     else if (round(weightKg, 1) !== weightKg) e.weightKg = 'Cân nặng chỉ nhận tối đa 1 chữ số thập phân.'
@@ -26,8 +30,8 @@ export function validateMeasurement(input: MeasurementInput, ctx: { now: string;
   return e
 }
 
-export function validateReason(reason: string | undefined): GrowthFieldErrors {
-  if (!reason?.trim()) return { reason: 'Lý do là bắt buộc.' }
-  if (reason.length > NOTE_MAX) return { reason: 'Lý do tối đa 500 ký tự.' }
+/** Ghi chú khi sửa / xóa bản ghi cân: không bắt buộc (D43), chỉ giới hạn độ dài. */
+export function validateCorrectionNote(note: string | undefined): GrowthFieldErrors {
+  if (note && note.length > NOTE_MAX) return { reason: 'Ghi chú tối đa 500 ký tự.' }
   return {}
 }

@@ -44,7 +44,7 @@ const vaccines = [
   { id: 2, code: 'OLD', name: 'Vắc-xin cũ', diseasePrevented: 'Tụ huyết trùng', dose: '1 ml', route: 'SUBCUTANEOUS', withdrawalDays: 0, available: false },
 ]
 const dose = (id: number, cattleId: number, code: string, doseNo: number, dueDate: string, status = 'PLANNED', extra: Record<string, unknown> = {}) => ({
-  id, cattleId, cattleCode: code, doseNo, dueDate, newExpectedDate: null, status, deferralReason: null, version: 0, ...extra,
+  id, cattleId, cattleCode: code, doseNo, dueDate, status, version: 0, ...extra,
 })
 const schedules = [
   {
@@ -55,7 +55,7 @@ const schedules = [
       dose(2, 101, 'BC-101', 2, '2026-11-22'),
       dose(3, 102, 'BC-102', 1, '2026-11-01'),
       dose(4, 102, 'BC-102', 2, '2026-11-22'),
-      dose(5, 103, 'BC-103', 1, '2026-11-01', 'DEFERRED', { newExpectedDate: '2026-11-20', deferralReason: 'Bò ốm' }),
+      dose(5, 103, 'BC-103', 1, '2026-11-12'),
       dose(6, 103, 'BC-103', 2, '2026-11-22'),
       dose(9, 101, 'BC-101', 3, '2027-05-22'),
     ],
@@ -65,8 +65,15 @@ const schedules = [
     intervalDays: 1, boosterIntervalMonths: null, status: 'STOPPED', version: 2, doses: [dose(20, 102, 'BC-102', 1, '2026-10-01', 'CANCELLED')],
   },
 ]
+// Tham số trại: phiên bản đang hiệu lực nhắc tiêm trước 10 ngày; phiên bản 3 ngày chưa tới ngày hiệu lực.
+const parameterVersions = [
+  { id: 1, versionNo: 1, effectiveFrom: '2026-01-01', parameters: { VACCINATION_LEAD_DAYS: 7 } },
+  { id: 2, versionNo: 2, effectiveFrom: '2026-10-01', parameters: { VACCINATION_LEAD_DAYS: 10 } },
+  { id: 3, versionNo: 3, effectiveFrom: '2026-12-01', parameters: { VACCINATION_LEAD_DAYS: 3 } },
+]
 const baseRoutes = () => ({
   '/api/farms/1/vaccination-schedules': schedules,
+  '/api/farms/1/parameters/versions': parameterVersions,
   '/api/farms/1/cattle': herd,
   '/api/farms/1/vaccines': vaccines,
   '/api/farms/1/pens': { pens: [{ id: 11, code: 'A1', name: 'Chuồng A1' }, { id: 12, code: 'B1', name: 'Chuồng B1' }] },
@@ -92,28 +99,28 @@ test('TC-09-API01: danh mục vắc-xin đổi đường tiêm và tách liều 
 
 test('Tiêm phòng ghi và hiển thị theo UTC+7', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' },
-    '/api/farms/1/vaccinations': { vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [700] },
+    '/api/farms/1/vaccinations': { vaccinatedCount: 1, vaccinationIds: [700] },
     '/api/farms/1/vaccinations/history': [{ id: 1, administeredAt: '2026-11-01T01:30:00Z', vaccinationDate: '2026-11-01', cattleCode: 'BC-101', source: 'ON_FARM', status: 'VALID', version: 0 }] })
   assert.equal((await a.options()).now, '2026-11-05T10:00')
-  await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', decision: 'VACCINATE' }] })
+  await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102' }] })
   assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).administeredAt, '2026-11-05T08:30:00+07:00')
   assert.equal((await a.listHistory({})).rows[0].administeredAt, '2026-11-01T08:30')
   assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 0)
 })
 
-test('TC-09-29: danh sách mũi chia tab Quá hạn / Đến hạn / Sắp tới / Đã hoãn theo hôm nay 05/11', async () => {
+test('TC-09-29 / D46: tab Quá hạn / Đến hạn trong N ngày / Đã tiêm theo hôm nay 05/11, N lấy từ tham số trại', async () => {
   const { api: a } = api()
   const page = await a.listDoses({})
-  // Mỗi (lịch, bò) một dòng; lịch đã dừng không hiện.
+  // Mỗi (lịch, bò) một dòng; lịch đã dừng không hiện. Không còn tab Sắp tới và Đã hoãn.
   assert.equal(page.total, 3)
-  assert.deepEqual(page.counts, { all: 3, overdue: 1, due: 0, upcoming: 1, deferred: 1, done: 0 })
+  assert.equal(page.leadDays, 10, 'phiên bản tham số đang hiệu lực, bỏ qua phiên bản chưa tới ngày')
+  assert.deepEqual(page.counts, { all: 3, overdue: 1, due: 1, done: 0 })
   const byCode = Object.fromEntries(page.rows.map((r) => [r.cattleCode, r]))
   assert.equal(byCode['BC-101'].doseText, 'mũi 2/2')
-  assert.equal(byCode['BC-101'].state, 'UPCOMING')
+  assert.equal(byCode['BC-101'].state, 'UPCOMING', 'còn 17 ngày: chỉ hiện ở Tất cả')
   assert.equal(byCode['BC-102'].state, 'OVERDUE')
   assert.equal(byCode['BC-102'].daysOverdue, 4)
-  assert.equal(byCode['BC-103'].state, 'DEFERRED')
-  assert.equal(byCode['BC-103'].effectiveDate, '2026-11-20')
+  assert.equal(byCode['BC-103'].state, 'DUE', 'còn 7 ngày, trong 10 ngày nhắc')
   const overdue = await a.listDoses({ tab: 'overdue' })
   assert.deepEqual(overdue.rows.map((r) => r.id), [3])
 })
@@ -192,21 +199,66 @@ test('TC-09-03b: lỗi trùng tên từ backend hiện ở ô tên', async () =>
   await assert.rejects(a.createSchedule(scheduleCmd()), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.name))
 })
 
-test('TC-09-08: sửa lịch chỉ gửi trường đổi kèm expectedVersion; chặn đổi vắc-xin khi đã có mũi DONE (Q3)', async () => {
-  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules/7': { id: 7, name: 'LMLM 2026', status: 'ACTIVE', version: 4, targetCount: 3, plannedDoseCount: 5 } })
+test('D48: chưa chọn lịch thì danh sách mũi bỏ lịch đã hoàn thành; chọn đúng lịch đó thì vẫn xem được', async () => {
+  const completed = schedules.map((s) => (s.id === 7 ? { ...s, completed: true } : s))
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': completed })
+  assert.equal((await a.listDoses({})).total, 0)
+  assert.equal((await a.listDoses({ scheduleId: 7 })).total, 3)
+})
+
+test('D49: bò đang chờ xác nhận chết (MSG-COM-17) báo lỗi điều kiện có mã bò, hiện bằng popup (trường form)', async () => {
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': (body: unknown) => {
+    if (body) throw new BackendError(422, { code: 'MSG-COM-17', params: { cattle_code: 'BC-102', loss_kind: 'DIED', date: '2026-11-19' } })
+    return schedules
+  } })
+  await assert.rejects(a.createSchedule(scheduleCmd()), (e: unknown) => e instanceof VaccinationValidationError
+    && /Bò BC-102 đang chờ Chủ trại xác nhận chết \(19\/11\/2026\)/.test(e.fields.form))
+})
+
+test('D47: lọc mũi theo mã bò, chuồng, nhóm đàn; selectable gồm mọi mũi chưa tiêm khớp bộ lọc kèm vắc-xin', async () => {
+  const { api: a } = api()
+  const byPen = await a.listDoses({ penCode: 'B1' })
+  assert.deepEqual(byPen.rows.map((r) => r.cattleCode), ['BC-103'])
+  assert.deepEqual(byPen.counts, { all: 1, overdue: 0, due: 1, done: 0 })
+  assert.deepEqual(byPen.selectable, [{ id: 5, vaccineId: 1 }])
+  assert.deepEqual((await a.listDoses({ herdGroup: 'FATTENING' })).rows.map((r) => r.cattleCode).sort(), ['BC-101', 'BC-102'])
+  assert.deepEqual((await a.listDoses({ q: 'bc-102' })).rows.map((r) => r.cattleCode), ['BC-102'])
+  const all = await a.listDoses({ size: 1 })
+  assert.equal(all.rows.length, 1, 'một trang một dòng')
+  assert.equal(all.selectable.length, 3, 'chọn tất cả gồm cả mũi ở trang khác')
+})
+
+test('TC-09-08 / D46: sửa lịch chỉ gửi trường đổi; lịch đã có mũi tiêm khóa vắc-xin, ngày bắt đầu, khoảng cách', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules/7': { id: 7, name: 'LMLM 2026 – A1', status: 'ACTIVE', version: 4, targetCount: 3, plannedDoseCount: 5 } })
   const detail = await a.getSchedule(7)
-  const edit: ScheduleCommand = { ...detail.schedule, intervalDays: 28, expectedVersion: 3 }
+  assert.equal(detail.hasDoneDoses, true)
+  const edit: ScheduleCommand = { ...detail.schedule, name: 'LMLM 2026 – A1', expectedVersion: 3 }
   const result = await a.updateSchedule(7, edit)
   const put = calls.find((c) => c.method === 'PUT')!
   assert.equal(put.path, '/api/farms/1/vaccination-schedules/7')
   assert.deepEqual(put.body, {
-    expectedVersion: 3, name: null, vaccineId: null, firstDueDate: null, intervalDays: 28, boosterIntervalMonths: null,
+    expectedVersion: 3, name: 'LMLM 2026 – A1', vaccineId: null, firstDueDate: null, intervalDays: null, boosterIntervalMonths: null,
     doseCount: null, removeBooster: null, target: null,
   })
   assert.equal(result.schedule.version, 4)
 
   await assert.rejects(a.updateSchedule(7, { ...edit, vaccineId: 2 }), (e: unknown) => e instanceof VaccinationValidationError && /dừng lịch/.test(e.fields.vaccineId))
+  await assert.rejects(a.updateSchedule(7, { ...edit, intervalDays: 28 }), (e: unknown) => e instanceof VaccinationValidationError && /khoảng cách/.test(e.fields.intervalDays))
+  await assert.rejects(a.updateSchedule(7, { ...edit, firstDueDate: '2026-11-10' }), (e: unknown) => e instanceof VaccinationValidationError && /ngày tiêm/.test(e.fields.firstDueDate))
   await assert.rejects(a.updateSchedule(7, { ...edit, expectedVersion: 2 }), (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
+})
+
+test('D46: lịch đã hoàn thành (không còn mũi chờ tiêm) bị khóa, kể cả khi máy chủ trả lý do schedule_completed', async () => {
+  const completed = schedules.map((s) => (s.id === 7 ? { ...s, completed: true } : s))
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': completed })
+  const detail = await a.getSchedule(7)
+  assert.equal(detail.schedule.completed, true)
+  await assert.rejects(a.updateSchedule(7, { ...detail.schedule, name: 'Đổi tên' }), (e: unknown) => e instanceof Error && /đã khóa/.test(e.message))
+  assert.equal(calls.filter((c) => c.method === 'PUT').length, 0)
+
+  const { api: b } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules/7': () => { throw new BackendError(409, { code: 'COM-05', params: { reason: 'schedule_completed' } }) } })
+  const fresh = await b.getSchedule(7)
+  await assert.rejects(b.updateSchedule(7, { ...fresh.schedule, name: 'Đổi tên' }), (e: unknown) => e instanceof VaccinationValidationError && /đã khóa/.test(e.fields.form))
 })
 
 // Lịch có đối tượng đã lưu (GAP-FE09-01): chuồng A1, thêm BC-103.
@@ -273,34 +325,39 @@ test('TC-09-18: ngữ cảnh ghi tiêm từ hồ sơ bò lấy mũi mở sớm n
   assert.equal(fromCow.title, 'Ghi nhận tiêm – LMLM 2026 · mũi 1/2')
 })
 
-test('TC-09-15/19: ghi lô tiêm gửi id bò, đường tiêm đầy đủ, Instant giờ trại và quyết định hoãn', async () => {
-  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': { vaccinatedCount: 1, deferredCount: 1, vaccinationIds: [500] } })
+test('TC-09-15/19: ghi lô tiêm gửi id bò, đường tiêm đầy đủ và Instant giờ trại; không còn hoãn (D46)', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': { vaccinatedCount: 1, vaccinationIds: [500] } })
   const result = await a.recordVaccinations({
-    vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: ' L-01 ', dose: '2 ml', route: 'IM', withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ',
+    vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', dose: '2 ml', route: 'IM', withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ',
     animals: [
-      { cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' },
-      { cattleCode: 'BC-103', scheduledDoseId: 5, expectedDoseVersion: 0, decision: 'DEFER', deferralReason: 'Bò ốm', newExpectedDate: '2026-11-12' },
+      { cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0 },
     ],
   })
   const body = calls.at(-1)!.body as Record<string, unknown>
   assert.equal(body.administeredAt, '2026-11-05T08:30:00+07:00')
   assert.equal(body.vaccinationDate, '2026-11-05')
-  assert.equal(body.batchNo, 'L-01')
+  assert.equal('batchNo' in body, false) // D44: không còn gửi số lô
   assert.equal(body.route, 'INTRAMUSCULAR')
   assert.equal(body.withdrawalDays, 21)
   assert.deepEqual(body.animals, [
-    { cattleId: 102, scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE', deferralReason: null, newExpectedDate: null },
-    { cattleId: 103, scheduledDoseId: 5, expectedDoseVersion: 0, decision: 'DEFER', deferralReason: 'Bò ốm', newExpectedDate: '2026-11-12' },
+    { cattleId: 102, scheduledDoseId: 3, expectedDoseVersion: 0 },
   ])
-  assert.equal(result.message, 'Đã ghi nhận 1 mũi tiêm; hoãn 1 mũi.')
+  assert.equal(result.message, 'Đã ghi nhận 1 mũi tiêm.')
   assert.deepEqual(result.vaccinationIds, [500])
 })
 
-test('TC-09-13/14: tiêm tại trại bắt buộc số lô; nhập lịch sử không đóng mũi, không ngưng thịt', async () => {
-  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': { vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [501] } })
-  await assert.rejects(a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102', decision: 'VACCINATE' }] }),
-    (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.batchNo))
-  await a.recordVaccinations({ vaccineId: 1, source: 'HISTORICAL', administeredAt: '2026-03-01T00:00', withdrawalDays: 0, animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, decision: 'VACCINATE' }] })
+test('D45: đường tiêm "Khác" gửi đúng mô tả người dùng nhập và đọc lại thành routeText', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': { vaccinatedCount: 1, vaccinationIds: [502] } })
+  await assert.rejects(a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', route: 'OTHER', animals: [{ cattleCode: 'BC-102' }] }),
+    (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.routeOther))
+  await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', route: 'OTHER', routeOther: ' Tiêm tĩnh mạch ', animals: [{ cattleCode: 'BC-102' }] })
+  assert.equal((calls.at(-1)!.body as Record<string, unknown>).route, 'Tiêm tĩnh mạch')
+})
+
+test('TC-09-13/14: tiêm tại trại không cần số lô (D44); nhập lịch sử không đóng mũi, không ngưng thịt', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': { vaccinatedCount: 1, vaccinationIds: [501] } })
+  await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102' }] })
+  await a.recordVaccinations({ vaccineId: 1, source: 'HISTORICAL', administeredAt: '2026-03-01T00:00', withdrawalDays: 0, animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3 }] })
   const body = calls.at(-1)!.body as Record<string, unknown>
   assert.equal(body.administeredAt, null)
   assert.equal(body.vaccinationDate, '2026-03-01')
@@ -310,16 +367,16 @@ test('TC-09-13/14: tiêm tại trại bắt buộc số lô; nhập lịch sử 
 
 test('TC-09-17: bò đã tiêm mũi đó hoặc đã rời đàn được bỏ qua, các con khác vẫn ghi', async () => {
   const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': {
-    vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [600],
+    vaccinatedCount: 1, vaccinationIds: [600],
     skipped: [
       { cattleId: 101, cattleCode: 'BC-101', messageCode: 'MSG-FE09-09', doseNo: 1 },
       { cattleId: 103, cattleCode: 'BC-103', messageCode: 'MSG-COM-13', doseNo: null },
     ],
   } })
-  const result = await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [
-    { cattleCode: 'BC-101', scheduledDoseId: 1, expectedDoseVersion: 0, decision: 'VACCINATE' },
-    { cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' },
-    { cattleCode: 'BC-103', scheduledDoseId: 5, expectedDoseVersion: 0, decision: 'VACCINATE' },
+  const result = await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [
+    { cattleCode: 'BC-101', scheduledDoseId: 1, expectedDoseVersion: 0 },
+    { cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0 },
+    { cattleCode: 'BC-103', scheduledDoseId: 5, expectedDoseVersion: 0 },
   ] })
   assert.equal(result.vaccinatedCount, 1)
   assert.deepEqual(result.skipped, [
@@ -330,19 +387,8 @@ test('TC-09-17: bò đã tiêm mũi đó hoặc đã rời đàn được bỏ q
 
 test('TC-09-16/17: lỗi một con là lỗi cả lô; mũi đã đổi trả CONFLICT', async () => {
   const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(409, { code: 'COM-05' }) } })
-  await assert.rejects(a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' }] }),
+  await assert.rejects(a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0 }] }),
     (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
-})
-
-test('TC-09-21/23: hoãn mũi kiểm lý do và ngày mới; mũi đã tiêm trả xung đột', async () => {
-  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/scheduled-doses/3/defer': { id: 3, status: 'DEFERRED', version: 1, reason: 'Thiếu vắc-xin', newExpectedDate: '2026-11-12' },
-    '/api/farms/1/scheduled-doses/1/defer': () => { throw new BackendError(409, { code: 'COM-05' }) } })
-  await assert.rejects(a.deferDose(3, { expectedVersion: 0, reason: '' }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.reason))
-  await assert.rejects(a.deferDose(3, { expectedVersion: 0, reason: 'x', newExpectedDate: '2026-11-04' }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.newExpectedDate))
-  const result = await a.deferDose(3, { expectedVersion: 0, reason: ' Thiếu vắc-xin ', newExpectedDate: '2026-11-12' })
-  assert.deepEqual(calls.at(-1)!.body, { expectedVersion: 0, reason: 'Thiếu vắc-xin', newExpectedDate: '2026-11-12', note: null })
-  assert.equal(result.message, 'Đã hoãn mũi tiêm đến 12/11/2026.')
-  await assert.rejects(a.deferDose(1, { expectedVersion: 1, reason: 'x' }), (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
 })
 
 const historyRow = (id: number, extra: Record<string, unknown> = {}) => ({
@@ -384,11 +430,11 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và s
     '/api/farms/1/vaccinations/1/correction': { id: 1, status: 'VALID', version: 1, withdrawalEndDate: '2026-12-02', corrected: true, withdrawalDays: 30, cattleWithdrawalEndDate: '2026-12-02' },
     '/api/farms/1/vaccinations/1/void': { id: 1, status: 'VOIDED', version: 2, withdrawalEndDate: null, corrected: true } })
   await a.listHistory({})
-  const base = { expectedVersion: 0, vaccineId: 1, administeredAt: '2026-11-02T08:30', batchNo: 'L-02', dose: '2 ml', route: 'IM' as const, withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày' }
+  const base = { expectedVersion: 0, vaccineId: 1, administeredAt: '2026-11-02T08:30', dose: '2 ml', route: 'IM' as const, withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ', note: 'Nhập nhầm ngày' }
   await assert.rejects(a.correctRecord(1, { ...base, withdrawalDays: 366 }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.withdrawalDays))
   const corrected = await a.correctRecord(1, { ...base, withdrawalDays: 30 })
   assert.deepEqual(calls.at(-1)!.body, {
-    expectedVersion: 0, vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T08:30:00+07:00', batchNo: 'L-02', dose: '2 ml', route: 'INTRAMUSCULAR',
+    expectedVersion: 0, vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T08:30:00+07:00', dose: '2 ml', route: 'INTRAMUSCULAR',
     vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày', withdrawalDays: 30,
   })
   assert.equal(corrected.corrected, true)
@@ -396,9 +442,11 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và s
   assert.equal(corrected.withdrawalEndDate, '2026-12-02')
   assert.equal(corrected.version, 1)
 
-  await assert.rejects(a.voidRecord(1, { expectedVersion: 1, reason: '' }), VaccinationValidationError)
-  const voided = await a.voidRecord(1, { expectedVersion: 1, reason: 'Ghi trùng' })
-  assert.deepEqual(calls.at(-1)!.body, { expectedVersion: 1, reason: 'Ghi trùng' })
+  // D53: ghi chú sửa để trống gửi null; xóa chỉ gửi phiên bản.
+  await a.correctRecord(1, { ...base, note: '  ' })
+  assert.equal((calls.at(-1)!.body as { reason: unknown }).reason, null)
+  const voided = await a.voidRecord(1, { expectedVersion: 1 })
+  assert.deepEqual(calls.at(-1)!.body, { expectedVersion: 1 })
   assert.equal(voided.status, 'VOIDED')
   assert.equal(voided.withdrawalEndDate, undefined)
 })
@@ -465,13 +513,13 @@ test('TC-09-03b (backend thật): mã MSG-COM-05 kèm reason vẫn hiện lỗi 
   await assert.rejects(failWith('vaccine_inactive').createSchedule(scheduleCmd()),
     (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.vaccineId))
   const { api: conflict } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(409, { code: 'MSG-COM-05', params: { expected: 0, actual: 1 } }) } })
-  await assert.rejects(conflict.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' }] }),
+  await assert.rejects(conflict.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0 }] }),
     (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
 })
 
 test('SCR-33 #4 (backend thật): MSG-COM-15 / MSG-COM-07 hiện dưới ô Thời điểm tiêm bằng tiếng Việt', async () => {
   const failWith = (body: unknown) => api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(422, body) } }).api
-  const cmd = { vaccineId: 1, source: 'ON_FARM' as const, administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' as const }] }
+  const cmd = { vaccineId: 1, source: 'ON_FARM' as const, administeredAt: '2026-11-05T08:30', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0 }] }
   await assert.rejects(failWith({ code: 'MSG-COM-15', params: { entryDate: '2026-08-01' }, message: 'The time cannot be earlier than the herd entry date (2026-08-01).' }).recordVaccinations(cmd),
     (e: unknown) => e instanceof VaccinationValidationError && e.fields.administeredAt === 'Thời điểm không được trước ngày nhập đàn (01/08/2026).')
   await assert.rejects(failWith({ code: 'MSG-COM-07', params: {}, message: 'The time cannot be in the future.' }).recordVaccinations(cmd),

@@ -1,11 +1,17 @@
 import { isValidElement, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cx } from '../cx'
+import { Panel } from '../Panel/Panel'
 
-/** `variant="panel"`: khối Bento (bo 16 px, viền nhạt) cho màn đã chuyển sang docs/BeefCare-Bento-Grid.md. */
-export function Card({ title, sub, actions, variant = 'default', children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; variant?: 'default' | 'panel'; children: ReactNode }) {
+/**
+ * `variant="panel"`: khối Bento cho màn đã chuyển sang docs/BeefCare-Bento-Grid.md. Dùng chung bề mặt và tiêu đề của
+ * `Panel` (bo 16 px, padding 16/24 px, tiêu đề h2 18 px) để khối cạnh nhau trên một màn cùng một kiểu; `headingAs="h3"`
+ * cho khối lồng trong khối khác.
+ */
+export function Card({ title, sub, actions, variant = 'default', headingAs, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; variant?: 'default' | 'panel'; headingAs?: 'h2' | 'h3'; children: ReactNode }) {
+  if (variant === 'panel') return <Panel title={title} sub={sub} headingAs={headingAs} actions={actions && <div className="flex flex-wrap gap-2.5">{actions}</div>}>{children}</Panel>
   return (
-    <section className={cx('flex flex-col gap-3 border bg-white p-4', variant === 'panel' ? 'rounded-2xl border-field' : 'rounded-md border-edge')}>
+    <section className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
       {(title || actions) && (
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-sm font-semibold">
@@ -36,11 +42,11 @@ export type MetricTone = 'default' | 'emphasis' | 'err' | 'warn' | 'ok'
 // Bento (docs/BeefCare-Bento-Grid.md §3): xanh đậm = khối nổi bật, đỏ nhạt = lỗi/quá hạn, vàng nhạt = cần chú ý,
 // xanh nhạt = tích cực. Nhãn/dòng phụ #5b6a60 đạt ≥ 4,9:1 trên cả ba nền nhạt (#66756b chỉ 4,2:1 trên nền đỏ nhạt).
 const METRIC_PANEL: Record<MetricTone, { box: string; label: string; value: string; accent: string }> = {
-  default: { box: 'border-field bg-white', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  default: { box: 'border-field bg-white', label: 'text-label', value: 'text-[#173629]', accent: 'text-[#08734f]' },
   emphasis: { box: 'border-brand-dark bg-brand-dark', label: 'text-side-text', value: 'text-white', accent: 'text-white' },
-  err: { box: 'border-err-bg bg-err-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
-  warn: { box: 'border-warn-bg bg-warn-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
-  ok: { box: 'border-ok-bg bg-ok-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  err: { box: 'border-err-bg bg-err-bg', label: 'text-label', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  warn: { box: 'border-warn-bg bg-warn-bg', label: 'text-label', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  ok: { box: 'border-ok-bg bg-ok-bg', label: 'text-label', value: 'text-[#173629]', accent: 'text-[#08734f]' },
 }
 
 /**

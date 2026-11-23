@@ -4,8 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { feedRationServerBacked, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
+import { feedRationServerBacked } from '../api/feedRationApi'
+import { useFeedRationForm } from '../hooks/useFeedRationForm'
 import { initialFeedRationForm, previewFeedRation, rationCodeDisplay, RATION_GROUPS, rationGroupLabel } from '../domain/feedRationForm'
 import { toSaveFeedRationInput } from '../api/feedRationPayload'
 import { validateFeedRationForm } from '../validation/feedRationValidation'
@@ -13,6 +13,7 @@ import { formatDate, formatNumber, formatVnd } from '../domain/feedLabels'
 import type { FeedRation, FeedRationFormValues, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Khẩu phần'
 const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đang dùng không bị ghi đè: mỗi lần lưu tạo phiên bản mới với ngày hiệu lực từ ngày mai trở đi. Bảng tồn kho cho biết đủ dùng bao nhiêu ngày với lượng mới để nhắc nhập kho kịp thời.'
@@ -24,10 +25,7 @@ const dayBefore = (iso: string) => addCalendarDays(iso, -1)
 export default function FeedRationFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const query = useQuery(async () => {
-    const [rows, pens, feeds] = await Promise.all([listFeedRations(), listFeedRationPens(), listFeedRationFeeds()])
-    return { record: id ? rows.find((row) => String(row.id) === id) ?? null : null, rows, pens, feeds }
-  }, [id])
+  const query = useFeedRationForm(id)
 
   if (query.error) {
     return (
@@ -51,15 +49,17 @@ export default function FeedRationFormPage() {
       rows={query.data.rows}
       pens={query.data.pens}
       feeds={query.data.feeds}
+      saveVersion={query.save}
     />
   )
 }
 
-function FeedRationForm({ record, rows, pens, feeds }: {
+function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
   record: FeedRation | null
   rows: FeedRation[]
   pens: FeedRationPenOption[]
   feeds: FeedStockRow[]
+  saveVersion: ReturnType<typeof useFeedRationForm>['save']
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedRationFormValues>(() => initialFeedRationForm(record))
@@ -73,7 +73,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode) : []
   const baseVersion = sameCode.length ? Math.max(...sameCode.map((row) => row.versionNo)) : undefined
   const nextVersion = (baseVersion ?? 0) + 1
-  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`)
+  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = newFeedCommandKey('feed-ration'))
   const inUse = sameCode.find((row) => row.status === 'EFFECTIVE') ?? (record?.status === 'EFFECTIVE' ? record : null)
   const previous = inUse
   const previousDailyCost = previous && previous.components.every((component) => component.estimatedDailyCost !== null)
@@ -131,7 +131,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveFeedRationVersion(toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), { key: nextKey() })
+      const saved = await saveVersion({ input: toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), options: { key: nextKey() } })
       commandKeyRef.current = undefined
       navigate('/thuc-an/khau-phan', { state: { rationMessage: `Khẩu phần ${saved.rationCode} v${saved.versionNo} đã lưu, hiệu lực từ ${formatDate(saved.effectiveFrom)}. Phiên bản trước kết thúc ngày ${formatDate(dayBefore(saved.effectiveFrom))}.` } })
     } catch (saveError) {
@@ -151,11 +151,13 @@ function FeedRationForm({ record, rows, pens, feeds }: {
         sub={record ? 'Sửa khẩu phần đang dùng sẽ tạo phiên bản mới, không ghi đè phiên bản cũ' : 'Lập lượng thức ăn theo đầu con cho từng cữ và chuồng áp dụng.'}
       />
       <FeedManagementTabs />
-      {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
+      {/* Bento §1: form chính 8 cột, tóm tắt và kiểm tra 4 cột; vùng nội dung 880–1.023 px (laptop 1.280 px) chia 5+3. */}
+      <div className="@container">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Thông tin khẩu phần">
+          <Card variant="panel" title="Thông tin khẩu phần">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Mã" id="feed-ration-code"><input id="feed-ration-code" readOnly value={nextCode} className={inputCls} /></Field>
               <Field label="Tên khẩu phần *" id="feed-ration-name">
@@ -195,7 +197,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
             </Field>
           </Card>
 
-          <Card
+          <Card variant="panel"
             title="Thành phần theo cữ"
             sub="Lượng tính theo kg / con"
             actions={<Button size="sm" disabled={saving} onClick={addComponent}><span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Thêm thức ăn</span></Button>}
@@ -268,11 +270,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <div className="flex items-center gap-2">
-              <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt khẩu phần</h3>
-              <Badge tone="info">Sắp áp dụng</Badge>
-            </div>
+          <Card variant="panel" title="Tóm tắt khẩu phần" actions={<Badge tone="info">Sắp áp dụng</Badge>}>
             <Info cols={2} items={[
               ['Lượng / con / ngày', `${formatNumber(preview.dailyKgPerHead, 2)} kg`],
               ['Chi phí / con / ngày', preview.dailyCostPerHead === null ? '—' : formatVnd(preview.dailyCostPerHead)],
@@ -302,8 +300,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
             </Table>
           </Card>
 
-          <Card>
-            <h3 className="m-0 text-[13px] font-semibold">Kiểm tra trước khi lưu</h3>
+          <Card variant="panel" title="Kiểm tra trước khi lưu">
             <div className="flex gap-2 text-xs"><span aria-hidden="true" className="font-bold text-brand">✓</span><span>Thức ăn đang dùng trong danh mục, lượng &gt; 0</span></div>
             <div className="flex gap-2 text-xs"><span aria-hidden="true" className="font-bold text-brand">✓</span><span>Mỗi chuồng chỉ có 1 khẩu phần hiệu lực mỗi ngày</span></div>
             {lowCover.map((line, index) => (
@@ -319,6 +316,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
             <Button block disabled={saving} onClick={() => navigate('/thuc-an/khau-phan')}>Hủy</Button>
           </div>
         </aside>
+      </div>
       </div>
       <Foot>{FOOT}</Foot>
     </Layout>

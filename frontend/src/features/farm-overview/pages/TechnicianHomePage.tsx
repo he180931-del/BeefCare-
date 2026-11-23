@@ -3,10 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Badge, Button, ErrorBlock, Field, Icon, inputCls, LoadingBlock } from '../../../shared/ui'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../../farm-announcements'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useTechnicianHomeUseCases } from '../hooks/useFarmOverviewUseCases'
 import { dueLabel } from '../domain/reminderRules'
 import { formatKeyShort, weekdayOf } from '../domain/format'
 import type { ReminderItem } from '../types'
@@ -17,11 +15,14 @@ const URGENCY_BADGE = {
   UPCOMING: { tone: 'warn', label: 'Sắp tới', icon: 'clock' },
 } as const
 
-const card = 'flex flex-col gap-2 rounded-lg border border-field bg-white p-3.5'
-const cardHead = (title: string, to: string, link: string) => (
+const card = 'flex flex-col gap-2 rounded-2xl border border-field bg-white p-4'
+// Bento (Figma Tab 15 ④b): nhắc việc hôm nay là khối nổi bật xanh đậm của trang chủ Kỹ thuật viên.
+const darkCard = 'flex flex-col gap-2.5 rounded-2xl border border-brand-dark bg-brand-dark p-4 text-white'
+// -my/py mở vùng chạm của liên kết lên ~40 px mà không đổi chiều cao khối (§3).
+const cardHead = (title: string, to: string, link: string, dark = false) => (
   <div className="flex items-center justify-between gap-2">
-    <h2 className="m-0 text-sm font-semibold text-[#212121]">{title}</h2>
-    <Link to={to} className="text-[11px] font-semibold text-brand no-underline">{link}</Link>
+    <h2 className={`m-0 text-sm font-semibold ${dark ? 'text-white' : 'text-[#212121]'}`}>{title}</h2>
+    <Link to={to} className={`-my-3 py-3 text-[11px] font-semibold no-underline ${dark ? 'text-white' : 'text-brand'}`}>{link}</Link>
   </div>
 )
 
@@ -30,8 +31,8 @@ function ReminderLine({ item, today }: { item: ReminderItem; today: string }) {
   return (
     <Link to={`/kt/nhac-viec?m=chi-tiet&r=${item.id}`} className="flex items-center justify-between gap-2 text-inherit no-underline">
       <span className="min-w-0">
-        <span className="block truncate text-xs font-semibold text-[#212121]">{item.title}</span>
-        <span className="block text-[10px] text-muted">{[item.code ?? item.group, item.pen].filter(Boolean).join(' · ')}</span>
+        <span className="block truncate text-xs font-semibold text-white">{item.title}</span>
+        <span className="block text-[10px] text-side-text">{[item.code ?? item.group, item.pen].filter(Boolean).join(' · ')}</span>
       </span>
       <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>
       <span className="sr-only">{dueLabel(item, today)}</span>
@@ -43,9 +44,7 @@ export default function TechnicianHomePage() {
   const session = useSession()
   const navigate = useNavigate()
   const [code, setCode] = useState('')
-  const viewer = { name: session?.fullName ?? '', role: 'TECHNICIAN' as const }
-  const home = useQuery(() => farmOverviewApi.getTechnicianHome(), [])
-  const unread = useQuery(() => announcementsApi.listUnread(viewer, 3), [viewer.name])
+  const { home, unread } = useTechnicianHomeUseCases(session?.fullName ?? '')
   const given = session?.fullName.trim().split(/\s+/).pop() || 'bạn'
 
   if (home.loading && !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><LoadingBlock /></TechnicianLayout>
@@ -78,9 +77,9 @@ export default function TechnicianHomePage() {
         )) : <p className="m-0 text-xs text-muted">{unread.error ? 'Không tải được thông báo.' : 'Không có thông báo mới.'}</p>}
       </section>
 
-      <section className={card} aria-label="Nhắc việc hôm nay">
-        {cardHead(`Nhắc việc hôm nay (${reminders.length})`, '/kt/nhac-viec', 'Xem tất cả')}
-        {reminders.length ? reminders.map((r) => <ReminderLine key={r.id} item={r} today={today} />) : <p className="m-0 text-xs text-muted">Hôm nay chưa có nhắc việc.</p>}
+      <section className={darkCard} aria-label="Nhắc việc hôm nay">
+        {cardHead(`Nhắc việc hôm nay (${reminders.length})`, '/kt/nhac-viec', 'Xem tất cả', true)}
+        {reminders.length ? reminders.map((r) => <ReminderLine key={r.id} item={r} today={today} />) : <p className="m-0 text-xs text-side-text">Hôm nay chưa có nhắc việc.</p>}
       </section>
 
       <section className={card} aria-label="Khẩu phần hôm nay">

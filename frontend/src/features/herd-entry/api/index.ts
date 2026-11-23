@@ -1,6 +1,14 @@
 // Entry-specific façade. Entry data is backend-owned; do not expose the
 // localStorage-backed domain collections through this feature boundary.
 export {
+  entryPaymentVoidEnabled,
+  voidEntryPayment,
+  entryLineCorrectionEnabled,
+  entryHistoryDemoEnabled,
+  correctEntryHistoryDemo,
+  entryVoidCheck,
+  voidEntryLine,
+  correctEntryLine,
   commitEntryExcel,
   discardHerdEntryDraft,
   downloadEntryAttachment,
@@ -18,7 +26,6 @@ export {
   listEntryParentCattle,
   listPendingEntryCalves,
   markCalfDiedBeforeRegistration,
-  assignCalfParentage,
   previewEntryExcel,
   removeEntryAttachment,
   saveHerdEntry,

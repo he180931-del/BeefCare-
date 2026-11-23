@@ -3,13 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import RecipientsCard, { type EditorAudience } from '../components/RecipientsCard'
 import { RichTextEditor } from '../components/RichTextEditor'
 import ReviewDialog from '../components/ReviewDialog'
 import { messageOf, Toast, useViewer } from '../components/shared'
-import { AnnouncementError, BODY_MAX, canWrite, MESSAGES, resolveRecipients, TITLE_MAX, validateText } from '../domain/announcementRules'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
+import { AnnouncementError, canWrite, MESSAGES, resolveRecipients } from '../domain/announcementRules'
+import { BODY_MAX, TITLE_MAX, validateText } from '../validation/announcementValidation'
 
 type Errors = Partial<Record<'title' | 'body' | 'audience', string>>
 const TITLE = 'Soạn thông báo'
@@ -33,8 +33,11 @@ export default function AnnouncementEditorPage() {
   const [busy, setBusy] = useState(false)
   const loaded = useRef<number | null>(null)
 
-  const options = useQuery(() => announcementsApi.listMembers(viewer), [viewer])
-  const draft = useQuery(() => (draftParam ? announcementsApi.get(draftParam, viewer) : Promise.resolve(null)), [draftParam, viewer])
+  const { members: options, draft, saveDraft: saveDraftCommand } = useAnnouncementUseCases({
+    viewer,
+    loadMembers: true,
+    draftId: draftParam,
+  })
 
   useEffect(() => {
     const d = draft.data
@@ -78,7 +81,7 @@ export default function AnnouncementEditorPage() {
     setBanner('')
     try {
       const { namedOpen: _open, ...selection } = audience
-      const saved = await announcementsApi.saveDraft(viewer, { id: draftId ?? undefined, title, body, audience: selection, expectedVersion: version })
+      const saved = await saveDraftCommand({ id: draftId ?? undefined, title, body, audience: selection, expectedVersion: version })
       loaded.current = saved.id
       setDraftId(saved.id)
       setVersion(saved.version)
@@ -107,8 +110,8 @@ export default function AnnouncementEditorPage() {
           <Button variant="primary" disabled={busy} onClick={review}>Xem lại &amp; đăng</Button>
         </PageHeader>
         {banner && <Note tone="err">{banner}</Note>}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-          <Card title="Nội dung" actions={<Badge tone="outline">Bản nháp</Badge>}>
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+          <Card variant="panel" title="Nội dung" actions={<Badge tone="outline">Bản nháp</Badge>}>
             <div className="flex flex-col gap-4">
               <Field label="Tiêu đề *" id="ann-title" hint={errors.title ? <span role="alert" className="text-err-fg">{errors.title}</span> : `Tối đa ${TITLE_MAX} ký tự · ${title.length}/${TITLE_MAX}`}>
                 <input id="ann-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} aria-invalid={Boolean(errors.title)} />

@@ -3,39 +3,30 @@ import { useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useDemoState } from '../../../demo/demoModules'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { PaymentSuccessOnArrival } from '../../subscription'
+import { useFarmDashboardUseCases } from '../hooks/useFarmOverviewUseCases'
 import DashboardFilterBar from '../components/DashboardFilterBar'
 import { AttentionCard, GettingStartedCard, HerdStructureCard, QuickRecordCard } from '../components/DashboardCards'
 import { PrimaryMetrics, SecondaryMetrics } from '../components/DashboardMetrics'
 import { formatDateTime, formatKey } from '../domain/format'
 import { viewerRole } from '../domain/viewer'
-import type { DashboardFilters, DashboardView, Scenario } from '../types'
+import type { DashboardFilters, Scenario } from '../types'
 
 const TITLE = 'Tổng quan trang trại'
 
 export default function FarmDashboardPage() {
-  const role = viewerRole(useSession()?.role)
+  const session = useSession()
+  const role = viewerRole(session?.role)
   const navigate = useNavigate()
   const scenario: Scenario = useDemoState() === 'new-farm' ? 'new-farm' : 'default'
   const viewer = useMemo(() => ({ role, scenario }), [role, scenario])
   const [filters, setFilters] = useState<DashboardFilters>({ period: '30' })
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
-  const filtersApplied = Boolean(filters.pen || filters.herdGroup || filters.lifeStage)
-  const overviewFilters = useMemo<DashboardFilters>(() => ({
-    period: filters.period,
-    ...(filters.from ? { from: filters.from } : {}),
-    ...(filters.to ? { to: filters.to } : {}),
-  }), [filters.period, filters.from, filters.to])
-  const overviewDash = useQuery(() => farmOverviewApi.getDashboard(overviewFilters, viewer), [overviewFilters, viewer])
-  const filteredDash = useQuery<DashboardView | null>(
-    () => filtersApplied ? farmOverviewApi.getDashboard(filters, viewer) : Promise.resolve(null),
-    [filters, viewer, filtersApplied],
-  )
-  const started = useQuery(() => farmOverviewApi.getGettingStarted(viewer), [viewer])
+  const { overview: overviewDash, filtered: filteredDash, gettingStarted: started, filtersApplied, markStepDone, dismissGettingStarted } = useFarmDashboardUseCases(filters, viewer)
 
   const act = async (run: () => Promise<unknown>) => {
     setBusy(true)
@@ -43,8 +34,9 @@ export default function FarmDashboardPage() {
     try { await run(); started.refetch() } catch (e) { setActionError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.')) } finally { setBusy(false) }
   }
 
-  if (overviewDash.loading && !overviewDash.data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (overviewDash.error || !overviewDash.data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(overviewDash.error, 'Không tính được số liệu.')} onRetry={overviewDash.refetch} /></Layout>
+  const confirmation = <PaymentSuccessOnArrival farmId={session?.role === 'OWNER' ? activeFarmId : null} />
+  if (overviewDash.loading && !overviewDash.data) return <Layout title={TITLE}>{confirmation}<LoadingBlock /></Layout>
+  if (overviewDash.error || !overviewDash.data) return <Layout title={TITLE}>{confirmation}<ErrorBlock message={userFacingError(overviewDash.error, 'Không tính được số liệu.')} onRetry={overviewDash.refetch} /></Layout>
 
   const overview = overviewDash.data
   const metricsQuery = filtersApplied ? filteredDash : overviewDash
@@ -58,6 +50,7 @@ export default function FarmDashboardPage() {
 
   return (
     <Layout title={TITLE}>
+      {confirmation}
       <div className="@container">
         <div className="grid grid-cols-4 gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 [&>*]:min-w-0">
           <div className="col-span-full">
@@ -72,12 +65,6 @@ export default function FarmDashboardPage() {
             <DashboardFilterBar filters={filters} pens={overview.pens} onChange={setFilters} />
             <p className="m-0 text-xs text-muted">Bộ lọc áp dụng cho các chỉ số tương thích. Cảnh báo và cơ cấu đàn hiển thị theo toàn trại.</p>
           </section>
-          {guide && (
-            <div className="col-span-full space-y-2">
-              {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
-              <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => farmOverviewApi.markStepDone(step, viewer))} onDismiss={() => act(() => farmOverviewApi.dismissGettingStarted(viewer))} />
-            </div>
-          )}
           {metrics ? (
             <section aria-label="Chỉ số chính" className="col-span-full">
               <PrimaryMetrics view={metrics} filtersApplied={filtersApplied} />
@@ -93,7 +80,14 @@ export default function FarmDashboardPage() {
             <QuickRecordCard />
           </div>
           {/* Laptop 1.280 px (vùng nội dung ~950 px, lưới 8 cột) đã chia 5+3; từ 1.024 px vùng nội dung chia 8+4 như Figma Tab 15. */}
-          <div className="col-span-full @min-[880px]:col-span-5 @min-[1024px]:col-span-8">
+          {/* Trại mới (Figma Tab 15 ①b · Trại mới): khung "Bắt đầu sử dụng" đứng ở cột 8 cạnh Cơ cấu đàn, trên Cần chú ý hôm nay. */}
+          <div className="col-span-full flex min-w-0 flex-col gap-4 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 @min-[1024px]:gap-6">
+            {guide && (
+              <div className="space-y-2">
+                {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
+                <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => markStepDone(step))} onDismiss={() => act(dismissGettingStarted)} />
+              </div>
+            )}
             <AttentionCard rows={overview.attention} />
           </div>
           <div className="col-span-full @min-[880px]:col-span-3 @min-[1024px]:col-span-4">

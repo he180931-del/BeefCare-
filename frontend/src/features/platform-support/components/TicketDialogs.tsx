@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { supportApi } from '../api/supportApi'
 import { ROLE_LABEL, closeConditions, formatStamp, openIrOf } from '../domain/supportRules'
 import type { InternalView, TargetRole, Ticket } from '../types'
 import { FieldError, useActor, useSubmit } from './common'
+import { useSupportCs, useSupportRecipients } from '../hooks/usePlatformSupportUseCase'
 
 const Back = ({ onClick }: { onClick: () => void }) => <ModalButton onClick={onClick}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
 
 export function HandOverDialog({ onSubmit, onClose }: { onSubmit: (toCsId: number, reason: string) => Promise<void>; onClose: () => void }) {
   const me = useActor()
-  const { data } = useQuery(() => supportApi.listCs(), [])
+  const { data } = useSupportCs()
   const options = (data ?? []).filter((c) => c.available && c.id !== me.id)
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('')
@@ -38,7 +37,7 @@ export function HandOverDialog({ onSubmit, onClose }: { onSubmit: (toCsId: numbe
       </Field>
       <Note tone="info">Giữ nguyên trạng thái yêu cầu và người nhận của yêu cầu nội bộ; kết quả được chuyển về nhân viên hỗ trợ phụ trách mới.</Note>
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0"><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Xác nhận chuyển giao</ModalButton></ModalFooter>
+      <ModalFooter><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Xác nhận chuyển giao</ModalButton></ModalFooter>
     </Modal>
   )
 }
@@ -51,7 +50,7 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
   onClose: () => void
 }) {
   const [role, setRole] = useState<TargetRole>(initialRole)
-  const { data } = useQuery(() => supportApi.listRecipients(role), [role])
+  const { data } = useSupportRecipients(role)
   const [recipient, setRecipient] = useState('')
   const [question, setQuestion] = useState('')
   const [ctx, setCtx] = useState('')
@@ -97,7 +96,7 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
       {existing && <Note tone="info">Mỗi yêu cầu chỉ có một yêu cầu nội bộ đang mở cho mỗi vai trò. Hiện {existing.code} đã mở: cần xử lý yêu cầu hiện có trước khi tạo thêm.</Note>}
       {!stateOk && <Note tone="warn">Chỉ tạo khi yêu cầu đang Đang xử lý / Chờ khách phản hồi. Không thay đổi trạng thái yêu cầu.</Note>}
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <Back onClick={onClose} />
         {existing
           ? <ModalButton variant="primary" onClick={() => onViewExisting(existing)}>Xem {existing.code} hiện có</ModalButton>
@@ -108,7 +107,7 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
 }
 
 export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; onSubmit: (recipientId: number, reason: string) => Promise<void>; onClose: () => void }) {
-  const { data } = useQuery(() => supportApi.listRecipients(ir.targetRole), [ir.targetRole])
+  const { data } = useSupportRecipients(ir.targetRole)
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<{ to?: string; reason?: string }>({})
@@ -134,7 +133,7 @@ export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; on
       </Field>
       <Note tone="info">Chỉ nhân viên hỗ trợ được giao mới đổi người nhận yêu cầu nội bộ đang mở. Người nhận cũ mất quyền xem/ghi ngay sau chuyển; giữ lịch sử cũ.</Note>
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0"><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Chuyển người nhận</ModalButton></ModalFooter>
+      <ModalFooter><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Chuyển người nhận</ModalButton></ModalFooter>
     </Modal>
   )
 }
@@ -155,7 +154,7 @@ export function CloseDialog({ ticket, onSubmit, onReload, onClose }: { ticket: T
       <Modal title="Chưa đủ điều kiện đóng yêu cầu" width={640} onClose={onClose}>
         <Field label="Điều kiện cần xem lại" id="cl-unmet"><input id="cl-unmet" readOnly className={inputCls} value={unmet} /></Field>
         <Note tone="warn">Không thể đóng khi xác nhận đã cũ, có yêu cầu nội bộ đang mở hoặc yêu cầu vừa mở lại. Tải lại để xem trạng thái và thao tác hiện tại.</Note>
-        <ModalFooter className="!px-0 !pb-0"><ModalButton variant="primary" onClick={onReload}><Icon name="refresh" size={16} /> Tải lại yêu cầu</ModalButton></ModalFooter>
+        <ModalFooter><ModalButton variant="primary" onClick={onReload}><Icon name="refresh" size={16} /> Tải lại yêu cầu</ModalButton></ModalFooter>
       </Modal>
     )
   }
@@ -182,7 +181,7 @@ export function CloseDialog({ ticket, onSubmit, onReload, onClose }: { ticket: T
         <FieldError>{tickError ? 'Hãy tick xác nhận để tiếp tục.' : null}</FieldError>
       </div>
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0"><ModalButton onClick={onClose}>Hủy</ModalButton><ModalButton variant="primary" onClick={submit} disabled={busy}>Đóng yêu cầu</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton onClick={onClose}>Hủy</ModalButton><ModalButton variant="primary" onClick={submit} disabled={busy}>Đóng yêu cầu</ModalButton></ModalFooter>
     </Modal>
   )
 }
@@ -198,7 +197,7 @@ export function ClosedDialog({ ticket, onClose }: { ticket: Ticket; onClose: () 
       </div>
       <Field label="Kết quả / xác nhận đã xem" id="cd-r"><input id="cd-r" readOnly className={inputCls} value={res ? `kết quả v${res.version} · Xác nhận-${ticket.id}-v${res.version}` : '—'} /></Field>
       <Note tone="info">Không còn khung soạn hoặc thao tác thay đổi. Lịch sử công khai, trạng thái, IR và việc đóng được giữ theo quyền.</Note>
-      <ModalFooter className="!px-0 !pb-0"><Link to="/nen-tang/ho-tro" className="inline-flex"><ModalButton variant="primary"><Icon name="arrow-left" size={16} /> Về hàng đợi</ModalButton></Link></ModalFooter>
+      <ModalFooter><Link to="/nen-tang/ho-tro" className="inline-flex"><ModalButton variant="primary"><Icon name="arrow-left" size={16} /> Về hàng đợi</ModalButton></Link></ModalFooter>
     </Modal>
   )
 }

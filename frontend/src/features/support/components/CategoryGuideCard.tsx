@@ -3,8 +3,8 @@ import { TICKET_CATEGORIES } from '../domain/ticketRules'
 
 export function CategoryGuideCard() {
   return (
-    <Card title="Danh mục hỗ trợ">
-      <Table stack={false}>
+    <Card variant="panel" title="Danh mục hỗ trợ">
+      <Table variant="panel" stack={false}>
         <thead>
           <tr>
             <Th>Danh mục</Th>

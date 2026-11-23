@@ -15,6 +15,8 @@
   --color-muted: #666666;
   --color-faint: #8f8f8f;
   --color-subtle: #67766c;
+  /* Nhãn và dòng phụ trên khối Bento: ≥ 4,9:1 trên nền trắng, #f0f0f0 và ba nền nhạt ok/warn/err. */
+  --color-label: #5b6a60;
   --color-edge: #bdbdbd;
   --color-rule: #dedede;
   --color-field: #dce6de;

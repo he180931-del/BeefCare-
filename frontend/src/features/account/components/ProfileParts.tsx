@@ -4,7 +4,7 @@ import { FARM_ROLE_LABEL, initials } from '../domain/profileRules'
 import type { AccountProfile, FarmPermissions, ProfileErrors } from '../types'
 
 export const Avatar = ({ name, size = 56 }: { name: string; size?: number }) => (
-  <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-base font-semibold text-white">{initials(name)}</span>
+  <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-ok-bg text-base font-semibold text-brand-dark">{initials(name)}</span>
 )
 
 const methods = (profile: AccountProfile) => (profile.signInMethods.length ? profile.signInMethods.map((method) => method === 'GOOGLE' ? 'Google' : method === 'PASSWORD' ? 'Thư điện tử & mật khẩu' : method).join(' · ') : [profile.googleSignInLinked && 'Google', profile.passwordSignInEnabled && 'Thư điện tử & mật khẩu'].filter(Boolean).join(' · ')) || '—'
@@ -23,21 +23,21 @@ export function ProfileCard({ profile, headline, values, onChange, errors, onSub
   banner?: ReactNode
 }) {
   return (
-    <Card title="Hồ sơ cá nhân">
+    <Card variant="panel" title="Hồ sơ cá nhân">
       <div className="flex items-center gap-3">
         <Avatar name={profile.fullName} />
         <div><div className="text-base font-semibold text-[#212121]">{profile.fullName}</div><div className="text-xs text-muted">{headline}</div></div>
       </div>
       {banner}
       <form id="profile-form" onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 @min-[440px]:grid-cols-2">
           <Field label="Thư điện tử đăng nhập" id="profile-email"><input id="profile-email" readOnly value={`${profile.email} · ${profile.emailVerified ? 'đã xác minh' : 'chưa xác minh'}`} className={`${inputCls} bg-chip text-muted`} /></Field>
           <Field label="Phương thức đăng nhập" id="profile-methods"><input id="profile-methods" readOnly value={methods(profile)} className={`${inputCls} bg-chip text-muted`} /></Field>
           <Field label="Họ và tên *" id="profile-name"><input id="profile-name" autoComplete="name" maxLength={100} value={values.fullName} onChange={(event) => onChange({ ...values, fullName: event.target.value })} className={inputCls} aria-invalid={Boolean(errors.fullName)} /><Err>{errors.fullName}</Err></Field>
           <Field label="Điện thoại liên hệ" id="profile-phone"><input id="profile-phone" type="tel" autoComplete="tel" value={values.phone} onChange={(event) => onChange({ ...values, phone: event.target.value })} className={inputCls} aria-invalid={Boolean(errors.phone)} /><Err>{errors.phone}</Err></Field>
         </div>
       </form>
-      <div><Button onClick={onPassword}><Icon name="lock" size={16} />{profile.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button></div>
+      <div><Button size="bento" onClick={onPassword}><Icon name="lock" size={16} />{profile.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button></div>
     </Card>
   )
 }
@@ -55,8 +55,8 @@ const PERMISSION_VALUE = { FULL: 'Có', RESTRICTED: 'Chỉ xem', NO: 'Không' } 
 export function PermissionsCard({ permissions, loading, error }: { permissions: FarmPermissions | null; loading: boolean; error: unknown }) {
   const role = permissions?.role
   return (
-    <Card title="Quyền của tôi trong trại này" actions={role && <span className="inline-flex rounded-full bg-[#454545] px-2.5 py-0.5 text-[11px] font-medium text-white">{FARM_ROLE_LABEL[role]}</span>}>
-      <Table stack={false}>
+    <Card variant="panel" title="Quyền của tôi trong trại này" actions={role && <span className="inline-flex rounded-full bg-[#454545] px-2.5 py-0.5 text-[11px] font-medium text-white">{FARM_ROLE_LABEL[role]}</span>}>
+      <Table variant="panel" stack={false}>
         <thead><tr><Th>Quyền</Th><Th>Trạng thái</Th></tr></thead>
         <tbody>
           {loading && <tr><Td colSpan={2}>Đang tải quyền…</Td></tr>}

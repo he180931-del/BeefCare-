@@ -4,11 +4,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { listFeedStock } from '../api/feedStockApi'
+import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
-import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, feedReceiptServerBacked, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { useFeedReceiptForm } from '../hooks/useFeedReceiptForm'
 import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
 import { toFeedReceiptDraftInput } from '../api/feedReceiptPayload'
 import { validateFeedReceiptForm } from '../validation/feedReceiptValidation'
@@ -21,10 +21,11 @@ import type { FeedReceiptDemoRecord } from '../types/feedReceiptDemo'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
+import { newFeedCommandKey } from '../api/command'
 
 const FOOT = 'Tạo phiếu nhập kho thức ăn (Chủ trại, Quản lý). “Lưu nháp” chưa cộng kho; “Lưu & cộng kho” cộng tồn từng thức ăn và cập nhật giá nhập bình quân. Số lô và hạn dùng dùng để cảnh báo lô sắp hết hạn; phần còn nợ được theo dõi như công nợ nhà cung cấp.'
 const TITLE = 'Thức ăn › Phiếu nhập kho'
-const newReceiptCommandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const newReceiptCommandKey = () => newFeedCommandKey('feed-receipt')
 
 const withPaymentResult = (receipt: FeedReceipt, result: FeedReceiptPaymentResult): FeedReceipt => ({
   ...receipt,
@@ -66,16 +67,7 @@ export default function FeedReceiptFormPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const initialFeedItemId = searchParams.get('feedItemId') ?? ''
-  const formQuery = useQuery(async () => {
-    const [stock, suppliers, receipt, receipts, attachments] = await Promise.all([
-      listFeedStock(),
-      listFeedSuppliers(),
-      id ? getFeedReceipt(id) : Promise.resolve(null),
-      listFeedReceipts(),
-      id ? listFeedReceiptAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
-    ])
-    return { stock, suppliers, receipt, attachments, nextCode: feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(receipts.map((row) => row.code)) }
-  }, [id, initialFeedItemId])
+  const formQuery = useFeedReceiptForm(id)
 
   if (formQuery.error) {
     return (
@@ -111,8 +103,11 @@ export default function FeedReceiptFormPage() {
       initialSuppliers={formQuery.data.suppliers}
       initialAttachments={formQuery.data.attachments}
       initialFeedItemId={initialFeedItemId}
-      nextCode={formQuery.data.nextCode}
+      nextCode={feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(formQuery.data.receipts.map((row) => row.code))}
       onChanged={() => formQuery.refetch()}
+      saveDraft={formQuery.saveDraft}
+      createAndPost={formQuery.createAndPost}
+      postReceipt={formQuery.post}
     />
   )
 }
@@ -135,7 +130,7 @@ function CheckLine({ ok, children }: { ok: boolean; children: ReactNode }) {
   )
 }
 
-function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged }: {
+function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged, saveDraft, createAndPost, postReceipt }: {
   record: FeedReceipt | FeedReceiptDemoRecord | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   initialSuppliers: FeedSupplier[]
@@ -143,6 +138,9 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   initialFeedItemId: string
   nextCode: string
   onChanged: () => void
+  saveDraft: ReturnType<typeof useFeedReceiptForm>['saveDraft']
+  createAndPost: ReturnType<typeof useFeedReceiptForm>['createAndPost']
+  postReceipt: ReturnType<typeof useFeedReceiptForm>['post']
 }) {
   const navigate = useNavigate()
   const [modal, openModal, closeModal] = useModalParam()
@@ -306,7 +304,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       setSaving(true)
       setError('')
       try {
-        const posted = await postFeedReceipt(pending.id, pending.version, { key: pending.key })
+        const posted = await postReceipt({ id: pending.id, version: pending.version, options: { key: pending.key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
@@ -333,21 +331,21 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       const input = toFeedReceiptDraftInput(submitValues, stockRows, suppliers, currentRecord?.id, currentRecord?.supplierId, existingFeedIds)
       if (postNow && !currentRecord && newFiles.length === 0) {
         if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-        const posted = await createAndPostFeedReceipt(input, { key: saveCommandKey.current })
+        const posted = await createAndPost({ input, options: { key: saveCommandKey.current } })
         saveCommandKey.current = ''
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
         return
       }
       if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-      const saved = await saveFeedReceiptDraft(input, { key: saveCommandKey.current })
+      const saved = await saveDraft({ input, options: { key: saveCommandKey.current } })
       saveCommandKey.current = ''
       setCurrentRecord(saved)
       await uploadPendingFiles(saved.id)
       if (postNow) {
         const key = newReceiptCommandKey()
         pendingPost.current = { id: saved.id, version: saved.version, key }
-        const posted = await postFeedReceipt(saved.id, saved.version, { key })
+        const posted = await postReceipt({ id: saved.id, version: saved.version, options: { key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
@@ -375,11 +373,13 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
     <Layout title={TITLE} user="manager">
       <PageHeader title={title} sub={sub} />
       <FeedManagementTabs />
-      {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card title="1. Thông tin phiếu">
+      {/* Bento §1: form chính 8 cột, tóm tắt và kiểm tra 4 cột; vùng nội dung 880–1.023 px (laptop 1.280 px) chia 5+3. */}
+      <div className="@container">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <div className="@container/receipt-form flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
+          <Card variant="panel" title="1. Thông tin phiếu">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Mã phiếu" id="feed-receipt-code">
                 <input id="feed-receipt-code" readOnly value={currentRecord?.code ?? nextCode} className={inputCls} />
@@ -416,7 +416,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
 
           {currentRecord && <FeedReceiptAudit receipt={currentRecord} />}
 
-          <Card
+          <Card variant="panel"
             title="2. Danh sách thức ăn"
             sub={`${summary.itemCount} mặt hàng · quy đổi về kg theo quy cách trong Danh mục`}
             actions={!readOnly && <Button size="sm" onClick={addLine}><span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Thêm mặt hàng</span></Button>}
@@ -502,12 +502,13 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             </Table>
           </Card>
 
-          <div className="grid items-start gap-4 md:grid-cols-2">
-            <Card title="3. Chứng từ đính kèm">
+          {/* Chứng từ 5 phần, Thanh toán 7 phần để hai cột tiền/ô chọn trong Thanh toán không cắt chữ; hẹp hơn 640 px thì xếp dọc. */}
+          <div className="grid items-start gap-4 @min-[640px]/receipt-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <Card variant="panel" title="3. Chứng từ đính kèm">
               {feedReceiptServerBacked ? (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
-                  <Docs docs={attachmentDocs} onView={(index) => { const item = attachments[index]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
+                  <AttachmentList items={attachmentDocs.map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void removeAttachment(item) }} />
                   {newFiles.map((file, index) => (
                     <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
                       <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />
@@ -518,15 +519,15 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                 </>
               ) : (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-                  <Docs docs={docs} onRemove={readOnly ? undefined : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
+                  <AttachmentList items={docs.map((doc, index) => ({ key: `new:${index}`, name: doc.name, extension: doc.ext }))} onRemove={readOnly ? undefined : (key) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== Number(key.split(':')[1])))} />
                   {docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
                   {readOnly && docs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
                 </>
               )}
             </Card>
-            <Card title="4. Thanh toán">
-              <div className="grid grid-cols-2 gap-3">
+            <Card variant="panel" title="4. Thanh toán">
+              <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
                 <Field label="Tiền hàng" id="feed-receipt-goods"><MoneyBox id="feed-receipt-goods" label="Tiền hàng" value={formatMoney(summary.goodsAmount)} /></Field>
                 <Field label="Phí vận chuyển" id="feed-receipt-transport">
                   <div className="relative">
@@ -583,12 +584,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
           </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <div className="flex items-center gap-2">
-              <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt phiếu nhập kho</h3>
-              {badge && <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>}
-            </div>
+        <aside className="flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
+          <Card variant="panel" title="Tóm tắt phiếu nhập kho" actions={badge && <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>}>
             <Info cols={2} items={[
               ['Số mặt hàng', summary.itemCount],
               ['Tổng khối lượng', formatKg(summary.totalKg, 0)],
@@ -616,8 +613,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             )}
           </Card>
 
-          <Card>
-            <h3 className="m-0 text-[13px] font-semibold">Kiểm tra trước khi lưu</h3>
+          <Card variant="panel" title="Kiểm tra trước khi lưu">
             <CheckLine ok={checks.feeds}>Thức ăn đang dùng trong danh mục</CheckLine>
             <CheckLine ok={checks.quantities}>Số lượng &gt; 0, đơn giá ≥ 0</CheckLine>
             <CheckLine ok={checks.expiry}>Hạn dùng sau ngày nhập kho</CheckLine>
@@ -645,6 +641,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             </div>
           )}
         </aside>
+      </div>
       </div>
 
       <Foot>{FOOT}</Foot>

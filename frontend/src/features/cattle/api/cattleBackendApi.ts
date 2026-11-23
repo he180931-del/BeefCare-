@@ -1,5 +1,5 @@
 import type { BackendTransport } from '../../../shared/api/backendTransport'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { Pen } from '../../pen-management'
 import type { BackendList, BackendPenHistory, BackendProfile, BackendPurpose, BackendPen, BackendQrTag, PenMoveCheck, PenMoveCheckCommand, PenMoveCommand, ProfileUpdateCommand, QrIssueCommand } from './cattle.dto'
 import { asRecord, mapBackendCattle, mapPen, number, rows, text } from './cattleMapper'

@@ -1,22 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
+import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import {
   downloadFeedStockAdjustmentAttachment,
-  getFeedStockAdjustment,
-  listFeedStockAdjustmentAttachments,
-  listFeedStockAdjustments,
-  postFeedStockAdjustment,
   removeFeedStockAdjustmentAttachment,
-  saveFeedStockAdjustmentDraft,
   uploadFeedStockAdjustmentAttachment,
   feedStockAdjustmentServerBacked,
 } from '../api/feedStockAdjustmentApi'
+import { useFeedStockAdjustmentForm } from '../hooks/useFeedStockAdjustmentForm'
 import { initialFeedStockAdjustmentForm, localFeedDate, nextFeedAdjustmentCode, previewFeedStockAdjustment } from '../domain/feedStockAdjustmentForm'
 import { toFeedStockAdjustmentDraftInput } from '../api/feedStockAdjustmentPayload'
 import { validateFeedStockAdjustmentForm } from '../validation/feedStockAdjustmentValidation'
@@ -24,6 +18,7 @@ import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Kiểm kê'
 const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
@@ -34,7 +29,7 @@ const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
 }
 const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
 const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-adjustment:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const commandKey = () => newFeedCommandKey('feed-adjustment')
 
 const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
 
@@ -52,15 +47,7 @@ type Line = {
 export default function FeedStockAdjustmentFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const query = useQuery(async () => {
-    const [stock, record, adjustments, attachments] = await Promise.all([
-      listFeedStock(),
-      id ? getFeedStockAdjustment(id) : Promise.resolve(null),
-      feedStockAdjustmentServerBacked || id ? Promise.resolve([]) : listFeedStockAdjustments(),
-      id && feedStockAdjustmentServerBacked ? listFeedStockAdjustmentAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
-    ])
-    return { stock, record, attachments, nextCode: feedStockAdjustmentServerBacked ? '' : nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
-  }, [id])
+  const query = useFeedStockAdjustmentForm(id)
 
   if (query.error) {
     return (
@@ -93,17 +80,21 @@ export default function FeedStockAdjustmentFormPage() {
       key={id ?? 'new-adjustment'}
       record={query.data.record}
       stockRows={adjustmentStockRows}
-      nextCode={query.data.nextCode}
+      nextCode={feedStockAdjustmentServerBacked ? '' : nextFeedAdjustmentCode(query.data.adjustments.map((row) => row.code))}
       initialAttachments={query.data.attachments}
+      saveDraft={query.saveDraft}
+      postAdjustment={query.post}
     />
   )
 }
 
-function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachments }: {
+function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachments, saveDraft, postAdjustment }: {
   record: FeedStockAdjustment | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   nextCode: string
   initialAttachments: FeedReceiptAttachment[]
+  saveDraft: ReturnType<typeof useFeedStockAdjustmentForm>['saveDraft']
+  postAdjustment: ReturnType<typeof useFeedStockAdjustmentForm>['post']
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
@@ -227,10 +218,13 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       let saved = currentRecord
       if (!saved || saved.status !== 'DRAFT' || savedFingerprintRef.current !== fingerprint) {
         if (!saveKeyRef.current) saveKeyRef.current = commandKey()
-        saved = await saveFeedStockAdjustmentDraft({
-          ...toFeedStockAdjustmentDraftInput(values, currentRecord?.id),
-          ...(currentRecord ? { expectedVersion: currentRecord.version } : {}),
-        }, { key: saveKeyRef.current })
+        saved = await saveDraft({
+          input: {
+            ...toFeedStockAdjustmentDraftInput(values, currentRecord?.id),
+            ...(currentRecord ? { expectedVersion: currentRecord.version } : {}),
+          },
+          options: { key: saveKeyRef.current },
+        })
         setCurrentRecord(saved)
         savedFingerprintRef.current = fingerprint
         saveKeyRef.current = ''
@@ -239,7 +233,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       await uploadPendingFiles(saved.id)
       if (postNow) {
         if (!postKeyRef.current) postKeyRef.current = commandKey()
-        const posted = await postFeedStockAdjustment(saved.id, saved.version, { key: postKeyRef.current })
+        const posted = await postAdjustment({ id: saved.id, version: saved.version, options: { key: postKeyRef.current } })
         navigate('/thuc-an', { state: { feedStockMessage: `Phiếu điều chỉnh ${posted.code} đã ghi: ${formatNumber(posted.totalDifferenceKg)} kg (${posted.totalValue === null ? '—' : formatMoney(posted.totalValue)} đ).` } })
       } else {
         navigate('/thuc-an/kiem-ke', { state: { adjustmentMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })
@@ -288,10 +282,12 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       {hasUnavailableDraftLine
         ? <Note tone="warn">Phiếu nháp có mặt hàng đã ngưng hoạt động; dữ liệu được giữ nguyên và phiếu đang ở chế độ chỉ xem.</Note>
         : readOnly && <Note tone="info">Phiếu đã ghi nhận; thông tin đang ở chế độ chỉ xem.</Note>}
-      {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <Card title="Thông tin phiếu">
+      {/* Bento §1: form chính 8 cột, tóm tắt và kiểm tra 4 cột; vùng nội dung 880–1.023 px (laptop 1.280 px) chia 5+3. */}
+      <div className="@container">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <Card variant="panel" title="Thông tin phiếu">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Mã phiếu" id="feed-adjustment-code">
               <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? (feedStockAdjustmentServerBacked ? 'Tự sinh khi lưu' : nextCode)} className={inputCls} />
@@ -310,11 +306,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
           </div>
         </Card>
 
-        <Card>
-          <div className="flex items-center gap-2">
-            <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt điều chỉnh</h3>
-            <Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>
-          </div>
+        <Card variant="panel" title="Tóm tắt điều chỉnh" actions={<Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>}>
           <Info cols={2} items={[
             ['Thức ăn chênh lệch', `${changedFeeds} / ${lines.length}`],
             ['Tổng chênh lệch', totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg, 3)} kg`],
@@ -334,20 +326,19 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
           {readOnly && <Button block onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>}
         </Card>
       </div>
+      </div>
 
-      <Card title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
+      <Card variant="panel" title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
         <Note tone="info">Điều chỉnh không sửa phiếu nhập hay nhật ký cho ăn đã ghi; mỗi dòng chênh lệch tạo 1 bút toán kho kèm lý do, người lập và thời điểm. Tồn sau điều chỉnh không âm.</Note>
         {feedStockAdjustmentServerBacked && values.countDate !== currentRecord?.countDate && values.countDate !== localFeedDate() && <Note tone="warn">Máy chủ xác định lại tồn hệ thống tại ngày kiểm kê khi lưu phiếu.</Note>}
         <AdjustmentLinesTable lines={lines} readOnly={readOnly || saving} onChange={updateLine} totalDifferenceKg={totalDifferenceKg} totalValue={totalValue} />
       </Card>
 
-      <Card title="Chứng từ đính kèm">
-        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
+      <Card variant="panel" title="Chứng từ đính kèm">
+        {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
           ? setNewFiles((current) => [...current, ...files])
           : setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-        <Docs docs={displayedDocs} onView={feedStockAdjustmentServerBacked ? (index) => { const item = attachments[index]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : feedStockAdjustmentServerBacked
-          ? (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }
-          : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+        <AttachmentList items={displayedDocs.map((doc, index) => ({ key: `${feedStockAdjustmentServerBacked ? 'saved' : 'new'}:${index}`, name: doc.name, extension: doc.ext }))} onView={feedStockAdjustmentServerBacked ? (key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : (key) => { const index = Number(key.split(':')[1]); if (feedStockAdjustmentServerBacked) { const item = attachments[index]; if (item) void removeAttachment(item) } else setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index)) }} />
         {newFiles.map((file, index) => (
           <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
             <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />

@@ -126,6 +126,7 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 | 7 | Herd structure / Cơ cấu đàn | Bảng | Nhóm đàn / Số con / Trong đó có thai (chỉ Cái sinh sản); chọn dòng → SCR-18 tab nhóm đàn |
 | 8 | More indicators / Chỉ số khác | Thẻ | M06, M07, M08, M09 có drill-down; M09 → SCR-49 với RPT-05 |
 | 9 | Generated at / Tính lúc | Chỉ đọc | Thời điểm tính; lỗi → MSG-FE15-02 |
+| 10 | Payment success / Thanh toán thành công | Hộp thoại (O) | Chỉ khi vừa được SCR-59 đưa vào sau `PAID` của đúng trại (FE-19 D54): MSG-FE19-06 (mã, kỳ dịch vụ), [Tiếp tục] đóng và ở lại SCR-48. Hiện một lần, cả khi số liệu đang tải hoặc lỗi; mở SCR-48 trực tiếp không hiện |
 
 ### SCR-49 Báo cáo quản lý
 
@@ -210,3 +211,4 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TaiDX duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 23/11/2026 | 28/10/2026 | SCR-48 #10: hộp thoại Thanh toán thành công khi Owner vừa thanh toán xong (FE-19 D54) | DucNV (Claude soạn) |

@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.fpt.beefcare.service.HerdEntryCorrectionService;
 import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
 import vn.edu.fpt.beefcare.service.FarmAction;
+import vn.edu.fpt.beefcare.service.FarmAccessService;
+import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.PendingCalfService;
 import vn.edu.fpt.beefcare.service.dto.EntryActionRequests;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
@@ -25,11 +28,13 @@ public class HerdEntryResource {
     private final HerdEntryCorrectionService corrections;
     private final PendingCalfService calves;
     private final IdempotencyCommandService commands;
+    private final FarmAccessService access;
 
-    public HerdEntryResource(HerdEntryCorrectionService corrections, PendingCalfService calves, IdempotencyCommandService commands) {
+    public HerdEntryResource(HerdEntryCorrectionService corrections, PendingCalfService calves, IdempotencyCommandService commands, FarmAccessService access) {
         this.corrections = corrections;
         this.calves = calves;
         this.commands = commands;
+        this.access = access;
     }
 
     @PatchMapping("/herd-entries/{entryId}")
@@ -72,10 +77,12 @@ public class HerdEntryResource {
         return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "PENDING_CALF_DIED:" + calfId, key, request, EntryDtos.PendingCalf.class, () -> calves.diedBeforeRegistration(farmId, calfId, request.reason()));
     }
 
+    /** Compatibility tombstone, not a command: never replay an old successful assignment from idempotency storage. */
+    @io.swagger.v3.oas.annotations.Hidden
     @PostMapping("/pending-calves/{calfId}/parentage")
-    public EntryDtos.PendingCalf assignParentage(@PathVariable Long farmId, @PathVariable Long calfId,
-        @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody EntryActionRequests.AssignCalfParentageRequest request) {
-        return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "PENDING_CALF_PARENTAGE:" + calfId, key, request,
-            EntryDtos.PendingCalf.class, () -> calves.assignParentage(farmId, calfId, request));
+    public void retiredParentage(@PathVariable Long farmId, @PathVariable Long calfId) {
+        access.require(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS);
+        throw new DomainException(MessageCodes.COM_05,
+            java.util.Map.of("action", "PENDING_CALF_PARENTAGE_RETIRED"), org.springframework.http.HttpStatus.METHOD_NOT_ALLOWED);
     }
 }

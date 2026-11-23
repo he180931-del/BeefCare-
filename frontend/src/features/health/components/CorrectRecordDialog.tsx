@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { DateTimeInput, hint, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
 
 function Row({ label, current, error, children }: { label: string; current: ReactNode; error?: string; children: ReactNode }) {
@@ -33,6 +33,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
   const [progress, setProgress] = useState<Progress | ''>(row.progress ?? '')
   const [description, setDescription] = useState(row.description ?? '')
   const [reason, setReason] = useState('')
+  const { correctEntry, voidEntry } = useHealthCaseCommands()
   const form = useDialogSave()
   const { errors } = form
   const voiding = action === 'void'
@@ -52,8 +53,8 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
 
   const save = () => form.run(async () => {
     const result = voiding
-      ? await healthApi.voidEntry(row.id, { expectedVersion: row.version, reason })
-      : await healthApi.correctEntry(row.id, treatment
+      ? await voidEntry(row.id, { expectedVersion: row.version, reason })
+      : await correctEntry(row.id, treatment
         ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
         : { expectedVersion: row.version, reason, observedAt: time, temperatureC: parseTemperature(temp), progress: row.type === 'FOLLOW_UP' ? progress : undefined, description, observer: who })
     onSaved(recordToast(result))
@@ -68,7 +69,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       </Field>
       {blocked && <Note tone="err">{MSG.voidOpening}</Note>}
       {!voiding && (
-        <Table>
+        <Table variant="panel">
           <thead><tr><Th className="w-[140px]">Trường thông tin</Th><Th className="w-[160px]">Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
           <tbody>
             {treatment ? (
@@ -103,9 +104,9 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       )}
       <datalist id="cr-who">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
       {voiding && !blocked && <Note tone="warn">Bản ghi sẽ chuyển sang trạng thái Đã hủy: mờ đi trong lịch sử và không còn được tính vào ngưng sử dụng thịt hay trạng thái sức khỏe.</Note>}
-      {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
       <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving || blocked}>{voiding ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>

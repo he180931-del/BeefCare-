@@ -5,9 +5,7 @@ import { backendTransport, type BackendTransport } from '../../../shared/api/bac
 import type { FeedFeedingCorrectionInput, FeedFeedingDemoStore, FeedFeedingDraftInput, FeedFeedingPlan, FeedFeedingRange, FeedFeedingRecord } from '../types/feedFeeding'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
-
-type MutationOptions = { key?: string }
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-session:${Date.now()}:${Math.random().toString(36).slice(2)}`
+import { newFeedCommandKey, type FeedCommandOptions } from './command'
 
 const requiredNumber = (value: unknown, field: string) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`FeedingView.${field} is missing or invalid`)
@@ -139,7 +137,7 @@ export function createFeedFeedingApi({
       const query = `?penId=${encodeURIComponent(input.penId)}&date=${encodeURIComponent(input.date)}&session=${encodeURIComponent(input.sessionNo)}`
       return mapPlan(await transport.get(`${root}/plan${query}`))
     },
-    async record(input: FeedFeedingDraftInput, options: MutationOptions = {}) {
+    async record(input: FeedFeedingDraftInput, options: FeedCommandOptions = {}) {
       if (mode !== 'backend') return demoStore.record(input)
       const body = {
         penId: input.penId,
@@ -151,9 +149,9 @@ export function createFeedFeedingApi({
         note: input.note.trim() || null,
         lines: input.lines.map((line) => ({ feedItemId: line.feedItemId, actualKg: line.actualKg })),
       }
-      return mapRecord(await transport.command(root, body, { key: options.key ?? commandKey() }))
+      return mapRecord(await transport.command(root, body, { key: options.key ?? newFeedCommandKey('feed-session') }))
     },
-    async correct(id: number, input: FeedFeedingCorrectionInput, options: MutationOptions = {}) {
+    async correct(id: number, input: FeedFeedingCorrectionInput, options: FeedCommandOptions = {}) {
       if (mode !== 'backend') return demoStore.correct(id, input)
       const body = {
         expectedVersion: requireVersion(input.expectedVersion),
@@ -161,12 +159,12 @@ export function createFeedFeedingApi({
         fedBy: input.fedBy?.trim() || null,
         lines: input.lines.map((line) => ({ feedItemId: line.feedItemId, actualKg: line.actualKg })),
       }
-      return mapRecord(await transport.command(`${root}/${id}/correct`, body, { key: options.key ?? commandKey() }))
+      return mapRecord(await transport.command(`${root}/${id}/correct`, body, { key: options.key ?? newFeedCommandKey('feed-session') }))
     },
-    async voidRecord(id: number, reason: string, expectedVersion?: number, options: MutationOptions = {}) {
+    async voidRecord(id: number, reason: string, expectedVersion?: number, options: FeedCommandOptions = {}) {
       if (mode !== 'backend') return demoStore.voidRecord(id, reason)
       const body = { reason: reason.trim(), expectedVersion: requireVersion(expectedVersion) }
-      return mapRecord(await transport.command(`${root}/${id}/void`, body, { key: options.key ?? commandKey() }))
+      return mapRecord(await transport.command(`${root}/${id}/void`, body, { key: options.key ?? newFeedCommandKey('feed-session') }))
     },
     recordDemo: (input: FeedFeedingDraftInput) => demoStore.record(input),
     correctDemo: (id: number, input: FeedFeedingCorrectionInput) => demoStore.correct(id, input),
@@ -189,9 +187,9 @@ export const feedingPeopleSuggestions = (sessionName?: string): string[] => (bac
 
 export const listFeedFeedingRecords = (range: FeedFeedingRange) => api.list(range)
 export const getFeedFeedingPlan = (input: { penId: number; date: string; sessionNo: number }) => api.plan(input)
-export const recordFeedSession = (input: FeedFeedingDraftInput, options?: MutationOptions) => api.record(input, options)
-export const correctFeedSession = (id: number, input: FeedFeedingCorrectionInput, options?: MutationOptions) => api.correct(id, input, options)
-export const voidFeedSession = (id: number, reason: string, expectedVersion?: number, options?: MutationOptions) => api.voidRecord(id, reason, expectedVersion, options)
+export const recordFeedSession = (input: FeedFeedingDraftInput, options?: FeedCommandOptions) => api.record(input, options)
+export const correctFeedSession = (id: number, input: FeedFeedingCorrectionInput, options?: FeedCommandOptions) => api.correct(id, input, options)
+export const voidFeedSession = (id: number, reason: string, expectedVersion?: number, options?: FeedCommandOptions) => api.voidRecord(id, reason, expectedVersion, options)
 export const recordFeedSessionDemo = (input: FeedFeedingDraftInput) => api.recordDemo(input)
 export const correctFeedSessionDemo = (id: number, input: FeedFeedingCorrectionInput) => api.correctDemo(id, input)
 export const voidFeedSessionDemo = (id: number, reason: string) => api.voidDemo(id, reason)

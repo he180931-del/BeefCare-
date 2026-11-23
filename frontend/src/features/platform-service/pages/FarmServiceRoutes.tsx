@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { activateTableRow, activateTableRowByKey, Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { platformServiceApi } from '../api/platformServiceApi'
+import { useFarmList, useFarmServiceCommands } from '../hooks/usePlatformServiceUseCase'
 import ServiceChangeDialog from '../components/ServiceChangeDialog'
 import { ServiceBadge, downloadCsv, usePmAccess } from '../components/common'
 import type { FarmOverview, FarmSort, FarmTiles, ServiceStatus } from '../types'
@@ -40,8 +39,9 @@ export default function FarmServiceRoutes() {
   const [message, setMessage] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [m, openModal, closeModal] = useModalParam()
+  const { listFarms } = useFarmServiceCommands()
   const filters = useMemo(() => ({ q, status, sort, page, size: PAGE_SIZE }), [q, status, sort, page])
-  const { data, loading, error, refetch } = useQuery(() => platformServiceApi.listFarms(filters), [filters, tick])
+  const { data, loading, error, refetch } = useFarmList(filters, tick)
   // After a change the current page may no longer exist (e.g. a filtered farm left the list): show the last one that does.
   useEffect(() => {
     if (data && page > 0 && page * PAGE_SIZE >= data.total) setPage(Math.max(0, Math.ceil(data.total / PAGE_SIZE) - 1))
@@ -72,7 +72,7 @@ export default function FarmServiceRoutes() {
     const rows: FarmOverview[] = []
     try {
       for (let next = 0; ; next += 1) {
-        const result = await platformServiceApi.listFarms({ q, status, sort, page: next, size: 100 })
+        const result = await listFarms({ q, status, sort, page: next, size: 100 })
         rows.push(...result.items)
         if (result.items.length === 0 || rows.length >= result.total) break
       }

@@ -3,19 +3,16 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Panel, Select, Table } from '../../../shared/ui'
 import { dm } from '../../../shared/lib/format'
-import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
-import { listBarns, listBreeds, listCows, listCowsPage, listPurposes, localCattleList } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
+import { LIFE_STAGE_OPTIONS, useCattleListQueries } from '../hooks/useCattleQueries'
 import { Chip, Th, Td, chipIcon } from '../components/parts'
 import type { StatusChip } from '../types'
-import type { CowSeed, groupCount } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 // Máy chủ thật lọc, đếm và phân trang; bản mô phỏng tính tại trình duyệt từ đàn mẫu.
-const local = localCattleList
-const backend = local === null
 const EXPORTED = 'Đã xuất'
 const TAB_STAGE: Record<string, string> = { 'Tất cả': '', 'Khác': 'Chưa xác định' }
+type LocalStage = 'Bò cái sinh sản' | 'Bò tơ' | 'Vỗ béo' | 'Bê' | 'Đực giống' | 'Chưa xác định'
 // Nhóm đàn theo hợp đồng backend (GBR-24) và khóa đếm tương ứng trong `counts`.
 const TAB_GROUP: Record<string, string> = { 'Bò cái sinh sản': 'BREEDING_FEMALES', 'Bò tơ': 'YOUNG_STOCK', 'Vỗ béo': 'FATTENING', 'Bê': 'CALVES', 'Đực giống': 'BREEDING_BULLS', 'Khác': 'OTHER' }
 const GROUP_TAB: Record<string, string> = { BREEDING_FEMALE: 'Bò cái sinh sản', YOUNG_STOCK: 'Bò tơ', FATTENING: 'Vỗ béo', CALF: 'Bê', BREEDING_BULL: 'Đực giống', OTHER: 'Khác' }
@@ -121,15 +118,20 @@ export default function CowList() {
   useEffect(() => { setPage(0) }, [debouncedQ, breed, sex, barn, stageSel, purpose, health, status, tab])
 
   const group = status === 'ACTIVE' ? TAB_GROUP[tab] : undefined
-  const listQuery = useQuery(
-    () => backend
-      ? listCowsPage({ q: debouncedQ, breedId: breed, sex, penId: barn, purposeId: purpose, lifeStage: stageSel === 'ALL' ? '' : stageSel, health, herdStatus: status, herdGroup: group, page, sort, hasWeight: weightFilter ? weightFilter === 'yes' : undefined })
-      : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} as Record<string, number> })),
-    [debouncedQ, breed, sex, barn, purpose, stageSel, health, status, group, page, sort, weightFilter],
-  )
-  const barnsQuery = useQuery(listBarns, [])
-  const breedsQuery = useQuery(() => listBreeds().catch(() => []), [])
-  const purposesQuery = useQuery(() => listPurposes().catch(() => []), [])
+  const { backend, local, listQuery, barnsQuery, breedsQuery, purposesQuery } = useCattleListQueries({
+    q: debouncedQ,
+    breedId: breed,
+    sex,
+    penId: barn,
+    purposeId: purpose,
+    lifeStage: stageSel === 'ALL' ? '' : stageSel,
+    health,
+    herdStatus: status,
+    herdGroup: group,
+    page,
+    sort,
+    weightFilter,
+  })
   const cows = useMemo(() => listQuery.data?.items ?? [], [listQuery.data])
   const counts = listQuery.data?.counts ?? {}
   const barnRows = barnsQuery.data ?? []
@@ -138,7 +140,7 @@ export default function CowList() {
   const localTotal = local ? local.stages.reduce((sum, s) => sum + local.groupCount(cows, s), 0) : 0
   const total = backend ? counts.ACTIVE ?? 0 : localTotal
   const exportedTotal = local ? local.exported : counts.EXITED ?? 0
-  const countOf = (label: string, stage: Parameters<typeof groupCount>[1]) => (local ? local.groupCount(cows, stage) : counts[TAB_GROUP[label]] ?? 0)
+  const countOf = (label: string, stage: LocalStage) => (local ? local.groupCount(cows, stage) : counts[TAB_GROUP[label]] ?? 0)
   const tabs = [
     ['Tất cả', `Tất cả (${total})`],
     ['Bò cái sinh sản', `Bò cái sinh sản (${countOf('Bò cái sinh sản', 'Bò cái sinh sản')})`],

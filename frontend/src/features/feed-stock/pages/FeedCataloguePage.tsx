@@ -3,13 +3,11 @@ import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, PageHeader, Radio, Segmented, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedSupplierActive } from '../api/feedCatalogueApi'
-import { listFeedStock } from '../api/feedStockApi'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FEED_GROUP_LABELS, feedGroupLabel, formatNumber } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow } from '../types'
 import type { FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
+import { useFeedCatalogue } from '../hooks/useFeedCatalogue'
 
 type CatalogueSection = 'feeds' | 'suppliers'
 const GROUPS = Object.entries(FEED_GROUP_LABELS) as Array<[FeedGroup, string]>
@@ -30,10 +28,7 @@ function averageCost(item: FeedCatalogueItem, stock: FeedStockRow | undefined) {
 
 export default function FeedCataloguePage() {
   const [params, setParams] = useSearchParams()
-  const query = useQuery(async () => {
-    const [items, suppliers, stock] = await Promise.all([listFeedCatalogue(), listFeedSuppliers(), listFeedStock()])
-    return { items, suppliers, stock }
-  }, [])
+  const query = useFeedCatalogue()
   const [section, setSection] = useState<CatalogueSection>('feeds')
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<FeedGroup | 'ALL'>('ALL')
@@ -45,9 +40,9 @@ export default function FeedCataloguePage() {
   const [message, setMessage] = useState('')
   const [actionError, setActionError] = useState('')
 
-  const items = query.data?.items ?? []
-  const suppliers = query.data?.suppliers ?? []
-  const stock = query.data?.stock ?? []
+  const items = query.items
+  const suppliers = query.suppliers
+  const stock = query.stock
   const filteredFeeds = useMemo(() => {
     const q = normalize(search.trim())
     return items.filter((item) => (group === 'ALL' || item.group === group)
@@ -85,7 +80,7 @@ export default function FeedCataloguePage() {
   const select = (item: FeedCatalogueItem) => { setAdding(false); setActionError(''); setParams((current) => { const next = new URLSearchParams(current); next.set('feed', item.code); return next }) }
   const saveFeed = async (input: FeedCatalogueSaveInput) => {
     const saved = await perform(async () => {
-      const result = await saveFeedCatalogueItem(input)
+      const result = await query.saveFeed({ input })
       setAdding(false)
       setParams((current) => { const next = new URLSearchParams(current); next.set('feed', result.code); return next })
       // Keep the list filter from hiding the row that was just saved.
@@ -95,11 +90,11 @@ export default function FeedCataloguePage() {
     if (saved) setMessage(`${input.name.trim()} đã được lưu.`)
   }
   const saveSupplierRow = async (input: FeedSupplierInput) => {
-    const saved = await perform(() => saveFeedSupplier(input), `${input.name.trim()} đã được lưu.`)
+    const saved = await perform(() => query.saveSupplier({ input }), `${input.name.trim()} đã được lưu.`)
     if (saved) setSupplierDialog(null)
   }
   const toggleSupplier = (supplier: FeedSupplier) => perform(
-    () => setFeedSupplierActive(supplier.id, !supplier.active, supplier.version),
+    () => query.setSupplierActive({ id: supplier.id, active: !supplier.active, version: supplier.version }),
     supplier.active ? `${supplier.name} đã ngừng hoạt động.` : `${supplier.name} đã hoạt động trở lại.`,
   )
 
@@ -131,18 +126,21 @@ export default function FeedCataloguePage() {
       </PageHeader>
       <FeedManagementTabs />
       <Segmented
+        className="self-start"
         value={section}
         onChange={(value) => { setSection(value as CatalogueSection); setGroup('ALL'); setStatus('ACTIVE'); setSearch(''); setAdding(false) }}
         options={[{ value: 'feeds', label: `Thức ăn (${items.length})` }, { value: 'suppliers', label: `Nhà cung cấp (${suppliers.length})` }]}
       />
       {message && <Note tone="ok">{message}</Note>}
-      {actionError && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{actionError}</div>}
+      {actionError && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{actionError}</div>}
 
-      <section role="tabpanel" aria-label="Danh mục thức ăn và nhà cung cấp" className="grid items-start gap-4 xl:grid-cols-[minmax(0,740px)_minmax(0,356px)]">
-        <Card>
+      {/* Danh sách + vùng biên tập (Bento §1, Figma Tab 21 ④b): 8+4 khi vùng nội dung từ 1.024 px; bảng 8 cột cần ~640 px. */}
+      <div className="@container">
+      <section role="tabpanel" aria-label="Danh mục thức ăn và nhà cung cấp" className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <Card variant="panel">
           {filterBar}
-          {query.loading && !query.data && <div role="status" className="rounded-md border border-edge p-8 text-center text-sm text-muted">Đang tải danh mục…</div>}
-          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải…' : 'Thử tải lại'}</Button></div>}
+          {query.loading && !query.data && <div role="status" className="rounded-xl border border-field p-8 text-center text-sm text-muted">Đang tải danh mục…</div>}
+          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-err-bg p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải…' : 'Thử tải lại'}</Button></div>}
           {!query.loading && !errorMessage && section === 'feeds' && filteredFeeds.length === 0 && <Note tone="info">{items.length ? 'Không tìm thấy thức ăn phù hợp.' : 'Chưa có thức ăn trong danh mục.'}</Note>}
           {!query.loading && !errorMessage && section === 'suppliers' && filteredSuppliers.length === 0 && <Note tone="info">{suppliers.length ? 'Không tìm thấy nhà cung cấp phù hợp.' : 'Chưa có nhà cung cấp trong danh mục.'}</Note>}
 
@@ -201,6 +199,7 @@ export default function FeedCataloguePage() {
           />
         )}
       </section>
+      </div>
       <Foot>{FOOT}</Foot>
       {supplierDialog && <SupplierFormDialog supplier={supplierDialog.supplier} saving={busy} onClose={() => setSupplierDialog(null)} onSave={(input) => void saveSupplierRow(input)} />}
     </Layout>
@@ -244,7 +243,7 @@ function FeedEditPanel({ item, suggested, stock, saving, onCancel, onSave }: {
   }
 
   return (
-    <Card
+    <Card variant="panel"
       title={item ? `Sửa thức ăn ${item.code}` : 'Thêm thức ăn'}
       sub={item ? `${item.name}${locked ? ' · đang có giao dịch kho' : ''}` : 'Mã mới được gợi ý theo số thứ tự kế tiếp'}
     >
@@ -330,7 +329,7 @@ function SupplierFormDialog({ supplier, saving, onClose, onSave }: {
         <Field label="Khu vực / địa chỉ" id="feed-supplier-area"><input id="feed-supplier-area" maxLength={255} disabled={saving} value={area} onChange={(event) => setArea(event.target.value)} className={inputCls} /></Field>
         <Field label="Ghi chú" id="feed-supplier-note"><Textarea id="feed-supplier-note" maxLength={500} disabled={saving} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
       </div>
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={submit}>{saving ? 'Đang lưu…' : 'Lưu nhà cung cấp'}</ModalButton>
       </ModalFooter>

@@ -1,6 +1,5 @@
-export { AuthProvider, useAuth, type AuthClient } from './AuthContext'
-export { GuestAuthFlow, guestAuthPaths } from './pages/GuestAuthFlow'
-export { LegalPage } from './pages/LegalPage'
+export { AuthProvider, useAuth } from './AuthContext'
+export { useAuthenticationUseCase } from './hooks/useAuthenticationUseCase'
 export { googleAuthorizationUrl } from './googleOAuth'
 export { CONTACT } from './constants/landingContent'
 export { INVITATION_PATH, rememberInvitationLink } from './invitationReturn'

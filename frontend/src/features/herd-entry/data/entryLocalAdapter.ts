@@ -2,7 +2,7 @@
 import type { CattleInput } from '../../cattle'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { EntryBreedOption, EntryListFilters, EntryListView, EntryParentOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
-import { cattle, pens } from '../../../api/herdDomainApi'
+import { cattle, pens } from '../../../demo/api/herdDomainApi'
 import {
   herdEntryApi as localApi,
   saveHerdEntry as saveLocal,
@@ -12,8 +12,26 @@ import { SOURCES, initialCalves } from './entryData'
 import { BREEDS, INITIAL_COWS, OLDER, SOURCE_FILTERS, TODAY as DEMO_TODAY } from './importsData'
 import { PAY_METHODS } from '../constants/entryOptions'
 import { dm } from '../../../shared/lib/format'
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
+import { validateEntryHistory, type EntryHistory } from '../domain/entryHistory'
 
 export { localApi, pens }
+
+/** Explicit demo history edit; it does not simulate backend line IDs, versions or care records. */
+export async function correctHistory(voucherCode: string, cattleCode: string, history: EntryHistory, reason: string): Promise<void> {
+  if (!reason.trim() || reason.trim().length > 500) throw new Error('Vui lòng nhập lý do, tối đa 500 ký tự.')
+  const record = await localApi.get(voucherCode)
+  if (record.status !== 'Đã nhập' || record.entryType === 'FARM_BORN' || record.type === 'Bê sinh tại trại') throw new Error('Chỉ sửa khai báo của phiếu mua đã ghi sổ.')
+  const line = record.detail?.cows?.find(item => item.code === cattleCode)
+  if (!line) throw new Error('Không tìm thấy bò trong phiếu.')
+  const female = line.sexCode === 'FEMALE' || /Cái/.test(line.sex ?? line.breed ?? '')
+  const invalid = validateEntryHistory(history, female, record.date)
+  if (invalid) throw new Error(invalid)
+  await localApi.update(voucherCode, { detail: { ...record.detail,
+    cows: record.detail!.cows!.map(item => item.code === cattleCode ? { ...item, hist: structuredClone(history) } : item),
+    history: [...(record.detail?.history ?? []), `${businessDateTime()} · Sửa khai báo lịch sử ${cattleCode}: ${reason.trim()}`],
+  } })
+}
 
 // Demo calves wait in memory until they are registered or marked dead.
 let localCalves: EntryCalf[] = structuredClone(initialCalves).map((calf, index) => ({ ...calf, calfOutcomeId: index + 1 }))
@@ -23,7 +41,14 @@ const NO_OLDER = { total: 0, done: 0, drafts: 0, cancelled: 0, cows: 0, buyCows:
 export const localView = async (filters: EntryListFilters = {}): Promise<EntryListView> => {
   const all = await localApi.list()
   const kind = filters.type === 'FARM_BORN' ? 'Bê sinh tại trại' : filters.type === 'PURCHASE' ? 'Mua ngoài' : undefined
-  const rows = all.filter((row) => (!kind || row.type === kind) && (!filters.from || (row.date ?? '') >= filters.from) && (!filters.to || (row.date ?? '') <= filters.to))
+  const seller = filters.sellerName?.trim()
+  const rows = all.filter((row) => {
+    const sourceName = row.detail?.sourceName ?? row.source?.split(' · ')[0] ?? ''
+    return (!kind || row.type === kind)
+      && (!filters.from || (row.date ?? '') >= filters.from)
+      && (!filters.to || (row.date ?? '') <= filters.to)
+      && (!seller || sourceName === seller || sourceName.startsWith(`${seller} `))
+  })
   const posted = rows.filter((row) => row.status === 'Đã nhập')
   const purchases = posted.filter((row) => row.type === 'Mua ngoài')
   // Vouchers before the listed ones (OLDER) only count towards the unfiltered totals.
@@ -85,12 +110,6 @@ export function markCalfDied(calfOutcomeId: number): EntryCalf {
   if (!calf) throw new Error('Không tìm thấy bê chờ xác nhận.')
   localCalves = localCalves.filter((row) => row !== calf)
   return structuredClone(calf)
-}
-
-export function assignCalfParentage(calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): EntryCalf {
-  const calf = localCalves.find((row) => row.calfOutcomeId === calfOutcomeId)
-  if (!calf) throw new Error('Không tìm thấy bê chờ xác nhận.')
-  return structuredClone({ ...calf, damId: parentage.damId, sireId: parentage.sireId, sireSource: parentage.sireSource })
 }
 
 export const sellers = () => structuredClone(SOURCES)

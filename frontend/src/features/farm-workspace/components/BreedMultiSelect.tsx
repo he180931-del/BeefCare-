@@ -18,13 +18,13 @@ export function BreedMultiSelect({ id, value, onChange }: { id: string; value: s
   return (
     <div ref={containerRef} className="relative">
       {/* A <button> always matches :read-only, so inputCls would grey it out like a locked field; keep it white as in Figma. */}
-      <button type="button" id={id} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`${inputCls} flex cursor-pointer items-center justify-between gap-2 text-left !bg-white !text-ink`}>
-        <span className="truncate">{label}</span><Icon name="chevron-down" className="shrink-0 text-muted" />
+      <button type="button" id={id} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`${inputCls} flex min-h-11 cursor-pointer items-center justify-between gap-2 text-left !bg-white !text-ink`}>
+        <span className="min-w-0 wrap-anywhere">{label}</span><Icon name="chevron-down" className="shrink-0 text-muted" />
       </button>
       {open && (
         <div role="group" aria-label="Giống chủ lực" className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-field bg-white p-2 shadow-lg">
           {STARTER_BREEDS.map((breed) => (
-            <label key={breed.code} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-page">
+            <label key={breed.code} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-page">
               <input type="checkbox" className="accent-brand" checked={value.includes(breed.code)} onChange={(event) => onChange(event.target.checked ? [...value, breed.code] : value.filter((code) => code !== breed.code))} />{breed.name}
             </label>
           ))}

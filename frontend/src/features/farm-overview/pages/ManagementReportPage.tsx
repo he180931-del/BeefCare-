@@ -4,9 +4,8 @@ import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useManagementReportUseCases } from '../hooks/useFarmOverviewUseCases'
 import ReportResult from '../components/ReportResult'
 import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGES, LIFE_STAGE_LABEL } from '../domain/dashboardRules'
 import { REPORT_CATALOGUE } from '../domain/reportRules'
@@ -28,9 +27,7 @@ export default function ManagementReportPage() {
   const [draft, setDraft] = useState<ReportRequest>(() => ({ reportType: first, ...recentReportPeriod(), pen: '', breed: '', herdGroup: '', lifeStage: '' }))
   const [applied, setApplied] = useState<ReportRequest>(draft)
   const [periodError, setPeriodError] = useState('')
-  const pens = useQuery(() => farmOverviewApi.listPenOptions(), [])
-  const breeds = useQuery(() => farmOverviewApi.listBreedOptions(), [])
-  const report = useQuery(() => farmOverviewApi.runReport(applied, role), [applied, role])
+  const { pens, breeds, report } = useManagementReportUseCases(applied, role)
 
   const entry = REPORT_CATALOGUE.find((c) => c.code === draft.reportType)!
   const shows = (key: ReportFilterKey) => entry.filters.includes(key)

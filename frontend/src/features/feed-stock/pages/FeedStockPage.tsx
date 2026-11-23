@@ -1,22 +1,16 @@
-import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { getFeedStockUpdatedAt } from '../api/feedMovementApi'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
-import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { listFeedStock } from '../api/feedStockApi'
 import { filterFeedStock } from '../domain/feedStockList'
-import { summarizeTodaySessions } from '../domain/feedTodayRations'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow, FeedStockStatus } from '../types'
 import { FeedStockSummary } from '../components/FeedStockSummary'
 import FeedStockTable from '../components/FeedStockTable'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import FeedMovementsDialog from '../components/FeedMovementsDialog'
+import { useFeedStockOverview } from '../hooks/useFeedStockQueries'
 
 const STATUS_LABELS: Record<FeedStockStatus, string> = {
   SUFFICIENT: 'Đủ dùng',
@@ -49,14 +43,10 @@ export default function FeedStockPage() {
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedStockMessage' in location.state
     ? String((location.state as { feedStockMessage?: unknown }).feedStockMessage ?? '')
     : ''
-  const stockQuery = useQuery(() => listFeedStock(), [])
-  const updatedQuery = useQuery(() => getFeedStockUpdatedAt().catch(() => null), [])
-  // Side data for the quick-action hint and the per-head tile; the page works without it.
-  const sideQuery = useQuery(async () => {
-    const date = businessDate()
-    const [pens, rations, records] = await Promise.all([listFeedRationPens(), listFeedRations(), listFeedFeedingRecords({ from: date, to: date })])
-    return { pens, headCount: pens.filter((pen) => pen.status === 'ACTIVE').reduce((sum, pen) => sum + pen.headcount, 0), sessions: summarizeTodaySessions({ pens, rations, records, stock: [], date }) }
-  }, []).data
+  const overview = useFeedStockOverview()
+  const stockQuery = overview.stock
+  const updatedQuery = overview.updated
+  const sideQuery = overview.side.data
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<FeedGroup | 'ALL'>('ALL')
   const [status, setStatus] = useState<FeedStockStatus | 'ALL'>('ALL')
@@ -158,13 +148,13 @@ export default function FeedStockPage() {
           </div>
 
           {stockQuery.loading && !stockQuery.data && (
-            <div role="status" aria-live="polite" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">
+            <div role="status" aria-live="polite" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">
               Đang tải tồn kho…
             </div>
           )}
 
           {errorMessage && (
-            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
               <span>{errorMessage}</span>
               <Button size="sm" disabled={stockQuery.loading} onClick={() => stockQuery.refetch()}>
                 {stockQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}

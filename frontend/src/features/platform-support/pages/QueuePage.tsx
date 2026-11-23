@@ -4,12 +4,11 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { supportApi } from '../api/supportApi'
 import { Avatar, PriorityBadge, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
 import { CATEGORY_LABEL, PRIORITY_LABEL, STATUS_LABEL, SupportError } from '../domain/supportRules'
 import type { QueueFilters, QueueTab, TicketCategory, TicketPriority } from '../types'
+import { useSupportCommands, useSupportQueue, useSupportQueueTarget } from '../hooks/usePlatformSupportUseCase'
 
 const TITLE = 'Hàng đợi hỗ trợ'
 const PAGE_SIZE = 50
@@ -23,9 +22,11 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
   const [params] = useSearchParams()
   const claimCode = params.get('t')
   const [flash, showFlash] = useFlash()
-  const { data, loading, error, refetch } = useQuery(() => supportApi.listQueue(me, filters), [filters, me])
-  const { data: farms } = useQuery(() => supportApi.listFarms(), [])
-  const { data: target } = useQuery(() => (m === 'nhan-lai' && claimCode ? supportApi.getTicket(me, claimCode) : Promise.resolve(null)), [m, claimCode, me])
+  const { queue, farms: farmsQuery } = useSupportQueue(me, filters, demo)
+  const { data, loading, error, refetch } = queue
+  const { data: farms } = farmsQuery
+  const { data: target } = useSupportQueueTarget(me, m, claimCode)
+  const { claim: claimCommand } = useSupportCommands()
   const patch = (next: Partial<QueueFilters>) => setFilters((f) => ({ ...f, page: 1, ...next }))
 
   if (demo === 'load-error') return <Layout title={TITLE}><ErrorBlock message="Không tải được hàng đợi hỗ trợ." onRetry={refetch} /></Layout>
@@ -34,7 +35,7 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
 
   const claim = async (code: string, expectedVersion: number, reason?: string) => {
     try {
-      await supportApi.claim(me, code, { reason, expectedVersion })
+      await claimCommand(me, code, { reason, expectedVersion })
       navigate(`/nen-tang/ho-tro/${code}`, { state: { flash: `Bạn đang phụ trách ${code}.` } })
     } catch (e) {
       showFlash(errText(e), 'err')
@@ -133,7 +134,7 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
           note="Nhận chỉ thay người phụ trách, giữ nguyên trạng thái hiện tại. Không ghi đè một nhân viên hỗ trợ vẫn đang phụ trách hợp lệ."
           onSubmit={async (reason) => {
             if (!target) throw new SupportError('NOT_FOUND', 'Không tìm thấy yêu cầu cần nhận lại.')
-            await supportApi.claim(me, target.code, { reason, expectedVersion: target.version })
+            await claimCommand(me, target.code, { reason, expectedVersion: target.version })
             navigate(`/nen-tang/ho-tro/${target.code}`, { state: { flash: `Bạn đang phụ trách ${target.code}.` } })
           }}
           onClose={closeModal}

@@ -1,23 +1,34 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
-import type { Payment } from '../../../types'
+import type { ExitPayment } from '../types'
+import type { Pen } from '../../pen-management'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
-import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, lossKind, mapChecks, mapDocument, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
+import { voidVoucherPayment } from '../../../shared/api/voucherPayments'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
+import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
+import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapVoidCheck, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
-type SaveInput = { id?: string; record: Partial<HerdExit>; cattleRows?: CattleInput[]; documents?: File[] }
-type PaymentInput = Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
+type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdExit>; cattleRows?: CattleInput[]; documents?: File[] }
+type PaymentInput = Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 export type ExitCheckMessage = { code?: string; text?: string; params?: Record<string, unknown> }
 export type ExitCattleCheck = {
   cattleId: number; cattleCode: string; penId: number; penCode: string; hasWarnings: boolean; messages: ExitCheckMessage[]
 }
 export type ExitCheckOccupancy = { penId: number; penCode: string; capacity: number; before: number; after: number }
 export type ExitChecks = {
-  voucherId: number; code: string; version: number; exitDate: string; cattle: ExitCattleCheck[]; occupancy: ExitCheckOccupancy[]
+  voucherId: number; code: string; version?: number; exitDate: string; cattle: ExitCattleCheck[]; occupancy: ExitCheckOccupancy[]
 }
+export type ExitVoidCheck = {
+  voucherId: number; code: string; version?: number; voidable: boolean
+  cattle: Array<{ cattleId: number; cattleCode: string; needsPenOverride: boolean; lastPen: { penId: number; penCode: string; active: boolean; freePlaces: number } | null }>
+  occupancyAfter: ExitCheckOccupancy[]
+  message?: ExitCheckMessage
+}
+export type ExitVoidSelections = { penOverrides?: Record<string, number>; warningReasons?: Record<string, string> }
 export type ExitCandidate = {
   code: string; backendId?: number; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string
   weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number
@@ -75,13 +86,14 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const body = asRecord(await transport.get(root))
     return asRows(body.vouchers).map((row) => mapVoucher(row))
   }
-  const resolve = async (code: string): Promise<{ backendId: number; version: number }> => {
+  const resolve = async (code: string, backendId?: number): Promise<{ backendId: number }> => {
+    if (backendId != null) return { backendId }
     const row = (await list()).find((item) => item.id === code)
     if (!row) throw new Error(`Không tìm thấy phiếu xuất ${code}`)
-    return { backendId: numberValue(row.backendId), version: numberValue(row.version) }
+    return { backendId: numberValue(row.backendId) }
   }
-  const get = async (code: string): Promise<HerdExit> => {
-    const { backendId } = await resolve(code)
+  const get = async (code: string, knownBackendId?: number): Promise<HerdExit> => {
+    const { backendId } = await resolve(code, knownBackendId)
     const [voucherBody, documents] = await Promise.all([
       transport.get(`${root}/${backendId}`),
       transport.get(`${root}/${backendId}/attachments`),
@@ -92,37 +104,36 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const { backendId } = await resolve(code)
     return mapChecks(await transport.get(`${root}/${backendId}/checks`))
   }
-  const save = async ({ id, record, cattleRows = [], documents = [] }: SaveInput): Promise<HerdExit> => {
-    const current = id
-      ? await resolve(id).then(() => get(id)).catch((error: unknown) => {
-        if (error instanceof Error && error.message === `Không tìm thấy phiếu xuất ${id}`) return null
-        throw error
-      })
-      : null
-    if (current?.status === 'Đã xuất' && record.status === 'Đã xuất') return current
-    if (current) {
-      record = {
-        ...current,
-        ...record,
-        // Backend exit type is immutable after the first draft save.
-        type: current.type,
-        detail: { ...current.detail, ...record.detail },
-        draft: record.draft ?? current.draft,
-      }
-    }
+  const voidCheck = async (code: string, backendId?: number): Promise<ExitVoidCheck> => {
+    const current = await resolve(code, backendId)
+    return mapVoidCheck(await transport.get(`${root}/${current.backendId}/void-check`))
+  }
+  const listPens = async (): Promise<Pen[]> => {
+    const response = await transport.get(transport.farmPath(farmId, '/pens'))
+    const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).pens)
+    return rows.map((pen) => ({
+      id: numberValue(pen.id), code: textValue(pen.code), name: textValue(pen.name, textValue(pen.code)),
+      count: numberValue(pen.headcount), capacity: numberValue(pen.capacity), status: pen.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE', cows: [],
+    }))
+  }
+  const save = async ({ id, expectedVersion, record, cattleRows = [], documents = [] }: SaveInput): Promise<HerdExit> => {
+    const version = id ? requireVersion(expectedVersion) : null
+    const existing = id ? await resolve(id, record.backendId) : null
     const draft = record.draft ?? {}
     const detail = record.detail ?? {}
-    const existing = current ? { backendId: numberValue(current.backendId), version: numberValue(current.version) } : null
     const [partners, selectable] = await Promise.all([
       transport.get(transport.farmPath(farmId, '/trading-partners?role=BUYER')),
       transport.get(`${root}/selectable-cattle`),
     ])
     const buyerName = textValue(detail.buyer ?? record.who)
-    const persistedType = current?.type ?? record.type
-    const backendExitType = exitType(persistedType)
-    const backendLossKind = backendExitType === 'DEATH'
-      ? lossKind(detail.lossType)
-      : isMissingLoss(detail.lossType) ? 'MISSING' : null
+    const persistedType = record.type
+    // A pending voucher created by a health case owns its loss kind. Ignore any stale or tampered
+    // screen value and let the backend's completion workflow keep the source case result authoritative.
+    const sourceLossKind = detail.sourceHealthCaseId != null ? detail.lossKind : undefined
+    const explicitLossKind = sourceLossKind ?? draft.lossKind ?? detail.lossKind ?? detail.lossType
+    const isLoss = persistedType === 'Chết / mất' || isMissingLoss(explicitLossKind)
+    const backendLossKind = isLoss ? (isMissingLoss(explicitLossKind) ? 'MISSING' : 'DIED') : null
+    const backendExitType = backendLossKind === 'MISSING' ? 'OTHER' : backendLossKind === 'DIED' ? 'DEATH' : exitType(persistedType)
     const needsBuyer = backendExitType === 'SALE' || backendExitType === 'CULL'
     const selectedBuyerId = Number(draft.buyerId)
     const buyerId = needsBuyer
@@ -135,8 +146,8 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       transportCertNo: textValue(draft.quarantine ?? detail.quarantine) || null, vehiclePlate: textValue(draft.plate ?? detail.plate) || null,
       note: textValue(draft.note ?? detail.note ?? record.note) || null,
       lossKind: backendLossKind,
-      deathCause: backendLossKind ? textValue(detail.reason ?? record.reason ?? record.note) || null : null,
-      carcassDisposal: backendLossKind === 'DIED' ? textValue(detail.disposal) || null : null,
+      deathCause: backendLossKind ? textValue(draft.deathCause ?? detail.reason ?? record.reason ?? record.note) || null : null,
+      carcassDisposal: backendLossKind === 'DIED' ? textValue(draft.carcassDisposal ?? detail.disposal) || null : null,
       pricingBasis: pricingBasis(draft.pricing), deductions: numberValue(draft.deduction ?? detail.deduction),
       depositCollected: numberValue(draft.collected), paymentMethod: enumPaymentMethod(draft.method), collectionDueDate: textValue(draft.dueDate) || null,
       lines: cattleRows.map((cow) => {
@@ -147,13 +158,16 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
         const weightBasis = exitWeightKg == null ? null : cow.estimated ? 'ESTIMATED' : 'MEASURED'
         return { cattleId, exitWeightKg, weightBasis, unitPrice: numberValue(cow.unitPrice) }
       }),
-      expectedVersion: existing?.version ?? null,
+      expectedVersion: version,
     }
     const saveKey = `beefcare-exit-save-${await digest(canonicalize(body))}`
     const saved = unwrapVoucher(await transport.command(existing ? `${root}/${existing.backendId}` : root, body, { ...(existing ? { method: 'PUT' } : {}), key: saveKey }))
     const voucherId = numberValue(saved.id)
     const uploaded = []
-    const existingDocuments = current?.detail?.docs ?? []
+    // Attachment readback preserves partial-upload retries; it supplies no command version.
+    const existingDocuments = existing
+      ? mapDocuments(await transport.get(`${root}/${voucherId}/attachments`), root, voucherId)
+      : detail.docs ?? draft.docs ?? []
     const pendingDocuments = documents.filter((document) => !existingDocuments.some((savedDocument) => savedDocument.name === document.name && savedDocument.size === document.size))
     for (const document of pendingDocuments) {
       const form = new FormData()
@@ -162,18 +176,19 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       uploaded.push(await transport.command(`${root}/${voucherId}/attachments`, form, { key: documentKey }))
     }
     const savedDocuments = [
-      ...(current?.detail?.docs ?? []),
+      ...existingDocuments,
       ...uploaded.map((document) => mapDocument(document, root, voucherId)),
     ]
     if (record.status !== 'Đã xuất') return mapVoucher(saved, savedDocuments, root, voucherId)
-    const confirmBody = { acknowledged: true, expectedVersion: numberValue(saved.version) }
+    const confirmBody = { acknowledged: true, expectedVersion: requireVersion(saved.version) }
     const confirmKey = `beefcare-exit-confirm-${await digest(canonicalize({ voucherId, ...confirmBody }))}`
     const confirmed = await transport.command(`${root}/${voucherId}/confirm`, confirmBody, { key: confirmKey })
     return mapVoucher(unwrapVoucher(confirmed), savedDocuments, root, voucherId)
   }
-  const confirm = async (code: string, expectedVersion: number): Promise<HerdExit> => {
+  const confirm = async (code: string, expectedVersion: number | undefined): Promise<HerdExit> => {
+    const version = requireVersion(expectedVersion)
     const { backendId } = await resolve(code)
-    const body = { acknowledged: true, expectedVersion }
+    const body = { acknowledged: true, expectedVersion: version }
     const key = `beefcare-exit-confirm-${await digest(canonicalize({ voucherId: backendId, ...body }))}`
     const confirmed = await transport.command(`${root}/${backendId}/confirm`, body, { key })
     return mapVoucher(unwrapVoucher(confirmed), [], root, backendId)
@@ -184,24 +199,38 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
   }
   const removeAttachment = async (code: string, attachmentId: number): Promise<void> => {
     const current = await resolve(code)
-    await transport.command(`${root}/${current.backendId}/attachments/${attachmentId}`, undefined, { method: 'DELETE' })
+    const key = `beefcare-exit-attachment-remove-${await digest(canonicalize({ voucherId: current.backendId, attachmentId }))}`
+    await transport.command(`${root}/${current.backendId}/attachments/${attachmentId}`, undefined, { method: 'DELETE', key })
   }
-  const voidVoucher = async (code: string, reason: string): Promise<HerdExit> => {
-    const current = await resolve(code)
-    const result = await transport.command(`${root}/${current.backendId}/void`, { reason, penOverrides: {}, warningReasons: {}, expectedVersion: current.version })
+  const voidVoucher = async (code: string, { reason, expectedVersion, backendId, penOverrides = {}, warningReasons = {} }: VoucherSnapshot & ExitVoidSelections & { reason: string }): Promise<HerdExit> => {
+    const version = requireVersion(expectedVersion)
+    const current = await resolve(code, backendId)
+    const body = {
+      reason: reason.trim(), expectedVersion: version,
+      penOverrides: Object.fromEntries(Object.entries(penOverrides).filter(([id, pen]) => /^[1-9]\d*$/.test(id) && Number.isSafeInteger(pen) && pen > 0)),
+      warningReasons: Object.fromEntries(Object.entries(warningReasons).filter(([id, text]) => /^[1-9]\d*$/.test(id) && text.trim()).map(([id, text]) => [id, text.trim()])),
+    }
+    const key = `beefcare-exit-void-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    const result = await transport.command(`${root}/${current.backendId}/void`, body, { key })
     return mapVoucher(unwrapVoucher(result))
   }
-  const recordPayment = async (code: string, payment: PaymentInput): Promise<HerdExit> => {
-    const current = await resolve(code)
-    await transport.command(transport.farmPath(farmId, `/vouchers/exit/${current.backendId}/payments`), {
+  const recordPayment = async (code: string, payment: PaymentInput, snapshot: VoucherPaymentSnapshot): Promise<HerdExit> => {
+    const version = requireVersion(snapshot?.voucherVersion)
+    const current = await resolve(code, snapshot?.backendId)
+    const body = {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
-      note: payment.note || null, voucherVersion: current.version,
-    })
-    return get(code)
+      note: payment.note || null, voucherVersion: version,
+    }
+    const key = `beefcare-exit-collection-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    await transport.command(transport.farmPath(farmId, `/vouchers/exit/${current.backendId}/payments`), body, { key })
+    return get(code, current.backendId)
   }
-  const dismissVoucher = async (code: string, reason: string, expectedVersion?: number): Promise<HerdExit> => {
-    const current = await resolve(code)
-    const result = await transport.command(`${root}/${current.backendId}/dismiss`, { reason, expectedVersion: expectedVersion ?? current.version })
+  const dismissVoucher = async (code: string, reason: string, expectedVersion: number | undefined, backendId?: number): Promise<HerdExit> => {
+    const version = requireVersion(expectedVersion)
+    const current = await resolve(code, backendId)
+    const body = { reason, expectedVersion: version }
+    const key = `beefcare-exit-dismiss-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    const result = await transport.command(`${root}/${current.backendId}/dismiss`, body, { key })
     return mapVoucher(unwrapVoucher(result))
   }
   const selectableCattle = async (): Promise<ExitCandidate[]> => asRows(await transport.get(`${root}/selectable-cattle`)).map((row) => {
@@ -230,5 +259,6 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
   const buyers = async () => asRows(await transport.get(transport.farmPath(farmId, '/trading-partners?role=BUYER'))).map((row) => ({
     id: String(numberValue(row.id)), name: textValue(row.name), phone: textValue(row.phone),
   }))
-  return { list, get, checks, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, selectableCattle, buyers }
+  const voidPayment = (paymentId: number, input: VoidVoucherPaymentInput) => voidVoucherPayment(transport, farmId, paymentId, input)
+  return { list, get, checks, voidCheck, listPens, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, voidPayment, selectableCattle, buyers }
 }

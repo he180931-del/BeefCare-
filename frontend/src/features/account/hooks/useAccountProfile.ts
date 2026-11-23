@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { accountApi } from '../api/accountApi'
+import { useAccountUseCase } from './useAccountUseCase'
 import { validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, ProfileErrors } from '../types'
 
@@ -24,18 +24,20 @@ export function useAccountIdentity(): AccountIdentity {
 
 export function useAccountProfile() {
   const identity = useAccountIdentity()
-  const query = useQuery(() => accountApi.getProfile(identity), [identity.email])
+  const account = useAccountUseCase()
+  const query = useQuery(() => account.getProfile(identity), [account, identity.email])
   const permissions = useQuery(
     () => identity.farmId != null && ['OWNER', 'MANAGER', 'TECHNICIAN'].includes(identity.role)
-      ? accountApi.getFarmPermissions(identity, identity.farmId)
+      ? account.getFarmPermissions(identity, identity.farmId)
       : Promise.resolve(null),
-    [identity.email, identity.farmId, identity.role],
+    [account, identity.email, identity.farmId, identity.role],
   )
   return { identity, permissions, ...query }
 }
 
 /** Biểu mẫu hồ sơ cá nhân (họ tên, điện thoại); nút "Lưu hồ sơ" ở đầu trang gửi biểu mẫu qua thuộc tính `form`. */
 export function useProfileForm(profile: AccountProfile | null, identity: AccountIdentity, onSaved: (profile: AccountProfile, message: string) => void) {
+  const account = useAccountUseCase()
   const [values, setValues] = useState({ fullName: '', phone: '' })
   const [errors, setErrors] = useState<ProfileErrors>({})
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export function useProfileForm(profile: AccountProfile | null, identity: Account
     setErrors(next); setError(null)
     if (Object.keys(next).length) return
     setSaving(true)
-    try { onSaved(await accountApi.updateProfile(identity, values), 'Hồ sơ của bạn đã được cập nhật.') }
+    try { onSaved(await account.updateProfile(identity, values), 'Hồ sơ của bạn đã được cập nhật.') }
     catch (reason) { setError(userFacingError(reason, 'Không lưu được hồ sơ. Vui lòng thử lại.')) }
     finally { setSaving(false) }
   }

@@ -1,30 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { BackendError } from '../../../shared/api/backendClient'
-import { pageLoader, safeReturnTo, writeCurrentFarmId, type SelectFarmState } from '../../../app/session/currentFarm'
-import { STORAGE_BLOCKED } from '../components/enterFarm'
+import { useFarmSelect } from '../hooks/useFarmSelect'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
-import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { FarmCard, farmAction, unavailableFarmMessage } from '../components/FarmCard'
+import { FarmCard } from '../components/FarmCard'
 import SetupLayout from '../components/SetupLayout'
-import { farmWorkspaceError } from '../components/WorkspaceUi'
-import type { FarmSummary } from '../types'
-
-const NOT_ALLOWED = 'Bạn không có quyền thực hiện thao tác này.' // MSG-COM-01
-
-/** Step 4 refused: E1 (membership or role changed, MSG-COM-01) or AF3 (service stopped, MSG-FE02-04) reload the list. */
-function enterFailure(error: unknown): { message: string; reloadList: boolean } {
-  if (error instanceof BackendError && error.status === 403) {
-    if (error.code === 'MSG-FE02-04') {
-      return { message: unavailableFarmMessage(String(error.params.farm ?? 'Trang trại'), String(error.params.status ?? '')), reloadList: true }
-    }
-    return { message: `${NOT_ALLOWED} Danh sách trang trại đã được tải lại.`, reloadList: true }
-  }
-  return { message: farmWorkspaceError(error, 'Chưa vào được trang trại. Vui lòng thử lại.'), reloadList: false }
-}
 
 /**
  * SCR-09 (UC-FE02-02). Entering a farm rechecks access, keeps the farm for this tab and reloads the page into it, so no
@@ -33,67 +11,7 @@ function enterFailure(error: unknown): { message: string; reloadList: boolean } 
  * `?demo=empty` và `?demo=load-error` hiện hai trạng thái không có dữ liệu (mô phỏng).
  */
 export default function FarmSelectPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const demo = useDemoState()
-  const query = useQuery(async () => {
-    if (demo === 'load-error') throw new Error('Không tải được danh sách trang trại.')
-    return demo === 'empty' ? [] : farmWorkspaceApi.listFarms()
-  }, [demo])
-  const farms = query.data ?? []
-  const [entering, setEntering] = useState<number | null>(null)
-  const [enterMessage, setEnterMessage] = useState('')
-  const selectState = location.state as SelectFarmState | null
-  const fromSignIn = selectState?.fromSignIn === true
-  const returnTo = safeReturnTo(selectState?.returnTo)
-  const autoOpened = useRef(false)
-
-  async function open(farm: FarmSummary, automatic = false) {
-    setEnterMessage('')
-    setEntering(farm.id)
-    try {
-      const current = await farmWorkspaceApi.selectFarm(farm.id)
-      const target = farmAction(current).to
-      if (!target) {
-        setEnterMessage(unavailableFarmMessage(current.name, current.serviceStatus))
-        query.refetch()
-        return
-      }
-      // Payment, renewal or support of a farm that is not ACTIVE: its page names the farm, and this tab keeps its own farm.
-      if (current.serviceStatus !== 'ACTIVE') {
-        navigate(target)
-        return
-      }
-      if (!writeCurrentFarmId(current.id)) {
-        setEnterMessage(STORAGE_BLOCKED)
-        return
-      }
-      const destination = returnTo ?? target
-      if (automatic) pageLoader.replace(destination)
-      else pageLoader.load(destination)
-    } catch (error) {
-      const failure = enterFailure(error)
-      setEnterMessage(failure.message)
-      if (failure.reloadList) query.refetch()
-    } finally {
-      setEntering(null)
-    }
-  }
-
-  useEffect(() => {
-    if (!fromSignIn || autoOpened.current || !query.data) return
-    autoOpened.current = true
-    const [only, ...others] = query.data
-    // AF4 "only one available farm": one farm in the list and it can be entered; otherwise the user chooses on SCR-09.
-    if (only && others.length === 0 && only.serviceStatus === 'ACTIVE') void open(only, true)
-    // `open` is left out on purpose: the ref limits this to one attempt when the list first arrives.
-  }, [fromSignIn, query.data])
-
-  // SCR-09 "Register new farm": SCR-07 first when the Owner profile is not complete; SCR-10 also checks it (UC-FE02-01 E1).
-  async function registerFarm() {
-    const profile = await farmWorkspaceApi.getProfile().catch(() => null)
-    navigate(profile && !profile.ownerRegistrationCompleted ? '/owner-registration' : '/dang-ky-trai')
-  }
+  const { query, farms, entering, enterMessage, open, registerFarm } = useFarmSelect()
 
   return (
     <SetupLayout
@@ -102,15 +20,15 @@ export default function FarmSelectPage() {
       badge={farms.length ? `${farms.length} trang trại bạn có quyền truy cập` : undefined}
     >
       <PageHeader title="Chọn trang trại">
-        <Button onClick={() => void registerFarm()}>Đăng ký trại mới</Button>
+        <Button size="lg" onClick={() => void registerFarm()}>Đăng ký trại mới</Button>
       </PageHeader>
       {enterMessage && <Note tone="err">{enterMessage}</Note>}
-      {query.loading && !query.data && <LoadingBlock />}
-      {Boolean(query.error) && <ErrorBlock message={userFacingError(query.error, 'Không tải được danh sách trang trại. Kiểm tra kết nối rồi thử lại.')} onRetry={query.refetch} />}
+      {query.loading && !query.data && <LoadingBlock variant="panel" />}
+      {Boolean(query.error) && <ErrorBlock variant="panel" message={userFacingError(query.error, 'Không tải được danh sách trang trại. Kiểm tra kết nối rồi thử lại.')} onRetry={query.refetch} />}
       {!query.loading && !query.error && farms.length === 0 && (
-        <EmptyBlock title="Tài khoản chưa liên kết với trang trại nào" sub="Đăng ký trang trại của bạn, hoặc mở lời mời đã gửi tới email." action={<Button variant="primary" onClick={() => void registerFarm()}>Đăng ký trang trại</Button>} />
+        <EmptyBlock variant="panel" title="Tài khoản chưa liên kết với trang trại nào" sub="Đăng ký trang trại của bạn, hoặc mở lời mời đã gửi tới email." action={<Button variant="primary" onClick={() => void registerFarm()}>Đăng ký trang trại</Button>} />
       )}
-      <div className="grid gap-4 xl:grid-cols-2">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} busy={entering !== null} onOpen={(item) => void open(item)} />)}</div>
+      <div className="grid grid-cols-4 gap-4 [&>*]:col-span-full @min-[640px]:grid-cols-8 @min-[640px]:[&>*]:col-span-4 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 @min-[1024px]:[&>*]:col-span-6">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} busy={entering !== null} onOpen={(item) => void open(item)} />)}</div>
       <Foot>Chọn trại theo vai trò và trạng thái dịch vụ; dữ liệu giữa các trại được tách riêng.</Foot>
     </SetupLayout>
   )

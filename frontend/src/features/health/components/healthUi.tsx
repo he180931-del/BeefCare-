@@ -45,7 +45,10 @@ export function useToast() {
   return [node, show] as const
 }
 
-/** Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô, lỗi khác hiện một dòng trên chân hộp thoại. */
+/**
+ * Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô; lỗi điều kiện nghiệp vụ (formError) hiện popup NoticeDialog
+ * và đóng bằng {@code clearFormError} (D51).
+ */
 export function useDialogSave() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState('')
@@ -57,7 +60,7 @@ export function useDialogSave() {
       else setFormError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.'))
     } finally { setSaving(false) }
   }
-  return { errors, setErrors, formError, saving, run }
+  return { errors, setErrors, formError, clearFormError: () => setFormError(''), saving, run }
 }
 
 export const hint = (error?: string, text?: ReactNode) => (error ? <span role="alert" className="text-err-fg">{error}</span> : text)
@@ -91,7 +94,8 @@ export function RadioGroup<T extends string>({ name, value, options, onChange, a
 
 export const Meta = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex min-w-0 flex-col gap-0.5">
-    <span className="text-[11px] text-faint">{label}</span>
+    {/* #5b6a60: ≥ 4,9:1 trên nền trắng và các nền nhạt của khối Bento (#8f8f8f cũ chỉ 3,2:1). */}
+    <span className="text-[11px] text-label">{label}</span>
     <span className="text-[13px] font-medium text-ink">{children}</span>
   </div>
 )

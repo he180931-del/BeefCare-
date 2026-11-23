@@ -23,7 +23,7 @@ import { loadCashReportRoutes, loadManualFinanceRoutes, loadPmSupportNoticePage,
 import { loadAdminNoticePage, loadAuditRoutes, loadStaffAccessRoutes, loadUserAccountRoutes } from '../../features/platform-admin/routes'
 import { HomeRedirect, RoleGate, type AppRole } from '../../features/authorization'
 import { RequireFarm } from './RequireFarm'
-import { LegalPage } from '../../features/authentication'
+import { loadLegalPage } from '../../features/authentication/routes'
 
 // Mỗi trang tải lazy: lỗi ở một trang không làm hỏng các trang khác.
 const ImportList = lazy(loadImportListPage)
@@ -91,6 +91,7 @@ const UserAccounts = lazy(loadUserAccountRoutes)
 const StaffAccess = lazy(loadStaffAccessRoutes)
 const Audit = lazy(loadAuditRoutes)
 const AdminNotices = lazy(loadAdminNoticePage)
+const Legal = lazy(loadLegalPage)
 const Placeholder = lazy(() => import('./PlaceholderPage'))
 
 const only = (allow: readonly AppRole[], element: ReactElement, farmParam?: 'farm' | 'farmId') => <RoleGate allow={allow} farmParam={farmParam}>{element}</RoleGate>
@@ -110,8 +111,8 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={null}>
       <Routes>
-        <Route path="/terms" element={<LegalPage kind="terms" />} />
-        <Route path="/data-policy" element={<LegalPage kind="data" />} />
+        <Route path="/terms" element={<Legal kind="terms" />} />
+        <Route path="/data-policy" element={<Legal kind="data" />} />
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/tong-quan" element={desk(<FarmDashboard />)} />
         <Route path="/nhac-viec" element={desk(<Reminders />)} />

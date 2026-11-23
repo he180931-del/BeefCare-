@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Field, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
-import { platformAdminApi } from '../api/platformAdminApi'
-import { REASON_MAX, accountStatusDone, validateReason } from '../domain/platformRules'
-import { useCommandKey } from '../hooks/useCommandKey'
+import { REASON_MAX, accountStatusDone } from '../domain/platformRules'
+import { useStaffAccess } from '../hooks/useStaffAccess'
+import { validateReason } from '../validation/accountStatusValidation'
 import type { AccountDetail } from '../types'
 import { commandOutcome } from './commandOutcome'
 
@@ -23,7 +23,7 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const requestKey = useCommandKey()
+  const { suspendAccount, restoreAccount, clearRequestKey } = useStaffAccess(account)
 
   const submit = async () => {
     if (busy) return
@@ -33,17 +33,16 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
     setBusy(true)
     setError(null)
     const command = { reason: reason.trim(), expectedVersion: account.version }
-    const key = requestKey.keyFor([account.id, suspending ? 'suspend' : 'restore', command.reason, command.expectedVersion])
     try {
       const next = suspending
-        ? await platformAdminApi.suspendAccount(account.id, command, key)
-        : await platformAdminApi.restoreAccount(account.id, command, key)
-      requestKey.clear()
+        ? await suspendAccount(command)
+        : await restoreAccount(command)
+      clearRequestKey()
       onDone(accountStatusDone(next.email, next.accountStatus))
     } catch (failure) {
       const outcome = commandOutcome(failure, account.email)
-      if (outcome.kind === 'refused') { requestKey.clear(); onRefused(outcome.message); return }
-      if (outcome.kind === 'field') { requestKey.clear(); setFieldError(outcome.message); return }
+      if (outcome.kind === 'refused') { clearRequestKey(); onRefused(outcome.message); return }
+      if (outcome.kind === 'field') { clearRequestKey(); setFieldError(outcome.message); return }
       setError(outcome.message) // lỗi lưu / mạng: giữ hộp thoại và khóa để thử lại (GBR-88)
     } finally {
       setBusy(false)
@@ -64,7 +63,7 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
       </Field>
       {fieldError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{fieldError}</p>}
       {error != null && <Note tone="err"><span role="alert">{error}</span></Note>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Quay lại</ModalButton>
         <ModalButton variant={suspending ? 'danger' : 'primary'} onClick={submit} disabled={busy}>
           {suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}

@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Modal, Note } from '../../../shared/ui'
-import { listCattleTimeline } from '../api/cattleApi'
-import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { cattleError } from '../api/cattleError'
+import { useCattleTimelineQuery } from '../hooks/useCattleQueries'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import { TIMELINE_FILTERS } from '../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
 import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { CattleEvent } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
@@ -51,11 +50,8 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const [denied, setDenied] = useState('')
   const [selected, setSelected] = useState<CattleEvent | null>(null)
   const [editing, setEditing] = useState<CattleEvent | null>(null)
-  const cattleId = cow.backendId
-  const query = useQuery(async () => cattleId != null
-    ? { showCorrections, events: await listCattleTimeline(cattleId, showCorrections) }
-    : { showCorrections, events: cow.events }, [cattleId, showCorrections])
-  const events = cattleId != null && query.data?.showCorrections === showCorrections ? query.data.events : cow.events
+  const query = useCattleTimelineQuery(cow, showCorrections)
+  const { cattleId, events } = query
   const groups = timelineGroups(events, cat, showCorrections)
   const code = encodeURIComponent(cow.code)
   // R-16-07, D41: Chủ trại và Quản lý sửa / hủy từ dòng thời gian.
@@ -93,7 +89,7 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
         </Checkbox>
       </div>
       {denied && <Note tone="warn">{denied}</Note>}
-      {cattleId != null && query.error ? <ErrorBlock message={userFacingError(query.error, 'Không tải được dòng thời gian.')} onRetry={query.refetch} /> :
+      {cattleId != null && query.error ? <ErrorBlock message={cattleError(query.error, 'Không tải được dòng thời gian.')} onRetry={query.refetch} /> :
       <Panel gap="gap-2.5" pad="p-4">
         {cattleId != null && query.loading && <LoadingBlock />}
         {groups.length === 0 && (cattleId == null || !query.loading) && <p className="m-0 text-xs text-muted">Chưa có sự kiện</p>}

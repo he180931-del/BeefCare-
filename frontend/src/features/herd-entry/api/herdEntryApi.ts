@@ -1,6 +1,6 @@
 import type { CattleInput } from '../../cattle'
-import type { EntryCalf, HerdEntry } from '../types'
-import type { Payment } from '../../../types'
+import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineVoidCheck, EntryLineVoidInput, HerdEntry } from '../types'
+import type { EntryPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
@@ -16,12 +16,29 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { entryToday } from '../validation/entryValidation'
 import type { EntryCow } from '../types'
 import { demo } from '../../../demo/demoModules'
+import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: activeFarmId })
 
 // Explicit mode: `npm run dev:mock` (VITE_BEEFCARE_DATA_SOURCE unset) serves the demo data,
 // `backend` talks to the real API and never falls back to the demo data.
 const usingBackend = backendMode === 'backend'
+
+export const entryPaymentVoidEnabled = usingBackend
+export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInput) => usingBackend
+  ? backendApi.voidPayment(paymentId, input)
+  : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
+
+export const entryLineCorrectionEnabled = usingBackend
+export const entryHistoryDemoEnabled = !usingBackend
+export const correctEntryHistoryDemo = (voucherCode: string, cattleCode: string, history: EntryCow['hist'], reason: string): Promise<void> => usingBackend
+  ? Promise.reject(new Error('Sửa khai báo trên backend phải dùng bản ghi nhập và phiên bản đã mở.'))
+  : demo.entryLocal.correctHistory(voucherCode, cattleCode, history, reason)
+const unsupportedLineCommand = () => new Error('Chế độ demo chưa hỗ trợ sửa / hủy bản ghi nhập')
+export const entryVoidCheck = (entryId: number): Promise<EntryLineVoidCheck> => usingBackend ? backendApi.entryVoidCheck(entryId) : Promise.reject(unsupportedLineCommand())
+export const voidEntryLine = (entryId: number, input: EntryLineVoidInput): Promise<EntryLineCommandResult> => usingBackend ? backendApi.voidEntryLine(entryId, input) : Promise.reject(unsupportedLineCommand())
+export const correctEntryLine = (entryId: number, input: EntryLineCorrectionInput): Promise<EntryLineCommandResult> => usingBackend ? backendApi.correctEntryLine(entryId, input) : Promise.reject(unsupportedLineCommand())
 
 export const getEntryDraftState = (rows: HerdEntry[], id?: string) => {
   const row = id ? rows.find((item) => item.id === id) : undefined
@@ -40,17 +57,18 @@ export const herdEntryApi = {
   // GET /api/farms/{farmId}/entry-vouchers/{id}
   get: (id: string) => usingBackend ? backendApi.get(id) : demo.entryLocal.localApi.get(id),
   create: (record: Omit<HerdEntry, 'id'> & Partial<Pick<HerdEntry, 'id'>>) => usingBackend
-    ? backendApi.save({ id: record.id, record })
+    ? backendApi.save({ record })
     : demo.entryLocal.localApi.create(record),
-  update: async (id: string, patch: Partial<HerdEntry>) => {
+  update: async (id: string, patch: Partial<HerdEntry>, snapshot?: VoucherSnapshot) => {
     if (!usingBackend) return demo.entryLocal.localApi.update(id, patch)
+    const expectedVersion = requireVersion(snapshot?.expectedVersion)
     const current = await backendApi.get(id)
-    return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.calves ?? patch.draft?.cows ?? current.draft?.calves ?? current.draft?.cows ?? [] })
+    return backendApi.save({ id, expectedVersion, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.calves ?? patch.draft?.cows ?? current.draft?.calves ?? current.draft?.cows ?? [] })
   },
   reset: () => usingBackend ? Promise.reject(new Error('Entry reset yêu cầu dữ liệu mẫu; không dùng khi kết nối backend')) : demo.entryLocal.localApi.reset(),
   // POST /api/farms/{farmId}/vouchers/entry/{voucherId}/payments
-  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
-    ? backendApi.recordPayment(id, payment)
+  recordPayment: (id: string, payment: Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }, snapshot?: VoucherPaymentSnapshot) => usingBackend
+    ? backendApi.recordPayment(id, payment, snapshot ?? { voucherVersion: undefined })
     : demo.entryLocal.localApi.get(id).then((row) => demo.entryLocal.localApi.update(id, {
       debt: Math.max((row.debt ?? 0) - payment.amount, 0),
       detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
@@ -58,18 +76,18 @@ export const herdEntryApi = {
 }
 
 // POST|PUT /api/farms/{farmId}/entry-vouchers[/{id}] and POST .../{id}/post
-export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => {
+export const saveHerdEntry = (input: { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => {
   return usingBackend ? backendApi.save(input) : demo.entryLocal.saveDraft(input)
 }
 
 // POST /api/farms/{farmId}/entry-vouchers/{id}/void (máy chủ ghi lịch sử hủy theo phiên)
-export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => usingBackend
-  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
+export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot) => usingBackend
+  ? backendApi.voidVoucher(id, { expectedVersion: snapshot?.expectedVersion, backendId: snapshot?.backendId, reason: String(patch.cancelReason ?? 'Hủy phiếu nhập') })
   : demo.entryLocal.voidEntry(id, cattleRows, patch)
 
 
 // DELETE /api/farms/{farmId}/entry-vouchers/{id}
-export const discardHerdEntryDraft = (id: string): Promise<void> => usingBackend ? backendApi.discard(id) : demo.entryLocal.localApi.remove(id).then(() => undefined)
+export const discardHerdEntryDraft = (id: string, expectedVersion?: number, backendId?: number): Promise<void> => usingBackend ? backendApi.discard(id, expectedVersion, backendId) : demo.entryLocal.localApi.remove(id).then(() => undefined)
 
 // GET /api/farms/{farmId}/pending-calves
 export const listPendingEntryCalves = (): Promise<EntryCalf[]> => usingBackend ? backendApi.pendingCalves() : Promise.resolve(demo.entryLocal.pendingCalves())
@@ -78,12 +96,6 @@ export const listPendingEntryCalves = (): Promise<EntryCalf[]> => usingBackend ?
 export const markCalfDiedBeforeRegistration = async (calfOutcomeId: number, reason: string): Promise<EntryCalf> => {
   if (usingBackend) return backendApi.diedBeforeRegistration(calfOutcomeId, reason)
   return demo.entryLocal.markCalfDied(calfOutcomeId)
-}
-
-// chưa có API trong gói S13: gán bò mẹ / bố cho bê
-export const assignCalfParentage = async (calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): Promise<EntryCalf> => {
-  if (usingBackend) return backendApi.assignCalfParentage(calfOutcomeId, parentage)
-  return demo.entryLocal.assignCalfParentage(calfOutcomeId, parentage)
 }
 
 // GET /api/farms/{farmId}/trading-partners?role=seller

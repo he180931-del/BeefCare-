@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
+import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { statusToast } from '../domain/healthMessages'
 import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import type { CaseOutcome, HealthCaseCard, HealthCaseResult, HealthFormOptions, Progress, StatusAction } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { DateTimeInput, hint, RadioGroup, useDialogSave } from './healthUi'
 
 const OUTCOMES: CaseOutcome[] = ['RECOVERED', 'DIED', 'MISSING']
 
 export default function UpdateStatusDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string, result: HealthCaseResult) => void }) {
+  const { now, updateStatus } = useHealthCaseCommands()
   const chronic = card.status === 'CHRONIC'
   const [progressText, setProgressText] = useState('')
   const [progress, setProgress] = useState<Progress | ''>('')
@@ -17,7 +18,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
   const [contagious, setContagious] = useState(card.suspectedContagious)
   const [action, setAction] = useState<StatusAction>('KEEP')
   const [outcome, setOutcome] = useState<CaseOutcome | ''>('')
-  const [closedAt, setClosedAt] = useState(() => healthApi.now())
+  const [closedAt, setClosedAt] = useState(() => now())
   const [confirmedBy, setConfirmedBy] = useState(options.members[0] ?? '')
   const form = useDialogSave()
   const { errors } = form
@@ -33,15 +34,15 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
     if (needsProgress && !progress) missing.progress = MSG.required('Diễn biến')
     if (Object.keys(missing).length) { form.setErrors(missing); return }
     return form.run(async () => {
-      const result = await healthApi.updateStatus(card.id, { expectedVersion: card.version, action, progressText, progress: needsProgress ? progress : '', diagnosis, suspectedContagious: contagious, outcome, closedAt: closing ? closedAt : undefined, confirmedBy })
+      const result = await updateStatus(card.id, { expectedVersion: card.version, action, progressText, progress: needsProgress ? progress : '', diagnosis, suspectedContagious: contagious, outcome, closedAt: closing ? closedAt : undefined, confirmedBy })
       onSaved(statusToast(result), result)
     })
   }
 
   return (
     <Modal title={`Cập nhật ca ${card.caseCode}`} sub={`${cattleCode} · mở ${fmtDate(card.openedDate)} · đang ${chronic ? `CHRONIC từ ${fmtDate(card.chronicSince)}` : `OPEN ngày ${card.day}`}`} width={640} onClose={onClose}>
-      <Field label={keeping ? 'Diễn biến mới *' : 'Diễn biến mới'} id="us-progress" hint={hint(errors.progressText, 'Được lưu thành 1 lần theo dõi')}><Textarea id="us-progress" rows={2} maxLength={1000} value={progressText} onChange={(e) => setProgressText(e.target.value)} /></Field>
-      <Field label={needsProgress ? 'Diễn biến *' : 'Diễn biến'} hint={hint(errors.progress, needsProgress ? undefined : 'Chỉ cần khi có diễn biến mới')}>
+      <Field label={keeping ? 'Diễn biến mới *' : 'Diễn biến mới'} id="us-progress" hint={hint(errors.progressText)}><Textarea id="us-progress" rows={2} maxLength={1000} value={progressText} onChange={(e) => setProgressText(e.target.value)} /></Field>
+      <Field label={needsProgress ? 'Diễn biến *' : 'Diễn biến'} hint={hint(errors.progress, needsProgress ? undefined : 'Không bắt buộc')}>
         <RadioGroup name="us-progress-kind" ariaLabel="Diễn biến" value={progress} onChange={setProgress} options={PROGRESSES.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }))} />
       </Field>
       <Field label="Chẩn đoán nghi ngờ" id="us-diagnosis" hint={hint(errors.diagnosis)}>
@@ -74,7 +75,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
           Ca sẽ được đóng với kết quả {OUTCOME_LABEL[outcome as CaseOutcome]}. Hệ thống tạo phiếu xuất "Chết / mất" ở trạng thái chờ để Chủ trại hoàn tất; {cattleCode} vẫn ở trong đàn đến khi Chủ trại xác nhận. Thao tác này không hoàn tác được.
         </Note>
       )}
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={lost ? 'danger' : 'primary'} onClick={save} disabled={form.saving}>{lost ? 'Xác nhận đóng ca' : 'Lưu cập nhật'}</ModalButton>

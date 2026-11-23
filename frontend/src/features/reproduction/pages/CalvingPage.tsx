@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, Field, Foot, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
+import { Badge, Button, Card, Field, Foot, Icon, inputCls, Note, NoticeDialog, PageHeader, Select } from '../../../shared/ui'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
-import { reproductionApi } from '../api/reproductionApi'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
 import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductionRole } from '../types'
-import {
-  COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, SOURCE_HINT, SOURCE_OPTIONS, nowLocal,
-} from '../components/reproductionFields'
+import { COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, SOURCE_HINT, SOURCE_OPTIONS, nowLocal, parseDecimalText } from '../components/reproductionFields'
 import { ReproductionOptionsProvider, useReproductionOptions } from '../components/reproductionOptions'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 interface CalfForm {
   outcome: 'LIVE' | 'STILLBORN'
@@ -30,7 +28,6 @@ const blankCalf = (profile: ReproductionFemale): CalfForm => ({
 /** Mục đích của bê: lựa chọn của người dùng, mặc định mục đích ACTIVE đầu tiên loại UNDECIDED (SCR-40 dòng 17). */
 const purposeOf = (calf: CalfForm, options: ReproductionFormOptions) =>
   options.purposes.some((item) => item.value === calf.purpose) ? calf.purpose : options.purposes.find((item) => item.type === 'UNDECIDED')?.value ?? options.purposes[0]?.value ?? ''
-const DUPLICATE = /đã dùng cho|đã được sử dụng|đã được dùng/
 const backLink = 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-[13px] font-semibold text-[#212121] no-underline'
 
 function toCommand(form: { birthAt: string; pregnancyId: string; dataSource: DataSource; attendant: string; course: string; damCondition: string; retainedPlacenta: boolean }, calves: CalfForm[], profile: ReproductionFemale, options: ReproductionFormOptions): CalvingCommand {
@@ -38,7 +35,8 @@ function toCommand(form: { birthAt: string; pregnancyId: string; dataSource: Dat
     birthAt: form.birthAt, pregnancyId: form.pregnancyId || null, dataSource: form.dataSource, attendant: form.attendant,
     course: form.course as CalvingCommand['course'], damCondition: form.damCondition as CalvingCommand['damCondition'], retainedPlacenta: form.retainedPlacenta,
     calves: calves.map((calf): CalvingCommand['calves'][number] => {
-      const weight = calf.weightText.trim() === '' ? null : Number(calf.weightText)
+      // D51: gõ sai cân sơ sinh thành NaN để calvingIssues báo dưới ô, không coi như chưa cân.
+      const weight = parseDecimalText(calf.weightText)
       const base = { outcome: calf.outcome, sex: calf.sex, weightKg: weight, weightBasis: calf.weightBasis || null }
       if (calf.outcome === 'STILLBORN') return base
       const pen = options.pens.find((item) => item.id === calf.penId)
@@ -57,26 +55,25 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
   const navigate = useNavigate()
   const session = useSession()
   const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
-  const [profile, setProfile] = useState<ReproductionFemale | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [issues, setIssues] = useState<ReproductionIssue[]>([])
   const [form, setForm] = useState({ birthAt: nowLocal(), pregnancyId: '', dataSource: 'DIRECT_OBSERVATION' as DataSource, attendant: '', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false })
   const [calves, setCalves] = useState<CalfForm[]>([])
 
+  const { profile, profileLoading: loading, profileError, recordCalving } = useReproductionUseCases({ cattleCode: code, role, scope: 'profile' })
+  const loadError = profileError instanceof Error ? profileError.message : profileError ? 'Không tải được hồ sơ bò.' : ''
+
+  // Initialise form defaults once the profile query resolves. The API query
+  // remains in the feature hook; this page only owns editable form state.
+  const [initialisedCode, setInitialisedCode] = useState('')
   useEffect(() => {
-    let active = true
-    void reproductionApi.getProfile(code).then((result) => {
-      if (!active) return
-      setProfile(result)
-      setForm((current) => ({ ...current, pregnancyId: result.openPregnancy?.id ?? '' }))
-      setCalves([blankCalf(result)])
-    }).catch((cause: unknown) => {
-      if (active) setLoadError(cause instanceof Error ? cause.message : 'Không tải được hồ sơ bò.')
-    }).finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [code])
+    if (!profile) return
+    const key = `${code}:${profile.openPregnancy?.id ?? ''}`
+    if (initialisedCode === key) return
+    setInitialisedCode(key)
+    setForm((current) => ({ ...current, pregnancyId: profile.openPregnancy?.id ?? '' }))
+    setCalves([blankCalf(profile)])
+  }, [code, profile, initialisedCode])
 
   const back = `/cattle/${encodeURIComponent(code)}?tab=repro`
   const canManage = canRecordCare(role) // GBR-08, D41: the Owner or a Manager records the calving
@@ -84,12 +81,9 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
   const patchCalf = (index: number, patch: Partial<CalfForm>) => setCalves((current) => current.map((calf, i) => i === index ? { ...calf, ...patch } : calf))
   const issueOf = (field: string, calf?: number) => issues.find((item) => item.field === field && item.calf === calf)?.message
 
-  const banner = (() => {
-    if (!issues.length) return ''
-    const duplicate = issues.find((item) => item.calf !== undefined && item.field === 'earTag' && DUPLICATE.test(item.message))
-    if (duplicate) return `Chưa lưu được: mã thẻ tai của Bê số ${(duplicate.calf ?? 0) + 1} đã được dùng. Sửa ô được đánh dấu đỏ rồi lưu lại.`
-    return `Chưa lưu được: ${issues[0]?.message ?? ''} Sửa ô được đánh dấu đỏ rồi lưu lại.`
-  })()
+  // D51: lỗi có ô đã hiện đỏ dưới ô; chỉ lỗi điều kiện (không gắn ô nào) hiện popup.
+  const general = issues.filter((item) => !item.field).map((item) => item.message).join(' ')
+  const dismissGeneral = () => setIssues((current) => current.filter((item) => item.field))
 
   const submit = async () => {
     if (!profile || !canManage) return
@@ -98,7 +92,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
     if (local.length) { setIssues(local); return }
     setIssues([]); setSaving(true)
     try {
-      const saved = await reproductionApi.recordCalving(code, command, role)
+      const saved = await recordCalving(command)
       const record = saved.calvings[0]
       const drafts = record?.calves.filter((calf) => calf.registrationStatus === 'PENDING_CONFIRMATION').length ?? 0
       const registered = record?.calves.filter((calf) => calf.registrationStatus === 'REGISTERED').map((calf) => calf.cattleCode || calf.earTag).filter(Boolean) ?? []
@@ -125,13 +119,13 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
         <PageHeader title="Ghi sự kiện đẻ" sub={subtitle}>
           <Link className={backLink} to={back}><Icon name="arrow-left" size={16} />Quay lại hồ sơ</Link>
         </PageHeader>
-        {!canManage && <Note tone="info">Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
-        {banner && <Note tone="err">{banner}</Note>}
+        {!canManage && <Note tone="info">Chế độ chỉ xem.</Note>}
+        {general && <NoticeDialog title="Chưa ghi được sự kiện đẻ" message={general} onClose={dismissGeneral} />}
         {loadError && <Note tone="err">{loadError}</Note>}
-        {loading && <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
+        {loading && <Card variant="panel"><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
         {profile && (
           <fieldset disabled={!canManage} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
-            <Card title="Thông tin sự kiện đẻ">
+            <Card variant="panel" title="Thông tin sự kiện đẻ">
               <div className="grid gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
                 <ReadOnlyField label="Bò mẹ" value={`${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`} />
                 <Field label="Thai kỳ liên kết" id="calving-pregnancy" hint={'Hoặc "Không có thai được theo dõi"'}>
@@ -157,9 +151,9 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
               {form.retainedPlacenta && <Note tone="warn">Sót nhau quá 12 giờ: nên mở ca sức khỏe. Biểu mẫu này không tự tạo ca điều trị.</Note>}
             </Card>
 
-            <Card
+            <Card variant="panel"
               title={`Kết quả bê (${calves.length})`}
-              sub="Mỗi bê 1 khối; bê sống mới có phần đăng ký"
+             
               actions={<Button disabled={calves.length >= 4} onClick={() => setCalves((current) => [...current, blankCalf(profile)])}><Icon name="circle-plus" size={16} />Thêm bê</Button>}
             >
               <div className="flex flex-col gap-3">
@@ -171,7 +165,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
                   const basisError = issueOf('weightBasis', index)
                   const purposes = options.purposes.filter((item) => !(item.type === 'SIRE' && calf.sex === 'FEMALE') && !(item.type === 'BREEDING' && calf.sex === 'MALE'))
                   return (
-                    <section key={index} role="group" aria-label={label} className="flex flex-col gap-3 rounded-md border border-rule p-[15px]">
+                    <section key={index} role="group" aria-label={label} className="flex flex-col gap-3 rounded-xl border border-field p-4">
                       <div className="flex items-center gap-2">
                         <h4 className="m-0 flex-1 text-[13px] font-semibold">{label}</h4>
                         {calves.length > 1 && <button type="button" className="cursor-pointer text-xs font-semibold text-err-fg" onClick={() => setCalves((current) => current.filter((_, i) => i !== index))}>Xóa bê</button>}
@@ -189,7 +183,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
                         </Field>
                         <Field label="Cân sơ sinh" id={`calf-${index}-weight`}>
                           <div className="relative">
-                            <input id={`calf-${index}-weight`} aria-label="Cân sơ sinh" type="number" min="1" max="80" step="0.1" aria-invalid={!!weightError} className={`${inputCls} pr-9 ${invalid(weightError)}`} value={calf.weightText} onChange={(event) => patchCalf(index, { weightText: event.target.value })} />
+                            <input id={`calf-${index}-weight`} aria-label="Cân sơ sinh" type="text" inputMode="decimal" aria-invalid={!!weightError} className={`${inputCls} pr-9 ${invalid(weightError)}`} value={calf.weightText} onChange={(event) => patchCalf(index, { weightText: event.target.value })} />
                             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">kg</span>
                           </div>
                           {weightError ? errText(weightError) : <span className="text-[11px] text-muted">1 – 80 kg</span>}
@@ -227,7 +221,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
                             </Field>
                           </div>
                           {calf.registration === 'REGISTER_NOW' && (
-                            <Field label="Mục đích nuôi *" id={`calf-${index}-purpose`} hint={'Giai đoạn của bê đăng ký ngay là "Bê chưa cai sữa"'}>
+                            <Field label="Mục đích nuôi *" id={`calf-${index}-purpose`}>
                               <Select id={`calf-${index}-purpose`} aria-label="Mục đích nuôi" value={purposes.some((item) => item.value === calf.purpose) ? calf.purpose : purposeOf({ ...calf, purpose: '' }, { ...options, purposes })} onChange={(event) => patchCalf(index, { purpose: event.target.value })}>
                                 {purposes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                               </Select>

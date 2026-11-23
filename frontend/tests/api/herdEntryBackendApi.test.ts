@@ -1,7 +1,181 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+
+test('PR-H posted and draft lines read declarations from the actual data wrapper without losing items or zero parity', () => {
+  const data = {
+    sex: 'FEMALE', vaccination: { status: 'KNOWN', informationSource: 'Nguồn chung', items: [
+      { vaccineId: 1, vaccineName: 'LMLM', date: '2026-03-01', informationSource: 'Sổ cũ' },
+      { vaccineName: 'Vắc-xin chữ tự do', date: null, informationSource: null },
+    ] }, disease: { status: 'NONE', description: null },
+    reproduction: { status: 'KNOWN', earlierCalvings: 0, pregnantAtEntry: 'YES', estMonthsPregnant: 4, description: 'Người bán khai' },
+  }
+  const posted = mapVoucher({ ...voucher('POSTED'), lines: [{ id: 91, cattleCode: 'BC-H', data }] })
+  const history = posted.detail!.cows![0].hist!
+  assert.equal(history.vaccine, 'Có'); assert.equal(history.vaccineItems?.length, 2)
+  assert.equal(history.vaccineDeclarationSource, 'Nguồn chung'); assert.equal(history.vaccineSource, 'Sổ cũ')
+  assert.equal(history.disease, 'Không'); assert.equal(history.repro, 'Có')
+  assert.equal(history.earlierCalvings, 0); assert.equal(history.pregnancyMonths, 4)
+  const draft = mapVoucher({ ...voucher('DRAFT'), lines: [{ id: 91, data }] })
+  assert.deepEqual(draft.draft!.cows![0].hist, history)
+})
+
+test('PR-H correction sends declaration blocks with observed versions and a stable canonical content key', async () => {
+  const calls: Array<{ body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('Must not refresh versions') },
+    command: async (_path, body, options) => { calls.push({ body, key: options?.key }); return {} },
+  } })
+  const vaccination = { status: 'KNOWN' as const, informationSource: null, items: [{ vaccineId: 1, vaccineName: 'LMLM', date: '2026-03-01', informationSource: 'Sổ cũ' }] }
+  const input = { reason: ' Sửa khai báo ', expectedVersion: 0, voucherVersion: 3, changes: { vaccination, disease: { status: 'NONE' as const, description: null } } }
+  await api.correctEntryLine(91, input)
+  await api.correctEntryLine(91, { ...input, changes: { disease: input.changes.disease, vaccination } })
+  assert.deepEqual(calls[0].body, { ...input, reason: 'Sửa khai báo' })
+  assert.equal(calls[0].key, calls[1].key)
+  await api.correctEntryLine(91, { ...input, changes: { vaccination: { ...vaccination, status: 'UNKNOWN', items: [] } } })
+  assert.notEqual(calls[0].key, calls[2].key)
+})
 import { createHerdEntryBackendApi, type BackendTransport } from '../../src/features/herd-entry/api/herdEntryBackendApi'
 import { BackendError } from '../../src/shared/api/backendClient'
+import { mapVoucher } from '../../src/features/herd-entry/api/herdEntryMapper'
+
+test('entry payments preserve identities, status, void metadata and server paid totals', () => {
+  const mapped = mapVoucher({ ...voucher('POSTED'), totalPayable: 10000000, amountPaid: 2000000, outstanding: 8000000, payments: [
+    { id: 11, version: 0, status: 'VOIDED', paymentDate: '2026-10-20', amount: 3000000, recordedByName: 'An', method: 'CASH', note: 'Đợt đầu', voidReason: 'Nhập nhầm', voidedAt: '2026-11-22T18:05:00Z' },
+    { paymentDate: '2026-10-20', amount: 2000000, method: 'BANK_TRANSFER' },
+  ] })
+  assert.equal(mapped.paid, 2000000); assert.equal(mapped.debt, 8000000)
+  const [voided, legacy] = mapped.detail!.payments!
+  assert.deepEqual([voided.id, voided.version, voided.status, voided.by, voided.note, voided.voidReason, voided.voidedAt], [11, 0, 'VOIDED', 'An', 'Đợt đầu', 'Nhập nhầm', '2026-11-22T18:05:00Z'])
+  assert.equal(legacy.status, 'RECORDED'); assert.equal(legacy.id, undefined); assert.equal(legacy.version, undefined)
+  assert.equal(mapVoucher({}).paid, undefined)
+})
+test('entry payment void keeps the opened payment version and has canonical body-specific keys without GETs', async () => {
+  const calls: Array<{ path: string; body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('No eager snapshot refresh') },
+    command: async (path, body, options) => { calls.push({ path, body, key: options?.key }); return { payment: { id: 11, status: 'VOIDED', version: 1 }, summary: { total: 10000000, paid: 2000000, outstanding: 8000000, voucherVersion: 10 } } },
+  } })
+  const result = await api.voidPayment(11, { reason: '  Nhập nhầm  ', version: 0 })
+  await api.voidPayment(11, { version: 0, reason: 'Nhập nhầm' })
+  await api.voidPayment(11, { reason: 'Khác', version: 0 })
+  await api.voidPayment(12, { reason: 'Nhập nhầm', version: 0 })
+  await api.voidPayment(11, { reason: 'Nhập nhầm', version: 1 })
+  assert.equal(calls[0].path, '/api/farms/9/payments/11/void')
+  assert.deepEqual(calls[0].body, { reason: 'Nhập nhầm', version: 0 })
+  assert.match(calls[0].key!, /^beefcare-voucher-payment-void-/)
+  assert.equal(calls[0].key, calls[1].key)
+  for (const call of calls.slice(2)) assert.notEqual(call.key, calls[0].key)
+  assert.equal(result.payment.status, 'VOIDED'); assert.equal(result.summary.outstanding, 8000000)
+  for (const version of [undefined, -1, 0.5]) await assert.rejects(() => api.voidPayment(11, { reason: 'Nhầm', version }), /phiên bản/)
+  for (const reason of ['  ', 'x'.repeat(501)]) await assert.rejects(() => api.voidPayment(11, { reason, version: 0 }), /lý do/i)
+  assert.equal(calls.length, 5)
+})
+test('entry payment recording retries keep the same key and changed bodies or voucher snapshots change it', async () => {
+  const calls: Array<{ body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async path => path.endsWith('/attachments') || path.endsWith('/catalogues/breeds') ? [] : voucher('POSTED'),
+    command: async (_path, body, options) => { calls.push({ body, key: options?.key }); return {} },
+  } })
+  const input = { date: '2026-10-20', amount: 2000000, method: 'Tiền mặt', ref: '' }
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', { ...input, amount: 1 }, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 1 })
+  assert.match(calls[0].key!, /^beefcare-entry-payment-/)
+  assert.equal(calls[0].key, calls[1].key)
+  assert.notEqual(calls[0].key, calls[2].key); assert.notEqual(calls[0].key, calls[3].key)
+})
+
+test('entry detail resolves current breed labels from the farm catalogue, including historical inactive breeds', async () => {
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async path => path.endsWith('/attachments') ? [] : path.endsWith('/catalogues/breeds') ? [{ id: 21, name: 'Lai Sind', available: false }] : { ...voucher('POSTED'), lines: [{ id: 91, data: { breedId: 21, sex: 'FEMALE' } }] },
+    command: async () => { throw new Error('Unexpected command') },
+  } })
+  const loaded = await api.get('PN-2026-0041', 41)
+  assert.equal(loaded.detail?.cows?.[0].breed, 'Lai Sind · Cái')
+})
+test('entry line correction and void history include UTC+7 time, actor, cattle and reason without changing other history', () => {
+  const loaded = mapVoucher({ ...voucher('POSTED'), history: [
+    { kind: 'ENTRY_POST' },
+    { kind: 'ENTRY_LINE_CORRECT', at: '2026-11-22T12:00:00Z', actor: 'Manager test', details: { cattle: 'BC-501', reason: 'Sửa cân' } },
+    { kind: 'ENTRY_LINE_VOID', at: '2026-11-22T12:05:00Z', actor: 'Owner test', details: { cattle: 'BC-502', reason: 'Nhập nhầm' } },
+  ] })
+  assert.equal(loaded.detail?.history?.[0], 'ENTRY_POST')
+  assert.match(loaded.detail!.history![1], /22\/11\/2026 19:00.*Manager test.*Sửa bản ghi nhập BC-501.*Sửa cân/)
+  assert.match(loaded.detail!.history![2], /19:05.*Owner test.*Hủy bản ghi nhập BC-502.*Nhập nhầm/)
+})
+
+test('entry detail preserves line identities, zero versions and correction fields without inventing missing ids', () => {
+  const row = mapVoucher({ ...voucher('POSTED'), sellerId: 7, lines: [
+    { id: 91, version: 0, status: 'VALID', cattleId: 501, cattleCode: 'BC-000501', entryWeightKg: 250, weightBasis: 'MEASURED', data: { breedId: 21, sex: 'FEMALE', birthDate: '2023-01-02', birthDateAccuracy: 'EXACT' } },
+    { status: 'VOID', cattleCode: 'BC-VOID' },
+  ] })
+  assert.equal(row.sellerId, 7)
+  assert.equal(row.entryType, 'PURCHASE')
+  assert.equal(row.pricingBasis, 'PER_KG')
+  assert.equal(row.count, 1)
+  assert.equal(row.detail?.cows?.length, 2)
+  const line = row.detail!.cows![0]
+  assert.deepEqual([line.entryId, line.lineStatus, line.lineVersion, line.cattleId, line.weightBasis, line.breedId, line.sexCode, line.birthDate, line.birthDateAccuracy], [91, 'VALID', 0, 501, 'MEASURED', 21, 'FEMALE', '2023-01-02', 'EXACT'])
+  const missing = row.detail!.cows![1]
+  assert.equal(missing.lineStatus, 'VOID')
+  assert.equal(missing.entryId, undefined)
+  assert.equal(missing.lineVersion, undefined)
+  assert.equal(missing.cattleId, undefined)
+})
+
+test('entry line void-check maps its eligibility fields and event labels', async () => {
+  const paths: string[] = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async path => { paths.push(path); return { entryId: 91, lineNo: 2, cattleId: 501, cattleCode: 'BC-000501', eventsAfterEntry: ['Cân ngày 01/11/2026'], canVoid: false, reason: 'HAS_EVENTS' } },
+    command: async () => { throw new Error('Unexpected command') },
+  } })
+  assert.deepEqual(await api.entryVoidCheck(91), { entryId: 91, lineNo: 2, cattleId: 501, cattleCode: 'BC-000501', eventsAfterEntry: ['Cân ngày 01/11/2026'], canVoid: false, reason: 'HAS_EVENTS' })
+  assert.deepEqual(paths, ['/api/farms/9/herd-entries/91/void-check'])
+})
+
+test('entry line commands retain opened versions, trim reasons, map notices and use stable content keys without GETs', async () => {
+  const calls: Array<{ path: string; body: unknown; method?: string; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('Commands must not fetch newer versions') },
+    command: async (path, body, options) => { calls.push({ path, body, ...options }); return { notice: { code: 'MSG-FE06-06', message: 'Đã sửa bản ghi.' }, overpaidNotice: { code: 'MSG-FE06-23', message: 'Đã trả vượt tổng mới: 123 đ.' } } },
+  } })
+  const first = await api.correctEntryLine(91, { reason: '  Sửa cân  ', expectedVersion: 0, voucherVersion: 3, changes: { entryWeightKg: 260, weightBasis: 'MEASURED', sellerId: null, vehiclePlate: undefined } })
+  assert.deepEqual(calls[0].body, { reason: 'Sửa cân', expectedVersion: 0, voucherVersion: 3, changes: { entryWeightKg: 260, weightBasis: 'MEASURED' } })
+  assert.equal(calls[0].method, 'PATCH')
+  assert.equal(calls[0].path, '/api/farms/9/herd-entries/91')
+  assert.match(calls[0].key!, /^beefcare-entry-line-correct-/)
+  assert.equal(first.notice?.message, 'Đã sửa bản ghi.')
+  assert.equal(first.overpaidNotice?.message, 'Đã trả vượt tổng mới: 123 đ.')
+  await api.correctEntryLine(91, { reason: 'Sửa cân', expectedVersion: 0, voucherVersion: 3, changes: { weightBasis: 'MEASURED', entryWeightKg: 260 } })
+  await api.correctEntryLine(91, { reason: 'Sửa cân', expectedVersion: 0, voucherVersion: 3, changes: { entryWeightKg: 270, weightBasis: 'MEASURED' } })
+  assert.equal(calls[0].key, calls[1].key)
+  assert.notEqual(calls[0].key, calls[2].key)
+  await api.voidEntryLine(91, { reason: '  Ghi nhầm  ', expectedVersion: 0 })
+  await api.voidEntryLine(91, { reason: 'Ghi nhầm', expectedVersion: 0 })
+  await api.voidEntryLine(92, { reason: 'Ghi nhầm', expectedVersion: 0 })
+  assert.deepEqual(calls[3].body, { reason: 'Ghi nhầm', expectedVersion: 0 })
+  assert.equal(calls[3].path, '/api/farms/9/herd-entries/91/void')
+  assert.match(calls[3].key!, /^beefcare-entry-line-void-/)
+  assert.equal(calls[3].key, calls[4].key)
+  assert.notEqual(calls[3].key, calls[5].key)
+})
+
+test('entry line commands reject missing snapshot versions before transport', async () => {
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('Unexpected GET') }, command: async () => { throw new Error('Unexpected command') },
+  } })
+  await assert.rejects(api.voidEntryLine(91, { reason: 'Lý do', expectedVersion: undefined }), /phiên bản/)
+  await assert.rejects(api.correctEntryLine(91, { reason: 'Lý do', expectedVersion: undefined, voucherVersion: 3, changes: {} }), /phiên bản/)
+  await assert.rejects(api.correctEntryLine(91, { reason: 'Lý do', expectedVersion: 0, voucherVersion: undefined, changes: {} }), /phiên bản/)
+})
 
 const voucher = (status = 'DRAFT') => ({
   id: 41, code: 'PN-2026-0041', entryType: 'PURCHASE', status, entryDate: '2026-10-29',
@@ -14,7 +188,7 @@ const voucher = (status = 'DRAFT') => ({
 })
 
 test('entry backend saves a purchase draft then posts the same versioned voucher', async () => {
-  const calls: Array<{ method: string; path: string; body?: unknown }> = []
+  const calls: Array<{ method: string; path: string; body?: unknown; key?: string }> = []
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
     get: async (path) => {
@@ -144,8 +318,8 @@ test('entry backend discards a temporary draft without posting or changing cattl
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.discard('PN-2026-0041')
-  assert.deepEqual(calls, [{ method: 'DELETE', path: '/api/farms/9/entry-vouchers/41', body: undefined }])
+  await api.discard('PN-2026-0041', 3)
+  assert.deepEqual(calls, [{ method: 'DELETE', path: '/api/farms/9/entry-vouchers/41?expectedVersion=3', body: undefined }])
 })
 
 test('entry backend keeps persisted attachments visible when reposting without new uploads', async () => {
@@ -171,7 +345,7 @@ test('entry backend keeps persisted attachments visible when reposting without n
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
   const saved = await api.save({
-    id: 'PN-2026-0041',
+    id: 'PN-2026-0041', expectedVersion: 3,
     record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Đã nhập', source: 'Trang trại Mộc Châu' },
     documents: [],
   })
@@ -280,12 +454,12 @@ test('entry backend records payment against the backend voucher id and version',
     command: async (path, body) => { commands.push({ path, body }); return voucher('POSTED') },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: 'PT-01', note: 'Đợt 2' })
+  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: 'PT-01', note: 'Đợt 2' }, { voucherVersion: 3 })
   assert.deepEqual(commands[0], {
     path: '/api/farms/9/vouchers/entry/41/payments',
     body: { paymentDate: '2026-10-30', amount: 1000000, method: 'CASH', reference: 'PT-01', note: 'Đợt 2', voucherVersion: 3 },
   })
-  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: '', note: '' })
+  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: '', note: '' }, { voucherVersion: 3 })
   assert.deepEqual(commands[1]?.body, { paymentDate: '2026-10-30', amount: 1000000, method: 'CASH', reference: null, note: null, voucherVersion: 3 })
 })
 
@@ -297,13 +471,13 @@ test('entry backend voids the resolved voucher with its optimistic-lock version'
     command: async (path, body) => { commands.push({ path, body }); return { voucher: voucher('VOIDED') } },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  const result = await api.voidVoucher('PN-2026-0041', 'Nhập nhầm nguồn')
+  const result = await api.voidVoucher('PN-2026-0041', { reason: 'Nhập nhầm nguồn', expectedVersion: 3 })
   assert.equal(result.status, 'Đã hủy')
   assert.deepEqual(commands[0], { path: '/api/farms/9/entry-vouchers/41/void', body: { reason: 'Nhập nhầm nguồn', expectedVersion: 3 } })
 })
 
 test('entry backend reads private attachments and imports the same xlsx through preview then commit', async () => {
-  const calls: Array<{ method: string; path: string; body?: unknown }> = []
+  const calls: Array<{ method: string; path: string; body?: unknown; key?: string }> = []
   const file = new File(['xlsx-bytes'], 'dan-bo.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
@@ -314,8 +488,8 @@ test('entry backend reads private attachments and imports the same xlsx through 
       if (path.endsWith('/attachments/71')) return new Blob(['pdf'], { type: 'application/pdf' })
       return { items: [] }
     },
-    command: async (path, body) => {
-      calls.push({ method: 'POST', path, body })
+    command: async (path, body, options) => {
+      calls.push({ method: 'POST', path, body, key: options?.key })
       return { total: 1, valid: 1, warnings: 0, errors: 0, added: path.includes('commit=true') ? 1 : 0, committed: path.includes('commit=true'), rows: [], voucher: voucher('DRAFT') }
     },
   }
@@ -339,12 +513,15 @@ test('entry backend reads private attachments and imports the same xlsx through 
   ])
   const multipartBodies = calls.filter((call) => call.path.includes('/import?')).map((call) => call.body)
   assert.equal(multipartBodies.length, 2)
+  const importKeys = calls.filter((call) => call.path.includes('/import?')).map((call) => call.key)
+  assert.ok(importKeys.every((key) => Boolean(key) && key!.length <= 128))
+  assert.notEqual(importKeys[0], importKeys[1])
   assert.ok(multipartBodies.every((body) => body instanceof FormData))
   assert.equal((multipartBodies[0] as FormData).get('file'), file)
   assert.equal((multipartBodies[1] as FormData).get('file'), file)
 })
 
-test('entry backend serializes per-cow pricing basis and line fields', async () => {
+test('entry backend serializes voucher pricing and preserves an entered per-head weight (GBR-92)', async () => {
   let body: any
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
@@ -374,12 +551,41 @@ test('entry backend serializes per-cow pricing basis and line fields', async () 
     cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', unitPrice: 8500000, pricing: 'con', weightBasis: null }],
   })
   assert.equal(body.pricingBasis, 'PER_HEAD')
-  assert.equal(body.lines[0].entryWeightKg, null)
-  assert.equal(body.lines[0].weightBasis, null)
+  // PER_HEAD makes the weight optional; it does not discard an entered weight.
+  assert.equal(body.lines[0].entryWeightKg, 320)
+  assert.equal(body.lines[0].weightBasis, 'MEASURED')
   assert.equal(body.lines[0].unitPrice, 8500000)
 })
 
-test('entry backend preserves the stored draft type and version when updating a partial draft', async () => {
+for (const scenario of [
+  { name: 'measured per-head weight', pricing: 'con' as const, rows: [{ weight: 250, estimated: false, pricing: 'con', weightBasis: 'MEASURED' }], weights: [250], bases: ['MEASURED'] },
+  { name: 'optional absent per-head weight', pricing: 'con' as const, rows: [{ weight: 0, estimated: false, pricing: 'con', weightBasis: 'ESTIMATED' }], weights: [null], bases: [null] },
+  { name: 'estimated per-head weight', pricing: 'con' as const, rows: [{ weight: 300, estimated: true, pricing: 'con' }], weights: [300], bases: ['ESTIMATED'] },
+  { name: 'Excel row without its own pricing', pricing: 'con' as const, rows: [{ weight: 250, estimated: false, pricing: 'con' }, { weight: 300, estimated: true }], weights: [250, 300], bases: ['MEASURED', 'ESTIMATED'] },
+  { name: 'empty per-head draft before Excel preview', pricing: 'con' as const, rows: [], weights: [], bases: [] },
+  { name: 'per-head header without draft data when posting', pricing: 'con' as const, recordOnly: true, rows: [{ weight: 250, estimated: false }], weights: [250], bases: ['MEASURED'] },
+  { name: 'kg header overriding stale per-head rows', pricing: 'kg' as const, rows: [{ weight: 250, estimated: false, pricing: 'con' }], weights: [250], bases: ['MEASURED'] },
+]) {
+  test(`entry backend follows voucher pricing: ${scenario.name}`, async () => {
+    let body: any
+    const transport: BackendTransport = {
+      farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+      get: async (path) => path.endsWith('/pens') ? { pens: [] } : [],
+      command: async (_path, value) => { body = value; return voucher('DRAFT') },
+    }
+    const recordOnly = 'recordOnly' in scenario && scenario.recordOnly
+    await createHerdEntryBackendApi({ transport, farmId: 9 }).save({
+      record: { type: 'Mua ngoài', status: 'Nháp', pricing: recordOnly ? scenario.pricing : scenario.pricing === 'con' ? 'kg' : 'con', draft: recordOnly ? undefined : { pricing: scenario.pricing } },
+      cattleRows: scenario.rows.map((row, index) => ({ ...row, tag: `HEAD-${index}`, barn: 'A1', unitPrice: 8_500_000 })),
+    })
+    assert.equal(body.pricingBasis, scenario.pricing === 'con' ? 'PER_HEAD' : 'PER_KG')
+    assert.deepEqual(body.lines.map((line: any) => line.entryWeightKg), scenario.weights)
+    assert.deepEqual(body.lines.map((line: any) => line.weightBasis), scenario.bases)
+    assert.ok(body.lines.every((line: any) => line.unitPrice === 8_500_000))
+  })
+}
+
+test('entry backend sends the loaded farm-born draft type and explicit snapshot version', async () => {
   let body: any
   const farmBorn = voucher('DRAFT')
   farmBorn.entryType = 'FARM_BORN'
@@ -401,7 +607,8 @@ test('entry backend preserves the stored draft type and version when updating a 
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.save({ id: 'PN-2026-0041', record: { status: 'Nháp', draft: { date: '2026-10-29', cows: [] } } })
+  const loaded = await api.get('PN-2026-0041')
+  await api.save({ id: loaded.id, expectedVersion: loaded.version, record: { ...loaded, status: 'Nháp', draft: { date: '2026-10-29', cows: [] } } })
 
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.expectedVersion, 3)
@@ -431,8 +638,9 @@ test('entry backend serializes FARM_BORN calves without purchase pricing or paym
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.sellerId, null)
   assert.equal(body.lines[0].calfOutcomeId, 17)
-  assert.equal(body.lines[0].damId, 125)
-  assert.equal(body.lines[0].sireId, 126)
+  assert.equal('damId' in body.lines[0], false) // D55: the calving owns parentage, never submit overrides.
+  assert.equal('sireId' in body.lines[0], false)
+  assert.equal('externalSireCode' in body.lines[0], false)
   assert.equal(body.lines[0].penId, 3)
   assert.equal(body.lines[0].purposeId, 2)
   assert.equal(body.lines[0].lifeStage, 'UNWEANED_CALF')
@@ -458,6 +666,27 @@ test('entry backend leaves pending calves unassigned until the user selects them
   assert.equal(calf.picked, false)
 })
 
+test('entry backend retires parent assignment and preserves death payload and retry key', async () => {
+  const calls: Array<{ path: string; body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}`,
+    get: async () => [],
+    command: async (path, body, options) => {
+      calls.push({ path, body, key: options?.key })
+      return { calfOutcomeId: 17, registrationState: 'DIED_BEFORE_REGISTRATION' }
+    },
+  } })
+  assert.equal('assignCalfParentage' in api, false)
+  await api.diedBeforeRegistration(17, 'Bê chết trước đăng ký')
+  await api.diedBeforeRegistration(17, 'Bê chết trước đăng ký')
+  await api.diedBeforeRegistration(17, 'Lý do đã sửa')
+  assert.equal(calls[0].path, '/api/farms/9/pending-calves/17/died-before-registration')
+  assert.deepEqual(calls[0].body, { reason: 'Bê chết trước đăng ký' })
+  assert.ok(calls[0].key)
+  assert.equal(calls[0].key, calls[1].key)
+  assert.notEqual(calls[0].key, calls[2].key)
+})
+
 test('entry backend does not create a voucher when resolving an existing id is forbidden', async () => {
   let commands = 0
   const transport: BackendTransport = {
@@ -467,7 +696,7 @@ test('entry backend does not create a voucher when resolving an existing id is f
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
-  await assert.rejects(() => api.save({ id: 'PN-2026-0041', record: { type: 'Mua ngoài', status: 'Nháp' } }), /forbidden/)
+  await assert.rejects(() => api.save({ id: 'PN-2026-0041', expectedVersion: 3, record: { type: 'Mua ngoài', status: 'Nháp' } }), /forbidden/)
   assert.equal(commands, 0)
 })
 
@@ -488,7 +717,7 @@ test('entry backend reuses one idempotency key when retrying the same draft save
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  const input = { id: 'PN-2026-RETRY', record: { date: '2026-10-30', type: 'Mua ngoài' as const, status: 'Nháp' as const } }
+  const input = { record: { date: '2026-10-30', type: 'Mua ngoài' as const, status: 'Nháp' as const } }
 
   await api.save(input)
   await api.save(input)
@@ -506,8 +735,8 @@ test('entry backend changes the idempotency key when the draft payload changes',
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
-  await api.save({ id: 'PN-2026-CHANGED', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'A' } } })
-  await api.save({ id: 'PN-2026-CHANGED', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'B' } } })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'A' } } })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'B' } } })
 
   assert.notEqual(keys[0], keys[1])
 })
@@ -523,12 +752,12 @@ test('entry backend bounds attachment and post idempotency keys for long filenam
   const filename = `${'x'.repeat(255)}.pdf`
 
   const sameMetadataDifferentBytes = (value: string) => new File([value], filename, { type: 'application/pdf', lastModified: 123 })
-  await api.save({ id: 'PN-2026-LONG', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('aaaa')] })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('aaaa')] })
 
   assert.ok(keys.every(({ key }) => (key?.length ?? 0) <= 128))
   assert.ok(keys.some(({ path }) => path.endsWith('/post')))
 
-  await api.save({ id: 'PN-2026-LONG', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('bbbb')] })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('bbbb')] })
   const uploadKeys = keys.filter(({ path }) => path.endsWith('/attachments')).map(({ key }) => key)
   assert.notEqual(uploadKeys[0], uploadKeys[1])
 })

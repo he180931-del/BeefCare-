@@ -5,8 +5,8 @@ import UpdateModal from '../../../src/features/cattle/components/UpdateModal'
 import QrReissueModal from '../../../src/features/cattle/components/QrReissueModal'
 import MoveModal from '../../../src/features/cattle/components/MoveModal'
 import * as cattleApi from '../../../src/features/cattle/api/cattleApi'
-import { initialCows } from '../../../src/data/cowsData'
-import type { Pen } from '../../../src/types'
+import { initialCows } from '../../../src/demo/data/cowsData'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const testCow = initialCows[0] // BC-000125
 const testCow142 = initialCows[1] // BC-000142

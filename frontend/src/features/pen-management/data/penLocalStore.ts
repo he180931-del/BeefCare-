@@ -1,11 +1,11 @@
 // Local demo pens of the pen screens. Reached only through src/demo/demoModules.ts.
 // herdDomainApi creates the shared `pens` collection first; these seeds are merged into it afterwards, in the same order
 // as when penApi created the collection while loading.
-import '../../../api/herdDomainApi'
-import { createCollection } from '../../../api/client'
-import { migrateHerdStorage } from '../../../api/storageMigrations'
-import { penSchema } from '../../../api/collectionSchemas'
-import { seedPens } from '../../../data/pensData'
+import '../../../demo/api/herdDomainApi'
+import { createCollection } from '../../../demo/api/client'
+import { migrateHerdStorage } from '../../../demo/api/storageMigrations'
+import { penSchema } from '../../../demo/api/collectionSchemas'
+import { seedPens } from '../../../demo/data/pensData'
 import { backendMode } from '../../../shared/config/runtime'
 import type { Pen } from '../types'
 

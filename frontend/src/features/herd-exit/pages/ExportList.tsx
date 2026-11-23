@@ -1,25 +1,9 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, FilterSelect, Foot, Icon, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { Button, FilterSelect, Foot, Icon, Metric, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { dmy, money } from '../../../shared/lib/format'
-import { herdExitApi } from '../api/index'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
-import type { HerdExit } from '../types'
-
-const TABS: Array<{ value: string; match: (r: HerdExit) => boolean }> = [
-  { value: 'Tất cả', match: () => true },
-  { value: 'Nháp', match: (r: HerdExit) => r.status === 'Nháp' },
-  { value: 'Chờ xác nhận', match: (r) => r.status === 'Chờ xác nhận' },
-  { value: 'Đã xuất', match: (r) => r.status === 'Đã xuất' },
-  { value: 'Đã hủy / bác', match: (r) => r.status === 'Đã hủy' || r.status === 'Đã bác' },
-]
-// Khoảng ngày: 'all' = từ 01/07; 'oct' = từ 01/10 (lọc hàng theo ngày xuất).
-const RANGES = [
-  { value: 'all', label: '01/07/2026 – 22/10/2026', from: '2026-07-01' },
-  { value: 'oct', label: '01/10/2026 – 22/10/2026', from: '2026-10-01' },
-]
+import { useExitList } from '../hooks/useExitList'
 
 const COLS = [
   ['Mã phiếu', 'min-w-[116px]'], ['Ngày xuất', 'min-w-[86px]'], ['Loại xuất', 'min-w-[78px]'], ['Người mua / lý do', 'min-w-[220px]'],
@@ -27,29 +11,10 @@ const COLS = [
 ]
 
 export default function ExportList() {
-  const { data, loading, error } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
-  const exports = data ?? []
-  const herdExits = exports
   const nav = useNavigate()
   const isOwner = useIsOwner()
-  const [tab, setTab] = useState('Tất cả')
-  const [range, setRange] = useState('all')
-  const [type, setType] = useState('')
-
-  const current = TABS.find((t) => t.value === tab)
-  const from = RANGES.find((r) => r.value === range)?.from ?? RANGES[0].from
-  const rows = herdExits.filter((r) => (current?.match(r) ?? true) && (!type || r.type === type) && (r.date ?? '') >= from)
-  const done = herdExits.filter((r) => r.status === 'Đã xuất')
-  const owed = done.filter((r) => (r.due ?? 0) > 0)
-  const pending = herdExits.filter((r) => r.status === 'Chờ xác nhận')
-  const byType = (t: string) => done.filter((r) => r.type === t).reduce((s, r) => s + (r.count ?? 0), 0)
-
-  const action = (r: HerdExit): [string, string] => {
-    if (!isOwner) return ['Xem', `/herd-exit/${r.id}`]
-    if (r.status === 'Nháp') return ['Tiếp tục', `/herd-exit/new?id=${encodeURIComponent(r.id)}`]
-    if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
-    return ['Xem', `/herd-exit/${r.id}`]
-  }
+  const list = useExitList(isOwner)
+  const { data: herdExits, loading, error, tab, setTab, range, setRange, type, setType, rows, tabs, ranges, summary, action } = list
 
   return (
     <Layout title="Phiếu xuất – Danh sách">
@@ -61,11 +26,11 @@ export default function ExportList() {
         <Segmented
           value={tab}
           onChange={setTab}
-          options={TABS.map((t) => ({ value: t.value, label: `${t.value} (${herdExits.filter(t.match).length})` }))}
+          options={tabs.map((t) => ({ value: t.value, label: `${t.value} (${herdExits.filter(t.match).length})` }))}
         />
         <div className="flex-1" />
         <FilterSelect className="w-[220px]" value={range} onChange={(e) => setRange(e.target.value)} aria-label="Khoảng ngày">
-          {RANGES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {ranges.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </FilterSelect>
         <FilterSelect className="w-[170px]" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại xuất">
           <option value="">Loại xuất: Tất cả</option>
@@ -73,14 +38,16 @@ export default function ExportList() {
         </FilterSelect>
       </div>
 
-      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label="Con đã xuất (từ 01/07)" value={done.reduce((s, r) => s + (r.count ?? 0), 0)} note={`Bán ${byType('Bán')} · Loại thải ${byType('Loại thải')} · Chết ${byType('Chết / mất')}`} />
-        <Tile label="Doanh thu bán bò" value={`${money(done.reduce((s, r) => s + (r.total || 0), 0))} đ`} note={`${done.length} phiếu đã xuất`} />
-        <Tile warn label="Còn phải thu" value={`${money(owed.reduce((s, r) => s + (r.due ?? 0), 0))} đ`} note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'} />
-        <Tile label="Chờ chủ trại xác nhận" value={pending.length} note="Đề xuất từ ca sức khỏe" />
+      {/* Bento (Figma Tab 16 ④b): khối nổi bật là số con đã xuất; doanh thu xanh nhạt, còn phải thu vàng, chờ xác nhận đỏ
+          nhạt — chỉ khi có số liệu. */}
+      <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+        <Metric surface="panel" tone="emphasis" label="Con đã xuất (từ 01/07)" value={summary.doneCount} note={`Bán ${summary.byType['Bán']} · Loại thải ${summary.byType['Loại thải']} · Chết ${summary.byType['Chết / mất']}`} />
+        <Metric compact surface="panel" tone={summary.revenue > 0 ? 'ok' : 'default'} label="Doanh thu bán bò" value={`${money(summary.revenue)} đ`} note={`${summary.doneVoucherCount} phiếu đã xuất`} />
+        <Metric compact surface="panel" tone={summary.owed > 0 ? 'warn' : 'default'} warn={summary.owed > 0} label="Còn phải thu" value={`${money(summary.owed)} đ`} note={summary.owedCount ? `${summary.owedCount} phiếu · ${summary.firstOwedId}` : 'Không còn nợ'} />
+        <Metric compact surface="panel" tone={summary.pendingCount > 0 ? 'err' : 'default'} label="Chờ chủ trại xác nhận" value={summary.pendingCount} note="Đề xuất từ ca sức khỏe" />
       </div>
 
-      <div className="rounded-md border border-edge bg-white p-2">
+      <div className="min-w-0 rounded-2xl border border-field bg-white p-2">
         <Table scroll>
           <thead>
             <tr>
