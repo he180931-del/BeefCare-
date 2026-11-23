@@ -12,10 +12,7 @@ export const pricingFromBackend = (value: unknown): 'kg' | 'con' => value === 'P
 export const sex = (value: unknown) => value === 'Đực' || value === 'MALE' ? 'MALE' : 'FEMALE'
 export const declaration = (value: unknown) => value === 'Có' || value === 'KNOWN' ? 'KNOWN' : value === 'Không' || value === 'NONE' ? 'NONE' : 'UNKNOWN'
 export const birthAccuracy = (value: unknown) => value === 'Chính xác' || value === 'EXACT' ? 'EXACT' : value === 'Ước tính' || value === 'ESTIMATED' ? 'ESTIMATED' : 'UNKNOWN'
-export const fullDate = (value: unknown) => {
-  const date = textValue(value)
-  return /^\d{4}-\d{2}$/.test(date) ? `${date}-01` : date || null
-}
+export { fullDate } from '../domain/entryDate'
 export const lifeStage = (value: unknown, farmBorn = false) => {
   const normalized = textValue(value).toLowerCase()
   if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
@@ -47,6 +44,28 @@ export const mergeDocuments = (...groups: Array<ReadonlyArray<EntryDocument> | u
     }
   }
   return merged
+}
+
+/** Current responses store declarations under data; legacy drafts may still expose them at line level. */
+function mapEntryHistory(line: Record<string, unknown>) {
+  const data = asRecord(line.data)
+  const vaccination = asRecord(data.vaccination ?? line.vaccination)
+  const vaccineItem = asRecord(asRows(vaccination.items)[0])
+  const disease = asRecord(data.disease ?? line.disease)
+  const reproduction = asRecord(data.reproduction ?? line.reproduction)
+  const vaccineStatus = vaccination.status === 'KNOWN' ? 'Có' : vaccination.status === 'NONE' ? 'Không' : 'Không rõ'
+  const vaccineItems = asRows(vaccination.items).map((item) => ({ vaccineId: nullableNumber(item.vaccineId) ?? undefined, vaccineName: textValue(item.vaccineName), vaccineDate: textValue(item.date), vaccineSource: textValue(item.informationSource) }))
+  const diseaseStatus = disease.status === 'KNOWN' ? 'Có' : disease.status === 'NONE' ? 'Không' : 'Không rõ'
+  const reproStatus = reproduction.status === 'KNOWN' ? 'Có' : reproduction.status === 'NONE' ? 'Không' : 'Không rõ'
+  const pregnancyMonths = nullableNumber(reproduction.estMonthsPregnant)
+  const earlierCalvings = nullableNumber(reproduction.earlierCalvings)
+  return {
+    vaccine: vaccineStatus, vaccineNote: textValue(vaccination.informationSource), vaccineDeclarationSource: textValue(vaccination.informationSource), vaccineId: nullableNumber(vaccineItem.vaccineId) ?? undefined,
+    vaccineName: textValue(vaccineItem.vaccineName), vaccineDate: textValue(vaccineItem.date), vaccineSource: textValue(vaccineItem.informationSource), vaccineItems,
+    disease: diseaseStatus, diseaseNote: textValue(disease.description), diseaseItems: textValue(disease.description).split('\n').map((item) => item.trim()).filter(Boolean), repro: reproStatus, pregnantAtEntry: textValue(reproduction.pregnantAtEntry),
+    ...(earlierCalvings == null ? {} : { earlierCalvings }), ...(pregnancyMonths == null ? {} : { pregnancyMonths }),
+    reproductionNote: textValue(reproduction.description),
+  }
 }
 
 export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unknown = []): HerdEntry => {
@@ -83,7 +102,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
-        amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice,
+        amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice, hist: mapEntryHistory(line),
       }
     }),
     cowsTotal: numberValue(row.cattleAmount), freight: numberValue(row.transportFee),
@@ -122,25 +141,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
         dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
         weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
-        barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: (() => {
-          const vaccination = asRecord(line.vaccination)
-          const vaccineItem = asRecord(asRows(vaccination.items)[0])
-          const disease = asRecord(line.disease)
-          const reproduction = asRecord(line.reproduction)
-          const vaccineStatus = vaccination.status === 'KNOWN' ? 'Có' : vaccination.status === 'NONE' ? 'Không' : 'Không rõ'
-          const vaccineItems = asRows(vaccination.items).map((item) => ({ vaccineId: nullableNumber(item.vaccineId) ?? undefined, vaccineName: textValue(item.vaccineName), vaccineDate: textValue(item.date), vaccineSource: textValue(item.informationSource) }))
-          const diseaseStatus = disease.status === 'KNOWN' ? 'Có' : disease.status === 'NONE' ? 'Không' : 'Không rõ'
-          const reproStatus = reproduction.status === 'KNOWN' ? 'Có' : reproduction.status === 'NONE' ? 'Không' : 'Không rõ'
-          const pregnancyMonths = nullableNumber(reproduction.estMonthsPregnant)
-          const earlierCalvings = nullableNumber(reproduction.earlierCalvings)
-          return {
-            vaccine: vaccineStatus, vaccineNote: textValue(vaccination.informationSource), vaccineId: nullableNumber(vaccineItem.vaccineId) ?? undefined,
-            vaccineName: textValue(vaccineItem.vaccineName), vaccineDate: textValue(vaccineItem.date), vaccineSource: textValue(vaccineItem.informationSource), vaccineItems,
-            disease: diseaseStatus, diseaseNote: textValue(disease.description), diseaseItems: textValue(disease.description).split('\n').map((item) => item.trim()).filter(Boolean), repro: reproStatus, pregnantAtEntry: textValue(reproduction.pregnantAtEntry),
-            ...(earlierCalvings == null ? {} : { earlierCalvings }), ...(pregnancyMonths == null ? {} : { pregnancyMonths }),
-            reproductionNote: textValue(reproduction.description),
-          }
-        })(),
+        barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: mapEntryHistory(line),
       }
     }) }),
   } : undefined
