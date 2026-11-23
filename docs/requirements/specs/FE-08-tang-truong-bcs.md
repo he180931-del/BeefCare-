@@ -253,3 +253,4 @@ Tên popup "Ghi nhận cân", không có dòng mô tả dưới tên; các ô kh
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 22/11/2026 | 28/10/2026 | D43: tách Sửa / Xóa (xóa = loại trừ mềm), ghi chú không bắt buộc, popup Xóa lần đo, MSG-FE08-06; popup Ghi nhận cân bỏ "Ước lượng khác" và ô cơ sở; ADG ghi số ngày thực tế | Tuấn |
+| 24/11/2026 | 28/10/2026 | D72: danh sách tăng trưởng và tab hồ sơ theo Bento (khối Cần cân lại / Cần chú ý / Đang nuôi; khối Cân gần nhất cạnh biểu đồ); lịch sử đo bỏ cột Trạng thái | Tuấn |
