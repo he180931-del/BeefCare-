@@ -502,7 +502,7 @@ public class VaccinationCommandService {
             .setParameter("id", vaccinationId).setParameter("farm", farmId).getResultStream().findFirst()
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccinationId", vaccinationId));
     }
-    private Map<String, Object> vaccinationSnapshot(Vaccination record) {
+    static Map<String, Object> vaccinationSnapshot(Vaccination record) {
         Map<String, Object> snapshot = new java.util.LinkedHashMap<>();
         snapshot.put("status", record.getStatus()); snapshot.put("vaccineId", record.getVaccine().getId());
         snapshot.put("vaccineName", record.getVaccineNameSnapshot() == null ? "" : record.getVaccineNameSnapshot());
