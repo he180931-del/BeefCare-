@@ -269,7 +269,7 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
     owner.unmount()
     at('TECHNICIAN')
-    expect(await screen.findByText('Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.')).toBeInTheDocument()
+    expect(await screen.findByText('Chế độ chỉ xem.')).toBeInTheDocument()
     expect(screen.queryByText('Sửa bản ghi')).not.toBeInTheDocument()
   })
 })

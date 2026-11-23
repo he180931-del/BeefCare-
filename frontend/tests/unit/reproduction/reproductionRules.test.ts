@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   actionsForStatus,
   filterWorklist,
+  reproductionIssues,
   validateCalving,
   validateReproductionCommand,
 } from '../../../src/features/reproduction/domain/reproductionRules'
@@ -46,7 +47,7 @@ describe('reproduction rules', () => {
       result: 'PREGNANT',
       method: 'ULTRASOUND',
       estimatedMonths: 0,
-    }, { today: '2026-11-01T12:00', profile: cow })).toContain('Số tháng mang thai phải từ 1 đến 9.')
+    }, { today: '2026-11-01T12:00', profile: cow })).toContain('Số tháng mang thai phải là số nguyên từ 1 đến 9.')
 
     expect(validateReproductionCommand({
       type: 'PREGNANCY_CHECK',
@@ -54,6 +55,18 @@ describe('reproduction rules', () => {
       result: 'NOT_PREGNANT',
       estimatedMonths: 3,
     }, { today: '2026-11-01T12:00', profile: cow })).toContain('Chỉ nhập số tháng khi kết quả là Có thai.')
+  })
+
+  it('D51: gắn lỗi nhập liệu vào ô, lỗi điều kiện không có ô; số tháng gõ sai (NaN) không bị coi là chưa nhập', () => {
+    const cow = REPRODUCTION_DEMO.find((row) => row.cattleCode === 'BC-000061')!
+    expect(reproductionIssues({
+      type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: Number.NaN,
+    }, { today: '2026-11-01T12:00', profile: cow })).toEqual([{ field: 'estimatedMonths', message: 'Số tháng mang thai phải là số nguyên từ 1 đến 9.' }])
+
+    const sold = { ...cow, herdStatus: 'SOLD' } as typeof cow
+    expect(reproductionIssues({
+      type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: 3,
+    }, { today: '2026-11-01T12:00', profile: sold })).toEqual([{ message: 'Chỉ ghi sự kiện cho bò đang nuôi.' }])
   })
 
   it('validates estrus timestamps and external sire requirements without blocking advisory eligibility', () => {

@@ -22,7 +22,7 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
     ['Không có ca bệnh mở', e.noOpenHealthCase ? 'Không có' : 'Có ca mở', e.noOpenHealthCase],
   ]
   return (
-    <Panel title="Điều kiện xét phối" sub="Tham khảo, không chặn ghi phối" actions={<Badge tone={met ? 'ok' : 'err'}>{met ? 'Đạt 3/3' : `Chưa đạt ${met3}/3`}</Badge>}>
+    <Panel title="Điều kiện xét phối" sub="Tham khảo" actions={<Badge tone={met ? 'ok' : 'err'}>{met ? 'Đạt 3/3' : `Chưa đạt ${met3}/3`}</Badge>}>
       <Table stack={false}>
         <thead><tr><Th>Tiêu chí</Th><Th>Giá trị</Th><Th>Kết quả</Th></tr></thead>
         <tbody>
@@ -47,7 +47,7 @@ export function WindowCard({ profile }: { profile: ReproductionFemale }) {
   const today = window.from.slice(0, 10) === now.slice(0, 10)
   const range = `${hhmm(window.from)} – ${hhmm(window.to)}`
   return (
-    <Panel tone="ok" title="Cửa sổ phối gợi ý" sub="Tính từ thời điểm động dục + tham số của trại">
+    <Panel tone="ok" title="Cửa sổ phối gợi ý">
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <KV k="Thời điểm động dục"><span className="whitespace-nowrap">{formatDateTime(profile.statusAt)}</span></KV>
         <KV k="Khung phối gợi ý"><span className="whitespace-nowrap">{today ? `${range} hôm nay` : `${formatDateTime(window.from).slice(0, 5)} ${range}`}</span></KV>
