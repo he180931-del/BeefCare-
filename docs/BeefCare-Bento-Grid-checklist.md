@@ -19,7 +19,7 @@
 | 5 | `93d190fa`, `fdaf07fa` (tab 13 và sáu trạng thái xác thực tab 12), nhánh `feature/bento-grid` | Chưa lên `dev` |
 | 6 | `7581d1b3` (hai khung cuối tab 15) | Chưa lên `dev` |
 | 7 | `7581d1b3` (17 hộp thoại và trang còn lại của tab 16, 17) | Chưa lên `dev` |
-| 8 | nhánh `feature/bento-grid` (chân hộp thoại dùng chung cho mọi hộp thoại) | Chưa commit |
+| 8 | `b210d81f` (chân hộp thoại dùng chung cho mọi hộp thoại) | Chưa lên `dev` |
 
 ## Tổng hợp
 
