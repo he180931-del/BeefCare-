@@ -306,11 +306,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
           </div>
         </Card>
 
-        <Card variant="panel">
-          <div className="flex items-center gap-2">
-            <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt điều chỉnh</h3>
-            <Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>
-          </div>
+        <Card variant="panel" title="Tóm tắt điều chỉnh" actions={<Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>}>
           <Info cols={2} items={[
             ['Thức ăn chênh lệch', `${changedFeeds} / ${lines.length}`],
             ['Tổng chênh lệch', totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg, 3)} kg`],

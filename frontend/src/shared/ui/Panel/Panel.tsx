@@ -21,18 +21,21 @@ export const PANEL_SURFACE: Record<PanelTone, string> = {
 const SUB_TEXT: Record<PanelTone, string> = {
   default: 'text-muted',
   emphasis: 'text-side-text',
-  ok: 'text-[#5b6a60]',
-  warn: 'text-[#5b6a60]',
-  err: 'text-[#5b6a60]',
+  ok: 'text-label',
+  warn: 'text-label',
+  err: 'text-label',
 }
 
-/** Khối có tiêu đề (nhãn của vùng), dòng phụ và hành động ở góc phải. */
+/**
+ * Khối có tiêu đề (nhãn của vùng), dòng phụ và hành động ở góc phải. Tiêu đề 18 px (h1/h2); `headingAs="h3"` cho khối
+ * lồng trong khối khác, 16 px — cả hai trong khoảng 16–18 px của tiêu đề card (docs/BeefCare-Bento-Grid.md §3).
+ */
 export function Panel({ title, sub, actions, tone = 'default', headingAs: Heading = 'h2', className, children }: {
   title?: ReactNode
   sub?: ReactNode
   actions?: ReactNode
   tone?: PanelTone
-  headingAs?: 'h1' | 'h2'
+  headingAs?: 'h1' | 'h2' | 'h3'
   className?: string
   children: ReactNode
 }) {
@@ -43,7 +46,7 @@ export function Panel({ title, sub, actions, tone = 'default', headingAs: Headin
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           {title && (
             <div className="min-w-0">
-              <Heading id={titleId} className="m-0 text-lg font-bold">{title}</Heading>
+              <Heading id={titleId} className={cx('m-0 font-bold', Heading === 'h3' ? 'text-base' : 'text-lg')}>{title}</Heading>
               {sub && <p className={cx('mb-0 mt-1 text-xs', SUB_TEXT[tone])}>{sub}</p>}
             </div>
           )}

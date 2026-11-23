@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
 import { cx } from '../cx'
 import { Icon } from '../Icon/Icon'
 
@@ -34,8 +34,26 @@ const STACK = {
   narrow: '@max-[480px]:block @max-[480px]:[&_thead]:hidden @max-[480px]:[&_tbody]:block @max-[480px]:[&_tfoot]:block @max-[480px]:[&_tr]:block @max-[480px]:[&_tr]:border-b @max-[480px]:[&_tr]:border-rule @max-[480px]:[&_td]:flex @max-[480px]:[&_td]:items-center @max-[480px]:[&_td]:justify-between @max-[480px]:[&_td]:gap-4 @max-[480px]:[&_td]:border-b-0 @max-[480px]:[&_td]:before:content-[attr(data-label)] @max-[480px]:[&_td]:before:text-[11px] @max-[480px]:[&_td]:before:font-semibold @max-[480px]:[&_td]:before:text-muted @max-[480px]:[&_td:empty]:hidden',
 }
 
+/**
+ * `stack` (mặc định khi không `scroll`): hẹp hơn ngưỡng thì mỗi dòng thành thẻ. Bảng không xếp thẻ (`stack={false}`,
+ * `scroll`, `wide`) cuộn ngang trong khung khi thiếu chỗ, không bao giờ cắt mất cột; khi đang cuộn được, khung nhận
+ * focus bàn phím để cuộn bằng phím mũi tên (WCAG 2.1.1).
+ */
 export function Table({ children, wide, narrow, scroll, stack = !scroll, bordered = true, variant = 'default' }: { children: ReactNode; wide?: boolean; narrow?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean; variant?: 'default' | 'panel' }) {
   const ref = useRef<HTMLTableElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const scrolls = scroll || wide || !stack
+  const [overflowing, setOverflowing] = useState(false)
+  useEffect(() => {
+    const el = box.current
+    if (!scrolls || !el || typeof ResizeObserver === 'undefined') return
+    const measure = () => setOverflowing(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [scrolls])
   useLayoutEffect(() => {
     const t = ref.current
     if (!t) return
@@ -46,10 +64,16 @@ export function Table({ children, wide, narrow, scroll, stack = !scroll, bordere
   })
   return (
     // relative: nhãn sr-only (position:absolute) trong ô bảng phải nằm trong vùng cuộn, không kéo rộng cả trang trên điện thoại.
-    <div className={cx('@container relative bg-white', bordered && (variant === 'panel' ? 'rounded-2xl border border-field' : 'rounded border border-edge'), scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
+    <div
+      ref={box}
+      tabIndex={scrolls && overflowing ? 0 : undefined}
+      className={cx('@container relative bg-white', bordered && (variant === 'panel' ? 'rounded-2xl border border-field' : 'rounded border border-edge'), scrolls ? 'overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand' : 'overflow-hidden')}
+    >
       <table
         ref={ref}
-        className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : narrow ? 'narrow' : 'normal'])}
+        // A table that can scroll keeps whole words (overflow-wrap: break-word does not shrink a column below its longest
+        // word, so the table widens and scrolls); Td's default "anywhere" cut names mid-word ("huy|ết") on phones.
+        className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', scrolls && '[&_td]:[overflow-wrap:break-word]', stack && STACK[wide ? 'wide' : narrow ? 'narrow' : 'normal'])}
       >
         {children}
       </table>

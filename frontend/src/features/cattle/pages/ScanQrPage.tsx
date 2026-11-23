@@ -94,8 +94,8 @@ export default function ScanQrPage() {
       {scanSampleNotice && <Note tone="warn">{scanSampleNotice}</Note>}
       {camera && <QrCamera onCode={(value) => void lookup(() => value)} />}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" className="min-h-11 rounded-lg!" disabled={loading} onClick={() => { setError(''); setCamera(!camera) }}><Icon name="scan" />{camera ? 'Tắt camera' : 'Bật camera'}</Button>
-        <Button type="button" className="min-h-11 rounded-lg!" disabled={loading} onClick={() => fileInput.current?.click()}><Icon name="upload" />Quét từ ảnh</Button>
+        <Button type="button" size="bento" disabled={loading} onClick={() => { setError(''); setCamera(!camera) }}><Icon name="scan" />{camera ? 'Tắt camera' : 'Bật camera'}</Button>
+        <Button type="button" size="bento" disabled={loading} onClick={() => fileInput.current?.click()}><Icon name="upload" />Quét từ ảnh</Button>
         <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Chọn ảnh chứa mã QR" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {
           const file = e.currentTarget.files?.[0]
           e.currentTarget.value = ''
@@ -108,7 +108,7 @@ export default function ScanQrPage() {
           setPhase({ kind: 'idle' })
           setError('')
         }} />
-        <Button type="submit" variant="primary" className="rounded-lg!" disabled={loading || !code.trim()}>Tra cứu</Button>
+        <Button type="submit" variant="primary" size="bento" disabled={loading || !code.trim()}>Tra cứu</Button>
       </form>
       {phase.kind === 'busy' && <p className="m-0 text-xs text-muted">Đang tra cứu…</p>}
       {error && <p role="alert" className="m-0 rounded-xl bg-err-bg p-3 text-xs text-err-fg">{error}</p>}
@@ -151,8 +151,8 @@ function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { k
         </p>
       )}
       {cow.status === 'EXITED' && <p className="m-0 text-xs text-muted">Bò đã xuất đàn: hồ sơ chỉ xem, không thêm được sự kiện.</p>}
-      <Button variant="primary" block className="min-h-11 rounded-lg!" onClick={() => onOpen(cow.code)}>Mở hồ sơ</Button>
-      <Button block className="min-h-11 rounded-lg!" onClick={onReset}><Icon name="scan" />Quét lại</Button>
+      <Button variant="primary" size="bento" block onClick={() => onOpen(cow.code)}>Mở hồ sơ</Button>
+      <Button size="bento" block onClick={onReset}><Icon name="scan" />Quét lại</Button>
     </div>
   )
 }

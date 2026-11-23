@@ -585,11 +585,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
-          <Card variant="panel">
-            <div className="flex items-center gap-2">
-              <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt phiếu nhập kho</h3>
-              {badge && <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>}
-            </div>
+          <Card variant="panel" title="Tóm tắt phiếu nhập kho" actions={badge && <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>}>
             <Info cols={2} items={[
               ['Số mặt hàng', summary.itemCount],
               ['Tổng khối lượng', formatKg(summary.totalKg, 0)],
@@ -617,8 +613,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             )}
           </Card>
 
-          <Card variant="panel">
-            <h3 className="m-0 text-[13px] font-semibold">Kiểm tra trước khi lưu</h3>
+          <Card variant="panel" title="Kiểm tra trước khi lưu">
             <CheckLine ok={checks.feeds}>Thức ăn đang dùng trong danh mục</CheckLine>
             <CheckLine ok={checks.quantities}>Số lượng &gt; 0, đơn giá ≥ 0</CheckLine>
             <CheckLine ok={checks.expiry}>Hạn dùng sau ngày nhập kho</CheckLine>

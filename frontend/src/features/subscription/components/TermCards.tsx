@@ -26,7 +26,7 @@ export function TermCards({ prices, selected, onSelect }: { prices: PriceDTO | n
                 {label}
               </span>
               <span className="wrap-anywhere text-xl font-bold text-ink">{value}</span>
-              <span className="text-[11px] text-[#5b6a60]">{sub}</span>
+              <span className="text-[11px] text-label">{sub}</span>
             </button>
           )
         })}

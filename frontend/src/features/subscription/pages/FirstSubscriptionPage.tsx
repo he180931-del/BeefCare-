@@ -64,11 +64,11 @@ export default function FirstSubscriptionPage() {
         <div className="flex flex-col gap-4">
           <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có']]} />
           <TermCards prices={price} selected={term} onSelect={setTerm} />
-          <Card variant="panel" title="Điều khoản gói"><Facts items={[
+          <Card variant="panel" headingAs="h3" title="Điều khoản gói"><Facts items={[
             ['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'],
             ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ'],
           ]} /></Card>
-          <Card variant="panel" title="Xem lại trước khi tạo">
+          <Card variant="panel" headingAs="h3" title="Xem lại trước khi tạo">
             <Facts items={[
               ['Trang trại', data.farmName],
               ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],

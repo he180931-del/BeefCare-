@@ -57,11 +57,11 @@ export function WindowCard({ profile }: { profile: ReproductionFemale }) {
           <div className="absolute h-full rounded-full bg-brand" style={{ left: `${bar.left}%`, width: `${bar.width}%` }} />
           <div className="absolute -top-1 h-[18px] w-0.5 bg-err-fg" style={{ left: `${bar.now}%` }} />
         </div>
-        <div className="relative mt-1.5 h-3 text-[10px] text-[#5b6a60]">
+        <div className="relative mt-1.5 h-3 text-[10px] text-label">
           {[4, 8, 12, 16, 20, 24].map((hour) => <span key={hour} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${(hour / 24) * 100}%`, ...(hour === 24 ? { transform: 'translateX(-100%)' } : {}) }}>{String(hour).padStart(2, '0')}:00</span>)}
         </div>
       </div>
-      <p className="m-0 mt-2 text-[11px] text-[#5b6a60]">Vạch đỏ: bây giờ ({hhmm(now)})</p>
+      <p className="m-0 mt-2 text-[11px] text-label">Vạch đỏ: bây giờ ({hhmm(now)})</p>
     </Panel>
   )
 }

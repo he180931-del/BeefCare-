@@ -133,7 +133,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
             <span className="text-xs text-ink">Áp dụng từ {formatDate(current.effectiveFrom)} · Nguồn: {current.sourceNote} · lưu bởi {current.savedBy}</span>
           </>
         ) : <Badge tone="info">Chưa có phiên bản đang áp dụng</Badge>}
-        <span className="text-[11px] text-[#5b6a60] lg:ml-auto">Gợi ý chỉ hỗ trợ quyết định, không tự tạo sự kiện hay đổi trạng thái</span>
+        <span className="text-[11px] text-label lg:ml-auto">Gợi ý chỉ hỗ trợ quyết định, không tự tạo sự kiện hay đổi trạng thái</span>
       </div>
       {scheduled && <Note tone="info">{`Đã lên lịch phiên bản v${scheduled.versionNo}, áp dụng từ ${formatDate(scheduled.effectiveFrom)}.`}</Note>}
 

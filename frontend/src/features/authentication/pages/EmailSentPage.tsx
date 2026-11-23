@@ -42,7 +42,7 @@ function EmailCard({ email, tone }: { email: string; tone: 'verification' | 'res
   if (tone === 'reset') return <Panel className="border-transparent! bg-[#eef4ef]! text-center"><p className="m-0 wrap-anywhere text-[15px] font-bold text-brand-dark">{text}</p></Panel>
   return (
     <Panel className="gap-0.5! border-transparent! bg-[#eef4ef]!">
-      <p className="m-0 text-[11px] text-[#5b6a60]">Liên kết xác minh đã gửi tới</p>
+      <p className="m-0 text-[11px] text-label">Liên kết xác minh đã gửi tới</p>
       <p className="m-0 wrap-anywhere text-[15px] font-bold text-ink">{text}</p>
     </Panel>
   )

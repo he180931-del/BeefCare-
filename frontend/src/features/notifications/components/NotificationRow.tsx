@@ -16,9 +16,9 @@ export function NotificationRow({ item, now, onOpen }: { item: NotificationView;
           {unread && <span className="sr-only">Chưa đọc: </span>}
           {item.title}
         </span>
-        <span className="block break-words text-xs text-[#5b6a60]">{item.summary}</span>
+        <span className="block break-words text-xs text-label">{item.summary}</span>
       </span>
-      <span className="col-start-2 text-xs text-[#5b6a60] @min-[640px]:col-start-3 @min-[640px]:row-start-1">{relativeTime(item.createdTime, now)}</span>
+      <span className="col-start-2 text-xs text-label @min-[640px]:col-start-3 @min-[640px]:row-start-1">{relativeTime(item.createdTime, now)}</span>
     </button>
   )
 }

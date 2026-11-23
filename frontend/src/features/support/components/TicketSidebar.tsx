@@ -18,7 +18,7 @@ export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
           ['Cập nhật', formatDateTime(ticket.updatedAt)],
         ].map(([k, v]) => (
           <div key={String(k)} className="min-w-0">
-            <dt className="mb-[3px] text-[11px] text-[#5b6a60]">{k}</dt>
+            <dt className="mb-[3px] text-[11px] text-label">{k}</dt>
             <dd className="m-0 break-words text-[13px] font-medium">{v}</dd>
           </div>
         ))}

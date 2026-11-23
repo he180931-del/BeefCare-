@@ -95,7 +95,7 @@ export function NoticePanel({ title, children }: { title: string; children: Reac
     <div role="status">
       <Panel tone="warn" className="gap-1.5!">
         <p className="m-0 text-base font-bold text-ink">{title}</p>
-        <p className="m-0 text-[13px] leading-5 text-[#5b6a60]">{children}</p>
+        <p className="m-0 text-[13px] leading-5 text-label">{children}</p>
       </Panel>
     </div>
   )

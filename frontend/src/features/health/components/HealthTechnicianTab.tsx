@@ -7,7 +7,7 @@ import { CaseStatusBadge, EntryBadge, shortDetails } from './healthUi'
 import HealthTimelineSource from './HealthTimelineSource'
 
 const Meta = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] text-[#5b6a60]">{label}</span><span className="text-[13px] font-medium text-ink">{value}</span></div>
+  <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] text-label">{label}</span><span className="text-[13px] font-medium text-ink">{value}</span></div>
 )
 
 /** Bản điện thoại chỉ xem: không có nút ghi, hộp thoại hay khung trang; hồ sơ bò của Kỹ thuật viên cung cấp phần khung. */

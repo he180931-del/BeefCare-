@@ -136,11 +136,11 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
               {(['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'] as const).map((s) => <option key={s} value={s}>{paymentLabel(s)}</option>)}
             </FilterSelect>
           </div>
-          <div className="flex min-w-0 items-center gap-2 text-[13px] text-[#5b6a60]">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] text-label">
             <label htmlFor="from" className="shrink-0">Tạo từ</label>
             <DateInput id="from" className="min-w-0 flex-1 rounded-xl focus-within:ring-2 focus-within:ring-brand" value={from} onChange={(value) => change({ from: value })} />
           </div>
-          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-[13px] text-[#5b6a60]">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-[13px] text-label">
             <label htmlFor="until" className="self-center">Tạo đến</label>
             <DateInput id="until" className="min-w-0 rounded-xl focus-within:ring-2 focus-within:ring-brand" value={until} onChange={(value) => change({ to: value })} />
             {rangeError && <p role="alert" className="col-span-full m-0 text-xs text-err-fg">Ngày bắt đầu không được sau ngày kết thúc.</p>}
@@ -170,8 +170,9 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
                     <Td className="whitespace-nowrap font-medium">{p.quoteRef}</Td>
                     <Td className="whitespace-nowrap">{termLabel(p.durationYears)}</Td>
                     <Td className="whitespace-nowrap">{fmtVnd(p.amountVnd)}</Td>
-                    <Td className="whitespace-nowrap">{fmtDateTime(p.requestedAt)}</Td>
-                    <Td className="whitespace-nowrap">{fmtDateTime(p.expiresAt)}</Td>
+                    {/* Date and time may wrap onto two lines when the table is tight (laptop 1024), instead of scrolling. */}
+                    <Td>{fmtDateTime(p.requestedAt)}</Td>
+                    <Td>{fmtDateTime(p.expiresAt)}</Td>
                     <Td className="whitespace-nowrap"><PaymentBadge state={p.state} /></Td>
                     <Td>{p.confirmedAt && p.purchasedStart && p.purchasedEnd ? `${fmtDateTime(p.confirmedAt)} · ${fmtPeriod(p.purchasedStart, p.purchasedEnd)}` : '—'}</Td>
                     <Td>

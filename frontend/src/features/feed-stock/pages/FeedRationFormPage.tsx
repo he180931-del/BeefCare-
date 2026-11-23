@@ -270,11 +270,7 @@ function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          <Card variant="panel">
-            <div className="flex items-center gap-2">
-              <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt khẩu phần</h3>
-              <Badge tone="info">Sắp áp dụng</Badge>
-            </div>
+          <Card variant="panel" title="Tóm tắt khẩu phần" actions={<Badge tone="info">Sắp áp dụng</Badge>}>
             <Info cols={2} items={[
               ['Lượng / con / ngày', `${formatNumber(preview.dailyKgPerHead, 2)} kg`],
               ['Chi phí / con / ngày', preview.dailyCostPerHead === null ? '—' : formatVnd(preview.dailyCostPerHead)],
@@ -304,8 +300,7 @@ function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
             </Table>
           </Card>
 
-          <Card variant="panel">
-            <h3 className="m-0 text-[13px] font-semibold">Kiểm tra trước khi lưu</h3>
+          <Card variant="panel" title="Kiểm tra trước khi lưu">
             <div className="flex gap-2 text-xs"><span aria-hidden="true" className="font-bold text-brand">✓</span><span>Thức ăn đang dùng trong danh mục, lượng &gt; 0</span></div>
             <div className="flex gap-2 text-xs"><span aria-hidden="true" className="font-bold text-brand">✓</span><span>Mỗi chuồng chỉ có 1 khẩu phần hiệu lực mỗi ngày</span></div>
             {lowCover.map((line, index) => (

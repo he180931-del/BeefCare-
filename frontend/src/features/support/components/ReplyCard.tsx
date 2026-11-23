@@ -46,7 +46,7 @@ export function ReplyCard({ ticket, onSend }: { ticket: Ticket; onSend: (content
             }}
           />
           <FieldError>{error}</FieldError>
-          <p className="m-0 mt-1 text-right text-[11px] text-[#5b6a60]">
+          <p className="m-0 mt-1 text-right text-[11px] text-label">
             {text.length.toLocaleString('vi-VN')}/{REPLY_MAX.toLocaleString('vi-VN')}
           </p>
         </div>

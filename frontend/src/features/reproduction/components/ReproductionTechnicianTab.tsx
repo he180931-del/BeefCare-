@@ -23,7 +23,7 @@ function Pairs({ items, dark }: { items: Array<[string, ReactNode]>; dark?: bool
     <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
-          <dt className={`mb-[3px] text-[11px] ${dark ? 'text-side-text' : 'text-[#5b6a60]'}`}>{label}</dt>
+          <dt className={`mb-[3px] text-[11px] ${dark ? 'text-side-text' : 'text-label'}`}>{label}</dt>
           <dd className={`m-0 text-[13px] font-semibold ${dark ? 'text-white' : 'text-ink'}`}>{value}</dd>
         </div>
       ))}

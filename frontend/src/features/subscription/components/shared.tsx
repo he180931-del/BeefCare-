@@ -17,7 +17,7 @@ export function Facts({ items, cols = 2, onDark = false }: { items: readonly Fac
     <dl className={`m-0 grid gap-x-4 gap-y-3 ${COLS[cols]}`}>
       {items.map(([label, value, tone]) => (
         <div key={label} className="min-w-0">
-          <dt className={`mb-[3px] text-[11px] ${onDark ? 'text-side-text' : 'text-[#5b6a60]'}`}>{label}</dt>
+          <dt className={`mb-[3px] text-[11px] ${onDark ? 'text-side-text' : 'text-label'}`}>{label}</dt>
           <dd className={`m-0 wrap-anywhere text-[13px] ${tone === 'warn' ? `font-semibold ${onDark ? 'text-[#ffe3aa]' : 'text-warn-fg'}` : 'font-medium'}`}>{value}</dd>
         </div>
       ))}
