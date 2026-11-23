@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -29,10 +30,23 @@ class OpenApiContractTest {
     }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
+
+    @BeforeAll
+    static void initializeDocumentation(@Autowired MockMvc mvc) throws Exception {
+        // Schema discovery is fixture initialization (not an API latency assertion).
+        // Cold Windows discovery can exceed the 15s test-method limit; the existing
+        // before-all timeout bounds setup, while all contract assertions stay below.
+        mvc.perform(get("/v3/api-docs/beefcare").with(user("contract-reviewer").roles("ADMIN")))
+            .andExpect(status().isOk());
+    }
+
     @Test void exportBusinessContractWithoutLegacyCrud() throws Exception {
         String json=mvc.perform(get("/v3/api-docs/beefcare").with(user("contract-reviewer").roles("ADMIN"))).andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         JsonNode api=mapper.readTree(json),paths=api.path("paths");
+        // D45: keep the 405 compatibility tombstone out of generated clients.
+        assertThat(paths.has("/api/farms/{farmId}/pending-calves/{calfId}/parentage")).isFalse();
+        assertThat(api.path("components").path("schemas").has("AssignCalfParentageRequest")).isFalse();
         assertThat(paths.has("/api/farms")).isTrue();
         assertThat(paths.has("/api/support/tickets")).isTrue();
         assertThat(paths.has("/api/cattle")).isFalse();

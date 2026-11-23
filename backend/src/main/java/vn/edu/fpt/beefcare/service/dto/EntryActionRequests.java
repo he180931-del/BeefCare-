@@ -25,12 +25,6 @@ public final class EntryActionRequests {
 
     public record DiedBeforeRegistrationRequest(@NotBlank @Size(max = 500) String reason) {}
 
-    public record AssignCalfParentageRequest(
-        @NotNull Long damId,
-        Long sireId,
-        @NotBlank @Size(max = 20) String sireSource,
-        @Size(max = 50) String externalSireCode
-    ) {}
 
     /**
      * Correction of one herd entry (popup "Correct / Void Herd Entry"). Only the fields that differ from the current

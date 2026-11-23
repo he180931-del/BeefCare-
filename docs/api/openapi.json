@@ -4319,58 +4319,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/pending-calves/{calfId}/parentage" : {
-      "post" : {
-        "tags" : [ "herd-entry-resource" ],
-        "operationId" : "assignParentage",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "calfId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AssignCalfParentageRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PendingCalf"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/farms/{farmId}/pending-calves/{calfId}/died-before-registration" : {
       "post" : {
         "tags" : [ "herd-entry-resource" ],
@@ -17977,29 +17925,15 @@
         },
         "required" : [ "effectiveDate", "status" ]
       },
-      "AssignCalfParentageRequest" : {
+      "DiedBeforeRegistrationRequest" : {
         "type" : "object",
         "properties" : {
-          "damId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireSource" : {
+          "reason" : {
             "type" : "string",
-            "maxLength" : 20,
-            "minLength" : 0
-          },
-          "externalSireCode" : {
-            "type" : "string",
-            "maxLength" : 50,
+            "maxLength" : 500,
             "minLength" : 0
           }
-        },
-        "required" : [ "damId" ]
+        }
       },
       "PendingCalf" : {
         "type" : "object",
@@ -18071,16 +18005,6 @@
           "draftVoucherId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "DiedBeforeRegistrationRequest" : {
-        "type" : "object",
-        "properties" : {
-          "reason" : {
-            "type" : "string",
-            "maxLength" : 500,
-            "minLength" : 0
           }
         }
       },
@@ -22061,13 +21985,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -22114,19 +22038,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "paged" : {
+            "type" : "boolean"
           },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "unpaged" : {
-            "type" : "boolean"
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -22136,10 +22060,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
