@@ -167,9 +167,9 @@ export function mapRecordResult(raw: unknown, action: RecordResult['action'], en
 export function toOpenCaseRequest(cattleId: number, cmd: { observedAt: string; observerId?: number; temperatureC: number | null; signs: string; diagnosis: string; suspectedContagious: boolean; severity: string }): HealthOpenCaseRequestDto {
   return { cattleId, observedAt: toInstant(cmd.observedAt), observerId: cmd.observerId ?? null, temperatureC: cmd.temperatureC, signs: cmd.signs.trim(), diagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, severity: cmd.severity || null }
 }
-export function toTreatmentRequest(cmd: { expectedVersion?: number; medicineId: number | null; treatmentTime: string; dose: string; route: string; courseDays: number | null; withdrawalDays: number | null; performerBody: Record<string, unknown>; veterinaryAdvice: string }): HealthTreatmentRequestDto {
+export function toTreatmentRequest(cmd: { expectedVersion?: number; medicineId: number | null; treatmentTime: string; dose: string; route: string; courseDays: number | null; withdrawalDays: number | null; performerBody: Record<string, unknown>; veterinaryAdvice: string; returnToOpen?: boolean }): HealthTreatmentRequestDto {
   const performer = cmd.performerBody.performerId !== undefined ? { performerId: cmd.performerBody.performerId as number } : { performerName: (cmd.performerBody.performerName as string | null | undefined) ?? null }
-  return { expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime), dose: cmd.dose.trim(), route: cmd.route || null, courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, ...performer, veterinaryAdvice: cmd.veterinaryAdvice.trim() || null }
+  return { expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime), dose: cmd.dose.trim(), route: cmd.route || null, courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, ...performer, veterinaryAdvice: cmd.veterinaryAdvice.trim() || null, ...(cmd.returnToOpen === undefined ? {} : { returnToOpen: cmd.returnToOpen }) }
 }
 export function toStatusRequest(cmd: StatusCommand & { confirmedById?: number }): HealthStatusRequestDto {
   return {

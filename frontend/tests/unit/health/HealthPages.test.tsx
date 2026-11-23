@@ -34,9 +34,9 @@ describe('danh sách ca sức khỏe /suc-khoe', () => {
     expect(screen.queryByText('HC-0418')).not.toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Mức độ'), '')
-    await user.click(screen.getByText(/Mạn tính \(2\)/))
+    await user.click(screen.getByText(/Theo dõi dài hạn \(2\)/))
     expect(await screen.findByText('HC-0398')).toBeInTheDocument()
-    expect(screen.getByText('CHRONIC · từ 20/09/2026')).toBeInTheDocument()
+    expect(screen.getByText('Theo dõi dài hạn · từ 20/09/2026')).toBeInTheDocument()
   })
 
   it('báo khi không có ca phù hợp và khi tải lỗi', async () => {
@@ -55,7 +55,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
   it('hiện ca đang mở, diễn biến, ngưng thịt và các ca trước', async () => {
     renderTab('BC-000203')
     expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
-    expect(screen.getByText('OPEN · ngày 8')).toBeInTheDocument()
+    expect(screen.getByText('Đang mở · ngày 8')).toBeInTheDocument()
     expect(screen.getByText('Oxytetracycline 20% LA · 30 ml · tiêm bắp · ngưng 28 ngày')).toBeInTheDocument()
     expect(screen.getAllByText('10/11/2026').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Không xuất bán trước ngày hết ngưng sử dụng thịt.')).toBeInTheDocument()

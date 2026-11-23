@@ -243,8 +243,9 @@ public class HealthCareCommandService {
         treatment.setPerformer(performer); treatment.setVeterinaryAdvice(advice); treatment.setResult("GIVEN");
         treatment.setWithdrawalEndDate(withdrawalEnd(time, cattle, courseDays, withdrawalDays));
         em.persist(treatment);
-        // R-10-06 / R-10-09: a treatment reopens a CHRONIC case in the same transaction.
-        boolean returnedToOpen = "CHRONIC".equals(upper(healthCase.getStatus()));
+        // R-10-06 / R-10-09: điều trị đưa ca CHRONIC về OPEN trong cùng giao dịch, trừ khi người dùng chọn giữ mạn tính
+        // cho điều trị duy trì (D55).
+        boolean returnedToOpen = "CHRONIC".equals(upper(healthCase.getStatus())) && !Boolean.FALSE.equals(req.returnToOpen());
         if (returnedToOpen) { healthCase.setStatus("OPEN"); healthCase.setChronicSince(null); }
         em.flush();
         audit.log(ctx, "HEALTH_TREATMENT", "Treatment", treatment.getId(), Map.of("caseId", caseId, "courseDays", courseDays, "withdrawalEndDate", treatment.getWithdrawalEndDate()));

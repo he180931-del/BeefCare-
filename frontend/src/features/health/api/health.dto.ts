@@ -37,6 +37,7 @@ export interface HealthTreatmentRequestDto {
   performerId?: number
   performerName?: string | null
   veterinaryAdvice: string | null
+  returnToOpen?: boolean
 }
 
 export interface HealthStatusRequestDto {

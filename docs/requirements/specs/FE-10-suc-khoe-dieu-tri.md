@@ -105,10 +105,10 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | R-10-03 | Phản ứng sau tiêm: mở ca từ bản ghi tiêm → liên kết bản ghi đó với ca. | GBR-47 |
 | R-10-04 | Thân nhiệt ngoài 35,0–43,0 → MSG-FE10-06. | Popup |
 | R-10-05 | Thời gian: không tương lai (MSG-COM-07); mở ca không trước ngày nhập đàn (MSG-COM-15); theo dõi / điều trị không trước lúc mở ca hoặc bản ghi mới nhất của ca → MSG-FE10-07; đóng ca không trước bản ghi mới nhất. | UC-02, 03, 04 |
-| R-10-06 | Chuyển trạng thái: OPEN → CHRONIC (Manager, ghi ngày); CHRONIC → OPEN (Manager, hoặc **tự động khi ghi điều trị**, kèm MSG-FE10-10 trong popup); OPEN / CHRONIC → CLOSED với kết quả. | GBR-45, Table 3.4-4 |
+| R-10-06 | Chuyển trạng thái: OPEN → CHRONIC (Manager, ghi ngày); CHRONIC → OPEN (Manager, hoặc khi ghi điều trị với ô "Chuyển ca về Đang mở" được chọn – mặc định chọn; bỏ chọn cho điều trị duy trì thì ca giữ CHRONIC – D55); OPEN / CHRONIC → CLOSED với kết quả. | GBR-45, Table 3.4-4 |
 | R-10-07 | Đóng ca Chết / Mất tích: **trong cùng transaction** tạo 1 phiếu xuất PENDING (loại DEATH; Mất tích là OTHER với lý do "Missing") liên kết ca, thông báo Owner, tạo REM-12; bò **vẫn ACTIVE** đến khi Owner xác nhận / bỏ. Hiện MSG-FE10-05. | GBR-47, GBR-95, UC-03 AF4 |
 | R-10-08 | Xác nhận xuất đàn (FE-13) đóng các ca OPEN / CHRONIC với kết quả CLOSED_BY_EXIT. | Table 3.4-4 |
-| R-10-09 | Ghi điều trị: lưu điều trị + dòng thời gian; tính lại ngày hết ngưng thịt và sức khỏe; ca CHRONIC trở về OPEN trong cùng transaction. | UC-04, GBR-46 |
+| R-10-09 | Ghi điều trị: lưu điều trị + dòng thời gian; tính lại ngày hết ngưng thịt và sức khỏe; ca CHRONIC trở về OPEN trong cùng transaction, trừ khi người dùng bỏ chọn "Chuyển ca về Đang mở" (D55). | UC-04, GBR-46 |
 | R-10-10 | Sửa / hủy điều trị hoặc theo dõi: bắt buộc lý do; giữ giá trị gốc (Record Revision); kiểm thứ tự thời gian trong ca và version; tính lại ngày hết ngưng thịt và sức khỏe trong cùng transaction; ngày hết ngưng thịt đổi → MSG-FE10-12. | GBR-46, BR-D15 |
 | R-10-11 | Quan sát mở ca chỉ sửa, **không hủy** → MSG-FE10-13; ca mở nhầm thì đóng có lý do (UC-03). | UC-05 AF3 |
 | R-10-12 | Hủy điều trị cuối của ca OPEN → sức khỏe về Theo dõi nếu không còn ca OPEN nào có điều trị. | UC-05 AF2 |
@@ -127,8 +127,8 @@ E1 thiếu dấu hiệu / mức độ → MSG-COM-06 · E2 thân nhiệt → MSG
 ### UC-FE10-03 Cập nhật ca bệnh (D54)
 Một popup thay cho "Ghi theo dõi" và "Cập nhật / Đóng ca": thời điểm, thân nhiệt, diễn biến, mô tả, chẩn đoán / cờ truyền nhiễm, trạng thái ca → **Lưu cập nhật**. Phần theo dõi và trạng thái lưu trong **một giao dịch**, cùng thời điểm.
 - Giữ trạng thái → phần theo dõi bắt buộc (diễn biến + mô tả) → MSG-FE10-02.
-- Chuyển mạn tính (từ OPEN) → CHRONIC, ngày mạn tính = ngày của thời điểm → MSG-FE10-08.
-- Mở lại (từ CHRONIC) → OPEN → MSG-FE10-09.
+- Chuyển theo dõi dài hạn (từ OPEN) → CHRONIC, "từ ngày" = ngày của thời điểm → MSG-FE10-08.
+- Chuyển về đang mở (từ CHRONIC) → OPEN → MSG-FE10-09.
 - Đóng ca → kết quả, người xác nhận; thời điểm đóng = thời điểm → MSG-FE10-04 (+ R-10-07 nếu Chết / Mất tích).
 - Đổi trạng thái / đóng ca: phần theo dõi tùy chọn; có nhập mô tả, diễn biến hoặc thân nhiệt thì cần đủ diễn biến và mô tả (D35).
 - Thời điểm không tương lai, không trước bản ghi mới nhất của ca (MSG-COM-07, MSG-FE10-07).
@@ -213,7 +213,7 @@ Gộp vào popup Cập nhật ca bệnh (D54).
 | 6 | Course (days) / Liệu trình (ngày) | Số nguyên | — | 1–30 | 1 | MSG-COM-10 |
 | 7 | Withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | — | 0–365 | Từ thuốc | MSG-COM-10 |
 | 8 | Withdrawal end / Hết ngưng thịt | Chỉ đọc | — | (ngày dùng đầu + số ngày − 1) + ngày ngưng | — | — |
-| 9 | Chronic case notice / Lưu ý ca mãn tính | Chữ | — | MSG-FE10-10 khi ca CHRONIC | — | — |
+| 9 | Return to open / Chuyển ca về Đang mở | Checkbox | — | Chỉ hiện khi ca CHRONIC; bỏ chọn khi chỉ điều trị duy trì (ca giữ theo dõi dài hạn) – D55 | Chọn | — |
 | 10 | Performed by / Người thực hiện | Dropdown hoặc chữ | — | Thành viên ACTIVE hoặc tên ngoài ≤ 100 | — | MSG-COM-10 |
 | 11 | Veterinary advice / Tư vấn thú y | Ô chữ dài | — | ≤ 500 | — | MSG-COM-10 |
 | 12 | Cancel / Save treatment | Nút | — | — | — | MSG-COM-05, MSG-COM-13, MSG-COM-02; thành công MSG-FE10-03 |
@@ -222,13 +222,13 @@ Gộp vào popup Cập nhật ca bệnh (D54).
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
-| 1 | Case / Ca sức khỏe | Chỉ đọc | — | Mã, dấu hiệu, bò; tiêu đề phụ: ngày mở, ngày n / mạn tính từ | — |
-| 2 | Time / Thời điểm | Ngày giờ | * | Mặc định bây giờ; không tương lai, không trước bản ghi mới nhất của ca; dùng cho lần theo dõi, ngày mạn tính và lúc đóng ca | MSG-COM-07, MSG-FE10-07 |
+| 1 | Case / Ca sức khỏe | Chỉ đọc | — | Mã, dấu hiệu, bò; tiêu đề phụ: ngày mở, Đang mở · ngày n / Theo dõi dài hạn · từ ngày | — |
+| 2 | Time / Thời điểm | Ngày giờ | * | Mặc định bây giờ; không tương lai, không trước bản ghi mới nhất của ca; dùng cho lần theo dõi, ngày bắt đầu theo dõi dài hạn và lúc đóng ca | MSG-COM-07, MSG-FE10-07 |
 | 3 | Body temperature (°C) / Thân nhiệt | Số (1 thập phân) | — | 35,0–43,0; gõ sai báo dưới ô | MSG-FE10-06 |
 | 4 | Progress / Diễn biến | Radio | * khi có phần theo dõi | Tốt hơn / Không đổi / Xấu hơn; không chọn sẵn, không tự điền (D35) | MSG-COM-06 |
 | 5 | Description / Mô tả | Ô chữ dài | * khi có phần theo dõi | ≤ 1.000 | MSG-COM-06, MSG-COM-10 |
 | 6 | Suspected diagnosis, Contagious | Như popup Mở ca | — | — | — |
-| 7 | Case status / Trạng thái ca | Radio | * | OPEN: Giữ đang mở (mặc định) / Chuyển mạn tính / Đóng ca. CHRONIC: Giữ mạn tính (mặc định) / Mở lại / Đóng ca | — |
+| 7 | Case status / Trạng thái ca | Radio | * | Đang mở: Giữ đang mở (mặc định) / Chuyển theo dõi dài hạn / Đóng ca. Theo dõi dài hạn: Giữ theo dõi dài hạn (mặc định) / Chuyển về đang mở / Đóng ca | — |
 | 8 | Outcome / Kết quả | Radio | * khi Đóng ca | Khỏi / Chết / Mất tích; Chết, Mất tích → ghi chú phiếu xuất chờ trước khi lưu | MSG-COM-06 |
 | 9 | Confirmed by / Người xác nhận | Dropdown | — | Khi Đóng ca; thành viên ACTIVE, mặc định người dùng | — |
 | 10 | Cancel / Save update | Nút | — | "Xác nhận đóng ca" (đỏ) khi Chết / Mất tích | MSG-COM-05, MSG-COM-02 (popup – D49); thành công MSG-FE10-02 / 04 / 08 / 09 |
@@ -276,9 +276,9 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | MSG-FE10-05 | Hộp thoại thông tin | Đã tạo phiếu xuất chờ Chủ trại xác nhận. {cattle_code} vẫn đang nuôi cho đến khi Chủ trại xác nhận. |
 | MSG-FE10-06 | Dưới trường | Thân nhiệt phải từ 35,0 đến 43,0 °C. |
 | MSG-FE10-07 | Dưới trường | Thời điểm không được sớm hơn {date}, bản ghi mới nhất của ca này. |
-| MSG-FE10-08 | Toast thành công | Ca {case_code} đã chuyển sang theo dõi mãn tính. |
-| MSG-FE10-09 | Toast thành công | Ca {case_code} đã được mở lại. |
-| MSG-FE10-10 | Trong hộp thoại | Ca này đang theo dõi mãn tính. Lưu điều trị sẽ mở lại ca. |
+| MSG-FE10-08 | Toast thành công | Ca {case_code} đã chuyển sang theo dõi dài hạn. |
+| MSG-FE10-09 | Toast thành công | Ca {case_code} đã chuyển về đang mở. |
+| MSG-FE10-10 | Trong hộp thoại | Thay bằng ô chọn "Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)" – D55. |
 | MSG-FE10-11 | Toast thành công | Đã {sửa/hủy} {loại bản ghi}. Thay đổi và lý do được giữ trong lịch sử. |
 | MSG-FE10-12 | Sau khi lưu | Cách ly thịt của {cattle_code} đổi từ {old_date} thành {new_date}. |
 | MSG-FE10-13 | Trong hộp thoại | Không thể hủy quan sát mở ca. Hãy sửa nó, hoặc đóng ca kèm lý do. |
@@ -298,9 +298,9 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | TC-10-07 | Ca mở 01/11 10:00 | Cập nhật ca lúc 01/11 09:00 | MSG-FE10-07 dưới ô Thời điểm | I | R-10-05 |
 | TC-10-08 | Ca OPEN chưa điều trị | Ghi điều trị | Sức khỏe Đang điều trị | I | GBR-45 |
 | TC-10-09 | Điều trị dùng 01/11, 3 ngày, ngưng 7 ngày | Lưu | Hết ngưng thịt 10/11 (01 + 3 − 1 = 03; + 7) | U | GBR-46 |
-| TC-10-10 | Ca CHRONIC | Ghi điều trị | Popup hiện MSG-FE10-10; lưu → ca OPEN | I, E | R-10-06 |
-| TC-10-11 | Ca OPEN có điều trị | Chuyển mãn tính | CHRONIC; sức khỏe Theo dõi (nếu không ca OPEN khác có điều trị) | I | R-10-06 |
-| TC-10-12 | Ca CHRONIC | Mở lại | OPEN; MSG-FE10-09 | I | R-10-06 |
+| TC-10-10 | Ca CHRONIC | Ghi điều trị, giữ ô "Chuyển ca về Đang mở" / bỏ chọn | Ca OPEN, Đang điều trị / ca giữ CHRONIC, sức khỏe Theo dõi, ngưng thịt vẫn tính | I, E | R-10-06, D55 |
+| TC-10-11 | Ca OPEN có điều trị | Chuyển theo dõi dài hạn | CHRONIC; sức khỏe Theo dõi (nếu không ca OPEN khác có điều trị) | I | R-10-06 |
+| TC-10-12 | Ca CHRONIC | Chuyển về đang mở | OPEN; MSG-FE10-09 | I | R-10-06 |
 | TC-10-13 | Ca OPEN | Đóng, kết quả Hồi phục | CLOSED; sức khỏe Khỏe mạnh nếu không còn ca nào | I | GBR-45 |
 | TC-10-14 | Ca OPEN | Đóng, kết quả Chết | CLOSED; có 1 phiếu xuất PENDING loại DEATH liên kết ca; REM-12; bò vẫn ACTIVE; MSG-FE10-05 | I | R-10-07 |
 | TC-10-15 | Ca OPEN | Đóng, kết quả Mất tích | Phiếu PENDING loại OTHER lý do "Missing" | I | R-10-07 |
@@ -341,3 +341,4 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 14/11/2026 | 28/10/2026 | D35: popup Cập nhật / Đóng ca thêm ô chọn Diễn biến (mục 6 dòng 3), A5 thêm `progress?` (mục 7), TC-10-27/28; bỏ cách tự suy diễn biến từ kết quả | Tuấn |
 | 23/11/2026 | 28/10/2026 | D54: gộp popup Ghi theo dõi và Cập nhật / Đóng ca thành "Cập nhật ca bệnh" (một thời điểm, có thân nhiệt; UC-FE10-03, SCR-37 dòng 7, mục 6, A5); popup Mở ca bỏ "Thêm vào ca đang có", nhắc và dẫn sang ca đang có (UC-FE10-02, R-10-01, A3); TC-10-04/05/07/27/29 | Tuấn |
+| 23/11/2026 | 28/10/2026 | D55: ghi điều trị cho ca CHRONIC có ô "Chuyển ca về Đang mở" (mặc định chọn; bỏ chọn = điều trị duy trì, ca giữ CHRONIC) – R-10-06, R-10-09, popup Ghi điều trị dòng 9, MSG-FE10-10, TC-10-10. D56: giao diện tiếng Việt cho trạng thái ca – Đang mở / Theo dõi dài hạn / Đã đóng (thay OPEN / CHRONIC / CLOSED và "mạn tính"); hành động "Chuyển theo dõi dài hạn", "Chuyển về đang mở" | Tuấn |

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
@@ -317,6 +318,22 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.returnedToOpen").value(true))
             .andExpect(jsonPath("$.healthState").value("UNDER_TREATMENT"));
         assertThat(em.find(HealthCase.class, opened.id()).getChronicSince()).isNull();
+    }
+
+    /** D55: điều trị duy trì cho ca mạn tính – bỏ chọn "Chuyển ca về Đang mở" thì ca giữ CHRONIC, ngưng thịt vẫn tính. */
+    @Test
+    void d55_aMaintenanceTreatmentKeepsTheCaseChronic() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        health.updateStatus(farm.getId(), opened.id(), key(), new CareDtos.CaseStatus(opened.version(), "TO_CHRONIC", null, null, null, null, null, null, null));
+        LocalDate chronicSince = em.find(HealthCase.class, opened.id()).getChronicSince();
+        postJson("/health-cases/" + opened.id() + "/treatments", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"medicineId\":" + medicine.id()
+                + ",\"administeredAt\":\"" + hoursAgo(1) + "\",\"dose\":\"20 ml\",\"route\":\"IM\",\"withdrawalDays\":7,\"returnToOpen\":false}")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.caseStatus").value("CHRONIC"))
+            .andExpect(jsonPath("$.returnedToOpen").value(false))
+            .andExpect(jsonPath("$.healthState").value("MONITORING"))
+            .andExpect(jsonPath("$.cattleWithdrawalEndDate").value(TODAY.plusDays(7).toString()));
+        assertThat(em.find(HealthCase.class, opened.id()).getChronicSince()).isEqualTo(chronicSince);
     }
 
     // ------------------------------------------------------------------ A5 status

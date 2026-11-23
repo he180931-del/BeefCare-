@@ -18541,6 +18541,9 @@
           },
           "veterinaryAdvice" : {
             "type" : "string"
+          },
+          "returnToOpen" : {
+            "type" : "boolean"
           }
         }
       },
@@ -21960,13 +21963,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -21985,9 +21988,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
@@ -21997,6 +21997,9 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -22013,19 +22016,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "unpaged" : {
             "type" : "boolean"
           },
           "paged" : {
             "type" : "boolean"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -24961,13 +24964,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
-            "type" : "string"
-          },
           "parameterName" : {
             "type" : "string"
           },
           "token" : {
+            "type" : "string"
+          },
+          "headerName" : {
             "type" : "string"
           }
         }

@@ -196,6 +196,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/treatments`), toTreatmentRequest({
           expectedVersion: cmd.expectedVersion, medicineId: cmd.medicineId, treatmentTime: cmd.treatmentTime, dose: cmd.dose, route: cmd.route,
           courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, performerBody: await performerBody(cmd.performer), veterinaryAdvice: cmd.veterinaryAdvice,
+          returnToOpen: cmd.returnToOpen,
         })))
         return mapTreatmentResult(r, caseId, cases.get(caseId)?.caseCode ?? '', cmd.courseDays)
       }, 'treatmentTime')

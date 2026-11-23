@@ -890,3 +890,19 @@ TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân
 5. Backend vẫn nhận `existingCaseId` ở A3 và giữ A4 (`/observations`) để không đổi hợp đồng; giao diện không dùng nữa. Không migration.
 
 Spec FE-10 đã cập nhật: UC-FE10-02/03, R-10-01, SCR-37 dòng 7, popup Mở ca dòng 8, popup Cập nhật ca bệnh (thay popup Ghi theo dõi và Cập nhật / Đóng ca), A3–A5, TC-10-04/05/07/27/29.
+
+### D55 — FE-10: ghi điều trị cho ca theo dõi dài hạn có thể giữ trạng thái (23/11/2026)
+
+TuanPQ duyệt đợt 2 của bản đánh giá FE-10. GBR-45 cho ca CHRONIC tự về OPEN mỗi khi ghi điều trị, khiến điều trị duy trì (vitamin, thuốc bổ, kháng viêm định kỳ) đẩy ca về Đang mở và người dùng phải chuyển lại.
+
+1. Popup Ghi điều trị của ca CHRONIC có ô **"Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)"**, mặc định chọn (giữ hành vi SRS).
+2. Bỏ chọn → ca giữ CHRONIC; sức khỏe của bò là "Theo dõi" (không phải "Đang điều trị"); ngày ngưng thịt vẫn tính từ điều trị (GBR-46 không phụ thuộc trạng thái ca).
+3. A6 thêm `returnToOpen?` (thiếu = `true`); không migration, phản hồi `returnedToOpen` giữ nguyên. Thay MSG-FE10-10 bằng ô chọn này.
+
+### D56 — FE-10: trạng thái ca hiển thị bằng tiếng Việt, "Theo dõi dài hạn" thay "mạn tính" (23/11/2026)
+
+TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn toàn tiếng Việt. SRS định nghĩa CHRONIC là *long-term monitoring* – trạng thái quản lý ca, không phải chẩn đoán "bệnh mạn tính".
+
+1. Nhãn: `OPEN` → **Đang mở**, `CHRONIC` → **Theo dõi dài hạn**, `CLOSED` → **Đã đóng** (huy hiệu: "Đang mở · ngày n", "Theo dõi dài hạn · từ dd/mm/yyyy", "Đã đóng · Khỏi"); tab danh sách "Theo dõi dài hạn (n)".
+2. Hành động: "Chuyển theo dõi dài hạn", "Chuyển về đang mở" (không dùng "Mở lại" để dành cho việc mở lại ca đã đóng ở đợt 4).
+3. Mã trong DB / API / code giữ nguyên `OPEN`, `CHRONIC`, `CLOSED`; chỉ đổi chữ hiển thị (một nguồn `CASE_STATUS_LABEL`). Spec FE-10 đổi theo, gồm các chỗ viết "mãn tính".

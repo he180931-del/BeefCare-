@@ -73,7 +73,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
               <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
               <Meta label="Ca đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
               <Meta label="Ngưng sử dụng thịt đến">{withdrawing ? fmtDate(profile.withdrawalEndDate) : '—'}</Meta>
-              <Meta label="Ca mạn tính">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
+              <Meta label="Ca theo dõi dài hạn">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
             </div>
             {withdrawing && <Note tone="warn">Không xuất bán trước ngày hết ngưng sử dụng thịt.</Note>}
           </Panel>

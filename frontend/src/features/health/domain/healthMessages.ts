@@ -7,8 +7,8 @@ export const treatmentToast = (withdrawalEnd: string) => `Đã ghi điều trị
 
 export function statusToast(r: HealthCaseResult): string {
   if (r.kind === 'CLOSED') return `Đã đóng ca ${r.caseCode} với kết quả ${OUTCOME_LABEL[r.outcome ?? 'RECOVERED']}.`
-  if (r.kind === 'CHRONIC') return `Ca ${r.caseCode} đã chuyển sang theo dõi mạn tính.`
-  if (r.kind === 'REOPENED') return `Ca ${r.caseCode} đã mở lại (OPEN).`
+  if (r.kind === 'CHRONIC') return `Ca ${r.caseCode} đã chuyển sang theo dõi dài hạn.`
+  if (r.kind === 'REOPENED') return `Ca ${r.caseCode} đã chuyển về đang mở.`
   return `Đã cập nhật ca ${r.caseCode}.`
 }
 

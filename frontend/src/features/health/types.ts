@@ -179,6 +179,8 @@ export interface TreatmentCommand {
   withdrawalDays: number | null
   performer: string
   veterinaryAdvice: string
+  /** Chỉ với ca theo dõi dài hạn (D55): false giữ trạng thái (điều trị duy trì); thiếu hoặc true đưa ca về Đang mở. */
+  returnToOpen?: boolean
 }
 
 /** Popup "Cập nhật ca bệnh" (A5, D54): một lần cập nhật gồm phần theo dõi và trạng thái ca. */

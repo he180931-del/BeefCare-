@@ -12,7 +12,6 @@ export const MSG = {
   pendingExit: 'Bò đang chờ xác nhận chết / mất nên chưa nhận thêm sự kiện chăm sóc mới.',
   inactiveMedicine: (name: string) => `${name} đã ngưng sử dụng, không thể chọn cho bản ghi mới.`,
   voidOpening: 'Lần ghi mở ca không thể hủy. Hãy sửa lại, hoặc đóng ca kèm lý do.',
-  chronicNotice: 'Ca đang theo dõi mạn tính. Lưu điều trị sẽ chuyển ca về OPEN.',
 }
 
 /** Ngày của lần dùng cuối = ngày dùng đầu + (số ngày liệu trình − 1). */

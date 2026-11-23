@@ -45,11 +45,19 @@ public final class CareDtos {
      * INTRAMUSCULAR / SUBCUTANEOUS / INTRAVENOUS / ORAL / TOPICAL / OTHER, {@code courseDays} 1–30 (default 1),
      * {@code withdrawalDays} 0–365 (default: the medicine's), {@code performerId} an ACTIVE member or
      * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
+     * {@code returnToOpen} (D55): với ca CHRONIC, {@code false} giữ ca mạn tính (điều trị duy trì); thiếu hoặc
+     * {@code true} đưa ca về OPEN như GBR-45. Bỏ qua với ca OPEN.
      */
     public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
-                                   Long performerId, String performerName, String veterinaryAdvice) {}
+                                   Long performerId, String performerName, String veterinaryAdvice, Boolean returnToOpen) {
+        /** Bản trước D55: ca CHRONIC luôn về OPEN khi ghi điều trị. */
+        public TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
+                                Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {
+            this(expectedVersion, medicineId, administeredAt, dose, route, courseDays, withdrawalDays, performerId, performerName, veterinaryAdvice, null);
+        }
+    }
     /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}

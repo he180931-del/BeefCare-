@@ -112,6 +112,13 @@ describe('điều trị và ngưng sử dụng thịt', () => {
     expect(r).toMatchObject({ caseStatus: 'OPEN', returnedToOpen: true, withdrawalEndDate: '2026-11-06', healthState: 'UNDER_TREATMENT' })
   })
 
+  it('D55: điều trị duy trì giữ ca theo dõi dài hạn, bò vẫn ở trạng thái Theo dõi', async () => {
+    const { api } = setup()
+    const card = (await api.getProfile('BC-000125')).activeCases[0]
+    const r = await api.recordTreatment(card.id, treatment({ expectedVersion: card.version, returnToOpen: false }))
+    expect(r).toMatchObject({ caseStatus: 'CHRONIC', returnedToOpen: false, healthState: 'MONITORING' })
+  })
+
   it('từ chối thuốc ngưng sử dụng, liệu trình ngoài 1-30 ngày và thời điểm trước lúc mở ca', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]

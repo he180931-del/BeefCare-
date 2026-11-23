@@ -181,7 +181,8 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const errors: Record<string, string> = {}
       const medicine = treatmentErrors(cmd as never, { cattle, openedAt: c.openedAt }, errors)
       throwIf(errors)
-      const returnedToOpen = c.status === 'CHRONIC'
+      // D55: ca theo dõi dài hạn về Đang mở, trừ khi người dùng giữ trạng thái cho điều trị duy trì.
+      const returnedToOpen = c.status === 'CHRONIC' && cmd.returnToOpen !== false
       const row = addEntry({
         caseId, type: 'TREATMENT', occurredAt: cmd.treatmentTime, recordedBy: cmd.performer.trim() || 'Quản lý', temperatureC: null, medicineId: medicine!.id, medicineName: medicine!.name,
         dose: cmd.dose.trim(), route: cmd.route as Exclude<typeof cmd.route, ''>, courseDays: cmd.courseDays ?? 1, withdrawalDays: cmd.withdrawalDays ?? medicine!.withdrawalDays ?? 0, veterinaryAdvice: cmd.veterinaryAdvice.trim(),

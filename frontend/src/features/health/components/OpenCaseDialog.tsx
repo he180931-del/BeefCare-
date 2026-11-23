@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Button, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
+import { Button, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { openedToast } from '../domain/healthMessages'
 import { SEVERITIES, SEVERITY_LABEL, statusText } from '../domain/healthFormat'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthCaseCard, HealthCattle, HealthFormOptions, Severity } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { cattleLine, DateTimeInput, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
+import { cattleLine, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
 
 interface Props {
   cattle: HealthCattle

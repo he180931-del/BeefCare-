@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
+import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { statusToast } from '../domain/healthMessages'
-import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
+import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES, statusText } from '../domain/healthFormat'
 import { hasFollowUp, parseTemperature } from '../validation/healthValidation'
 import type { CaseOutcome, HealthCaseCard, HealthCaseResult, HealthFormOptions, Progress, StatusAction } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { caseLine, DateTimeInput, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
+import { caseLine, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
 
 const OUTCOMES: CaseOutcome[] = ['RECOVERED', 'DIED', 'MISSING']
 
@@ -50,7 +50,7 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
 
   const mark = (label: string) => (followUpRequired ? `${label} *` : label)
   return (
-    <Modal title="Cập nhật ca bệnh" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${chronic ? `mạn tính từ ${fmtDate(card.chronicSince)}` : `ngày ${card.day}`}`} width={640} onClose={onClose}>
+    <Modal title="Cập nhật ca bệnh" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${statusText(card.status, card.day, card.chronicSince)}`} width={640} onClose={onClose}>
       <Field label="Ca sức khỏe" id="uc-case"><ReadonlyBox id="uc-case" value={caseLine(card.caseCode, card.signs, cattleCode)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm *" id="uc-time" hint={hint(errors.observedAt)}><DateTimeInput id="uc-time" value={observedAt} onChange={setObservedAt} /></Field>
@@ -71,8 +71,8 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
       </Field>
       <Field label="Trạng thái ca *">
         <RadioGroup name="uc-action" ariaLabel="Trạng thái ca" value={action} onChange={setAction} options={[
-          { value: 'KEEP', label: chronic ? 'Giữ mạn tính' : 'Giữ đang mở' },
-          chronic ? { value: 'TO_OPEN', label: 'Mở lại' } : { value: 'TO_CHRONIC', label: 'Chuyển mạn tính' },
+          { value: 'KEEP', label: chronic ? 'Giữ theo dõi dài hạn' : 'Giữ đang mở' },
+          chronic ? { value: 'TO_OPEN', label: 'Chuyển về đang mở' } : { value: 'TO_CHRONIC', label: 'Chuyển theo dõi dài hạn' },
           { value: 'CLOSE', label: 'Đóng ca' },
         ]} />
       </Field>
