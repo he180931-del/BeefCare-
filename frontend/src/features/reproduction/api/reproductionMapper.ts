@@ -29,7 +29,7 @@ export const text = (value: unknown): string | undefined => (typeof value === 's
 const SIGN_LABEL = Object.fromEntries(Object.entries(SIGN_CODE).map(([label, code]) => [code, label])) as Record<string, string>
 const METHOD_IN: Record<string, string> = { NATURAL: 'NATURAL_SERVICE', AI: 'ARTIFICIAL_INSEMINATION' }
 const RESULT_TEXT: Record<string, string> = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' }
-const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OTHER: 'Khác' }
+const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OBSERVATION: 'Quan sát – không lên giống lại', OTHER: 'Khác' }
 const UPDATE_TEXT: Record<string, string> = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' }
 const STATUSES: ReproductiveStatus[] = ['AWAITING_BREEDING', 'IN_ESTRUS', 'BRED', 'PREGNANT', 'POST_CALVING']
 /** "Việc tiếp theo" của A1 (mã) → nhãn cột SCR-38. */
@@ -49,15 +49,16 @@ export function mapEligibility(raw: unknown): BreedingEligibility | null {
   const criteria = asRows(e.criteria)
   if (!criteria.length && e.met === undefined) return null
   const of = (name: string) => asRecord(criteria.find((c) => c.name === name))
-  const age = of('MINIMUM_AGE'), weight = of('MINIMUM_WEIGHT'), health = of('OPEN_HEALTH_CASE')
+  const age = of('MINIMUM_AGE'), weight = of('MINIMUM_WEIGHT'), health = of('OPEN_HEALTH_CASE'), postpartum = of('POSTPARTUM_INTERVAL')
   const failed = criteria.filter((c) => c.met === false).map((c) => textValue(c.name))
-  const label: Record<string, string> = { MINIMUM_AGE: 'tuổi', MINIMUM_WEIGHT: 'cân nặng', OPEN_HEALTH_CASE: 'sức khỏe' }
+  const label: Record<string, string> = { MINIMUM_AGE: 'tuổi', MINIMUM_WEIGHT: 'cân nặng', OPEN_HEALTH_CASE: 'sức khỏe', POSTPARTUM_INTERVAL: 'sau đẻ' }
   return {
     status: e.met === false || failed.length ? 'NOT_MET' : 'MET',
     minimumAgeMet: age.met !== false, minimumWeightMet: weight.met !== false, noOpenHealthCase: health.met !== false,
     requiredAgeMonths: num(age.required) ?? 0, actualAgeMonths: num(age.value) ?? 0,
     requiredWeightKg: num(weight.required) ?? 0, actualWeightKg: num(weight.value) ?? null,
     failedConditions: failed.map((name) => label[name] ?? name),
+    ...(postpartum.name ? { postpartumMet: postpartum.met !== false, requiredPostpartumDays: num(postpartum.required) ?? 45, daysSinceCalving: num(postpartum.value) ?? 0 } : {}),
   }
 }
 
