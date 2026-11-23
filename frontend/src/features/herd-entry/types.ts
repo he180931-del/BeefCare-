@@ -29,7 +29,7 @@ export interface EntryCattleDetail {
   purpose?: string
   estimated?: boolean
   unitPrice?: number
-  hist?: { vaccine: string; vaccineNote?: string; vaccineName?: string; vaccineDate?: string; vaccineSource?: string; disease: string; diseaseNote?: string; repro: string; pregnantAtEntry?: string; pregnancyMonths?: number }
+  hist?: EntryCow['hist']
   events?: string[]
   age?: string
   caseLine?: string[]
@@ -66,6 +66,7 @@ export interface EntryCow {
   hist: {
     vaccine: string
     vaccineNote?: string
+    vaccineDeclarationSource?: string
     vaccineId?: number
     vaccineName?: string
     vaccineDate?: string
@@ -179,7 +180,11 @@ export type EntryLineChanges = {
   sex?: EntrySexCode | null
   birthDate?: string | null
   birthDateAccuracy?: EntryBirthAccuracy | null
+  vaccination?: { status: EntryDeclarationStatus; informationSource: string | null; items: Array<{ vaccineId: number | null; vaccineName: string | null; date: string | null; informationSource: string | null }> }
+  disease?: { status: EntryDeclarationStatus; description: string | null }
+  reproduction?: { status: EntryDeclarationStatus; earlierCalvings: number | null; pregnantAtEntry: 'YES' | 'NO' | 'UNKNOWN' | null; estMonthsPregnant: number | null; description: string | null }
 }
+export type EntryDeclarationStatus = 'KNOWN' | 'NONE' | 'UNKNOWN'
 export type EntryLineVoidInput = { reason: string; expectedVersion: number | undefined }
 export type EntryLineCorrectionInput = EntryLineVoidInput & { voucherVersion: number | undefined; changes: EntryLineChanges }
 export type EntryLineVoidCheck = {

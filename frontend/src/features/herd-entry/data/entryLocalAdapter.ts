@@ -12,8 +12,26 @@ import { SOURCES, initialCalves } from './entryData'
 import { BREEDS, INITIAL_COWS, OLDER, SOURCE_FILTERS, TODAY as DEMO_TODAY } from './importsData'
 import { PAY_METHODS } from '../constants/entryOptions'
 import { dm } from '../../../shared/lib/format'
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
+import { validateEntryHistory, type EntryHistory } from '../domain/entryHistory'
 
 export { localApi, pens }
+
+/** Explicit demo history edit; it does not simulate backend line IDs, versions or care records. */
+export async function correctHistory(voucherCode: string, cattleCode: string, history: EntryHistory, reason: string): Promise<void> {
+  if (!reason.trim() || reason.trim().length > 500) throw new Error('Vui lòng nhập lý do, tối đa 500 ký tự.')
+  const record = await localApi.get(voucherCode)
+  if (record.status !== 'Đã nhập' || record.entryType === 'FARM_BORN' || record.type === 'Bê sinh tại trại') throw new Error('Chỉ sửa khai báo của phiếu mua đã ghi sổ.')
+  const line = record.detail?.cows?.find(item => item.code === cattleCode)
+  if (!line) throw new Error('Không tìm thấy bò trong phiếu.')
+  const female = line.sexCode === 'FEMALE' || /Cái/.test(line.sex ?? line.breed ?? '')
+  const invalid = validateEntryHistory(history, female, record.date)
+  if (invalid) throw new Error(invalid)
+  await localApi.update(voucherCode, { detail: { ...record.detail,
+    cows: record.detail!.cows!.map(item => item.code === cattleCode ? { ...item, hist: structuredClone(history) } : item),
+    history: [...(record.detail?.history ?? []), `${businessDateTime()} · Sửa khai báo lịch sử ${cattleCode}: ${reason.trim()}`],
+  } })
+}
 
 // Demo calves wait in memory until they are registered or marked dead.
 let localCalves: EntryCalf[] = structuredClone(initialCalves).map((calf, index) => ({ ...calf, calfOutcomeId: index + 1 }))

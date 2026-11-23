@@ -1,5 +1,40 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+
+test('PR-H posted and draft lines read declarations from the actual data wrapper without losing items or zero parity', () => {
+  const data = {
+    sex: 'FEMALE', vaccination: { status: 'KNOWN', informationSource: 'Nguồn chung', items: [
+      { vaccineId: 1, vaccineName: 'LMLM', date: '2026-03-01', informationSource: 'Sổ cũ' },
+      { vaccineName: 'Vắc-xin chữ tự do', date: null, informationSource: null },
+    ] }, disease: { status: 'NONE', description: null },
+    reproduction: { status: 'KNOWN', earlierCalvings: 0, pregnantAtEntry: 'YES', estMonthsPregnant: 4, description: 'Người bán khai' },
+  }
+  const posted = mapVoucher({ ...voucher('POSTED'), lines: [{ id: 91, cattleCode: 'BC-H', data }] })
+  const history = posted.detail!.cows![0].hist!
+  assert.equal(history.vaccine, 'Có'); assert.equal(history.vaccineItems?.length, 2)
+  assert.equal(history.vaccineDeclarationSource, 'Nguồn chung'); assert.equal(history.vaccineSource, 'Sổ cũ')
+  assert.equal(history.disease, 'Không'); assert.equal(history.repro, 'Có')
+  assert.equal(history.earlierCalvings, 0); assert.equal(history.pregnancyMonths, 4)
+  const draft = mapVoucher({ ...voucher('DRAFT'), lines: [{ id: 91, data }] })
+  assert.deepEqual(draft.draft!.cows![0].hist, history)
+})
+
+test('PR-H correction sends declaration blocks with observed versions and a stable canonical content key', async () => {
+  const calls: Array<{ body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('Must not refresh versions') },
+    command: async (_path, body, options) => { calls.push({ body, key: options?.key }); return {} },
+  } })
+  const vaccination = { status: 'KNOWN' as const, informationSource: null, items: [{ vaccineId: 1, vaccineName: 'LMLM', date: '2026-03-01', informationSource: 'Sổ cũ' }] }
+  const input = { reason: ' Sửa khai báo ', expectedVersion: 0, voucherVersion: 3, changes: { vaccination, disease: { status: 'NONE' as const, description: null } } }
+  await api.correctEntryLine(91, input)
+  await api.correctEntryLine(91, { ...input, changes: { disease: input.changes.disease, vaccination } })
+  assert.deepEqual(calls[0].body, { ...input, reason: 'Sửa khai báo' })
+  assert.equal(calls[0].key, calls[1].key)
+  await api.correctEntryLine(91, { ...input, changes: { vaccination: { ...vaccination, status: 'UNKNOWN', items: [] } } })
+  assert.notEqual(calls[0].key, calls[2].key)
+})
 import { createHerdEntryBackendApi, type BackendTransport } from '../../src/features/herd-entry/api/herdEntryBackendApi'
 import { BackendError } from '../../src/shared/api/backendClient'
 import { mapVoucher } from '../../src/features/herd-entry/api/herdEntryMapper'
