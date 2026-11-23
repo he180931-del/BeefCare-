@@ -1,4 +1,4 @@
-import type { CaseOutcome, CaseStatus, EntryType, HealthCattle, Medicine, PendingExit, Progress, RecordStatus, Severity, TreatmentRoute } from '../types'
+import type { CaseOutcome, CaseStatus, EntryType, HealthCattle, HealthMember, Medicine, PendingExit, Progress, RecordStatus, Severity, TreatmentRoute } from '../types'
 
 /** "Hôm nay" của dữ liệu mẫu: các frame Figma tính ngày từ 20/10/2026 (HC-0412 mở 13/10 là "ngày 8"). */
 export const HEALTH_DEMO_NOW = '2026-10-20T08:00'
@@ -34,6 +34,7 @@ export interface EntryRecord {
   type: EntryType
   occurredAt: string
   recordedBy: string
+  observerId?: number
   status: RecordStatus
   corrected: boolean
   version: number
@@ -55,7 +56,7 @@ export interface HealthSeed {
   cases: CaseRecord[]
   entries: EntryRecord[]
   medicines: Medicine[]
-  members: string[]
+  members: HealthMember[]
   diagnoses: string[]
   vouchers: PendingExit[]
 }
@@ -164,7 +165,7 @@ export const HEALTH_SEED: HealthSeed = {
   cases: CASES,
   entries: ENTRIES,
   medicines: MEDICINES,
-  members: [MANAGER, 'Nguyễn Văn Hùng'],
+  members: [{ id: 1, name: MANAGER }, { id: 2, name: 'Nguyễn Văn Hùng' }],
   diagnoses: ['Tiêu chảy', 'Viêm phổi', 'Chướng hơi'],
   vouchers: [],
 }

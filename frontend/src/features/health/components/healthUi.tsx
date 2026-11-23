@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useSession } from '../../../app/session/sessionContext'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Badge, inputCls, Radio } from '../../../shared/ui'
+import { Badge, inputCls, Modal, ModalButton, ModalFooter, Radio, Select } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useCanRecordCare } from '../../authorization'
 import { ENTRY_LABEL, HEALTH_STATE_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtTemp, statusText } from '../domain/healthFormat'
-import { HealthValidationError } from '../validation/healthValidation'
-import type { CaseOutcome, CaseStatus, HealthCattle, HealthState, HealthTimelineRow, Severity } from '../types'
+import { MSG } from '../domain/healthRules'
+import { HealthValidationError, temperatureNeedsCheck } from '../validation/healthValidation'
+import type { CaseOutcome, CaseStatus, HealthCattle, HealthMember, HealthState, HealthTimelineRow, Severity } from '../types'
 
 /** Chủ trại và Quản lý ghi nhận (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
 export function useCanRecord() {
@@ -59,7 +61,49 @@ export function useDialogSave() {
       else setFormError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.'))
     } finally { setSaving(false) }
   }
-  return { errors, setErrors, formError, clearFormError: () => setFormError(''), saving, run }
+  // Sửa ô thì bỏ lỗi cũ của ô đó, để lỗi đỏ không còn khi ô đã xóa trống.
+  const clearError = (key: string) => setErrors((e) => {
+    if (!(key in e)) return e
+    const next = { ...e }
+    delete next[key]
+    return next
+  })
+  return { errors, setErrors, clearError, formError, clearFormError: () => setFormError(''), saving, run }
+}
+
+/**
+ * D57: thân nhiệt ngoài 35–43 °C chưa chặn, mà hỏi xác nhận trước khi lưu. {@code guard} gọi {@code save} ngay khi số đo
+ * bình thường hoặc để trống; ngược lại giữ lệnh lưu đến khi người dùng bấm "Xác nhận lưu".
+ */
+export function useTemperatureCheck() {
+  const [pending, setPending] = useState<null | (() => void)>(null)
+  const guard = (value: number | null, save: () => void) => (temperatureNeedsCheck(value) ? setPending(() => save) : save())
+  const dialog = pending && (
+    <Modal title="Kiểm tra lại thân nhiệt" width={560} onClose={() => setPending(null)}>
+      <div role="alert" className="m-0 text-sm leading-relaxed text-ink">{MSG.temperatureCheck}</div>
+      <ModalFooter>
+        <ModalButton onClick={() => setPending(null)}>Kiểm tra lại</ModalButton>
+        <ModalButton variant="primary" onClick={() => { const save = pending; setPending(null); save() }}>Xác nhận lưu</ModalButton>
+      </ModalFooter>
+    </Modal>
+  )
+  return { guard, dialog }
+}
+
+/** Thành viên ứng với người đang đăng nhập (theo id, rồi email); không có phiên hoặc không khớp → thành viên đầu tiên. */
+export function useCurrentMember(members: HealthMember[]): HealthMember | undefined {
+  const session = useSession()
+  return members.find((m) => session != null && ((session.id != null && m.id === session.id) || (!!m.email && m.email === session.email))) ?? members[0]
+}
+
+/** Ô chọn thành viên: giá trị là id, nhãn là họ tên. */
+export function MemberSelect({ id, value, members, onChange, keepLabel, label }: { id: string; value: number | null; members: HealthMember[]; onChange: (id: number | null) => void; keepLabel?: string; label?: string }) {
+  return (
+    <Select id={id} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+      {keepLabel !== undefined && <option value="">{keepLabel}</option>}
+      {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+    </Select>
+  )
 }
 
 export const hint = (error?: string, text?: ReactNode) => (error ? <span role="alert" className="text-err-fg">{error}</span> : text)

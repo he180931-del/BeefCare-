@@ -95,6 +95,8 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     return { id: c.id, caseCode: c.caseCode, cattleCode: c.cattleCode, status: c.status, version: c.version, observationId, healthState: healthStateOf(c.cattleCode), kind, outcome: c.outcome, deathVoucher }
   }
 
+  const memberName = (id: number | null | undefined) => db.members.find((m) => m.id === id)?.name ?? ''
+
   function observationErrors(label: string, v: { time?: string; temperatureC?: number | null }, ctx: { cattle: HealthCattle; min?: string; minWhat?: string }, errors: Record<string, string>) {
     Object.assign(errors, observationFieldErrors(label, v, { now: now(), entryDate: ctx.cattle.entryDate, min: ctx.min, minWhat: ctx.minWhat }))
   }
@@ -163,7 +165,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       assertCanAdd(cattle)
       throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
 
-      const base = { occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
+      const base = { occurredAt: cmd.observedAt, recordedBy: memberName(cmd.observerId) || 'Quản lý', observerId: cmd.observerId ?? undefined, temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
       const id = Math.max(0, ...db.cases.map((c) => c.id)) + 1
       const created: CaseRecord = {
         id, caseCode: `HC-${String(id).padStart(4, '0')}`, cattleCode, diagnosis: cmd.diagnosis.trim(), signs: cmd.signs.trim(), suspectedContagious: cmd.suspectedContagious,
@@ -208,14 +210,14 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       c.suspectedContagious = cmd.suspectedContagious
       // D54: phần theo dõi và trạng thái là một lần cập nhật, cùng một thời điểm.
       const observationId = hasFollowUp(cmd)
-        ? addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: cmd.temperatureC, progress: cmd.progress as Progress, description: cmd.description.trim() }).id
+        ? addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: memberName(cmd.confirmedById) || 'Quản lý', observerId: cmd.confirmedById ?? undefined, temperatureC: cmd.temperatureC, progress: cmd.progress as Progress, description: cmd.description.trim() }).id
         : null
       let kind: HealthCaseResult['kind'] = 'KEPT'
       let voucher: PendingExit | null = null
       if (cmd.action === 'TO_CHRONIC') { c.status = 'CHRONIC'; c.chronicSince = dateOf(cmd.observedAt); kind = 'CHRONIC' }
       else if (cmd.action === 'TO_OPEN') { c.status = 'OPEN'; c.chronicSince = undefined; kind = 'REOPENED' }
       else if (closing) {
-        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.observedAt; c.closedBy = cmd.confirmedBy || 'Quản lý'; kind = 'CLOSED'
+        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.observedAt; c.closedBy = memberName(cmd.confirmedById) || 'Quản lý'; kind = 'CLOSED'
         if (c.outcome === 'DIED' || c.outcome === 'MISSING') {
           // GBR-95: phiếu xuất chờ cho Chủ trại; bò vẫn ACTIVE đến khi Chủ trại xác nhận (herd-exit đọc phiếu này khi nối backend).
           voucher = {
@@ -262,7 +264,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
         const description = textError(opening ? 'Dấu hiệu / mô tả' : 'Mô tả', next.description, { required: true, max: 1000 }); if (description) errors.description = description
         throwIf(errors)
         Object.assign(snapshot, { occurredAt: e.occurredAt, temperatureC: e.temperatureC, progress: e.progress, description: e.description })
-        Object.assign(e, { occurredAt: next.time, temperatureC: next.temperatureC, description: next.description.trim(), recordedBy: cmd.observer || e.recordedBy })
+        Object.assign(e, { occurredAt: next.time, temperatureC: next.temperatureC, description: next.description.trim(), ...(cmd.observerId ? { recordedBy: memberName(cmd.observerId) || e.recordedBy, observerId: cmd.observerId } : {}) })
         if (e.type === 'FOLLOW_UP') e.progress = next.progress as Exclude<typeof next.progress, '' | undefined>
         if (opening) { c.openedAt = next.time; c.signs = next.description.trim() }
       }

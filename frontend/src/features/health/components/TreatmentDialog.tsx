@@ -5,7 +5,7 @@ import { fmtDate, ROUTE_LABEL, ROUTES, statusText } from '../domain/healthFormat
 import { lastDoseDate, withdrawalEnd } from '../domain/healthRules'
 import type { HealthCaseCard, HealthFormOptions, TreatmentRoute } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { caseLine, hint, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
+import { caseLine, hint, ReadonlyBox, toIntOrNull, useCurrentMember, useDialogSave } from './healthUi'
 
 export default function TreatmentDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
   const { now, recordTreatment } = useHealthCaseCommands()
@@ -16,7 +16,8 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
   const [startAt, setStartAt] = useState(() => now())
   const [course, setCourse] = useState('1')
   const [wd, setWd] = useState('')
-  const [performer, setPerformer] = useState(options.members[0] ?? '')
+  const me = useCurrentMember(options.members)
+  const [performer, setPerformer] = useState(me?.name ?? '')
   const [advice, setAdvice] = useState('')
   // D55: ca theo dõi dài hạn mặc định về Đang mở như GBR-45; bỏ chọn khi chỉ là điều trị duy trì.
   const longTerm = card.status === 'CHRONIC'
@@ -70,7 +71,7 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
       </div>
       <Field label="Người thực hiện" id="tr-performer" hint={hint(errors.performer, 'Hoặc nhập tên người ngoài')}>
         <input id="tr-performer" list="tr-performer-list" maxLength={100} value={performer} onChange={(e) => setPerformer(e.target.value)} className={inputCls} />
-        <datalist id="tr-performer-list">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
+        <datalist id="tr-performer-list">{options.members.map((m) => <option key={m.id} value={m.name} />)}</datalist>
       </Field>
       {longTerm && (
         <Checkbox checked={returnToOpen} onChange={(e) => setReturnToOpen(e.target.checked)} className="text-[13px]">

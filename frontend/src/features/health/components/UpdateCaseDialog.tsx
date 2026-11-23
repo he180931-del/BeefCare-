@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
+import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Textarea } from '../../../shared/ui'
 import { statusToast } from '../domain/healthMessages'
 import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES, statusText } from '../domain/healthFormat'
 import { hasFollowUp, parseTemperature } from '../validation/healthValidation'
 import type { CaseOutcome, HealthCaseCard, HealthCaseResult, HealthFormOptions, Progress, StatusAction } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { caseLine, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
+import { caseLine, hint, MemberSelect, RadioGroup, ReadonlyBox, useCurrentMember, useDialogSave, useTemperatureCheck } from './healthUi'
 
 const OUTCOMES: CaseOutcome[] = ['RECOVERED', 'DIED', 'MISSING']
 
@@ -33,20 +33,23 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
   const [contagious, setContagious] = useState(card.suspectedContagious)
   const [action, setAction] = useState<StatusAction>('KEEP')
   const [outcome, setOutcome] = useState<CaseOutcome | ''>('')
-  const [confirmedBy, setConfirmedBy] = useState(options.members[0] ?? '')
+  const me = useCurrentMember(options.members)
+  const [confirmedById, setConfirmedById] = useState<number | null>(me?.id ?? null)
   const form = useDialogSave()
   const { errors } = form
+  const tempCheck = useTemperatureCheck()
   const temperatureC = parseTemperature(temp)
   const closing = action === 'CLOSE'
   const lost = closing && (outcome === 'DIED' || outcome === 'MISSING')
   const followUpRequired = hasFollowUp({ action, description, progress, temperatureC })
 
-  const save = () => form.run(async () => {
+  const submit = () => form.run(async () => {
     const result = await updateStatus(card.id, {
-      expectedVersion: card.version, action, observedAt, temperatureC, progress, description, diagnosis, suspectedContagious: contagious, outcome, confirmedBy,
+      expectedVersion: card.version, action, observedAt, temperatureC, progress, description, diagnosis, suspectedContagious: contagious, outcome, confirmedById,
     })
     onSaved(statusToast(result), result)
   })
+  const save = () => tempCheck.guard(temperatureC, submit)
 
   const mark = (label: string) => (followUpRequired ? `${label} *` : label)
   return (
@@ -55,7 +58,7 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm *" id="uc-time" hint={hint(errors.observedAt)}><DateTimeInput id="uc-time" value={observedAt} onChange={setObservedAt} /></Field>
         <Field label="Thân nhiệt" id="uc-temp" hint={hint(errors.temperatureC, '35,0 – 43,0')}>
-          <div className="relative"><input id="uc-temp" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => setTemp(e.target.value)} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
+          <div className="relative"><input id="uc-temp" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => { setTemp(e.target.value); form.clearError('temperatureC') }} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
         </Field>
       </div>
       <Field label={mark('Diễn biến')} hint={hint(errors.progress)}>
@@ -82,11 +85,12 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
             <RadioGroup name="uc-outcome" ariaLabel="Kết quả" value={outcome} onChange={setOutcome} options={OUTCOMES.map((o) => ({ value: o, label: OUTCOME_LABEL[o] }))} />
           </Field>
           <Field label="Người xác nhận" id="uc-confirm">
-            <Select id="uc-confirm" value={confirmedBy} onChange={(e) => setConfirmedBy(e.target.value)}>{options.members.map((m) => <option key={m}>{m}</option>)}</Select>
+            <MemberSelect id="uc-confirm" value={confirmedById} members={options.members} onChange={setConfirmedById} />
           </Field>
         </div>
       )}
       {lost && <Note tone="err">Hệ thống tạo phiếu xuất "Chết / mất" chờ Chủ trại xác nhận; {cattleCode} vẫn trong đàn đến lúc đó.</Note>}
+      {tempCheck.dialog}
       {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>

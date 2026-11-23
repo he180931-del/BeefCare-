@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Button, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
+import { Button, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Textarea } from '../../../shared/ui'
 import { openedToast } from '../domain/healthMessages'
 import { SEVERITIES, SEVERITY_LABEL, statusText } from '../domain/healthFormat'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthCaseCard, HealthCattle, HealthFormOptions, Severity } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { cattleLine, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
+import { cattleLine, hint, MemberSelect, RadioGroup, ReadonlyBox, useCurrentMember, useDialogSave, useTemperatureCheck } from './healthUi'
 
 interface Props {
   cattle: HealthCattle
@@ -29,16 +29,20 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
   const [diagnosis, setDiagnosis] = useState('')
   const [contagious, setContagious] = useState('no')
   const [severity, setSeverity] = useState<Severity | ''>('')
-  const [observer, setObserver] = useState(options.members[0] ?? '')
+  const me = useCurrentMember(options.members)
+  const [observerId, setObserverId] = useState<number | null>(me?.id ?? null)
   const form = useDialogSave()
   const { errors } = form
+  const tempCheck = useTemperatureCheck()
+  const temperatureC = parseTemperature(temp)
 
-  const save = () => form.run(async () => {
+  const submit = () => form.run(async () => {
     const result = await openCase(cattle.code, {
-      observedAt, observer, temperatureC: parseTemperature(temp), signs, diagnosis, suspectedContagious: contagious === 'yes', severity,
+      observedAt, observerId, temperatureC, signs, diagnosis, suspectedContagious: contagious === 'yes', severity,
     })
     onSaved(openedToast(result))
   })
+  const save = () => tempCheck.guard(temperatureC, submit)
 
   return (
     <Modal title="Mở ca sức khỏe" width={640} onClose={onClose}>
@@ -52,7 +56,7 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm quan sát *" id="hc-observed" hint={hint(errors.observedAt)}><DateTimeInput id="hc-observed" value={observedAt} onChange={setObservedAt} /></Field>
         <Field label="Thân nhiệt" id="hc-temp" hint={hint(errors.temperatureC, '35,0 – 43,0 · không bắt buộc')}>
-          <div className="relative"><input id="hc-temp" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => setTemp(e.target.value)} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
+          <div className="relative"><input id="hc-temp" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => { setTemp(e.target.value); form.clearError('temperatureC') }} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
         </Field>
       </div>
       <Field label="Dấu hiệu / mô tả *" id="hc-signs" hint={hint(errors.signs, 'Tối đa 1.000 ký tự')}><Textarea id="hc-signs" rows={2} maxLength={1000} value={signs} onChange={(e) => setSigns(e.target.value)} /></Field>
@@ -67,8 +71,9 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
         <RadioGroup name="hc-severity" value={severity} onChange={setSeverity} options={SEVERITIES.map((s) => ({ value: s, label: SEVERITY_LABEL[s] }))} />
       </Field>
       <Field label="Người quan sát" id="hc-observer">
-        <Select id="hc-observer" value={observer} onChange={(e) => setObserver(e.target.value)}>{options.members.map((m) => <option key={m}>{m}</option>)}</Select>
+        <MemberSelect id="hc-observer" value={observerId} members={options.members} onChange={setObserverId} />
       </Field>
+      {tempCheck.dialog}
       {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>

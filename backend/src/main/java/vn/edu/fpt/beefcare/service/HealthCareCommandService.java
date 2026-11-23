@@ -36,8 +36,8 @@ public class HealthCareCommandService {
     /** Popup Ghi điều trị #4: Tiêm bắp / Tiêm dưới da / Tĩnh mạch / Uống / Bôi / Khác. */
     static final Set<String> ROUTES = Set.of("INTRAMUSCULAR", "SUBCUTANEOUS", "INTRAVENOUS", "ORAL", "TOPICAL", "OTHER");
     private static final Map<String, String> ROUTE_ALIASES = Map.of("IM", "INTRAMUSCULAR", "SC", "SUBCUTANEOUS", "SQ", "SUBCUTANEOUS", "IV", "INTRAVENOUS", "PO", "ORAL");
-    private static final BigDecimal MIN_TEMPERATURE = new BigDecimal("35.0");
-    private static final BigDecimal MAX_TEMPERATURE = new BigDecimal("43.0");
+    private static final BigDecimal MIN_TEMPERATURE = new BigDecimal("30.0");
+    private static final BigDecimal MAX_TEMPERATURE = new BigDecimal("45.0");
     private static final Set<String> WRITABLE = Set.of("OPEN", "CHRONIC");
 
     @PersistenceContext private EntityManager em;
@@ -605,7 +605,10 @@ public class HealthCareCommandService {
         m.put("medicineName", t.getMedicineNameSnapshot()); m.put("dose", t.getDose()); m.put("route", t.getRoute()); m.put("courseDays", t.getCourseDays()); m.put("withdrawalDays", t.getWithdrawalDays());
         m.put("withdrawalEndDate", t.getWithdrawalEndDate()); m.put("performer", t.getPerformer()); m.put("veterinaryAdvice", t.getVeterinaryAdvice()); return m;
     }
-    /** R-10-04: 35.0–43.0 °C → MSG-FE10-06 (field temperatureC). */
+    /**
+     * R-10-04 (D57): ngoài 30,0–45,0 °C là số gõ nhầm → MSG-FE10-06 (trường temperatureC). Số đo ngoài 35,0–43,0 °C
+     * vẫn lưu được sau khi người dùng xác nhận trên giao diện.
+     */
     private void requireTemperature(BigDecimal t) {
         if (t != null && (t.compareTo(MIN_TEMPERATURE) < 0 || t.compareTo(MAX_TEMPERATURE) > 0)) throw DomainException.unprocessable(MessageCodes.FE10_06, "field", "temperatureC");
     }

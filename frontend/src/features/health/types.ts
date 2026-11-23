@@ -110,6 +110,8 @@ export interface HealthTimelineRow {
   /** Dòng mô tả đã dựng sẵn để hiển thị. */
   details: string
   recordedBy: string
+  /** ID thành viên quan sát (bản ghi mở ca / theo dõi); thiếu khi backend không trả. */
+  observerId?: number
   status: RecordStatus
   corrected: boolean
   linkedVaccinationId?: number
@@ -160,8 +162,8 @@ export interface HealthCaseFilters {
 /** Popup Mở ca: luôn mở ca mới; diễn biến của ca cũ ghi qua "Cập nhật ca bệnh" (D54). */
 export interface OpenCaseCommand {
   observedAt: string
-  /** Khác DTO: tên người quan sát thay vì observerId (danh sách thành viên chưa có API). */
-  observer: string
+  /** Thành viên quan sát; null thì backend ghi người đang đăng nhập. */
+  observerId: number | null
   temperatureC: number | null
   signs: string
   diagnosis: string
@@ -197,7 +199,8 @@ export interface StatusCommand {
   diagnosis: string
   suspectedContagious: boolean
   outcome?: CaseOutcome | ''
-  confirmedBy: string
+  /** Thành viên xác nhận khi đổi trạng thái; null thì backend ghi người đang đăng nhập. */
+  confirmedById: number | null
 }
 
 export interface CorrectEntryCommand {
@@ -207,7 +210,8 @@ export interface CorrectEntryCommand {
   temperatureC?: number | null
   progress?: Progress | ''
   description?: string
-  observer?: string
+  /** Thiếu hoặc null: giữ người quan sát cũ. */
+  observerId?: number | null
   medicineId?: number | null
   treatmentTime?: string
   dose?: string
@@ -259,8 +263,15 @@ export interface RecordResult {
   withdrawalAfter: string | null
 }
 
+/** Thành viên đang hoạt động của trại; chọn theo id để không nhầm người trùng họ tên. */
+export interface HealthMember {
+  id: number
+  name: string
+  email?: string
+}
+
 export interface HealthFormOptions {
   medicines: Medicine[]
-  members: string[]
+  members: HealthMember[]
   diagnoses: string[]
 }

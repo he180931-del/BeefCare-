@@ -151,16 +151,17 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.pendingExit").doesNotExist());
     }
 
+    /** D57: chỉ chặn số gõ nhầm ngoài 30–45 °C; 34,9 hay 45,0 °C lưu được sau khi người dùng xác nhận trên giao diện. */
     @Test
-    void tc10_01_temperatureOutside35To43Is422FE1006() throws Exception {
-        for (String bad : List.of("34.9", "43.1")) {
+    void tc10_01_temperatureOutside30To45Is422FE1006() throws Exception {
+        for (String bad : List.of("29.9", "45.1")) {
             postJson("/health-cases", manager, openBody(hoursAgo(3), "").replace("39.5", bad))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("MSG-FE10-06"))
                 .andExpect(jsonPath("$.params.field").value("temperatureC"));
         }
-        postJson("/health-cases", manager, openBody(hoursAgo(3), "").replace("39.5", "35.0")).andExpect(status().isCreated());
-        postJson("/health-cases", manager, openBody(hoursAgo(2), "").replace("39.5", "43.0")).andExpect(status().isCreated());
+        postJson("/health-cases", manager, openBody(hoursAgo(3), "").replace("39.5", "34.9")).andExpect(status().isCreated());
+        postJson("/health-cases", manager, openBody(hoursAgo(2), "").replace("39.5", "45.0")).andExpect(status().isCreated());
     }
 
     @Test

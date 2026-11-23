@@ -906,3 +906,12 @@ TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn
 1. Nhãn: `OPEN` → **Đang mở**, `CHRONIC` → **Theo dõi dài hạn**, `CLOSED` → **Đã đóng** (huy hiệu: "Đang mở · ngày n", "Theo dõi dài hạn · từ dd/mm/yyyy", "Đã đóng · Khỏi"); tab danh sách "Theo dõi dài hạn (n)".
 2. Hành động: "Chuyển theo dõi dài hạn", "Chuyển về đang mở" (không dùng "Mở lại" để dành cho việc mở lại ca đã đóng ở đợt 4).
 3. Mã trong DB / API / code giữ nguyên `OPEN`, `CHRONIC`, `CLOSED`; chỉ đổi chữ hiển thị (một nguồn `CASE_STATUS_LABEL`). Spec FE-10 đổi theo, gồm các chỗ viết "mãn tính".
+
+### D57 — FE-10: thân nhiệt ngoài 35–43 °C hỏi xác nhận thay vì chặn (23/11/2026)
+
+TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải giới hạn sinh lý; bò hạ thân nhiệt hoặc sốt cao vẫn phải ghi được.
+
+1. Ngoài **30,0–45,0 °C** → chặn, lỗi dưới ô MSG-FE10-06 (số gõ nhầm, ví dụ `395`, `3,9`). Frontend và backend cùng kiểm.
+2. Trong 30,0–45,0 nhưng ngoài **35,0–43,0 °C** → popup "Kiểm tra lại thân nhiệt" (MSG-FE10-06a) với nút "Kiểm tra lại" / "Xác nhận lưu". Đây là bước trên giao diện; API không thêm trường.
+3. Để trống → vẫn lưu. Sửa ô thân nhiệt thì lỗi cũ của ô biến mất (trước đây lỗi đỏ còn sau khi xóa trống ô).
+4. Áp dụng ở Mở ca sức khỏe, Cập nhật ca bệnh, Sửa bản ghi theo dõi. Không làm khoảng tham chiếu theo nhóm bò.

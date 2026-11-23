@@ -74,14 +74,18 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     if (memberList) return memberList
     const response = await transport.get(path('/members'))
     const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).members ?? asRecord(response).items)
-    memberList = rows.filter((m) => m.status === undefined || m.status === 'ACTIVE').map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)) }))
+    memberList = rows.filter((m) => m.status === undefined || m.status === 'ACTIVE').map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)), email: textValue(m.email) || undefined }))
     return memberList
   }
-  /** Tên thành viên (popup chọn theo tên) → id; tên không khớp thành viên nào → undefined. */
+  /**
+   * Người thực hiện điều trị nhập tự do (có thể là người ngoài): tên khớp đúng một thành viên → id; trùng họ tên hoặc
+   * không khớp → gửi tên, để không gán nhầm người.
+   */
   const memberId = async (name: string | undefined) => {
     const wanted = (name ?? '').trim()
     if (!wanted) return undefined
-    return (await members()).find((m) => m.name === wanted)?.id
+    const matches = (await members()).filter((m) => m.name === wanted)
+    return matches.length === 1 ? matches[0].id : undefined
   }
   const performerBody = async (name: string | undefined) => {
     const id = await memberId(name)
@@ -174,7 +178,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         ])
         const medicineList = Array.isArray(medicineRows) ? asRows(medicineRows) : asRows(asRecord(medicineRows).items)
         const diagnoses = [...new Set(asRows(asRecord(caseBody).items).map((c) => textValue(c.diagnosis)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'))
-        return { medicines: medicineList.map(mapMedicine), members: memberRows.map((m) => m.name), diagnoses }
+        return { medicines: medicineList.map(mapMedicine), members: memberRows, diagnoses }
       })
     },
 
@@ -183,8 +187,8 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         const { cattle } = await resolve(cattleCode)
         assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
-        const [{ cattleId }, observerId] = await Promise.all([resolve(cattleCode), memberId(cmd.observer)])
-        const r = await transport.command(path('/health-cases'), toOpenCaseRequest(cattleId, { ...cmd, observerId }))
+        const { cattleId } = await resolve(cattleCode)
+        const r = await transport.command(path('/health-cases'), toOpenCaseRequest(cattleId, cmd))
         return result(r, 'OPENED', { caseCode: '', cattleCode })
       })
     },
@@ -207,15 +211,14 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       const closing = cmd.action === 'CLOSE'
       return run(async () => {
         assertValid(statusErrors(cmd, caseContext(caseId)))
-        const confirmedById = await memberId(cmd.confirmedBy)
         // D35 / D54: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu phần theo dõi thiếu mô tả hoặc diễn biến.
-        const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest({ ...cmd, confirmedById })))
+        const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest(cmd)))
         const kind: CaseResultKind = cmd.action === 'TO_CHRONIC' ? 'CHRONIC' : cmd.action === 'TO_OPEN' ? 'REOPENED' : closing ? 'CLOSED' : 'KEPT'
         const ref = cases.get(caseId)
         const voucherId = num(r.pendingExitVoucherId)
         const deathVoucher: PendingExit | null = voucherId === undefined ? null : {
           id: voucherId, cattleCode: textValue(r.cattleCode, ref?.cattleCode), caseCode: textValue(r.caseCode, ref?.caseCode), type: cmd.outcome === 'MISSING' ? 'OTHER' : 'DEATH',
-          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.observedAt), reportedBy: cmd.confirmedBy, status: 'PENDING',
+          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.observedAt), reportedBy: (await members()).find((m) => m.id === cmd.confirmedById)?.name ?? '', status: 'PENDING',
         }
         return result(r, kind, ref, deathVoucher)
       })
@@ -239,7 +242,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         })
         const body = treatment
           ? toTreatmentCorrectionRequest({ ...cmd, performerBody: cmd.performer === undefined ? undefined : await performerBody(cmd.performer) })
-          : toObservationCorrectionRequest({ ...cmd, observerId: await memberId(cmd.observer) })
+          : toObservationCorrectionRequest(cmd)
         const r = await transport.command(path(treatment ? `/treatments/${entryId}/correction` : `/health-observations/${entryId}/correction`), body)
         return recordResult(r, 'CORRECTED', entry)
       }, treatment ? 'treatmentTime' : 'observedAt')

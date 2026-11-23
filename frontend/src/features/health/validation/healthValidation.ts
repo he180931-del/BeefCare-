@@ -4,8 +4,11 @@ import { dateOf } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import type { CorrectEntryCommand } from '../types'
 
-export const TEMP_MIN = 35
-export const TEMP_MAX = 43
+/** D57: ngoài 30–45 °C là gõ nhầm (chặn); ngoài 35–43 °C chỉ cần người dùng xác nhận lại số đo. */
+export const TEMP_MIN = 30
+export const TEMP_MAX = 45
+export const TEMP_CHECK_MIN = 35
+export const TEMP_CHECK_MAX = 43
 
 /** Lỗi kiểm tra theo từng trường: dialog hiện thông báo dưới ô tương ứng. */
 export class HealthValidationError extends Error {
@@ -28,6 +31,11 @@ export function temperatureError(value: number | null | undefined): string | nul
   if (value === null || value === undefined) return null
   const ok = Number.isFinite(value) && value >= TEMP_MIN && value <= TEMP_MAX && Math.round(value * 10) / 10 === value
   return ok ? null : MSG.temperature
+}
+
+/** Số đo hợp lệ nhưng nằm ngoài 35–43 °C: hỏi xác nhận trước khi lưu (D57). */
+export function temperatureNeedsCheck(value: number | null | undefined): boolean {
+  return value !== null && value !== undefined && temperatureError(value) === null && (value < TEMP_CHECK_MIN || value > TEMP_CHECK_MAX)
 }
 
 export function textError(label: string, value: string | undefined, { required = false, max }: { required?: boolean; max: number }): string | null {

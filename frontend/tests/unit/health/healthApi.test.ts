@@ -17,7 +17,7 @@ const treatment = (over: Partial<TreatmentCommand> = {}): TreatmentCommand => ({
   medicineId: 3, treatmentTime: '2026-10-20T07:30', dose: '20 ml', route: 'INTRAMUSCULAR', courseDays: 1, withdrawalDays: 15, performer: 'Trần Quốc Long', veterinaryAdvice: '', ...over,
 })
 const status = (over: Partial<StatusCommand>): StatusCommand => ({
-  action: 'KEEP', observedAt: NOW, temperatureC: null, progress: '', description: '', diagnosis: '', suspectedContagious: false, confirmedBy: 'Trần Quốc Long', ...over,
+  action: 'KEEP', observedAt: NOW, temperatureC: null, progress: '', description: '', diagnosis: '', suspectedContagious: false, confirmedById: 1, ...over,
 })
 
 async function rejection(promise: Promise<unknown>) {
@@ -71,10 +71,10 @@ describe('hồ sơ sức khỏe của bò', () => {
 describe('mở ca và cập nhật ca bệnh (D54)', () => {
   it('kiểm tra thân nhiệt, dấu hiệu, mức độ và thời điểm tương lai', async () => {
     const { api } = setup()
-    const e = await rejection(api.openCase('BC-000231', { observedAt: '2026-10-21T08:00', observer: 'Trần Quốc Long', temperatureC: 44, signs: '', diagnosis: '', suspectedContagious: false, severity: '' }))
+    const e = await rejection(api.openCase('BC-000231', { observedAt: '2026-10-21T08:00', observerId: 1, temperatureC: 46, signs: '', diagnosis: '', suspectedContagious: false, severity: '' }))
     expect(e).toBeInstanceOf(HealthValidationError)
     const errors = (e as HealthValidationError).errors
-    expect(errors.temperatureC).toBe('Thân nhiệt phải trong khoảng 35,0 – 43,0 °C.')
+    expect(errors.temperatureC).toBe('Thân nhiệt phải trong khoảng 30,0 – 45,0 °C.')
     expect(errors.signs).toBe('Dấu hiệu / mô tả là bắt buộc.')
     expect(errors.severity).toBe('Mức độ là bắt buộc.')
     expect(errors.observedAt).toBe('Thời điểm không được ở tương lai.')
@@ -82,9 +82,9 @@ describe('mở ca và cập nhật ca bệnh (D54)', () => {
 
   it('mở ca luôn tạo ca mới HC-nnnn, đặt Theo dõi; một con bò có thể có nhiều ca (GBR-45)', async () => {
     const { api } = setup()
-    const opened = await api.openCase('BC-000125', { observedAt: '2026-10-20T06:50', observer: 'Trần Quốc Long', temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: 'Viêm phổi', suspectedContagious: false, severity: 'MILD' })
+    const opened = await api.openCase('BC-000125', { observedAt: '2026-10-20T06:50', observerId: 1, temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: 'Viêm phổi', suspectedContagious: false, severity: 'MILD' })
     expect(opened).toMatchObject({ caseCode: 'HC-0419', kind: 'OPENED', status: 'OPEN', healthState: 'MONITORING' })
-    const second = await api.openCase('BC-000125', { observedAt: '2026-10-20T07:30', observer: 'Trần Quốc Long', temperatureC: null, signs: 'Chướng hơi dạ cỏ', diagnosis: '', suspectedContagious: false, severity: 'MODERATE' })
+    const second = await api.openCase('BC-000125', { observedAt: '2026-10-20T07:30', observerId: 1, temperatureC: null, signs: 'Chướng hơi dạ cỏ', diagnosis: '', suspectedContagious: false, severity: 'MODERATE' })
     expect(second).toMatchObject({ caseCode: 'HC-0420', kind: 'OPENED' })
     expect((await api.getProfile('BC-000125')).activeCases.map((c) => c.caseCode).sort()).toEqual(['HC-0398', 'HC-0419', 'HC-0420'])
   })
@@ -162,7 +162,7 @@ describe('đóng ca', () => {
     const after = await api.getProfile('BC-000203')
     expect(after.cattle.status).toBe('ACTIVE')
     expect(after.pendingExit).toMatchObject({ type: 'DEATH', status: 'PENDING', cattleCode: 'BC-000203', caseCode: 'HC-0412' })
-    const blocked = await rejection(api.openCase('BC-000203', { observedAt: NOW, observer: 'Trần Quốc Long', temperatureC: null, signs: 'x', diagnosis: '', suspectedContagious: false, severity: 'MILD' }))
+    const blocked = await rejection(api.openCase('BC-000203', { observedAt: NOW, observerId: 1, temperatureC: null, signs: 'x', diagnosis: '', suspectedContagious: false, severity: 'MILD' }))
     expect(blocked.message).toContain('chờ xác nhận chết / mất')
     const row = profile.timeline.find((t) => t.type === 'TREATMENT')!
     await api.correctEntry(row.id, { expectedVersion: row.version, reason: 'Sửa liều', dose: '25 ml' })

@@ -91,6 +91,7 @@ export function mapTimelineRow(raw: unknown, caseCode: string): HealthTimelineRo
   const row: HealthTimelineRow = {
     id: num(r.id) ?? 0, caseId: num(r.caseId) ?? 0, caseCode, type, occurredAt: toFarmTime(r.occurredAt), details: '',
     recordedBy: type === 'TREATMENT' ? textValue(r.performer) : textValue(r.observer, textValue(r.recordedBy)),
+    observerId: type === 'TREATMENT' ? undefined : num(r.observerId),
     status: textValue(r.status).toUpperCase() === 'VOIDED' ? 'VOIDED' : 'VALID', corrected: r.corrected === true,
     linkedVaccinationId: num(r.linkedVaccinationId), version: num(r.version) ?? 0, temperatureC: nullableNum(r.temperatureC),
     progress: type === 'FOLLOW_UP' ? pickOptional(PROGRESSES, r.progress) : undefined, description: type === 'TREATMENT' ? undefined : textValue(r.description),
@@ -164,21 +165,21 @@ export function mapRecordResult(raw: unknown, action: RecordResult['action'], en
   }
 }
 
-export function toOpenCaseRequest(cattleId: number, cmd: { observedAt: string; observerId?: number; temperatureC: number | null; signs: string; diagnosis: string; suspectedContagious: boolean; severity: string }): HealthOpenCaseRequestDto {
+export function toOpenCaseRequest(cattleId: number, cmd: { observedAt: string; observerId?: number | null; temperatureC: number | null; signs: string; diagnosis: string; suspectedContagious: boolean; severity: string }): HealthOpenCaseRequestDto {
   return { cattleId, observedAt: toInstant(cmd.observedAt), observerId: cmd.observerId ?? null, temperatureC: cmd.temperatureC, signs: cmd.signs.trim(), diagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, severity: cmd.severity || null }
 }
 export function toTreatmentRequest(cmd: { expectedVersion?: number; medicineId: number | null; treatmentTime: string; dose: string; route: string; courseDays: number | null; withdrawalDays: number | null; performerBody: Record<string, unknown>; veterinaryAdvice: string; returnToOpen?: boolean }): HealthTreatmentRequestDto {
   const performer = cmd.performerBody.performerId !== undefined ? { performerId: cmd.performerBody.performerId as number } : { performerName: (cmd.performerBody.performerName as string | null | undefined) ?? null }
   return { expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime), dose: cmd.dose.trim(), route: cmd.route || null, courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, ...performer, veterinaryAdvice: cmd.veterinaryAdvice.trim() || null, ...(cmd.returnToOpen === undefined ? {} : { returnToOpen: cmd.returnToOpen }) }
 }
-export function toStatusRequest(cmd: StatusCommand & { confirmedById?: number }): HealthStatusRequestDto {
+export function toStatusRequest(cmd: StatusCommand): HealthStatusRequestDto {
   return {
     expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, observedAt: toInstant(cmd.observedAt), temperatureC: cmd.temperatureC,
     latestProgress: cmd.description.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null,
     suspectedContagious: cmd.suspectedContagious, outcome: cmd.action === 'CLOSE' ? cmd.outcome || null : null, confirmedById: cmd.confirmedById ?? null,
   }
 }
-export function toObservationCorrectionRequest(cmd: { expectedVersion?: number; reason: string; observedAt?: string; temperatureC?: number | null; description?: string; progress?: string; observerId?: number }): HealthObservationCorrectionRequestDto {
+export function toObservationCorrectionRequest(cmd: { expectedVersion?: number; reason: string; observedAt?: string; temperatureC?: number | null; description?: string; progress?: string; observerId?: number | null }): HealthObservationCorrectionRequestDto {
   return { expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), observedAt: cmd.observedAt ? toInstant(cmd.observedAt) : null, temperatureC: cmd.temperatureC === undefined ? null : cmd.temperatureC, signs: cmd.description?.trim() || null, progress: cmd.progress || null, observerId: cmd.observerId ?? null }
 }
 export function toTreatmentCorrectionRequest(cmd: { expectedVersion?: number; reason: string; medicineId?: number | null; treatmentTime?: string; dose?: string; route?: string; courseDays?: number | null; withdrawalDays?: number | null; performerBody?: Record<string, unknown> }): HealthTreatmentCorrectionRequestDto {

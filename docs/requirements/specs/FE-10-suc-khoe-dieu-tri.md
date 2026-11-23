@@ -62,7 +62,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | Thuộc tính | Ràng buộc |
 |---|---|
 | Ca, thời điểm quan sát | Không tương lai; không trước ngày nhập đàn (mở ca); không trước bản ghi trước của ca (theo dõi) |
-| Thân nhiệt (°C) | 35,0–43,0, 1 chữ số thập phân, không bắt buộc |
+| Thân nhiệt (°C) | 30,0–45,0, 1 chữ số thập phân, không bắt buộc; ngoài 35,0–43,0 hỏi xác nhận (D57) |
 | Dấu hiệu / mô tả | ≤ 1.000; bắt buộc |
 | Diễn biến (chỉ theo dõi) | `IMPROVED` / `UNCHANGED` / `WORSENED` (Tốt hơn / Không đổi / Xấu hơn); bắt buộc |
 | Người quan sát, người ghi, thời điểm ghi | Người quan sát mặc định người ghi |
@@ -103,7 +103,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | R-10-01 | Quan sát bất thường mở **ca mới** (một bò có thể có nhiều ca cho các vấn đề khác nhau). Diễn biến của ca OPEN / CHRONIC ghi qua "Cập nhật ca bệnh"; ca đã CLOSED → MSG-COM-05 (D54). | GBR-45, UC-02 E5 |
 | R-10-02 | Mở ca tạo mã HC-nnnn + quan sát mở ca trong một transaction; sức khỏe ít nhất là Theo dõi. | UC-02 |
 | R-10-03 | Phản ứng sau tiêm: mở ca từ bản ghi tiêm → liên kết bản ghi đó với ca. | GBR-47 |
-| R-10-04 | Thân nhiệt ngoài 35,0–43,0 → MSG-FE10-06. | Popup |
+| R-10-04 | Thân nhiệt ngoài 30,0–45,0 → MSG-FE10-06 (chặn, dưới ô). Trong 30,0–45,0 nhưng ngoài 35,0–43,0 → popup MSG-FE10-06a, bấm "Xác nhận lưu" thì lưu. Để trống vẫn lưu (D57). | Popup |
 | R-10-05 | Thời gian: không tương lai (MSG-COM-07); mở ca không trước ngày nhập đàn (MSG-COM-15); theo dõi / điều trị không trước lúc mở ca hoặc bản ghi mới nhất của ca → MSG-FE10-07; đóng ca không trước bản ghi mới nhất. | UC-02, 03, 04 |
 | R-10-06 | Chuyển trạng thái: OPEN → CHRONIC (Manager, ghi ngày); CHRONIC → OPEN (Manager, hoặc khi ghi điều trị với ô "Chuyển ca về Đang mở" được chọn – mặc định chọn; bỏ chọn cho điều trị duy trì thì ca giữ CHRONIC – D55); OPEN / CHRONIC → CLOSED với kết quả. | GBR-45, Table 3.4-4 |
 | R-10-07 | Đóng ca Chết / Mất tích: **trong cùng transaction** tạo 1 phiếu xuất PENDING (loại DEATH; Mất tích là OTHER với lý do "Missing") liên kết ca, thông báo Owner, tạo REM-12; bò **vẫn ACTIVE** đến khi Owner xác nhận / bỏ. Hiện MSG-FE10-05. | GBR-47, GBR-95, UC-03 AF4 |
@@ -187,7 +187,7 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 |---|---|---|---|---|---|---|
 | 1 | Cattle / Bò | Chỉ đọc | — | Mã, giống, giới tính, tuổi, chuồng | — | — |
 | 2 | Observed at / Thời điểm quan sát | Ngày giờ | * | Không tương lai, không trước ngày nhập đàn | Bây giờ | MSG-COM-06, 07, 15 |
-| 3 | Body temperature (°C) / Thân nhiệt | Số (1 thập phân) | — | 35,0–43,0 | — | MSG-FE10-06 |
+| 3 | Body temperature (°C) / Thân nhiệt | Số (1 thập phân) | — | 30,0–45,0; ngoài 35,0–43,0 hỏi xác nhận | — | MSG-FE10-06, MSG-FE10-06a |
 | 4 | Signs / description / Dấu hiệu | Ô chữ dài | * | ≤ 1.000 | — | MSG-COM-06, MSG-COM-10 |
 | 5 | Suspected diagnosis / Chẩn đoán nghi ngờ | Ô chữ + gợi ý | — | ≤ 100; gợi ý từ ca trước của trại | — | MSG-COM-10 |
 | 6 | Suspected contagious – isolate / Nghi truyền nhiễm – cách ly | Checkbox | — | — | Tắt | — |
@@ -224,7 +224,7 @@ Gộp vào popup Cập nhật ca bệnh (D54).
 |---|---|---|---|---|---|
 | 1 | Case / Ca sức khỏe | Chỉ đọc | — | Mã, dấu hiệu, bò; tiêu đề phụ: ngày mở, Đang mở · ngày n / Theo dõi dài hạn · từ ngày | — |
 | 2 | Time / Thời điểm | Ngày giờ | * | Mặc định bây giờ; không tương lai, không trước bản ghi mới nhất của ca; dùng cho lần theo dõi, ngày bắt đầu theo dõi dài hạn và lúc đóng ca | MSG-COM-07, MSG-FE10-07 |
-| 3 | Body temperature (°C) / Thân nhiệt | Số (1 thập phân) | — | 35,0–43,0; gõ sai báo dưới ô | MSG-FE10-06 |
+| 3 | Body temperature (°C) / Thân nhiệt | Số (1 thập phân) | — | 30,0–45,0; gõ sai báo dưới ô; ngoài 35,0–43,0 hỏi xác nhận | MSG-FE10-06, MSG-FE10-06a |
 | 4 | Progress / Diễn biến | Radio | * khi có phần theo dõi | Tốt hơn / Không đổi / Xấu hơn; không chọn sẵn, không tự điền (D35) | MSG-COM-06 |
 | 5 | Description / Mô tả | Ô chữ dài | * khi có phần theo dõi | ≤ 1.000 | MSG-COM-06, MSG-COM-10 |
 | 6 | Suspected diagnosis, Contagious | Như popup Mở ca | — | — | — |
@@ -274,7 +274,8 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | MSG-FE10-03 | Toast thành công | Đã ghi điều trị. Cách ly thịt đến {date}. |
 | MSG-FE10-04 | Toast thành công | Đã đóng ca {case_code} với kết quả {outcome}. |
 | MSG-FE10-05 | Hộp thoại thông tin | Đã tạo phiếu xuất chờ Chủ trại xác nhận. {cattle_code} vẫn đang nuôi cho đến khi Chủ trại xác nhận. |
-| MSG-FE10-06 | Dưới trường | Thân nhiệt phải từ 35,0 đến 43,0 °C. |
+| MSG-FE10-06 | Dưới trường | Thân nhiệt phải trong khoảng 30,0 – 45,0 °C. |
+| MSG-FE10-06a | Popup xác nhận | Số đo nằm ngoài khoảng 35–43 °C. Hãy kiểm tra lại số đo và đơn vị trước khi xác nhận. (Kiểm tra lại / Xác nhận lưu) |
 | MSG-FE10-07 | Dưới trường | Thời điểm không được sớm hơn {date}, bản ghi mới nhất của ca này. |
 | MSG-FE10-08 | Toast thành công | Ca {case_code} đã chuyển sang theo dõi dài hạn. |
 | MSG-FE10-09 | Toast thành công | Ca {case_code} đã chuyển về đang mở. |
@@ -289,7 +290,7 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 
 | Mã | Given | When | Then | Tầng | Nguồn |
 |---|---|---|---|---|---|
-| TC-10-01 | Popup Mở ca | Thân nhiệt 34,9 / 35,0 / 43,0 / 43,1 | Lỗi / OK / OK / Lỗi | U, H | R-10-04 |
+| TC-10-01 | Popup Mở ca, Cập nhật ca bệnh, Sửa bản ghi theo dõi | Thân nhiệt 29,9 / 34,9 / 35,0 / 43,0 / 43,1 / 45,1 / trống | Lỗi / Hỏi xác nhận / OK / OK / Hỏi xác nhận / Lỗi / OK | U, H | R-10-04, D57 |
 | TC-10-02 | Popup Mở ca | Không dấu hiệu; không mức độ | MSG-COM-06 | U, H | UC-02 E1 |
 | TC-10-03 | Bò khỏe | Mở ca mới | HC-nnnn; sức khỏe Theo dõi | I | R-10-02 |
 | TC-10-04 | Bò có ca OPEN | Mở popup Mở ca; mở thêm ca cho vấn đề khác | Popup nhắc ca đang có + nút "Cập nhật ca …"; lưu tạo ca mới thứ hai (D54) | U, I | R-10-01 |
@@ -342,3 +343,4 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 14/11/2026 | 28/10/2026 | D35: popup Cập nhật / Đóng ca thêm ô chọn Diễn biến (mục 6 dòng 3), A5 thêm `progress?` (mục 7), TC-10-27/28; bỏ cách tự suy diễn biến từ kết quả | Tuấn |
 | 23/11/2026 | 28/10/2026 | D54: gộp popup Ghi theo dõi và Cập nhật / Đóng ca thành "Cập nhật ca bệnh" (một thời điểm, có thân nhiệt; UC-FE10-03, SCR-37 dòng 7, mục 6, A5); popup Mở ca bỏ "Thêm vào ca đang có", nhắc và dẫn sang ca đang có (UC-FE10-02, R-10-01, A3); TC-10-04/05/07/27/29 | Tuấn |
 | 23/11/2026 | 28/10/2026 | D55: ghi điều trị cho ca CHRONIC có ô "Chuyển ca về Đang mở" (mặc định chọn; bỏ chọn = điều trị duy trì, ca giữ CHRONIC) – R-10-06, R-10-09, popup Ghi điều trị dòng 9, MSG-FE10-10, TC-10-10. D56: giao diện tiếng Việt cho trạng thái ca – Đang mở / Theo dõi dài hạn / Đã đóng (thay OPEN / CHRONIC / CLOSED và "mạn tính"); hành động "Chuyển theo dõi dài hạn", "Chuyển về đang mở" | Tuấn |
+| 23/11/2026 | 28/10/2026 | D57: thân nhiệt chặn ngoài 30,0–45,0 °C (số gõ nhầm); ngoài 35,0–43,0 °C hỏi xác nhận (MSG-FE10-06a); áp dụng Mở ca, Cập nhật ca bệnh, Sửa bản ghi theo dõi – R-10-04, MSG-FE10-06, TC-10-01 | Tuấn |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasFollowUp, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
+import { hasFollowUp, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, temperatureNeedsCheck, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
 
 // Quy tắc trường FE-10 (spec mục 6) dùng chung cho chế độ local và backend.
 const ctx = { now: '2026-11-05T12:00', entryDate: '2026-10-01' }
@@ -17,10 +17,14 @@ const treatment = {
 
 describe('FE-10 – quy tắc trường dùng chung', () => {
   it('TC-10-01: thân nhiệt 34,9 / 35,0 / 43,0 / 43,1 và tối đa 1 chữ số thập phân', () => {
-    expect(temperatureError(34.9)).not.toBeNull()
-    expect(temperatureError(35)).toBeNull()
-    expect(temperatureError(43)).toBeNull()
-    expect(temperatureError(43.1)).not.toBeNull()
+    // D57: chỉ chặn số gõ nhầm ngoài 30–45 °C; ngoài 35–43 °C thì hỏi xác nhận.
+    expect(temperatureError(29.9)).not.toBeNull()
+    expect(temperatureError(30)).toBeNull()
+    expect(temperatureError(45)).toBeNull()
+    expect(temperatureError(45.1)).not.toBeNull()
+    expect([34.9, 35, 43, 43.1].map(temperatureNeedsCheck)).toEqual([true, false, false, true])
+    expect(temperatureNeedsCheck(null)).toBe(false)
+    expect(temperatureNeedsCheck(46)).toBe(false)
     expect(temperatureError(39.55)).not.toBeNull()
     expect(temperatureError(null)).toBeNull()
     expect(parseTemperature('39,6')).toBe(39.6)
