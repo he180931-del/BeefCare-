@@ -638,8 +638,9 @@ test('entry backend serializes FARM_BORN calves without purchase pricing or paym
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.sellerId, null)
   assert.equal(body.lines[0].calfOutcomeId, 17)
-  assert.equal(body.lines[0].damId, 125)
-  assert.equal(body.lines[0].sireId, 126)
+  assert.equal('damId' in body.lines[0], false) // D45: the calving owns parentage, never submit overrides.
+  assert.equal('sireId' in body.lines[0], false)
+  assert.equal('externalSireCode' in body.lines[0], false)
   assert.equal(body.lines[0].penId, 3)
   assert.equal(body.lines[0].purposeId, 2)
   assert.equal(body.lines[0].lifeStage, 'UNWEANED_CALF')
@@ -663,6 +664,27 @@ test('entry backend leaves pending calves unassigned until the user selects them
   const [calf] = await api.pendingCalves()
 
   assert.equal(calf.picked, false)
+})
+
+test('entry backend retires parent assignment and preserves death payload and retry key', async () => {
+  const calls: Array<{ path: string; body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}`,
+    get: async () => [],
+    command: async (path, body, options) => {
+      calls.push({ path, body, key: options?.key })
+      return { calfOutcomeId: 17, registrationState: 'DIED_BEFORE_REGISTRATION' }
+    },
+  } })
+  assert.equal('assignCalfParentage' in api, false)
+  await api.diedBeforeRegistration(17, 'Bê chết trước đăng ký')
+  await api.diedBeforeRegistration(17, 'Bê chết trước đăng ký')
+  await api.diedBeforeRegistration(17, 'Lý do đã sửa')
+  assert.equal(calls[0].path, '/api/farms/9/pending-calves/17/died-before-registration')
+  assert.deepEqual(calls[0].body, { reason: 'Bê chết trước đăng ký' })
+  assert.ok(calls[0].key)
+  assert.equal(calls[0].key, calls[1].key)
+  assert.notEqual(calls[0].key, calls[2].key)
 })
 
 test('entry backend does not create a voucher when resolving an existing id is forbidden', async () => {

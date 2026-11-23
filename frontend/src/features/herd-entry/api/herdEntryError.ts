@@ -8,6 +8,9 @@ export function herdEntryError(error: unknown, fallback = 'Không thể hoàn t�
   const events = (Array.isArray(p.events) ? p.events.map(String) : String(p.events ?? 'không xác định').split(',')).map(event => entryEventLabel(event.trim())).join(', ')
   const cattle = String(p.cattle_code ?? 'bò này')
   switch (value.code) {
+    case 'MSG-FE06-02': return value.message || `Bê này đã được đăng ký${p.cattle_code ? ` thành ${p.cattle_code}` : ''}. Vui lòng tải lại danh sách.`
+    case 'MSG-FE06-04': return value.message || 'Chỉ áp dụng với bê sống. Bê chết khi sinh không được đăng ký vào đàn.'
+    case 'MSG-COM-05': return value.message || 'Dữ liệu đã thay đổi. Vui lòng tải lại để kiểm tra trạng thái mới nhất.'
     case 'MSG-FE06-07': {
       const reasons: Record<string, string> = {
         BIRTH_DATE_AFTER_ENTRY_DATE: 'ngày sinh không được sau ngày nhập',

@@ -4,6 +4,14 @@ import { herdEntryError } from '../../../src/features/herd-entry/api/herdEntryEr
 it('maps entry codes and delegates transport errors', () => { expect(herdEntryError(new BackendError(422, { code: 'MSG-FE06-13', params: { amount: 10 } }), 'fallback')).toContain('10'); expect(herdEntryError(new BackendError(503), 'fallback')).toContain('Máy chủ') })
 
 it.each([
+  [409, 'MSG-FE06-02', 'Bê đã được đăng ký thành BC-001.'],
+  [422, 'MSG-FE06-04', 'Bê chết khi sinh không được đăng ký.'],
+  [409, 'MSG-COM-05', 'Dữ liệu đã thay đổi. Vui lòng tải lại.'],
+])('preserves the server explanation for calf status error %s/%s', (status, code, message) => {
+  expect(herdEntryError(new BackendError(status, { code, message }))).toBe(message)
+})
+
+it.each([
   ['BIRTH_DATE_AFTER_ENTRY_DATE', 'ngày sinh không được sau ngày nhập'],
   ['ENTRY_DATE_BEFORE_BIRTH_DATE', 'ngày nhập mới trước ngày sinh'],
   ['EVENT_BEFORE_ENTRY_DATE', 'ngày nhập mới sau sự kiện đã ghi'],
