@@ -1053,3 +1053,9 @@ TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lư
 1. Bỏ ô "Nguồn dữ liệu" ở popup Ghi phối, Ghi khám thai, Ghi diễn biến thai, màn Ghi đẻ và các popup Sửa; bỏ cột "Nguồn dữ liệu" ở dòng thời gian sinh sản.
 2. Mọi bản ghi mới lưu `DIRECT_OBSERVATION` (mặc định sẵn có của backend khi không gửi). Bản ghi cũ giữ giá trị đã lưu.
 3. Không đổi API / DB: `dataSource` vẫn là trường tùy chọn của A1–A8, không migration. Lệch SRS (Data source của các popup sinh sản) – ghi nhận tại đây.
+
+### D71 — FE-11 / FE-12: màn danh sách Sinh sản theo Bento; popup Xóa báo thẳng; gọn popup ghi (24/11/2026)
+
+1. **Danh sách Sinh sản (SCR-38)** cùng khung với Sức khỏe (D66): một hàng 3 khối – **Việc cần làm** (nổi bật: động dục cần phối, đến hạn khám thai, sắp đẻ 30 ngày, mỗi dòng có "Xem" mở tab tương ứng), **Cần chú ý** (đỏ nhạt khi có bò chưa đủ điều kiện phối / quá hạn thụ thai, xanh nhạt khi không), **Đang mang thai**. Tab gạch chân, bộ lọc và bảng gom trong một khối; tab mặc định là tab đầu tiên có bò theo thứ tự việc gấp; cột Giống / Chuồng gộp vào dòng phụ của Bò; vạch vàng đầu dòng khi có việc tới hạn; trạng thái trống không lồng khung.
+2. **Popup Xóa** (D69): bản ghi đang có bản ghi phụ thuộc (động dục có phối liên kết, phối có khám thai, khám đã xác nhận thai có diễn biến / lần đẻ, lần đẻ có bê đã đăng ký) → báo thẳng "Không xóa được: …" và chỉ có nút Đóng, thay cho hỏi "Vẫn xóa?" rồi bị máy chủ từ chối.
+3. **Popup ghi sinh sản:** bỏ ô "Bò cái" chỉ đọc (lặp dòng phụ; dòng phụ thêm số tai); "Mô tả (không bắt buộc)" → "Mô tả". Không hiện khung phối trong popup vì giao diện không có tham số giờ phối của trại; khung phối chính xác hiện ở khối trạng thái sau khi lưu.

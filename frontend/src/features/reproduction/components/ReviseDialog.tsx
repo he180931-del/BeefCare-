@@ -157,13 +157,40 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
     setConfirm(null)
   }
 
+  /**
+   * Bản ghi sau đang dựa vào bản ghi này (R-11-11, R-12-15): xóa sẽ bị từ chối, nên popup Xóa báo thẳng "Không xóa
+   * được" thay vì hỏi "Vẫn xóa?" (D69). Trả về mô tả bản ghi phụ thuộc, hoặc {@code null}.
+   */
+  const dependent = (): string | null => {
+    if (!current) return null
+    const valid = profile.events.filter((item) => item.status === 'VALID')
+    const registered = (calving: CalvingRecord) => calving.calves.find((calf) => calf.status !== 'VOIDED' && calf.registrationStatus === 'REGISTERED')
+    if (current.kind === 'calf') return current.calf.registrationStatus === 'REGISTERED' ? 'Bê này đã đăng ký thành bò' : null
+    const calving = current.kind === 'calving' ? current.calving : current.event.type === 'CALVING' ? profile.calvings.find((item) => item.id === current.event.id) : undefined
+    if (calving) { const calf = registered(calving); return calf ? `Bê ${calf.cattleCode || calf.earTag || `số ${calf.number}`} của lần đẻ này đã đăng ký thành bò` : null }
+    if (current.kind !== 'event') return null
+    const event = current.event
+    if (event.type === 'ESTRUS') {
+      const breeding = valid.find((item) => item.type === 'BREEDING' && item.linkedEstrusId === event.id)
+      return breeding ? `Lần phối giống ${formatDateTime(breeding.occurredAt)} đang liên kết bản ghi này` : null
+    }
+    if (event.type === 'BREEDING') {
+      const check = valid.find((item) => item.type === 'PREGNANCY_CHECK' && item.linkedBreedingId === event.id)
+      return check ? `Lần khám thai ${formatDateTime(check.occurredAt)} đang liên kết lần phối này` : null
+    }
+    if (event.type === 'PREGNANCY_CHECK' && event.result === 'PREGNANT' && event.pregnancyId) {
+      const born = profile.calvings.find((item) => item.status === 'VALID' && item.pregnancyId === event.pregnancyId)
+      if (born) return `Lần đẻ ${formatDateTime(born.birthAt)} thuộc thai kỳ do lần khám này xác nhận`
+      const update = valid.find((item) => item.type === 'PREGNANCY_UPDATE' && item.pregnancyId === event.pregnancyId)
+      if (update) return `Diễn biến thai ${formatDateTime(update.occurredAt)} thuộc thai kỳ do lần khám này xác nhận`
+    }
+    return null
+  }
+  const blocked = action === 'void' ? dependent() : null
+
   const warning = (): string | null => {
     if (!current || current.kind !== 'event') return null
     const event = current.event
-    if (event.type === 'ESTRUS' && action === 'void') {
-      const breeding = profile.events.find((item) => item.type === 'BREEDING' && item.status === 'VALID' && item.linkedEstrusId === event.id)
-      if (breeding) return `Bản ghi này đang được lần phối giống ${formatDateTime(breeding.occurredAt)} liên kết. Vẫn xóa?`
-    }
     if (event.type === 'PREGNANCY_CHECK' && event.result === 'PREGNANT' && profile.openPregnancy && event.pregnancyId === profile.openPregnancy.id && (action === 'void' || get('result') !== 'PREGNANT')) {
       return 'Kết quả khám này đang xác nhận thai kỳ hiện tại; sửa hoặc xóa có thể đổi trạng thái sinh sản. Vẫn tiếp tục?'
     }
@@ -266,7 +293,9 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
           <Field label="Bản ghi" id="rev-record"><input id="rev-record" aria-label="Bản ghi" readOnly className={inputCls} value={recordLine} /></Field>
         )}
         {!correcting ? (current
-          ? <p className="m-0 text-sm text-ink">Bản ghi sẽ không còn trong dòng thời gian; trạng thái sinh sản và chỉ số được tính lại. Lịch sử thay đổi vẫn được lưu.</p>
+          ? blocked
+            ? <Note tone="err">Không xóa được: {blocked}. Hãy xóa bản ghi đó trước, hoặc dùng Sửa để chỉnh thông tin.</Note>
+            : <p className="m-0 text-sm text-ink">Bản ghi sẽ không còn trong dòng thời gian; trạng thái sinh sản và chỉ số được tính lại. Lịch sử thay đổi vẫn được lưu.</p>
           : <Note tone="grey">Chưa có bản ghi loại này để xóa.</Note>
         ) : current ? (
           <Table stack={false}>
@@ -289,11 +318,10 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
             <Textarea id="rev-reason" aria-label="Ghi chú" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
           </Field>
         )}
-        {!correcting && group === 'pc' && <Note tone="info">Không xóa được sự kiện đẻ khi bê đã đăng ký.</Note>}
       </div>
       <ModalFooter>
-        <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant={correcting ? 'primary' : 'danger'} disabled={busy || !current || !!confirm} onClick={() => void submit()}>{busy ? 'Đang lưu…' : correcting ? 'Lưu chỉnh sửa' : 'Xóa'}</ModalButton>
+        <ModalButton disabled={busy} onClick={onClose}>{blocked ? 'Đóng' : 'Hủy'}</ModalButton>
+        {!blocked && <ModalButton variant={correcting ? 'primary' : 'danger'} disabled={busy || !current || !!confirm} onClick={() => void submit()}>{busy ? 'Đang lưu…' : correcting ? 'Lưu chỉnh sửa' : 'Xóa'}</ModalButton>}
       </ModalFooter>
     </Modal>
   )

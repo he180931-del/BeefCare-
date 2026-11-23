@@ -18,8 +18,8 @@ export type RecordAction = 'RECORD_ESTRUS' | 'RECORD_BREEDING' | 'RECORD_PREGNAN
 interface Props { profile: ReproductionFemale; onClose: () => void; onRecord: (command: ReproductionCommand) => Promise<void> }
 interface Confirm { text: string; yes: string; no: string }
 
-const pill = (profile: ReproductionFemale) => `${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`
-const subOf = (profile: ReproductionFemale) => `${profile.cattleCode} · ${profile.breed} · Chuồng ${profile.penCode}`
+/** Dòng phụ dưới tiêu đề popup: đủ để nhận ra con bò, nên không cần ô "Bò cái" chỉ đọc lặp lại (D71). */
+const subOf = (profile: ReproductionFemale) => `${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · Chuồng ${profile.penCode}`
 
 /**
  * Lưu một sự kiện: lỗi nhập liệu (có ô) hiện dưới ô qua {@code fieldErrors}; lỗi điều kiện hiện popup qua {@code error}
@@ -104,7 +104,6 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
   return (
     <Shell title="Ghi động dục" sub={subOf(profile)} width={560} saveLabel="Lưu động dục" onClose={onClose} onSave={save} state={state}>
       <div className="flex flex-col gap-3">
-        <ReadOnlyField label="Bò cái" value={pill(profile)} />
         <DateTimeField label="Thời điểm quan sát *" value={occurredAt} onChange={setOccurredAt} error={state.fieldErrors.occurredAt} />
         <Field label="Người quan sát" id="repro-observer"><MemberSelectField value={observer} onChange={setObserver} /></Field>
         <Field label="Dấu hiệu">
@@ -114,7 +113,7 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
             ))}
           </div>
         </Field>
-        <Field label="Mô tả (không bắt buộc)" id="repro-description" hint="Tối đa 1.000 ký tự">
+        <Field label="Mô tả" id="repro-description" hint="Tối đa 1.000 ký tự">
           <Textarea id="repro-description" aria-label="Mô tả" rows={2} maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} />
           <FieldMessage>{state.fieldErrors.description}</FieldMessage>
         </Field>
@@ -172,7 +171,6 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
     <Shell title={`Ghi phối giống – lần phối ${profile.servicesInCurrentCycle + 1}`} sub={subOf(profile)} width={760} saveLabel="Lưu phối giống" onClose={onClose} onSave={save} state={state}>
       {score && score.met < 3 && <Note tone="warn">Chưa đạt điều kiện phối: {profile.eligibility?.failedConditions.join(' ') || score.failed.join(', ')} Bạn vẫn có thể ghi lần phối đã xảy ra.</Note>}
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-        <ReadOnlyField label="Bò cái" value={pill(profile)} />
         {score ? <Field label="Điều kiện xét phối"><div className="flex min-h-[44px] items-center"><Badge tone={score.met === 3 ? 'ok' : 'warn'}>{score.badge}</Badge></div></Field> : <div />}
         <Field label="Liên kết động dục" id="repro-linked-estrus" hint="Động dục trong 72 giờ gần nhất">
           <Select id="repro-linked-estrus" aria-label="Liên kết động dục" value={linkedEstrusId} onChange={(event) => setLinked(event.target.value)}>
@@ -242,9 +240,8 @@ export function PregnancyCheckDialog({ profile, onClose, onRecord, observed = fa
     estimatedMonths: result === 'PREGNANT' ? monthCount : null, examiner, note,
   })
   return (
-    <Shell title="Ghi khám thai" sub={`${profile.cattleCode} · ${profile.breed} · Chuồng ${profile.penCode}`} width={640} saveLabel="Lưu kết quả khám" onClose={onClose} onSave={save} state={state}>
+    <Shell title="Ghi khám thai" sub={subOf(profile)} width={640} saveLabel="Lưu kết quả khám" onClose={onClose} onSave={save} state={state}>
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-        <div className="sm:col-span-2"><ReadOnlyField label="Bò cái" value={`${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`} /></div>
         <div className="sm:col-span-2">
           <Field label="Lần phối liên kết" id="repro-linked-breeding">
             <Select id="repro-linked-breeding" aria-label="Lần phối liên kết" value={linkedBreeding?.id ?? ''} onChange={(event) => setLinked(event.target.value)}>

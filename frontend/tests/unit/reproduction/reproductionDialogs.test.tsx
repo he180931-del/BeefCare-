@@ -33,7 +33,9 @@ describe('record dialogs follow the Figma frames', () => {
       expect(within(dialog).getByRole('checkbox', { name: sign })).toBeInTheDocument()
     }
     expect(within(dialog).getByRole('option', { name: 'Lê Thị Mai · Kỹ thuật viên' })).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('Bò cái')).toHaveValue('BC-000142 · Số tai 0142 · Zebu đỏ · C1')
+    // D71: con bò chỉ hiện ở dòng phụ dưới tiêu đề, không còn ô "Bò cái" chỉ đọc.
+    expect(within(dialog).getByText('BC-000142 · Số tai 0142 · Zebu đỏ · Chuồng C1')).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Bò cái')).not.toBeInTheDocument()
 
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Người quan sát' }), 'Lê Thị Mai')
     await user.click(within(dialog).getByRole('checkbox', { name: 'Đứng yên cho nhảy' }))
@@ -122,17 +124,16 @@ describe('correct and void dialogs show current against new values and need a re
     expect(onCorrectEvent).toHaveBeenCalledWith('re-142-e2', expect.objectContaining({ details: 'Bồn chồn, nhảy lên con khác, kêu rống', observer: 'Lê Thị Mai' }), 'Bổ sung dấu hiệu kêu rống theo sổ ghi chép')
   })
 
-  it('estrus: warns before voiding a record that a breeding links to', async () => {
+  it('D69: estrus linked by a breeding cannot be deleted – the popup says so and offers only Đóng', async () => {
     const event = eventOf('BC-000061', 're-061-e1')
-    const { user, onVoidEvent } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'void' }, 'BC-000061')
-    // D69: Xóa là popup xác nhận riêng, không có bảng giá trị hay ô lý do.
+    const { user, onVoidEvent, onClose } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'void' }, 'BC-000061')
     const dialog = screen.getByRole('dialog', { name: 'Xóa bản ghi động dục?' })
-    expect(within(dialog).queryByRole('textbox', { name: 'Ghi chú' })).not.toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Xóa' }))
+    expect(within(dialog).getByText(/Không xóa được: Lần phối giống 20\/09\/2026 07:00 đang liên kết bản ghi này/)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Xóa' })).not.toBeInTheDocument()
+    // Nút chân popup (nút X góc trên cũng có tên "Đóng").
+    await user.click(within(dialog).getAllByRole('button', { name: 'Đóng' }).at(-1)!)
+    expect(onClose).toHaveBeenCalled()
     expect(onVoidEvent).not.toHaveBeenCalled()
-    expect(within(dialog).getByText(/đang được lần phối giống 20\/09\/2026 07:00 liên kết/)).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Vẫn xóa' }))
-    expect(onVoidEvent).toHaveBeenCalledWith('re-061-e1', '')
   })
 
   it('pregnancy check: has its own title and five fields (D70: no data source)', async () => {
