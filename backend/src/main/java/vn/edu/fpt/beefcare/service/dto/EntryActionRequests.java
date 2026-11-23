@@ -23,14 +23,11 @@ public final class EntryActionRequests {
 
     public record VoidRequest(@NotBlank @Size(max = 500) String reason, Integer expectedVersion) {}
 
-    public record DiedBeforeRegistrationRequest(@NotBlank @Size(max = 500) String reason) {}
-
-    public record AssignCalfParentageRequest(
-        @NotNull Long damId,
-        Long sireId,
-        @NotBlank @Size(max = 20) String sireSource,
-        @Size(max = 50) String externalSireCode
+    public record DiedBeforeRegistrationRequest(
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
+        @NotBlank @Size(min = 1, max = 500) String reason
     ) {}
+
 
     /**
      * Correction of one herd entry (popup "Correct / Void Herd Entry"). Only the fields that differ from the current

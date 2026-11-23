@@ -26,7 +26,6 @@ export {
   listEntryParentCattle,
   listPendingEntryCalves,
   markCalfDiedBeforeRegistration,
-  assignCalfParentage,
   previewEntryExcel,
   removeEntryAttachment,
   saveHerdEntry,

@@ -98,12 +98,6 @@ export const markCalfDiedBeforeRegistration = async (calfOutcomeId: number, reas
   return demo.entryLocal.markCalfDied(calfOutcomeId)
 }
 
-// chưa có API trong gói S13: gán bò mẹ / bố cho bê
-export const assignCalfParentage = async (calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): Promise<EntryCalf> => {
-  if (usingBackend) return backendApi.assignCalfParentage(calfOutcomeId, parentage)
-  return demo.entryLocal.assignCalfParentage(calfOutcomeId, parentage)
-}
-
 // GET /api/farms/{farmId}/trading-partners?role=seller
 export const listEntrySellers = () => usingBackend ? backendApi.sellers() : Promise.resolve(demo.entryLocal.sellers())
 // GET /api/farms/{farmId}/pens
