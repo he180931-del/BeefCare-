@@ -63,10 +63,10 @@ describe('reproduction rules', () => {
       type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: Number.NaN,
     }, { today: '2026-11-01T12:00', profile: cow })).toEqual([{ field: 'estimatedMonths', message: 'Số tháng mang thai phải là số nguyên từ 1 đến 9.' }])
 
-    const sold = { ...cow, herdStatus: 'SOLD' } as typeof cow
+    const exited: typeof cow = { ...cow, herdStatus: 'EXITED' }
     expect(reproductionIssues({
       type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: 3,
-    }, { today: '2026-11-01T12:00', profile: sold })).toEqual([{ message: 'Chỉ ghi sự kiện cho bò đang nuôi.' }])
+    }, { today: '2026-11-01T12:00', profile: exited })).toEqual([{ message: 'Chỉ ghi sự kiện cho bò đang nuôi.' }])
   })
 
   it('validates estrus timestamps and external sire requirements without blocking advisory eligibility', () => {
