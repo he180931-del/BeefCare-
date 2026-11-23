@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
@@ -106,7 +106,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       {voiding && !blocked && <Note tone="warn">Bản ghi sẽ chuyển sang trạng thái Đã hủy: mờ đi trong lịch sử và không còn được tính vào ngưng sử dụng thịt hay trạng thái sức khỏe.</Note>}
       <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
       {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving || blocked}>{voiding ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>

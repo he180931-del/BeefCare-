@@ -63,7 +63,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
       {pendingExit && !exited && <Note tone="warn">Chờ xác nhận chết / mất: {cattle.code} chưa nhận thêm sự kiện chăm sóc mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất. Vẫn sửa hoặc hủy được các bản ghi đã có.</Note>}
       <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
-          {activeCases.length === 0 && <Card variant="panel"><EmptyBlock title="Chưa có ca sức khỏe đang mở" sub="Bò hiện không có ca đang mở hoặc theo dõi mạn tính." action={openCaseButton || undefined} /></Card>}
+          {activeCases.length === 0 && <Card variant="panel"><EmptyBlock title="Chưa có ca sức khỏe đang mở"  action={openCaseButton || undefined} /></Card>}
           {activeCases.map((c) => (
             <CaseCard key={c.id} card={c} rows={timeline.filter((r) => r.caseId === c.id)} canAdd={canAdd} canEdit={canEdit} onAction={openDialog} onEdit={(r) => dialog.open('correct', { entry: String(r.id) })} />
           ))}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { openedToast } from '../domain/healthMessages'
 import { SEVERITIES, SEVERITY_LABEL, statusText } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
@@ -32,7 +32,7 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
   })
 
   return (
-    <Modal title="Mở ca sức khỏe" sub="Ghi quan sát bất thường và mở ca theo dõi" width={640} onClose={onClose}>
+    <Modal title="Mở ca sức khỏe" width={640} onClose={onClose}>
       <Field label="Bò" id="hc-cattle"><ReadonlyBox id="hc-cattle" value={cattleLine(cattle)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm quan sát *" id="hc-observed" hint={hint(errors.observedAt)}><DateTimeInput id="hc-observed" value={observedAt} onChange={setObservedAt} /></Field>
@@ -63,7 +63,7 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
       <Field label="Người quan sát" id="hc-observer">
         <Select id="hc-observer" value={observer} onChange={(e) => setObserver(e.target.value)}>{options.members.map((m) => <option key={m}>{m}</option>)}</Select>
       </Field>
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={form.saving}>Lưu ghi nhận</ModalButton>

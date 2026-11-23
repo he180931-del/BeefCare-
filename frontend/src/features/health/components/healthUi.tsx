@@ -45,7 +45,10 @@ export function useToast() {
   return [node, show] as const
 }
 
-/** Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô, lỗi khác hiện một dòng trên chân hộp thoại. */
+/**
+ * Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô; lỗi điều kiện nghiệp vụ (formError) hiện popup NoticeDialog
+ * và đóng bằng {@code clearFormError} (D51).
+ */
 export function useDialogSave() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState('')
@@ -57,7 +60,7 @@ export function useDialogSave() {
       else setFormError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.'))
     } finally { setSaving(false) }
   }
-  return { errors, setErrors, formError, saving, run }
+  return { errors, setErrors, formError, clearFormError: () => setFormError(''), saving, run }
 }
 
 export const hint = (error?: string, text?: ReactNode) => (error ? <span role="alert" className="text-err-fg">{error}</span> : text)
