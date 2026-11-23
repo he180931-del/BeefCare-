@@ -1,8 +1,16 @@
-import { useFarmSelect } from '../hooks/useFarmSelect'
-import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
-import { FarmCard } from '../components/FarmCard'
-import SetupLayout from '../components/SetupLayout'
+import { useFarmSelect } from "../hooks/useFarmSelect";
+import { userFacingError } from "../../../shared/api/userFacingError";
+import {
+  Button,
+  EmptyBlock,
+  ErrorBlock,
+  Foot,
+  LoadingBlock,
+  Note,
+  PageHeader,
+} from "../../../shared/ui";
+import { FarmCard } from "../components/FarmCard";
+import SetupLayout from "../components/SetupLayout";
 
 /**
  * SCR-09 (UC-FE02-02). Entering a farm rechecks access, keeps the farm for this tab and reloads the page into it, so no
@@ -11,13 +19,14 @@ import SetupLayout from '../components/SetupLayout'
  * `?demo=empty` và `?demo=load-error` hiện hai trạng thái không có dữ liệu (mô phỏng).
  */
 export default function FarmSelectPage() {
-  const { query, farms, entering, enterMessage, open, registerFarm } = useFarmSelect()
+  const { query, farms, entering, enterMessage, open, registerFarm } =
+    useFarmSelect();
 
   return (
     <SetupLayout
-      eyebrow="Chọn không gian" heading="Chọn đúng trại để bắt đầu"
-      lines={['Mỗi trại có dữ liệu, thành viên và trạng thái dịch vụ riêng. Chọn một thẻ để tiếp tục.', 'Vai trò, quy mô đàn và dịch vụ hiện tại được ghi trên từng thẻ.']}
-      badge={farms.length ? `${farms.length} trang trại bạn có quyền truy cập` : undefined}
+      eyebrow="Không gian trang trại"
+      heading="Chọn trang trại để tiếp tục"
+      badge={farms.length ? `Số lượng trang trại: ${farms.length} trang trại` : undefined}
     >
       <PageHeader title="Chọn trang trại">
         <Button size="lg" onClick={() => void registerFarm()}>Đăng ký trại mới</Button>
@@ -31,5 +40,5 @@ export default function FarmSelectPage() {
       <div className="grid grid-cols-4 gap-4 [&>*]:col-span-full @min-[640px]:grid-cols-8 @min-[640px]:[&>*]:col-span-4 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 @min-[1024px]:[&>*]:col-span-6">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} busy={entering !== null} onOpen={(item) => void open(item)} />)}</div>
       <Foot>Chọn trại theo vai trò và trạng thái dịch vụ; dữ liệu giữa các trại được tách riêng.</Foot>
     </SetupLayout>
-  )
+  );
 }

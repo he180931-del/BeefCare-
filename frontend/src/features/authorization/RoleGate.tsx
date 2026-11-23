@@ -38,3 +38,16 @@ export function HomeRedirect() {
   if (isFarmRole(role) && readCurrentFarmId() == null) return <Navigate to="/chon-trai" replace state={{ fromSignIn: true }} />
   return <Navigate to={homePathFor(role)} replace />
 }
+
+/** Keeps the account-modal query when an OAuth callback returns through the retired account page. */
+export function AccountRouteRedirect() {
+  const session = useSession()
+  const location = useLocation()
+  const role = session?.role ?? 'OWNER'
+  const pathname = needsOwnerRegistration(session)
+    ? '/owner-registration'
+    : isFarmRole(role) && readCurrentFarmId() == null
+      ? '/chon-trai'
+      : homePathFor(role)
+  return <Navigate to={{ pathname, search: location.search }} replace />
+}

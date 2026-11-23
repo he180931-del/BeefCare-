@@ -104,6 +104,59 @@ describe('financeBackendApi', () => {
     expect(http.command).toHaveBeenCalledWith('/api/platform/finance/records/42/post', { version: 3 })
   })
 
+  it('đổi mã lịch sử backend thành tiếng Việt và chỉ mô tả các trường đã sửa', async () => {
+    const before = {
+      id: 42, recordCode: 'FR-0042', state: 'DRAFT', version: 1, type: 'EXPENSE', category: 'SERVER_STORAGE',
+      amountVnd: 1000000, occurredOn: '2026-11-01', scope: 'GENERAL', farmId: null, farmName: null,
+      documentNumber: 'CT-01', description: 'Chi phí máy chủ cũ', sourceType: 'MANUAL', sourceReference: null,
+    }
+    const after = {
+      ...before,
+      version: 2,
+      type: 'INCOME',
+      category: 'USER_TRAINING',
+      amountVnd: 1200000,
+      occurredOn: '2026-11-02',
+      scope: 'FARM',
+      farmId: 7,
+      farmName: 'Trại Bò Bình An',
+      documentNumber: 'CT-02',
+      description: 'Chi phí máy chủ mới',
+      sourceType: 'BANK_TRANSACTION',
+      sourceReference: 'SEPAY:LIVE:MAIN:843',
+    }
+    const history = [
+      { id: 1, action: 'CREATE', changedAt: '2026-11-01T01:00:00Z', actor: 'PM', beforeJson: null, afterJson: JSON.stringify(before) },
+      { id: 2, action: 'EDIT', changedAt: '2026-11-01T02:00:00Z', actor: 'PM', beforeJson: JSON.stringify(before), afterJson: JSON.stringify(after) },
+      { id: 3, action: 'POST', changedAt: '2026-11-01T03:00:00Z', actor: 'PM', beforeJson: JSON.stringify(after), afterJson: JSON.stringify({ ...after, state: 'POSTED' }) },
+      { id: 4, action: 'VOID', changedAt: '2026-11-01T04:00:00Z', actor: 'PM', reason: 'Ghi trùng', beforeJson: JSON.stringify(after), afterJson: JSON.stringify({ ...after, state: 'VOID' }) },
+      { id: 5, action: 'DISCARD', changedAt: '2026-11-01T05:00:00Z', actor: 'PM', beforeJson: JSON.stringify(after), afterJson: JSON.stringify({ ...after, state: 'DISCARDED' }) },
+      { id: 6, action: 'REPLACEMENT_CREATE', changedAt: '2026-11-01T06:00:00Z', actor: 'PM', beforeJson: null, afterJson: JSON.stringify(after) },
+    ]
+    const http = transport({
+      '/api/platform/finance/records?page=0&size=100': { content: [after], totalPages: 1 },
+      '/api/platform/finance/records/42': { record: after, history },
+    })
+
+    const detail = await createFinanceBackendApi(http).getRecord('FR-0042')
+
+    expect(detail.record.history.map((item) => item.action)).toEqual([
+      'Tạo khoản nháp', 'Sửa khoản nháp', 'Ghi sổ', 'Hủy khoản đã ghi sổ', 'Bỏ khoản nháp', 'Tạo khoản nháp thay thế',
+    ])
+    expect(detail.record.history[1].detail).toBe([
+      'Loại: Chi → Thu',
+      'Danh mục: Máy chủ và lưu trữ → Phí hướng dẫn sử dụng',
+      'Số tiền: 1.000.000 VND → 1.200.000 VND',
+      'Ngày phát sinh: 01/11/2026 → 02/11/2026',
+      'Phạm vi: Chung nền tảng → Trại Bò Bình An',
+      'Số chứng từ: “CT-01” → “CT-02”',
+      'Diễn giải: “Chi phí máy chủ cũ” → “Chi phí máy chủ mới”',
+      'Nguồn: Nhập thủ công → Giao dịch ngân hàng',
+    ].join('; '))
+    expect(detail.record.history.every((item) => !item.detail?.includes('{'))).toBe(true)
+    expect(detail.history).toEqual(detail.record.history)
+  })
+
   it('tìm recordCode qua các trang backend khi mã không nằm ở trang đầu', async () => {
     const http = transport({
       '/api/platform/finance/records?page=0&size=100': { content: [{ id: 1, recordCode: 'FR-0001' }], totalPages: 2 },

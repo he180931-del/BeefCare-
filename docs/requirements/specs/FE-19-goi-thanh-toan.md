@@ -163,6 +163,8 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 Người dùng xác nhận 09/11/2026 (D15): triển khai backend + SCR-58/SCR-59, gồm API đọc lại chi tiết. SCR-59 tự tải trạng thái mỗi 5 giây khi PENDING, không gọi chồng; dừng khi PAID/EXPIRED/rời màn, vẫn giữ Kiểm tra lại và kiểm tra một lần ở mốc hết hạn. Bước nhận giao dịch hoàn thành khi chứng từ đã xác thực, chiều vào, đúng môi trường/namespace/TK/mã; sai số tiền vẫn là đã nhận, chưa PAID/cấp kỳ. Mã sai không tự gắn. Giờ ngân hàng, giờ nhận đầu tiên và giờ xác nhận là ba mốc riêng từ dữ liệu backend; dữ liệu lịch sử thiếu mốc thì hiện "—".
 
 Mở lại PENDING dùng snapshot cũ, không phụ thuộc giá/TK cấu hình mới hoặc điều kiện tạo mới (kể cả tạm ngưng); vẫn kiểm Owner hiện tại. Ngay `now >= expiresAt`, SCR-59 ẩn QR và hiển thị hết hạn dù JOB-03 chưa chạy; không cản nhánh EXPIRED→PAID của giao dịch có giờ NH trong cửa sổ gốc. Kỳ trước xác nhận luôn là ước tính; UC2 không có nút tự đánh dấu đã trả.
+
+Vào trại sau thanh toán (D54, 23/11/2026): mỗi lần SCR-59 đọc được `PAID` (tự tải 5 giây, Kiểm tra lại, giả lập chuyển khoản local, tải lại sau E8, hoặc mở / tải lại SCR-59 của yêu cầu đã PAID), FE đưa Owner vào trại đã thanh toán; lần mua đầu và gia hạn như nhau. Màn hiện "Đang vào trại…" và kiểm trại một lần qua bước của SCR-09 (FE-02 A5 `GET /api/farms/{farmId}/context`), không gọi lệnh ghi nào. Trại `ACTIVE` → lưu trại cho tab, nạp lại trang vào SCR-48 và thay SCR-59 trong lịch sử tab (Back không quay lại hướng dẫn); SCR-48 của đúng trại hiện hộp thoại MSG-FE19-06 một lần, [Tiếp tục] đóng hộp thoại và ở lại SCR-48. Xác nhận (trại, mã, kỳ) giữ trong sessionStorage của tab, SCR-48 đọc xong thì xóa; trình duyệt không lưu được thì vẫn vào trại, chỉ không có hộp thoại. Không vào được → ở lại SCR-59 với hộp thoại MSG-FE19-06 kèm nguyên nhân: trại không `ACTIVE` (vd. SUSPENDED theo R-19-11) → MSG-FE02-03; lỗi quyền / máy chủ → thông báo FE-02 tương ứng; mất kết nối → thông báo kết nối chung; trình duyệt chặn lưu dữ liệu → hướng dẫn cho phép lưu. [Thử vào trại lại] kiểm lại; [Đóng xác nhận] về màn nguồn như Đóng hướng dẫn. Rời SCR-59 trước khi kiểm xong thì bỏ kết quả, không vào trại.
 1. SCR-58: 3 kỳ hạn + giá từ phiên bản hiệu lực, điều khoản, trạng thái trại.
 2. Owner chọn kỳ hạn → xem lại: trại, kỳ hạn, số tiền, kỳ dịch vụ ước tính, phiên bản giá.
 3. **Tạo yêu cầu thanh toán**.
@@ -170,8 +172,8 @@ Mở lại PENDING dùng snapshot cũ, không phụ thuộc giá/TK cấu hình 
 5. Tạo yêu cầu (mã duy nhất, hết hạn +24 h, snapshot TK nhận); tạo Subscription nếu chưa có.
 6. SCR-59: VietQR (API-01), PENDING, đếm ngược, thông tin chuyển khoản + nút sao chép, tiến trình, MSG-FE19-05.
 
-AF1 có PENDING → MSG-FE19-01 · AF2 giá đổi → MSG-FE19-02, quay lại bước 2 · AF3 Để sau / Đóng → vẫn PENDING · AF4 Kiểm tra lại → PAID: MSG-FE19-06 · AF5 hết hạn → MSG-FE19-07 · AF6 hủy yêu cầu (D38) → xác nhận MSG-FE19-17, xong MSG-FE19-18.
-E1 không phải Owner → MSG-COM-01 · E2 ngoài cửa sổ → MSG-FE19-03 · E3 SUSPENDED → MSG-FE19-09 · E4 không có giá / TK → MSG-FE19-04 · E5 không tạo được ảnh QR → vẫn hiện thông tin dạng chữ · E6 lỗi → MSG-COM-02 · E7 hủy khi đã nhận giao dịch → MSG-FE19-19 · E8 hủy khi không còn PENDING chưa hết hạn → MSG-COM-05, tải lại trạng thái.
+AF1 có PENDING → MSG-FE19-01 · AF2 giá đổi → MSG-FE19-02, quay lại bước 2 · AF3 Để sau / Đóng → vẫn PENDING · AF4 nhận PAID (tự tải hoặc Kiểm tra lại) → tự vào SCR-48 của trại + MSG-FE19-06 (D54) · AF5 hết hạn → MSG-FE19-07 · AF6 hủy yêu cầu (D38) → xác nhận MSG-FE19-17, xong MSG-FE19-18.
+E1 không phải Owner → MSG-COM-01 · E2 ngoài cửa sổ → MSG-FE19-03 · E3 SUSPENDED → MSG-FE19-09 · E4 không có giá / TK → MSG-FE19-04 · E5 không tạo được ảnh QR → vẫn hiện thông tin dạng chữ · E6 lỗi → MSG-COM-02 · E7 hủy khi đã nhận giao dịch → MSG-FE19-19 · E8 hủy khi không còn PENDING chưa hết hạn → MSG-COM-05, tải lại trạng thái (ra PAID → như AF4).
 
 Hủy yêu cầu (D38, AF6): chỉ Owner (cùng quyền tạo, ở mọi trạng thái dịch vụ kể cả SUSPENDED), qua A18 với `Idempotency-Key`. Backend khóa dòng trại rồi yêu cầu (cùng thứ tự với thao tác xác nhận), rồi kiểm theo thứ tự: Owner (COM-01) → yêu cầu thuộc trại (COM-08) → lý do trim ≤ 1.000 (COM-10) → `PENDING` và `now < expiresAt` (COM-05) → chưa nhận giao dịch, cùng điều kiện với bước "Đã nhận giao dịch" của SCR-59 hoặc đã có chứng từ phân bổ (FE19-19 kèm mã và giờ nhận). Đạt thì ghi `CANCELLED`, giờ hủy, Owner, lý do (rỗng = null) và audit `PAYMENT_REQUEST_CANCELLED` (ngoài danh mục FE-17, như `PAYMENT_REQUEST`) trong cùng transaction; lệnh bị từ chối không ghi gì. Không có `expectedVersion`: điều kiện duy nhất có thể đổi là trạng thái, được kiểm sau khi khóa. Hủy không đổi trạng thái dịch vụ trại, không gửi thông báo / email. Giao dịch về sau theo R-19-06: giờ NH trước lúc hủy vẫn xác nhận như thường (`CANCELLED` → `PAID`, giữ giờ hủy); đúng hoặc sau lúc hủy thì chỉ lưu chứng từ cho PM (ngoài cửa sổ), như yêu cầu hết hạn.
 
@@ -432,14 +434,14 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 |---|---|---|
 | 1 | Title / Tiêu đề | "Mã yêu cầu · kỳ hạn · trại" |
 | 2 | VietQR | Ảnh QR (API-01): ngân hàng, TK, số tiền, nội dung; ẩn khi EXPIRED / CANCELLED; lỗi tạo ảnh → vẫn hiện chữ |
-| 3 | Status / Trạng thái | PENDING / PAID / EXPIRED / CANCELLED |
+| 3 | Status / Trạng thái | PENDING / EXPIRED / CANCELLED; PAID không hiện trên màn mà chuyển sang #10 (D54) |
 | 4 | Valid for / Còn hiệu lực | Đếm ngược hh:mm:ss |
 | 5 | Expires at / Hết hạn lúc | dd/mm/yyyy HH:mm |
 | 6 | Receiving bank, Account number, Account name, Amount, Transfer content | Chỉ đọc + nút "Sao chép"; nội dung = mã thanh toán; MSG-FE19-05 |
-| 7 | Progress / Tiến trình | Đã tạo yêu cầu (giờ, Xong); Đã nhận giao dịch NH (giờ hoặc —, Đang chờ); Đã xác nhận và cấp kỳ (giờ hoặc —, Chưa / Xong + kỳ) |
-| 8 | Check again / Kiểm tra lại | Làm mới; lỗi MSG-FE19-08; PAID → MSG-FE19-06 |
+| 7 | Progress / Tiến trình | Đã tạo yêu cầu (giờ, Xong); Đã nhận giao dịch NH (giờ hoặc —, Đang chờ); Đã xác nhận và cấp kỳ (—, Chưa; khi PAID màn chuyển sang #10) |
+| 8 | Check again / Kiểm tra lại | Làm mới; lỗi MSG-FE19-08; PAID → #10 |
 | 9 | View history / Close instructions | SCR-60 / quay lại màn nguồn (SCR-57, SCR-60, SCR-09), không đổi gì |
-| 10 | Enter farm / Back to subscription | Khi PAID: lần đầu → SCR-48; gia hạn → SCR-57 |
+| 10 | Vào trại sau thanh toán (D54) | Không có nút. Khi nhận `PAID`: "Đang vào trại…", kiểm trại một lần qua FE-02 A5. Vào được → lần đầu và gia hạn đều mở SCR-48, thay SCR-59 trong lịch sử tab; SCR-48 hiện MSG-FE19-06 một lần, [Tiếp tục] đóng. Không vào được → hộp thoại MSG-FE19-06 trên SCR-59 kèm nguyên nhân (trại không ACTIVE: MSG-FE02-03), [Thử vào trại lại] và [Đóng xác nhận] (về màn nguồn như #9). Chi tiết: UC-FE19-02 |
 | 11 | Expired / Hết hạn | MSG-FE19-07 + "Tạo yêu cầu mới" |
 | 12 | Cancel request / Hủy yêu cầu | Nút phụ, chỉ khi PENDING chưa hết hạn và chưa nhận giao dịch (bước 2 của tiến trình còn "Đang chờ"); mở MSG-FE19-17 có ô lý do (không bắt buộc, ≤ 1.000); nút khóa khi đang gửi; FE19-19 / COM-05 → đóng hộp thoại và tải lại (D38) |
 | 13 | Cancelled / Đã hủy | Huy hiệu CANCELLED; ẩn QR và nút sao chép; MSG-FE19-18 kèm giờ hủy, lý do (nếu có), "Tạo yêu cầu mới" (SCR-58) và "Về gói dịch vụ"; dừng tự tải |
@@ -541,7 +543,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | MSG-FE19-03 | Trên trang | Mở gia hạn từ {date}, 90 ngày trước ngày kết thúc đã xác nhận {end}. |
 | MSG-FE19-04 | Trên trang | Hiện chưa lấy được bảng giá. [Thử lại] |
 | MSG-FE19-05 | Trên trang | Chuyển khoản chính xác {amount} VND với nội dung {code} trước {expiry}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận. |
-| MSG-FE19-06 | Toast thành công | Đã xác nhận thanh toán {code}. Kỳ dịch vụ {start} – {end}. |
+| MSG-FE19-06 | Hộp thoại «Thanh toán thành công» (D54; SRS: toast) | Thanh toán {code} đã được xác nhận. Kỳ dịch vụ {start} – {end}. [Tiếp tục] — trên SCR-48. Không vào được trại: thêm nguyên nhân, [Đóng xác nhận] [Thử vào trại lại] — trên SCR-59. |
 | MSG-FE19-07 | Hộp thoại | Yêu cầu thanh toán {code} đã hết hạn lúc {time}. [Tạo yêu cầu mới] |
 | MSG-FE19-08 | Trên trang | Không lấy được kết quả thanh toán mới nhất. Trạng thái gần nhất: {status}. [Thử lại] |
 | MSG-FE19-09 | Hộp thoại | {farm} đang bị tạm ngưng. Hiện không thể tạo yêu cầu thanh toán. [Gửi yêu cầu hỗ trợ] |
@@ -704,8 +706,11 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | TC-19-105 | Đã hủy; giao dịch có giờ NH đúng hoặc sau lúc hủy → không PAID, chứng từ chờ PM; PM ACCEPT bị chặn `OUTSIDE_WINDOW` | PaymentRequestCancelResourceTest#tc105MoneyBankedAtOrAfterTheCancellationWaitsForThePmAndCannotBeAccepted (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
 | TC-19-106 | Hủy và xác nhận chạy đồng thời trên cùng trại → tuần tự: hoặc PAID (hủy nhận COM-05 / FE19-19), hoặc CANCELLED rồi giao dịch theo TC-19-104 / 105; không hai kết quả | SubscriptionConfirmationConcurrencyTest#cancellationWaitingForTheFarmSeesTheConfirmationCommittedMeanwhileAndWritesNothing (H2 + `SubscriptionConfirmationConcurrencyPostgresIT`); thứ tự ngược là TC-19-104 / 105 |
 | TC-19-107 | SCR-59 PENDING: bấm Hủy yêu cầu → MSG-FE19-17; Quay lại không gửi; xác nhận gửi A18 một lần (nút khóa khi đang gửi) → MSG-FE19-18, ẩn QR và nút sao chép, dừng tự tải | `subscriptionPaymentBackend.test.tsx` "TC-19-107" ×2 (adapter + SCR-59) |
-| TC-19-108 | SCR-59 đã nhận giao dịch → không có nút Hủy; A18 gọi thẳng vẫn FE19-19; lỗi FE19-19 / COM-05 trên màn → đóng hộp thoại, tải lại | `subscriptionPaymentBackend.test.tsx` "TC-19-108" ×2 (FE19-19, COM-05) |
+| TC-19-108 | SCR-59 đã nhận giao dịch → không có nút Hủy; A18 gọi thẳng vẫn FE19-19; lỗi FE19-19 / COM-05 trên màn → đóng hộp thoại, tải lại; tải lại ra PAID → vào trại như TC-19-110 | `subscriptionPaymentBackend.test.tsx` "TC-19-108" ×2 (FE19-19, COM-05) |
 | TC-19-109 | SCR-60 lọc CANCELLED; huy hiệu Đã hủy, chi tiết có giờ hủy và lý do, không có "Mở lại"; SCR-62 hiện trạng thái CANCELLED | `subscriptionHistoryBackend.test.tsx` "TC-19-109"; `platformPaymentReadBackend.test.tsx` "TC-19-109" (SCR-62) |
+| TC-19-110 | D54: SCR-59 nhận PAID (tự tải, Kiểm tra lại, giả lập, hủy bị COM-05) ở lần mua đầu và gia hạn → kiểm A5 đúng một lần, lưu trại cho tab, thay bằng SCR-48; SCR-48 của đúng trại hiện MSG-FE19-06 một lần, [Tiếp tục] đóng, mở lại không hiện | `subscriptionPaymentBackend.test.tsx` "automatically checks the paid farm once…", "refreshes every five seconds…", simulator, "TC-19-108" (COM-05); `SubscriptionPages.test.tsx` "thanh toán gia hạn đưa thẳng vào trại…", "lần mua đầu lưu trại cho tab…" |
+| TC-19-111 | D54: không vào được trại → ở lại SCR-59, hộp thoại MSG-FE19-06 kèm nguyên nhân: SUSPENDED → MSG-FE02-03 (không bảo "liên hệ Chủ trại"), 403 FE-02, mất kết nối, trình duyệt chặn lưu; [Thử vào trại lại] vào được | `subscriptionPaymentBackend.test.tsx` "keeps a paid but suspended farm out…", "stays on the guide…", "shows the Vietnamese connection message…", "says the browser blocks site data…" |
+| TC-19-112 | D54: rời SCR-59 trước khi kiểm xong → không vào trại; chỉ không lưu được xác nhận → vẫn vào trại, không hộp thoại | `subscriptionPaymentBackend.test.tsx` "ignores the farm check when the guide is left…", "still enters the farm when only the optional confirmation…" |
 
 ## 10. Điểm SRS chưa rõ
 
@@ -743,3 +748,4 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | 10/11/2026 | 28/10/2026 | Người dùng chốt D24 UC8: durable JOB-06/alias/ACK lưu trước, retry và chuyển PM sau24h, mã mâu thuẫn, Q5 email; phần JOB-07 chỉ thanh toán. Bổ sung ma trận/test/readback/runtime, TC-19-83→92 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Review UC8, người dùng đồng ý sửa cả bốn điểm: lease job cho tra cứu/simulator, đếm giao lặp không đổi version, lưu đủ trường chữ đã xác thực (changeset 0500, chọn nới cột thay vì từ chối), JOB-08 dọn metadata 401 sau 30 ngày; TC-19-93→96 | Người dùng / DucNV |
 | 16/11/2026 | 28/10/2026 | D38: Owner hủy yêu cầu thanh toán (Q11). Sửa §3.3, R-19-03 / 06 / 14 / 15, UC-FE19-02 (AF6, E7, E8), SCR-59 (#2, #3, #12, #13), SCR-60 (#2, #9), SCR-62 (#15), §7 (A2, A3, A12, A18), §8 (MSG-FE19-17 → 19), §9 (TC-19-97 → 109); SRS sửa theo D38 | DucNV (Claude soạn) |
+| 23/11/2026 | 28/10/2026 | D54: nhận PAID thì tự vào SCR-48 của trại (lần đầu và gia hạn), MSG-FE19-06 thành hộp thoại hiện một lần trên SCR-48; không vào được thì hộp thoại trên SCR-59 kèm nguyên nhân và Thử lại. Sửa UC-FE19-02 (đoạn D54, AF4, E8), SCR-59 (#3, #7, #8, #10), §8 MSG-FE19-06, §9 (TC-19-108, TC-19-110 → 112). SRS chưa sửa | DucNV (Claude soạn) |

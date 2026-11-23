@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createFarmWorkspaceDemoStore } from '../../../src/features/farm-workspace/data/farmWorkspaceDemoStore'
 import { EXPIRED_TOKEN, SAMPLE_TOKEN } from '../../../src/features/farm-workspace/data/farmWorkspaceSeed'
-import { PERMISSION_AREAS, permissionRowsFor } from '../../../src/features/farm-workspace/domain/rolePermissions'
+import { PERMISSION_AREAS, permissionRowsFor } from '../../../src/shared/domain/farmRolePermissions'
 
 describe('farm workspace seed data (Figma frames)', () => {
   it('lists the four farms of the Select Farm frame with their service states and roles', async () => {

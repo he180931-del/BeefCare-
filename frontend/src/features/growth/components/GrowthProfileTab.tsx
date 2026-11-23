@@ -74,7 +74,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
         {projection ? <FinishingBlocks profile={data} projection={projection} /> : <WeighingSummary profile={data} />}
         <Panel
           title="Cân nặng theo thời gian"
-         
+
           actions={<ChartLegend />}
           className={`col-span-full ${projection ? '@min-[1024px]:col-span-8' : ''}`}
         >

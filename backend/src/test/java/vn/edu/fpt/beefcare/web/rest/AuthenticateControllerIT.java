@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.web.rest;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -183,6 +184,53 @@ class AuthenticateControllerIT {
         org.assertj.core.api.Assertions.assertThat(appUser.getOwnerRegistrationCompletedAt()).isNotNull();
         org.assertj.core.api.Assertions.assertThat(appUser.isTermsAccepted()).isTrue();
         org.assertj.core.api.Assertions.assertThat(appUser.getTermsAcceptedAt()).isNotNull();
+    }
+
+    @Test
+    @Transactional
+    void googleLinkedAccountMustAcceptTermsBeforeUsingAuthenticatedApis() throws Exception {
+        User identity = createIdentity("session-google-consent");
+        MockHttpSession session = loginWithCsrf("session-google-consent");
+        AppUser account = appUserRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow();
+        account.setGoogleSubject("google-consent-subject");
+        account.setTermsAccepted(false);
+        account.setTermsAcceptedAt(null);
+        appUserRepository.saveAndFlush(account);
+
+        mockMvc.perform(get("/api/account/profile").session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.googleSignInLinked").value(true))
+            .andExpect(jsonPath("$.termsAccepted").value(false));
+        mockMvc.perform(get("/api/account").session(session))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MSG-FE01-14"));
+        org.assertj.core.api.Assertions.assertThat(session.isInvalid()).isFalse();
+
+        Csrf csrf = fetchCsrf();
+        mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":false}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-FE01-14"));
+
+        MvcResult accepted = mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.termsAccepted").value(true))
+            .andReturn();
+        String acceptedAt = om.readTree(accepted.getResponse().getContentAsByteArray()).path("termsAcceptedAt").asText();
+
+        AppUser persisted = appUserRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(persisted.isOwnerRegistrationCompleted()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(persisted.getTermsAcceptedAt()).isNotNull();
+
+        mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.termsAcceptedAt").value(acceptedAt));
+        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isOk());
     }
 
     private User createIdentity(String login) {

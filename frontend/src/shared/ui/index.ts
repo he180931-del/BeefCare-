@@ -1,4 +1,5 @@
 // Public boundary of the shared UI primitives. They know no business model: callers pass labels, tones and data.
+export { ActionLink } from './ActionLink/ActionLink'
 export { Badge, type BadgeTone } from './Badge/Badge'
 export { Button } from './Button/Button'
 export { Card, Info, KV, Metric, Tile, type MetricTone } from './Card/Card'
@@ -11,6 +12,7 @@ export { default as NoticeDialog } from './Modal/NoticeDialog'
 export { TopbarTitleContext, useTopbarTitle } from './Modal/topbarTitle'
 export { DISCARD_PROMPT } from './Modal/discardPrompt'
 export { PageHeader } from './PageHeader/PageHeader'
+export { UserIdentity } from './UserIdentity/UserIdentity'
 export { default as QrCamera } from './QrScanner/QrCamera'
 export { Pagination, Table, Td, Th } from './Table/Table'
 export { AttachmentList, type AttachmentItem } from './AttachmentList/AttachmentList'

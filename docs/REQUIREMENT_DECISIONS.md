@@ -879,6 +879,58 @@ TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì c
 
 Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
 
+### D54 — FE-19: vào thẳng Tổng quan sau khi thanh toán (23/11/2026)
+
+DucNV (chủ FE-19) chốt trong phiên: khi BeefCare nhận trạng thái PAID, chủ trại được đưa thẳng vào Tổng quan của đúng trại; popup "Thanh toán thành công" hiện một lần tại đó, kèm mã thanh toán và kỳ dịch vụ; bấm Tiếp tục để đóng popup và ở lại Tổng quan; áp dụng cho cả mua lần đầu và gia hạn. Nếu trại đang tạm ngưng hoặc chưa thể truy cập, popup vẫn xác nhận đã thanh toán, nêu lý do và cho thử vào lại. Làm khác SRS 28/10 (UC-FE19-02 AF4, SCR-59 "Enter farm / Back to subscription": gia hạn về SCR-57; MSG-FE19-06 kiểu Toast):
+
+1. SCR-59 bỏ nút "Vào trại" / "Về gói dịch vụ". Mỗi lần đọc được `PAID` (tự tải, Kiểm tra lại, tải lại sau hủy bị từ chối, mở lại hướng dẫn của yêu cầu đã PAID), màn hiện "Đang vào trại…" và kiểm trại một lần qua bước của SCR-09 (FE-02 A5). Trại `ACTIVE` → lưu trại cho tab và nạp lại vào SCR-48, thay SCR-59 trong lịch sử tab.
+2. MSG-FE19-06 đổi từ toast sang hộp thoại trên SCR-48 của đúng trại, chỉ cho Owner, một lần (giữ trong sessionStorage của tab, đọc xong thì xóa). Mở SCR-48 trực tiếp không hiện. Không lưu được xác nhận thì vẫn vào trại, chỉ thiếu hộp thoại.
+3. Không vào được → hộp thoại MSG-FE19-06 trên SCR-59 kèm nguyên nhân, [Thử vào trại lại] và [Đóng xác nhận] (về màn nguồn). Trại không `ACTIVE` (vd. đã thanh toán nhưng vẫn SUSPENDED theo R-19-11) → Owner đọc MSG-FE02-03; từ nay mọi chỗ dùng bước vào trại của SCR-09 với Owner (cả quét QR) đều hiện MSG-FE02-03 thay vì MSG-FE02-04 "Vui lòng liên hệ Chủ trại".
+
+Đi kèm: chỉ frontend; không đổi API, DTO, OpenAPI hay DB, không có lệnh ghi mới. Spec FE-19 (UC-FE19-02, SCR-59 #3 / #7 / #8 / #10, MSG-FE19-06, TC-19-108, TC-19-110 → 112) và FE-15 (SCR-48 #10) đã cập nhật; SRS chưa sửa.
+
+### D55 — FE-06 / FE-12: bê sinh tại trại – bố mẹ chỉ đọc và bê không sống (23/11/2026)
+
+AnNT (chủ FE-06) chốt trong phiên ngày 22–23/11/2026: theo SRS (UC-FE06-01 bước 4, AF1, GBR-31, GBR-93) và R-06-18, dữ liệu sinh của bê sinh tại trại lấy từ lần đẻ và **chỉ đọc** ở phiếu nhập.
+
+1. **Bố mẹ chỉ đọc.**
+   - Mẹ = bò mẹ của lần đẻ.
+   - Bố = đực giống / nguồn tinh của lần phối liên kết thai. Không có thì "Không rõ" (R-12-12).
+   - Gỡ lệnh `POST /pending-calves/{calfId}/parentage`: route trả 405 cho client cũ và không còn trong OpenAPI. Màn SCR-25 không còn ô chọn bò mẹ, bò bố, nguồn tinh.
+   - Phiếu chỉ chọn kết quả bê nguồn, không tạo dòng bê trực tiếp thiếu lần đẻ. Payload phiếu không được ghi đè bố mẹ hoặc dữ liệu sinh từ nguồn.
+   - Ghi sai bố mẹ thì sửa bản ghi nguồn: lần phối hoặc lần đẻ theo FE-11 / FE-12 (R-12-15, có lý do, version). Không sửa ở phiếu nhập.
+2. **Dữ liệu cũ không xóa.**
+   - Cột `assigned_dam_id`, `assigned_sire_id`, `assigned_sire_source`, `assigned_external_sire_code` của `calf_outcome` giữ nguyên, không migration.
+   - Backend thôi đọc các cột này khi hiện bê chờ và khi ghi sổ.
+   - Bò đã đăng ký trước đây giữ nguyên cha mẹ đã lưu trên hồ sơ bò.
+3. **Bê sinh ra nhưng không sống** có ba trường hợp, không thêm trạng thái mới:
+   - **Chết khi sinh**: ghi ở lần đẻ, kết quả bê `STILLBORN` (FE-12 §3.5). Giới tính được "Không rõ", không cân bắt buộc. Không bao giờ đăng ký, không tạo hồ sơ bò, không vào danh sách bê chờ (R-06-19, MSG-FE06-04). Lần đẻ vẫn đóng thai CALVED.
+   - **Sống lúc sinh, chết trước khi đăng ký**: ở danh sách bê chờ (SCR-25), "Đánh dấu chết trước đăng ký", bắt buộc lý do (A12, R-06-20, R-12-13). Kết quả bê **giữ LIVE**, trạng thái đăng ký `DIED_BEFORE_REGISTRATION`, REM-09 được giải quyết. Không tạo hồ sơ bò, không lập phiếu xuất. Không hoàn tác được nên phải qua hộp thoại xác nhận.
+   - **Đã đăng ký rồi chết**: là bò trong đàn, ghi bằng phiếu xuất loại chết (FE-13) như mọi con bò khác.
+   - Sửa nhầm "chết khi sinh" ↔ "sống" chỉ làm được ở lần đẻ khi bê chưa đăng ký và chưa đánh dấu chết trước đăng ký (R-12-13, R-12-15).
+
+### D56 — Cài đặt tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
+
+Chủ dự án xác nhận cập nhật tài liệu theo hành vi giao diện đã chốt, giữ nguyên hệ thống mã của SRS 28/10:
+
+1. Không tạo `UC-FE01-04A` hoặc `SCR-08A`. `SCR-08` vẫn là màn hình logic **Cài đặt**, nhưng được mở bằng popup dùng chung từ menu tài khoản sau khi người dùng đăng nhập; không còn trang hồ sơ độc lập có thanh điều hướng riêng. Popup có header **Cài đặt**, sidebar hai mục **Hồ sơ** và **Quyền theo vai trò**, vùng nội dung cuộn độc lập và các khối Bento sáng. Các route hồ sơ cũ chuyển về trang phù hợp với phiên. Riêng `/tai-khoan` là route callback tương thích và giữ query mở popup khi có.
+2. Mục Hồ sơ chỉ sửa họ tên và số điện thoại liên hệ; email và phương thức đăng nhập chỉ đọc. Nút **Lưu thay đổi** nằm trong khối Thông tin cá nhân và không yêu cầu xác thực lại mật khẩu. Đổi hoặc thêm mật khẩu vẫn theo UC-FE01-06 / D07. Nút **Xác minh bằng Google** bắt đầu OAuth; xác minh có hiệu lực 5 phút trong session. Callback đi qua `/tai-khoan?m=doi-mat-khau&googleReauthenticated=true`; route tương thích giữ query, chuyển về trang phù hợp với phiên và mở lại SCR-08 cùng popup con. Sau xác minh chỉ hỏi mật khẩu mới và xác nhận, không hỏi mật khẩu hiện tại.
+3. Mục Quyền theo vai trò là bảng tham khảo cố định Table III-2 cho Owner, Manager và Technician, không phụ thuộc membership hoặc trại hiện tại, không cấp quyền và không gọi API quyền membership. Các dòng `NO` được ẩn; API quyền membership giữ lại để tương thích.
+4. Mọi khung giao diện đã đăng nhập dùng cùng menu avatar + họ tên với đúng hai mục **Hồ sơ của tôi** và **Đăng xuất**. **Hồ sơ của tôi** mở popup SCR-08 tại trang hiện tại; **Đăng xuất** kết thúc phiên và xóa trại đang chọn.
+5. Trong không gian trại, tên trại trên thanh trên cùng mở bộ chuyển nhanh. Chọn trại `ACTIVE` kiểm lại quyền / trạng thái, xóa dữ liệu và bộ lọc trại trước rồi mở trang chủ đúng vai trò; chọn trại không `ACTIVE` hoặc **Quản lý trang trại** mở SCR-09.
+
+Ảnh hưởng: cập nhật SRS UC-FE01-04, UC-FE02-02, SCR-08, SCR-09, quy ước thanh trên cùng và chú thích Table III-2; cập nhật spec FE-01 / FE-02 và test case tương ứng. Đây là thay đổi điều hướng và trình bày quyền, không đổi schema dữ liệu hay hình dạng API hồ sơ / danh sách trại.
+
+### D57 — Tài khoản Google phải chấp thuận điều khoản BeefCare (23/11/2026)
+
+Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google chỉ xác minh danh tính/email, không thay người dùng đồng ý Điều khoản sử dụng và Chính sách dữ liệu của BeefCare.
+
+1. Tài khoản có phương thức Google và `termsAccepted = false` phải thấy popup **Điều khoản và chính sách** trước mọi chức năng đã đăng nhập. Người dùng email đã chấp thuận trong popup lúc đăng ký và tài khoản Google đã chấp thuận không bị hỏi lại.
+2. Dùng một popup văn bản chung có hai tab Điều khoản sử dụng và Chính sách dữ liệu, checkbox và nút **Đồng ý và xác nhận**. Đăng ký email chỉ gọi API sau khi form hợp lệ và người dùng xác nhận trong popup; lỗi tạm thời giữ popup cùng dấu tick để thử lại, còn đóng hoặc tải lại sẽ yêu cầu tick lại. Đóng popup ở luồng Google sẽ đăng xuất. Không bắt buộc cuộn hết nội dung.
+3. `POST /api/account/terms-acceptance` chỉ đặt `termsAccepted = true` và `termsAcceptedAt` ở lần đầu; gọi lại giữ nguyên thời điểm. Không hoàn tất đăng ký Owner, không tạo trại/membership, không cấp vai trò hoặc gói.
+4. Khi chưa chấp thuận, backend vẫn cho đọc hồ sơ, lấy CSRF, chấp thuận và đăng xuất; API nghiệp vụ khác trả `403` + `MSG-FE01-14` nhưng không hủy phiên. OAuth redirect ưu tiên `/chap-nhan-dieu-khoan` trước luồng Owner/chọn trại; frontend kiểm lại profile để không phụ thuộc riêng redirect.
+5. Dùng hai cột hiện có `terms_accepted`, `terms_accepted_at`; chưa thêm phiên bản điều khoản hoặc migration. Khi có quy trình ban hành nhiều phiên bản sẽ quyết định migration và luồng chấp thuận lại riêng.
+
 ### D58 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
 
 TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:

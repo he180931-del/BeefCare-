@@ -1,5 +1,5 @@
 import { MOCK_EXISTING_ACCOUNT_EMAIL, MOCK_LANDING, MOCK_PRICES, MOCK_SUSPENDED_EMAIL, MOCK_WRONG_CREDENTIALS_EMAIL } from './authMock'
-import { DEMO_PASSWORD, DEMO_USERS, readMockUserEmail, writeMockUserEmail } from './demoUsers'
+import { readMockUserEmail, writeMockUserEmail } from './demoUsers'
 import type { AuthClient } from '../types'
 
 /** Lỗi mô phỏng có `code` và `status` như BackendError để trang đăng nhập hiển thị đúng khung. */
@@ -11,8 +11,6 @@ class MockAuthError extends Error {
 export function createMockAuthClient(): AuthClient {
   return {
     mode: 'mock',
-    demoAccounts: DEMO_USERS.map(({ label, email }) => ({ label, email, password: DEMO_PASSWORD })),
-    demoErrorEmails: { wrongCredentials: MOCK_WRONG_CREDENTIALS_EMAIL, suspended: MOCK_SUSPENDED_EMAIL },
     isAuthenticated: async () => Boolean(readMockUserEmail()),
     login: async (email, password) => {
       const key = email.trim().toLowerCase()

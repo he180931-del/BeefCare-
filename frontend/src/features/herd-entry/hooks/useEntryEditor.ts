@@ -21,8 +21,15 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   const [note, setNote] = useState(draft?.note ?? defaults.note)
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? defaults.cows)
   const [pricing, setPricing] = useState<'kg' | 'con'>(() => draft?.pricing ?? (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
-  const [calves, setCalves] = useState<EntryCalf[]>(draft?.calves ?? pendingCalves)
-  const [directCalfCount, setDirectCalfCount] = useState(0)
+  const [calves, setCalves] = useState<EntryCalf[]>(() => draft?.calves?.map(saved => {
+    const source = saved.calfOutcomeId == null ? undefined : pendingCalves.find(calf => calf.calfOutcomeId === saved.calfOutcomeId)
+    if (!source) return saved // Preserve unavailable draft rows; the backend still checks registration eligibility.
+    // D55: a saved draft may predate source corrections or contain retired parent assignments.
+    // Keep the user's selection/pen/purpose, but always display birth facts from A11.
+    return { ...saved, mother: source.mother, father: source.father, damId: source.damId, sireId: source.sireId,
+      sireSource: source.sireSource, externalSireName: source.externalSireName, semenBatch: source.semenBatch,
+      sireBreed: source.sireBreed, born: source.born, sex: source.sex, weight: source.weight, estimated: source.estimated }
+  }) ?? pendingCalves)
   const [freight, setFreight] = useState(draft?.freight ?? defaults.freight)
   const [paid, setPaid] = useState(draft?.paid ?? defaults.paid)
   const [method, setMethod] = useState(draft?.method ?? defaults.method)
@@ -31,15 +38,6 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
 
   const patchCow = (index: number, patch: Partial<EntryCow>) => setCows((current) => current.map((cow, i) => i === index ? { ...cow, ...patch } : cow))
   const patchCalf = (index: number, patch: Partial<EntryCalf>) => setCalves((current) => current.map((calf, i) => i === index ? { ...calf, ...patch } : calf))
-  const createDirectCalves = (count: number) => {
-    const next = Math.max(0, Math.min(10, Math.trunc(count || 0)))
-    setDirectCalfCount(next)
-    setCalves(Array.from({ length: next }, (_, index) => ({
-      name: `Bê số ${index + 1}`, tag: '', mother: '', father: 'Không rõ', damId: undefined, sireId: undefined,
-      born: date, sex: 'Cái', weight: 0, estimated: false, purpose: 'Chưa xác định', picked: true, barn: pens.find((pen) => pen.status === 'ACTIVE')?.code ?? '', calfOutcomeId: undefined,
-    })))
-  }
-
   const purchase = purchaseTotals(cows, pricing, freight, paid)
   const pensAfter = receivingPenAfter(pens, cows)
   const overflow = receivingPenOverflow(pens, cows)
@@ -48,7 +46,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
 
   return {
     sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
-    cows, setCows, pricing, setPricing, calves, setCalves, directCalfCount, freight, setFreight, paid, setPaid, method, setMethod, due, setDue, printQr, setPrintQr,
-    patchCow, patchCalf, createDirectCalves, purchase, pensAfter, overflow, calfPen, calvesSummary, isBuy,
+    cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue, printQr, setPrintQr,
+    patchCow, patchCalf, purchase, pensAfter, overflow, calfPen, calvesSummary, isBuy,
   }
 }

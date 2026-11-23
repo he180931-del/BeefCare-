@@ -86,7 +86,7 @@ describe('Select Farm', () => {
   it('shows each farm with its role, size and the action its service state allows', async () => {
     renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
     expect(await screen.findByText('Trại Tản Lĩnh')).toBeInTheDocument()
-    expect(screen.getByText('4 trang trại bạn có quyền truy cập')).toBeInTheDocument()
+    expect(screen.getByText('Số lượng trang trại: 4 trang trại')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Vào trại' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Thanh toán để kích hoạt' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Gửi phiếu hỗ trợ' })).toBeEnabled()

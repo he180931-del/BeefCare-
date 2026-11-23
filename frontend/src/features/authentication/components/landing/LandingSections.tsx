@@ -4,7 +4,7 @@ import farm from '../../../../shared/assets/farm.png'
 import wave from '../../../../shared/assets/wave.png'
 import growthPreview from '../../assets/landing-growth-profile.jpg'
 import { HERO_POINTS, OVERVIEW_CARDS, STEPS } from '../../constants/landingContent'
-import { AUTH_PATH } from '../../domain/authErrors'
+import { AUTH_PATH } from '../../domain/authPaths'
 import { container } from './LandingHeader'
 
 const card = 'rounded-[14px] border border-field bg-white lg:rounded-[18px]'

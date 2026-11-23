@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider } from '../../../src/features/authentication'
 import type { AuthClient } from '../../../src/features/authentication/AuthContext'
 import { AuthGate } from '../../../src/features/authorization'
@@ -9,10 +9,37 @@ import { createMockAuthClient } from '../../../src/features/authentication/data/
 import { BackendError } from '../../../src/shared/api/backendClient'
 
 function renderAuth(client: AuthClient, path: string) {
-  return render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><AuthGate><div>Private content</div></AuthGate></AuthProvider></MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><AuthGate><div>Private content</div></AuthGate></AuthProvider><Location /></MemoryRouter>)
+}
+
+function Location() {
+  return <output data-testid="location">{useLocation().pathname}</output>
 }
 
 describe('guest authentication pages', () => {
+  it('opens consent only after a valid registration submit and preserves the form when closed', async () => {
+    const user = userEvent.setup()
+    renderAuth(createMockAuthClient(), '/dang-ky')
+
+    await screen.findByRole('heading', { name: 'Tạo tài khoản chủ trại' })
+    await user.type(screen.getByLabelText('Họ và tên'), 'Nguyễn Văn An')
+    await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
+    await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
+    await user.type(screen.getByLabelText('Xác nhận mật khẩu'), 'BeefCare123!')
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
+    expect(screen.getByRole('tab', { name: 'Điều khoản sử dụng' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: 'Chính sách dữ liệu' }))
+    expect(screen.getByRole('tab', { name: 'Chính sách dữ liệu' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('button', { name: 'Đóng' }))
+
+    expect(screen.getByLabelText('Họ và tên')).toHaveValue('Nguyễn Văn An')
+    expect(screen.getByLabelText('Email')).toHaveValue('owner@beefcare.vn')
+    expect(screen.getByLabelText('Mật khẩu')).toHaveValue('BeefCare123!')
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/dang-ky')
+  })
+
   it('opens the password reset form from the canonical resetpassword email route', async () => {
     const client: AuthClient = {
       mode: 'backend',
@@ -38,8 +65,10 @@ describe('guest authentication pages', () => {
     await user.type(screen.getByLabelText('Email'), ' OWNER@BEEFCARE.VN ')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.type(screen.getByLabelText('Xác nhận mật khẩu'), 'BeefCare123!')
-    await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
+    expect(screen.getByRole('button', { name: 'Đồng ý và xác nhận' })).toBeDisabled()
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Đồng ý và xác nhận' }))
 
     expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
@@ -54,6 +83,28 @@ describe('guest authentication pages', () => {
     await waitFor(() => expect(screen.getByText('Private content')).toBeInTheDocument())
     expect(await mock.isAuthenticated()).toBe(true)
     expect(localStorage.length).toBe(0)
+  })
+
+  it('keeps consent checked and allows retry when registration fails', async () => {
+    const user = userEvent.setup()
+    const register = vi.fn().mockRejectedValueOnce(new Error('temporary failure')).mockResolvedValueOnce(undefined)
+    renderAuth({ ...createMockAuthClient(), register }, '/dang-ky')
+
+    await screen.findByRole('heading', { name: 'Tạo tài khoản chủ trại' })
+    await user.type(screen.getByLabelText('Họ và tên'), 'Nguyễn Văn An')
+    await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
+    await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
+    await user.type(screen.getByLabelText('Xác nhận mật khẩu'), 'BeefCare123!')
+    await user.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Đồng ý và xác nhận' }))
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Đồng ý và xác nhận' }))
+
+    expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
+    expect(register).toHaveBeenCalledTimes(2)
   })
 
   it('does not fall back to a mock session when backend sign-in fails', async () => {
