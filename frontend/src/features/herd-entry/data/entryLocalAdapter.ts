@@ -112,12 +112,6 @@ export function markCalfDied(calfOutcomeId: number): EntryCalf {
   return structuredClone(calf)
 }
 
-export function assignCalfParentage(calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): EntryCalf {
-  const calf = localCalves.find((row) => row.calfOutcomeId === calfOutcomeId)
-  if (!calf) throw new Error('Không tìm thấy bê chờ xác nhận.')
-  return structuredClone({ ...calf, damId: parentage.damId, sireId: parentage.sireId, sireSource: parentage.sireSource })
-}
-
 export const sellers = () => structuredClone(SOURCES)
 export const vaccines = (): EntryVaccineOption[] => [{ id: 1, code: 'LMLM', name: 'LMLM', available: true }, { id: 2, code: 'THT', name: 'Tụ huyết trùng', available: true }]
 export const breeds = (): EntryBreedOption[] => BREEDS.map((name, index) => ({ id: index + 1, code: name, name, available: true }))

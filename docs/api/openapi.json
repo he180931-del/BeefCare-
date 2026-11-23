@@ -4267,58 +4267,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/pending-calves/{calfId}/parentage" : {
-      "post" : {
-        "tags" : [ "herd-entry-resource" ],
-        "operationId" : "assignParentage",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "calfId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AssignCalfParentageRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PendingCalf"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/farms/{farmId}/pending-calves/{calfId}/died-before-registration" : {
       "post" : {
         "tags" : [ "herd-entry-resource" ],
@@ -17897,29 +17845,16 @@
         },
         "required" : [ "effectiveDate", "status" ]
       },
-      "AssignCalfParentageRequest" : {
+      "DiedBeforeRegistrationRequest" : {
         "type" : "object",
         "properties" : {
-          "damId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireSource" : {
+          "reason" : {
             "type" : "string",
-            "maxLength" : 20,
-            "minLength" : 0
-          },
-          "externalSireCode" : {
-            "type" : "string",
-            "maxLength" : 50,
-            "minLength" : 0
+            "maxLength" : 500,
+            "minLength" : 1
           }
         },
-        "required" : [ "damId" ]
+        "required" : [ "reason" ]
       },
       "PendingCalf" : {
         "type" : "object",
@@ -17991,16 +17926,6 @@
           "draftVoucherId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "DiedBeforeRegistrationRequest" : {
-        "type" : "object",
-        "properties" : {
-          "reason" : {
-            "type" : "string",
-            "maxLength" : 500,
-            "minLength" : 0
           }
         }
       },
@@ -22001,13 +21926,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -22032,12 +21957,12 @@
           "last" : {
             "type" : "boolean"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -22057,16 +21982,16 @@
           "unpaged" : {
             "type" : "boolean"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
+          "paged" : {
+            "type" : "boolean"
           },
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "paged" : {
-            "type" : "boolean"
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -25002,10 +24927,10 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
+          "parameterName" : {
             "type" : "string"
           },
-          "parameterName" : {
+          "token" : {
             "type" : "string"
           },
           "headerName" : {

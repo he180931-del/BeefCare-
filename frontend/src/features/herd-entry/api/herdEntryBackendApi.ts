@@ -243,9 +243,8 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
           },
           disease: { status: declaration(hist.disease), description: (diseaseItems.length ? diseaseItems : [textValue(hist.diseaseNote)]).filter(Boolean).join('\n') || null },
           reproduction: { status: declaration(hist.repro), earlierCalvings: nullableNumber(hist.earlierCalvings), pregnantAtEntry: textValue(hist.pregnantAtEntry) || 'UNKNOWN', estMonthsPregnant: textValue(hist.pregnantAtEntry) === 'YES' ? nullableNumber(hist.pregnancyMonths) : null, description: textValue(hist.reproductionNote) || null },
-          // Parentage is persisted by cattle IDs; display codes are derived by
-          // the backend and must not be sent as an unsupported DTO field.
-          calfOutcomeId: nullableNumber(cow.calfOutcomeId), ...(farmBorn ? { damId: nullableNumber(cow.damId), sireId: nullableNumber(cow.sireId), externalSireCode: textValue(cow.externalSireCode) || null } : {}),
+          // D55: parentage comes from the referenced calving; never submit parent overrides.
+          calfOutcomeId: nullableNumber(cow.calfOutcomeId),
         }
       }),
       expectedVersion: version,
@@ -297,12 +296,6 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     )
     return mapPendingCalf(asRecord(result))
   }
-  const assignCalfParentage = async (calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): Promise<EntryCalf> => {
-    const result = await transport.command(transport.farmPath(farmId, `/pending-calves/${calfOutcomeId}/parentage`), parentage, {
-      key: requestKey('pending-calf-parentage', { calfOutcomeId, parentage }),
-    })
-    return mapPendingCalf(asRecord(result))
-  }
   const sellers = async () => asRows(await transport.get(transport.farmPath(farmId, '/trading-partners?role=SELLER'))).map((row) => ({
     id: String(numberValue(row.id)), name: textValue(row.name), phone: textValue(row.phone),
   }))
@@ -316,5 +309,5 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     const body = asRecord(await transport.get(transport.farmPath(farmId, '/cattle?herdStatus=ACTIVE&size=200')))
     return asRows(body.items).map((row): EntryParentOption => ({ id: numberValue(row.id), code: textValue(row.code ?? row.displayCode), sex: row.sex === 'MALE' ? 'MALE' : 'FEMALE', name: textValue(row.name) })).filter((row) => row.id > 0)
   }
-  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, assignCalfParentage, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
+  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
 }
