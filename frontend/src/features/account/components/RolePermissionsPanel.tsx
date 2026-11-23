@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Card, Segmented, Table, Td, Th } from '../../../shared/ui'
-import { PERMISSION_AREAS } from '../../farm-workspace'
-import { AccountShell } from '../components/AccountShell'
+import { PERMISSION_AREAS } from '../../../shared/domain/farmRolePermissions'
 import { FARM_ROLE_LABEL } from '../domain/profileRules'
 
 const ROLES = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const
@@ -16,11 +15,11 @@ function conciseAction(level: 'full' | 'view', detail: string | null) {
   return 'Quản lý'
 }
 
-export default function RolePermissionsPage() {
+export function RolePermissionsPanel() {
   const [role, setRole] = useState<FarmRole>('OWNER')
 
   return (
-    <AccountShell active="permissions">
+    <>
       <div className="mb-6 max-w-2xl"><h1 className="m-0 text-3xl font-bold tracking-[-0.03em] text-brand-dark sm:text-4xl">Quyền theo vai trò</h1></div>
       <div className="flex flex-col gap-4">
         <Segmented value={role} onChange={(value) => setRole(value as FarmRole)} options={ROLES.map((value) => ({ value, label: FARM_ROLE_LABEL[value] }))} className="self-start" />
@@ -36,6 +35,6 @@ export default function RolePermissionsPage() {
           </Table>
         </Card>
       </div>
-    </AccountShell>
+    </>
   )
 }

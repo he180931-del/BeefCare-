@@ -5,7 +5,7 @@ import type { AccountDemoStore } from '../data/accountDemoStore'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
 import { googleAuthorizationUrl } from '../../authentication'
-import { permissionRowsFor } from '../../farm-workspace'
+import { permissionRowsFor } from '../../../shared/domain/farmRolePermissions'
 import type { AccountIdentity, AccountProfile, FarmPermissions, PasswordChangeInput, ProfileUpdateInput } from '../types'
 import { mapAccountProfile, mapFarmPermissions } from './accountMapper'
 

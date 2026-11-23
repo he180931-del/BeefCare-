@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useSession } from '../session/sessionContext'
-import { Icon, UserIdentity } from '../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import { Icon, UserIdentity } from '../../../shared/ui'
+import { useAccountDialog } from './AccountDialogContext'
 
 const initialsOf = (fullName: string) => {
   const words = fullName.trim().split(/\s+/).filter(Boolean)
@@ -16,6 +16,7 @@ export function AccountMenu({ fallbackName, fallbackInitials, fallbackRole }: {
   fallbackRole?: string
 }) {
   const session = useSession()
+  const { openAccountDialog } = useAccountDialog()
   const [open, setOpen] = useState(false)
   const name = session?.fullName ?? fallbackName ?? ''
   const initials = (session ? initialsOf(session.fullName) : fallbackInitials) || ''
@@ -28,6 +29,7 @@ export function AccountMenu({ fallbackName, fallbackInitials, fallbackRole }: {
       <button
         type="button"
         aria-haspopup="menu"
+        data-account-menu-trigger="true"
         aria-expanded={open}
         aria-label={`${name}${role ? `, ${role}` : ''}`}
         onClick={() => setOpen((value) => !value)}
@@ -37,9 +39,9 @@ export function AccountMenu({ fallbackName, fallbackInitials, fallbackRole }: {
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-[52px] z-40 w-[200px] rounded-md border border-edge bg-white py-1 text-xs shadow-md">
-          <Link role="menuitem" to="/tai-khoan" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2 text-ink no-underline hover:bg-page">
+          <button role="menuitem" type="button" onClick={() => { setOpen(false); openAccountDialog('profile') }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-ink hover:bg-page">
             <Icon name="user-circle" />Hồ sơ của tôi
-          </Link>
+          </button>
           {session && (
             <button role="menuitem" type="button" onClick={() => { setOpen(false); void session.logout() }} className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-err-fg hover:bg-page">
               <Icon name="logout" />Đăng xuất

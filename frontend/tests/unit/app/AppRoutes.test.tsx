@@ -53,16 +53,10 @@ describe('farm screens without an entered farm (UC-FE02-02)', () => {
     expect(screen.getByTestId('where')).toHaveAttribute('data-return-to', section)
   })
 
-  it.each([['/tai-khoan', 'Hồ sơ của tôi'], ['/quyen-theo-vai-tro', 'Quyền theo vai trò']])('keeps the account page %s open: account information does not need a farm', async (path, heading) => {
+  it.each(['/tai-khoan', '/quyen-theo-vai-tro', '/ho-so', '/kt/tai-khoan', '/nen-tang/ho-so'])('redirects the retired account route %s to the authenticated home flow', async (path) => {
     render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
-    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent(path)
-  })
-
-  it.each(['/ho-so', '/kt/tai-khoan', '/nen-tang/ho-so'])('redirects the legacy account route %s to the shared account page', async (path) => {
-    render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
-    expect(await screen.findByRole('heading', { name: 'Hồ sơ của tôi' })).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent('/tai-khoan')
+    expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/chon-trai')
   })
 
   it('keeps the Owner pages that name their farm in the address (?farm=, ?farmId=) reachable', async () => {

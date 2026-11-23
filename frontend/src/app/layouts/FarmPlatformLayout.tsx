@@ -8,7 +8,7 @@ import logo from '../../shared/assets/logo.png'
 import farm from '../../shared/assets/farm.png'
 import wave from '../../shared/assets/wave.png'
 import { Icon, TopbarTitleContext, type IconName } from '../../shared/ui'
-import { AccountMenu } from '../components/AccountMenu'
+import { AccountMenu } from '../../features/account'
 import { demoSessionUser } from '../../demo/demoModules'
 
 // Menu theo Figma Redesign. Quản lý (manager) không có "Thông tin trại / Gói dịch vụ / Hỗ trợ".

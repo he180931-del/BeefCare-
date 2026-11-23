@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { accountDemoStore } from '../../../src/features/account/data/accountDemoStore'
-import AccountPage from '../../../src/features/account/pages/AccountPage'
-import RolePermissionsPage from '../../../src/features/account/pages/RolePermissionsPage'
+import { AccountMenu } from '../../../src/features/account'
+import { AccountDialogProvider, type AccountDialogTab, useAccountDialog } from '../../../src/features/account/components/AccountDialogContext'
 
 const farm = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
 const sessions: Record<string, Session> = {
@@ -16,9 +16,17 @@ const sessions: Record<string, Session> = {
   pm: { role: 'PM', fullName: 'Đỗ Minh Quân', email: 'pm@beefcare.local', farmId: null, farmName: null, logout: vi.fn() },
 }
 
-const renderAs = (who: string, path: string, page: ReactNode) => render(
+function AutoOpen({ tab }: { tab: AccountDialogTab }) {
+  const { openAccountDialog } = useAccountDialog()
+  useEffect(() => openAccountDialog(tab), [openAccountDialog, tab])
+  return null
+}
+
+const renderAs = (who: string, path: string, tab: AccountDialogTab = 'profile') => render(
   <SessionContext.Provider value={sessions[who]}>
-    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{page}</MemoryRouter>
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AccountDialogProvider><AutoOpen tab={tab} /></AccountDialogProvider>
+    </MemoryRouter>
   </SessionContext.Provider>,
 )
 
@@ -27,9 +35,9 @@ beforeEach(async () => {
   await accountDemoStore.reset()
 })
 
-describe('account page', () => {
-  it('shows the shared profile page without the old per-farm permission card', async () => {
-    renderAs('manager', '/tai-khoan', <AccountPage />)
+describe('account dialog profile panel', () => {
+  it('shows the shared profile content without the old per-farm permission card', async () => {
+    renderAs('manager', '/chon-trai')
 
     expect(await screen.findByText('manager@beefcare.local')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Hồ sơ của tôi' })).toBeInTheDocument()
@@ -39,7 +47,7 @@ describe('account page', () => {
 
   it('saves the profile and reports field errors', async () => {
     const user = userEvent.setup()
-    renderAs('manager', '/tai-khoan', <AccountPage />)
+    renderAs('manager', '/chon-trai')
     const name = await screen.findByLabelText('Họ và tên *')
 
     await user.clear(name)
@@ -55,7 +63,7 @@ describe('account page', () => {
 
   it('changes the password in a dialog opened with ?m=doi-mat-khau', async () => {
     const user = userEvent.setup()
-    renderAs('manager', '/tai-khoan?m=doi-mat-khau', <AccountPage />)
+    renderAs('manager', '/chon-trai?m=doi-mat-khau')
     const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
 
     await user.type(within(dialog).getByLabelText('Mật khẩu hiện tại *'), 'sai-mat-khau')
@@ -68,12 +76,13 @@ describe('account page', () => {
     await user.type(within(dialog).getByLabelText('Mật khẩu hiện tại *'), 'mock-demo')
     await user.click(within(dialog).getByRole('button', { name: 'Đổi mật khẩu' }))
     expect(await screen.findByText(/Mật khẩu đã được đổi/)).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Đổi mật khẩu' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cài đặt' })).toBeInTheDocument()
   })
 
   it('asks a Google-only account to re-authenticate before adding a password', async () => {
     const user = userEvent.setup()
-    renderAs('pm', '/tai-khoan?m=doi-mat-khau', <AccountPage />)
+    renderAs('pm', '/nen-tang?m=doi-mat-khau')
     const dialog = await screen.findByRole('dialog', { name: 'Thêm mật khẩu' })
 
     expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
@@ -86,18 +95,32 @@ describe('account page', () => {
   })
 
   it('restores the password dialog after Google re-authentication', async () => {
-    renderAs('manager', '/tai-khoan?m=doi-mat-khau&googleReauthenticated=true', <AccountPage />)
+    renderAs('manager', '/chon-trai?m=doi-mat-khau&googleReauthenticated=true')
     const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
 
     expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
     expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
   })
 
+  it('keeps the account dialog open when Escape closes the nested password dialog', async () => {
+    const user = userEvent.setup()
+    renderAs('manager', '/chon-trai')
+
+    await user.click(await screen.findByRole('button', { name: 'Đổi mật khẩu' }))
+    expect(screen.getByRole('dialog', { name: 'Đổi mật khẩu' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Đổi mật khẩu' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cài đặt' })).toBeInTheDocument()
+  })
+
   it('uses the shared account menu to sign a technician out', async () => {
     const user = userEvent.setup()
-    renderAs('technician', '/tai-khoan', <AccountPage />)
+    render(
+      <SessionContext.Provider value={sessions.technician}>
+        <MemoryRouter><AccountDialogProvider><AccountMenu /></AccountDialogProvider></MemoryRouter>
+      </SessionContext.Provider>,
+    )
 
-    await screen.findByText('technician@beefcare.local')
     await user.click(screen.getByRole('button', { name: 'Lê Thị Mai, TECHNICIAN' }))
     await user.click(screen.getByRole('menuitem', { name: 'Đăng xuất' }))
     expect(sessions.technician.logout).toHaveBeenCalledOnce()
@@ -107,7 +130,7 @@ describe('account page', () => {
 describe('role permissions page', () => {
   it('shows the full Owner matrix and filters Owner-only rows for Manager', async () => {
     const user = userEvent.setup()
-    renderAs('owner', '/quyen-theo-vai-tro', <RolePermissionsPage />)
+    renderAs('owner', '/chon-trai', 'permissions')
 
     expect(screen.getByRole('heading', { name: 'Quyền theo vai trò' })).toBeInTheDocument()
     expect(screen.getByText('Gói dịch vụ & thanh toán')).toBeInTheDocument()

@@ -16,7 +16,6 @@ import { loadCatalogueRoutes } from '../../features/farm-catalogue/routes'
 import { loadFirstSubscriptionPage, loadSubscriptionRoutes } from '../../features/subscription/routes'
 import { loadSupportRoutes } from '../../features/support/routes'
 import { loadMyNotificationsPage } from '../../features/notifications/routes'
-import { loadAccountPage, loadRolePermissionsPage } from '../../features/account/routes'
 import { loadInternalRequestRoutes, loadSupportDeskRoutes } from '../../features/platform-support/routes'
 import { loadFarmServiceRoutes, loadPaymentReconciliationRoutes, loadPlanPriceRoutes, loadPlatformSubscriptionRoutes } from '../../features/platform-service/routes'
 import { loadCashReportRoutes, loadManualFinanceRoutes, loadPmSupportNoticePage, loadReceiptRoutes, loadReconciliationNoticePage } from '../../features/platform-finance/routes'
@@ -73,8 +72,6 @@ const Subscription = lazy(loadSubscriptionRoutes)
 const FirstSubscription = lazy(loadFirstSubscriptionPage)
 const Support = lazy(loadSupportRoutes)
 const MyNotifications = lazy(loadMyNotificationsPage)
-const Account = lazy(loadAccountPage)
-const RolePermissions = lazy(loadRolePermissionsPage)
 const SupportDesk = lazy(loadSupportDeskRoutes)
 const InternalRequests = lazy(loadInternalRequestRoutes)
 const FarmService = lazy(loadFarmServiceRoutes)
@@ -158,9 +155,9 @@ export default function AppRoutes() {
         <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
         <Route path="/ho-tro/*" element={owner(<Support />, 'farmId')} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
-        <Route path="/tai-khoan" element={<Account />} />
-        <Route path="/quyen-theo-vai-tro" element={<RolePermissions />} />
-        <Route path="/ho-so" element={<Navigate to="/tai-khoan" replace />} />
+        <Route path="/tai-khoan" element={<Navigate to="/" replace />} />
+        <Route path="/quyen-theo-vai-tro" element={<Navigate to="/" replace />} />
+        <Route path="/ho-so" element={<Navigate to="/" replace />} />
 
         <Route path="/kt" element={technician(<TechnicianHome />)} />
         <Route path="/kt/nhac-viec" element={technician(<TechnicianReminders />)} />
@@ -169,7 +166,7 @@ export default function AppRoutes() {
         <Route path="/kt/quet-qr" element={technician(<ScanQr />)} />
         <Route path="/kt/sinh-san" element={technician(<TechnicianReproduction />)} />
         <Route path="/kt/thuc-an" element={technician(<FeedTodayRations />)} />
-        <Route path="/kt/tai-khoan" element={<Navigate to="/tai-khoan" replace />} />
+        <Route path="/kt/tai-khoan" element={<Navigate to="/" replace />} />
 
         <Route path="/nen-tang/ho-tro/*" element={cs(<SupportDesk />)} />
         <Route path="/nen-tang/yeu-cau/*" element={only(['PM', 'SA'], <InternalRequests />)} />
@@ -186,7 +183,7 @@ export default function AppRoutes() {
         <Route path="/nen-tang/quyen/*" element={sa(<StaffAccess />)} />
         <Route path="/nen-tang/audit/*" element={sa(<Audit />)} />
         <Route path="/nen-tang/thong-bao" element={sa(<AdminNotices />)} />
-        <Route path="/nen-tang/ho-so" element={<Navigate to="/tai-khoan" replace />} />
+        <Route path="/nen-tang/ho-so" element={<Navigate to="/" replace />} />
 
         <Route path="*" element={<Placeholder />} />
       </Routes>

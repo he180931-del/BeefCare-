@@ -4,7 +4,7 @@ import logo from "../../../shared/assets/logo.png";
 import farm from "../../../shared/assets/farm.png";
 import wave from "../../../shared/assets/wave.png";
 import { useSession } from "../../../app/session/sessionContext";
-import { AccountMenu } from "../../../app/components/AccountMenu";
+import { AccountMenu } from "../../account";
 import { demoSessionUser } from "../../../demo/demoModules";
 
 const ONBOARDING_STEPS = [

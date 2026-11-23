@@ -1,5 +1,5 @@
 import { Table, Td, Th } from '../../../shared/ui'
-import { PERMISSION_AREAS, ROLE_SUMMARY } from '../domain/rolePermissions'
+import { PERMISSION_AREAS, ROLE_SUMMARY } from '../../../shared/domain/farmRolePermissions'
 import type { FarmRole } from '../types'
 import { roleLabel } from './WorkspaceUi'
 
@@ -59,4 +59,3 @@ export function RoleSummary({ role }: { role: Exclude<FarmRole, 'OWNER'> }) {
     </ul>
   )
 }
-

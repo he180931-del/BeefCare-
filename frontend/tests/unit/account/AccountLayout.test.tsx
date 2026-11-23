@@ -1,8 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
-import { SessionContext } from '../../../src/app/session/sessionContext'
-import { AccountShell } from '../../../src/features/account/components/AccountShell'
+import { AccountDialog } from '../../../src/features/account/components/AccountDialog'
 import { ProfileCard } from '../../../src/features/account/components/ProfileParts'
 import type { AccountProfile } from '../../../src/features/account/types'
 
@@ -25,27 +24,24 @@ const profile: AccountProfile = {
 describe('shared account layout', () => {
   it('uses horizontal account navigation on narrow screens and a 220px sidebar on desktop', () => {
     const { container } = render(
-      <SessionContext.Provider value={{ role: 'OWNER', fullName: 'Kiều Đức Lâm', email: 'lam@example.test', farmId: null, farmName: null, logout: vi.fn() }}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <AccountShell active="profile"><p>Nội dung tài khoản</p></AccountShell>
-        </MemoryRouter>
-      </SessionContext.Provider>,
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AccountDialog active="permissions" onTabChange={vi.fn()} onClose={vi.fn()} />
+      </MemoryRouter>,
     )
 
     const navigation = screen.getByRole('navigation', { name: 'Tài khoản' })
-    expect(screen.getByRole('heading', { name: 'Tài khoản & phân quyền' })).toHaveClass('text-base', 'font-bold', 'text-white')
-    expect(screen.getByRole('link', { name: 'Về trại' })).toHaveClass('text-sm', 'font-bold')
-    expect(navigation).toHaveClass('flex', 'bg-side', 'md:h-full', 'md:w-[220px]', 'md:flex-col', 'md:px-3', 'md:pb-3', 'md:pt-2')
-    expect(navigation.closest('aside')).toHaveClass('md:h-full', 'md:py-12')
-    expect(navigation.closest('aside')).not.toHaveClass('md:sticky')
-    expect(screen.getByRole('link', { name: 'Hồ sơ' })).toHaveClass('bg-side-active', 'text-white')
-    expect(screen.getByRole('link', { name: 'Hồ sơ' })).toHaveAttribute('aria-current', 'page')
-
-    const main = container.querySelector('main')
-    const layout = container.querySelector('main > div')
-    expect(main).toHaveClass('md:h-[calc(100vh-73px)]', 'md:overflow-hidden', 'md:py-0')
-    expect(layout).toHaveClass('md:grid', 'md:h-full', 'md:grid-cols-[220px_minmax(0,1fr)]', 'md:items-stretch', 'md:gap-8')
-    expect(layout?.children[1]).toHaveClass('md:h-full', 'md:overflow-y-auto', 'md:py-12')
+    expect(screen.getByRole('heading', { name: 'Cài đặt' })).toHaveClass('text-xl', 'font-bold', 'text-brand-dark')
+    expect(screen.getByRole('dialog', { name: 'Cài đặt' })).toHaveClass('max-w-[940px]', 'h-[min(640px,calc(100vh-1.5rem))]', 'overflow-hidden', 'flex-col')
+    expect(screen.getByTestId('account-dialog-header')).toHaveClass('border-b', 'bg-white')
+    expect(screen.getByTestId('account-dialog-body')).toHaveClass('md:grid', 'md:grid-cols-[220px_minmax(0,1fr)]')
+    expect(navigation).toHaveClass('flex', 'overflow-x-auto', 'md:h-full', 'md:flex-col', 'md:overflow-visible')
+    expect(navigation.closest('aside')).toHaveClass('bg-[#176448]', 'md:h-full')
+    expect(screen.getByRole('button', { name: 'Hồ sơ' })).toHaveClass('text-white')
+    expect(screen.getByRole('button', { name: 'Quyền theo vai trò' })).toHaveClass('bg-[#28785c]', 'text-white')
+    expect(screen.getByRole('button', { name: 'Quyền theo vai trò' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByTestId('account-dialog-content')).toHaveClass('md:min-h-0', 'md:overflow-y-auto', 'md:h-full')
+    expect(screen.getByTestId('account-dialog-content')).not.toHaveClass('overflow-y-auto')
+    expect(container.querySelector('[data-testid="account-dialog-backdrop"]')).toHaveClass('fixed', 'inset-0')
   })
 
   it('lets the profile card fill the content column and spaces its major sections', () => {
