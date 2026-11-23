@@ -377,6 +377,32 @@ class HealthCaseResourceTest extends DomainTestSupport {
     }
 
     /**
+     * D54: popup "Cập nhật ca bệnh" gộp ghi theo dõi và đổi trạng thái. Lần theo dõi dùng thời điểm và thân nhiệt người
+     * dùng nhập; có thân nhiệt mà thiếu mô tả thì báo thiếu; thời điểm trước bản ghi mới nhất của ca bị MSG-FE10-07.
+     */
+    @Test
+    void d54_oneUpdateWritesTheFollowUpWithItsTimeAndTemperature() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(5));
+        String base = "/health-cases/" + opened.id() + "/status";
+        postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"temperatureC\":39.1}")
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-06")).andExpect(jsonPath("$.params.field").value("latestProgress"));
+        postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"KEEP\",\"observedAt\":\"" + hoursAgo(6)
+            + "\",\"latestProgress\":\"Còn sốt\",\"progress\":\"UNCHANGED\"}")
+            .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("MSG-FE10-07"));
+        assertThat(versionOf(HealthCase.class, opened.id())).isEqualTo(opened.version());
+
+        postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"observedAt\":\"" + hoursAgo(2)
+            + "\",\"temperatureC\":39.1,\"latestProgress\":\"Còn ho, ăn ít\",\"progress\":\"UNCHANGED\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CHRONIC"))
+            .andExpect(jsonPath("$.observationId").isNumber());
+        mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(manager.getEmail())))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].type").value("FOLLOW_UP"))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].temperatureC").value(39.1))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].description").value("Còn ho, ăn ít"));
+    }
+
+    /**
      * Found while running against the real backend (Việc 5c): the follow-up written by a status change was stored at
      * the exact instant (with seconds), so a treatment or follow-up saved right after with the popup's default "now"
      * (minute precision) in the same minute was refused with MSG-FE10-07.

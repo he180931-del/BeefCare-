@@ -4,6 +4,7 @@ import { BackendError } from '../../src/shared/api/backendClient'
 import type { BackendTransport } from '../../src/shared/api/backendTransport'
 import { createHealthBackend, mapHealthError } from '../../src/features/health/api/healthBackend'
 import { HealthValidationError } from '../../src/features/health/validation/healthValidation'
+import type { StatusCommand } from '../../src/features/health/types'
 
 type Call = { method: string; path: string; body?: unknown }
 
@@ -136,18 +137,21 @@ test('formOptions: thuốc từ danh mục, tên thành viên ACTIVE và gợi �
   assert.deepEqual(o.diagnoses, ['Tiêu chảy', 'Viêm phổi'])
 })
 
-// ------------------------------------------------------------------ A3 / A4
+/** Lệnh "Cập nhật ca bệnh" mặc định (D54); test chỉ ghi đè trường cần kiểm. */
+const update = (over: Partial<StatusCommand>): StatusCommand => ({
+  action: 'KEEP', observedAt: '2026-11-05T09:00', temperatureC: null, progress: '', description: '', diagnosis: '', suspectedContagious: false, confirmedBy: '', ...over,
+})
 
-test('TC-10-03/04: mở ca gửi cattleId, giờ trại có offset, observerId theo tên; nối vào ca đang có trả kind ADDED', async () => {
+// ------------------------------------------------------------------ A3 / A5
+
+test('TC-10-03 / D54: mở ca gửi cattleId, giờ trại có offset, observerId theo tên; không còn nối vào ca đang có', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases': { id: 419, caseCode: 'HC-000419', status: 'OPEN', version: 1, cattleId: 101, cattleCode: 'BC-101', observationId: 60, healthState: 'MONITORING', outcome: null } })
   const r = await a.openCase('BC-101', { observedAt: '2026-11-05T08:30', observer: 'Nguyễn Kỹ Thuật', temperatureC: 39.6, signs: ' Ho, chảy nước mũi ', diagnosis: '', suspectedContagious: false, severity: 'MILD' })
-  assert.deepEqual(post(calls, '/health-cases'), { cattleId: 101, existingCaseId: null, expectedVersion: null, observedAt: '2026-11-05T08:30:00+07:00', observerId: 8, temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: null, suspectedContagious: false, severity: 'MILD' })
+  assert.deepEqual(post(calls, '/health-cases'), { cattleId: 101, observedAt: '2026-11-05T08:30:00+07:00', observerId: 8, temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: null, suspectedContagious: false, severity: 'MILD' })
   assert.deepEqual(r, { id: 419, caseCode: 'HC-000419', cattleCode: 'BC-101', status: 'OPEN', version: 1, observationId: 60, healthState: 'MONITORING', kind: 'OPENED', outcome: undefined, deathVoucher: null })
-  const added = await a.openCase('BC-101', { existingCaseId: 419, expectedVersion: 1, observedAt: '2026-11-05T09:00', observer: 'Không phải thành viên', temperatureC: null, signs: 'Bú kém', diagnosis: 'Viêm phổi', suspectedContagious: true, severity: 'MODERATE' })
-  assert.deepEqual(post(calls, '/health-cases'), { cattleId: 101, existingCaseId: null, expectedVersion: null, observedAt: '2026-11-05T08:30:00+07:00', observerId: 8, temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: null, suspectedContagious: false, severity: 'MILD' })
-  const second = calls.filter((c) => c.method === 'POST')[1].body as Record<string, unknown>
-  assert.deepEqual([second.existingCaseId, second.expectedVersion, second.observerId, second.diagnosis], [419, 1, null, 'Viêm phổi'])
-  assert.equal(added.kind, 'ADDED')
+  const second = await a.openCase('BC-101', { observedAt: '2026-11-05T09:00', observer: 'Không phải thành viên', temperatureC: null, signs: 'Chướng hơi', diagnosis: 'Chướng hơi dạ cỏ', suspectedContagious: true, severity: 'MODERATE' })
+  const body = calls.filter((c) => c.method === 'POST')[1].body as Record<string, unknown>
+  assert.deepEqual([body.existingCaseId, body.observerId, body.diagnosis, second.kind], [undefined, null, 'Chướng hơi dạ cỏ', 'OPENED'])
   // Bò đọc một lần (resolve + hồ sơ), thành viên đọc một lần.
   assert.equal(calls.filter((c) => c.path.startsWith('/api/farms/1/cattle/resolve')).length, 1)
   assert.equal(calls.filter((c) => c.path === '/api/farms/1/members').length, 1)
@@ -159,11 +163,10 @@ test('TC-10-01/02/07: lỗi backend hiện dưới đúng ô bằng tiếng Vi�
   assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-06', { field: 'signs' }))), { signs: 'Dấu hiệu / mô tả là bắt buộc.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-10', { field: 'diagnosis' }))), { diagnosis: 'Chẩn đoán nghi ngờ tối đa 100 ký tự.'.replace('tối đa 100 ký tự', 'không hợp lệ') })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE10-07', { date: '2026-11-01T03:00:00Z' }), 'observedAt')), { observedAt: 'Thời điểm không được trước 01/11/2026 10:00, lần ghi gần nhất của ca này.' })
-  assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE10-07', { date: '2026-11-01T03:00:00Z' }), 'closedAt')), { closedAt: 'Thời điểm không được trước 01/11/2026 10:00, lần ghi gần nhất của ca này.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-COM-15', { date: '2026-01-10' }), 'treatmentTime')), { treatmentTime: 'Thời điểm không được trước ngày nhập đàn (10/01/2026).' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-COM-07'), 'treatmentTime')), { treatmentTime: 'Thời điểm không được ở tương lai.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE18-08', { field: 'medicineId' }))), { medicineId: 'Thuốc đã ngưng sử dụng, không thể chọn cho bản ghi mới.' })
-  assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-06', { field: 'latestProgress' }))), { progressText: 'Diễn biến mới là bắt buộc.' })
+  assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-06', { field: 'latestProgress' }))), { description: 'Mô tả là bắt buộc.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-10', { field: 'performerName' }))), { performer: 'Người thực hiện không hợp lệ.' })
   assert.equal((mapHealthError(backendError(409, 'MSG-COM-05')) as Error).message, 'Bản ghi đã được thay đổi hoặc không còn ở trạng thái cho phép thao tác. Vui lòng tải lại và kiểm tra trước khi thử lại.')
   assert.equal((mapHealthError(backendError(422, 'MSG-COM-17', { cattle_code: 'BC-101' })) as Error).message, 'Bò đang chờ xác nhận chết / mất nên chưa nhận thêm sự kiện chăm sóc mới.')
@@ -173,19 +176,18 @@ test('TC-10-01/02/07: lỗi backend hiện dưới đúng ô bằng tiếng Vi�
   assert.equal(mapHealthError(plain), plain)
 })
 
-test('TC-10-07 (adapter): theo dõi gửi diễn biến, mô tả, observerId và đổi lỗi FE10-07 sang ô Thời điểm', async () => {
-  const { api: a, calls } = api({
+test('TC-10-07 / D54 (adapter): cập nhật ca trước lần ghi gần nhất → lỗi FE10-07 dưới ô Thời điểm', async () => {
+  const { api: a } = api({
     ...baseRoutes(),
-    '/api/farms/1/health-cases/412/observations': (body: unknown) => {
+    '/api/farms/1/health-cases/412/status': (body: unknown) => {
       if ((body as Record<string, unknown>).observedAt === '2026-10-12T07:00:00+07:00') throw backendError(422, 'MSG-FE10-07', { date: '2026-10-14T01:00:00Z', field: 'observedAt' })
-      return { id: 412, caseCode: 'HC-000412', status: 'OPEN', version: 2, cattleId: 101, cattleCode: 'BC-101', observationId: 61, healthState: 'UNDER_TREATMENT' }
+      return { id: 412, caseCode: 'HC-000412', status: 'OPEN', version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: 61, healthState: 'UNDER_TREATMENT' }
     },
   })
-  const early = await rejection(a.recordFollowUp(412, { expectedVersion: 2, observedAt: '2026-10-12T07:00', temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường', observer: 'Lê Quản Lý' }))
+  const early = await rejection(a.updateStatus(412, update({ expectedVersion: 2, observedAt: '2026-10-12T07:00', temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường' })))
   assert.equal((early as HealthValidationError).errors.observedAt, 'Thời điểm không được trước 14/10/2026 08:00, lần ghi gần nhất của ca này.')
-  const r = await a.recordFollowUp(412, { expectedVersion: 2, observedAt: '2026-11-05T09:10', temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường', observer: 'Lê Quản Lý' })
-  assert.deepEqual(post(calls, '/412/observations'), { expectedVersion: 2, observedAt: '2026-10-12T07:00:00+07:00', temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường', observerId: 7 })
-  assert.deepEqual([r.kind, r.observationId, r.healthState, r.caseCode], ['FOLLOWED', 61, 'UNDER_TREATMENT', 'HC-000412'])
+  const r = await a.updateStatus(412, update({ expectedVersion: 2, temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường' }))
+  assert.deepEqual([r.kind, r.observationId, r.healthState, r.caseCode], ['KEPT', 61, 'UNDER_TREATMENT', 'HC-000412'])
 })
 
 // ------------------------------------------------------------------ A6
@@ -214,20 +216,23 @@ test('TC-10-25: thuốc ngưng → lỗi ở ô Thuốc; thời điểm trước
 
 // ------------------------------------------------------------------ A5
 
-test('TC-10-11/12/13: đổi trạng thái gửi action, diễn biến mới nhất, chẩn đoán, người xác nhận; kind theo action', async () => {
+test('TC-10-11/12/13 / D54: cập nhật ca gửi action, thời điểm, thân nhiệt, mô tả, diễn biến, chẩn đoán, người xác nhận; kind theo action', async () => {
   const statusRoute = (status: string, extra: Record<string, unknown> = {}) => ({ id: 412, caseCode: 'HC-000412', status, version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: 62, healthState: 'MONITORING', outcome: null, ...extra })
   let answer = statusRoute('CHRONIC', { chronicSince: '2026-11-05' })
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/412/status': () => answer })
-  const chronic = await a.updateStatus(412, { expectedVersion: 2, action: 'TO_CHRONIC', progressText: ' Vẫn sốt nhẹ ', progress: 'WORSENED', diagnosis: 'Viêm phổi mạn', suspectedContagious: true, confirmedBy: 'Lê Quản Lý' })
-  assert.deepEqual(post(calls, '/412/status'), { expectedVersion: 2, action: 'TO_CHRONIC', latestProgress: 'Vẫn sốt nhẹ', progress: 'WORSENED', suspectedDiagnosis: 'Viêm phổi mạn', suspectedContagious: true, outcome: null, closedAt: null, confirmedById: 7 })
+  const chronic = await a.updateStatus(412, update({ expectedVersion: 2, action: 'TO_CHRONIC', temperatureC: 39.2, description: ' Vẫn sốt nhẹ ', progress: 'WORSENED', diagnosis: 'Viêm phổi mạn', suspectedContagious: true, confirmedBy: 'Lê Quản Lý' }))
+  assert.deepEqual(post(calls, '/412/status'), {
+    expectedVersion: 2, action: 'TO_CHRONIC', observedAt: '2026-11-05T09:00:00+07:00', temperatureC: 39.2, latestProgress: 'Vẫn sốt nhẹ', progress: 'WORSENED',
+    suspectedDiagnosis: 'Viêm phổi mạn', suspectedContagious: true, outcome: null, confirmedById: 7,
+  })
   assert.deepEqual([chronic.kind, chronic.status, chronic.observationId, chronic.deathVoucher], ['CHRONIC', 'CHRONIC', 62, null])
   answer = statusRoute('OPEN')
-  assert.equal((await a.updateStatus(412, { expectedVersion: 3, action: 'TO_OPEN', progressText: '', diagnosis: '', suspectedContagious: false, confirmedBy: '' })).kind, 'REOPENED')
-  assert.equal((await a.updateStatus(412, { expectedVersion: 3, action: 'KEEP', progressText: 'Như cũ', progress: 'UNCHANGED', diagnosis: '', suspectedContagious: false, confirmedBy: '' })).kind, 'KEPT')
+  assert.equal((await a.updateStatus(412, update({ expectedVersion: 3, action: 'TO_OPEN' }))).kind, 'REOPENED')
+  assert.equal((await a.updateStatus(412, update({ expectedVersion: 3, action: 'KEEP', description: 'Như cũ', progress: 'UNCHANGED' }))).kind, 'KEPT')
   answer = statusRoute('CLOSED', { outcome: 'RECOVERED', closedAt: '2026-11-05T02:00:00Z', healthState: 'HEALTHY' })
-  const closed = await a.updateStatus(412, { expectedVersion: 3, action: 'CLOSE', progressText: 'Khỏe lại', progress: 'UNCHANGED', diagnosis: '', suspectedContagious: false, outcome: 'RECOVERED', closedAt: '2026-11-05T09:00', confirmedBy: 'Lê Quản Lý' })
+  const closed = await a.updateStatus(412, update({ expectedVersion: 3, action: 'CLOSE', description: 'Khỏe lại', progress: 'UNCHANGED', outcome: 'RECOVERED', confirmedBy: 'Lê Quản Lý' }))
   const body = calls.filter((c) => c.path.endsWith('/412/status')).at(-1)!.body as Record<string, unknown>
-  assert.deepEqual([body.action, body.outcome, body.closedAt, body.progress, body.latestProgress, body.confirmedById], ['CLOSE', 'RECOVERED', '2026-11-05T09:00:00+07:00', 'UNCHANGED', 'Khỏe lại', 7])
+  assert.deepEqual([body.action, body.outcome, body.observedAt, body.progress, body.latestProgress, body.confirmedById], ['CLOSE', 'RECOVERED', '2026-11-05T09:00:00+07:00', 'UNCHANGED', 'Khỏe lại', 7])
   assert.deepEqual([closed.kind, closed.status, closed.outcome, closed.healthState, closed.deathVoucher], ['CLOSED', 'CLOSED', 'RECOVERED', 'HEALTHY', null])
 })
 
@@ -240,32 +245,32 @@ test('TC-10-27/28: gửi đúng diễn biến người dùng chọn, không tự
       return { id: 412, caseCode: 'HC-000412', status: 'CLOSED', version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: null, healthState: 'HEALTHY', outcome: b.outcome, closedAt: '2026-11-05T02:00:00Z', pendingExitVoucherId: b.outcome === 'DIED' ? 900 : null }
     },
   })
-  const close = (over: Record<string, unknown>) => a.updateStatus(412, { expectedVersion: 2, action: 'CLOSE', progressText: '', diagnosis: '', suspectedContagious: false, closedAt: '2026-11-05T09:00', confirmedBy: '', ...over })
+  const close = (over: Partial<StatusCommand>) => a.updateStatus(412, update({ expectedVersion: 2, action: 'CLOSE', ...over }))
   const sent = () => (calls.filter((c) => c.path.endsWith('/412/status')).at(-1)!.body as Record<string, unknown>).progress
-  await close({ outcome: 'DIED', progressText: 'Nằm yên', progress: 'IMPROVED' })
+  await close({ outcome: 'DIED', description: 'Nằm yên', progress: 'IMPROVED' })
   assert.equal(sent(), 'IMPROVED')
   await close({ outcome: 'RECOVERED' })
   assert.equal(sent(), null)
-  const missing = await rejection(close({ outcome: 'RECOVERED', progressText: 'Ăn lại' }))
+  const missing = await rejection(close({ outcome: 'RECOVERED', description: 'Ăn lại' }))
   assert.equal(sent(), null)
   assert.equal((missing as HealthValidationError).errors.progress, 'Diễn biến là bắt buộc.')
 })
 
-test('TC-10-14/15: đóng Chết / Mất tích trả phiếu xuất chờ từ pendingExitVoucherId; lỗi thời điểm đóng vào ô closedAt', async () => {
+test('TC-10-14/15: đóng Chết / Mất tích trả phiếu xuất chờ từ pendingExitVoucherId; lỗi thời điểm vào ô Thời điểm', async () => {
   const { api: a } = api({
     ...baseRoutes(),
     '/api/farms/1/health-cases/412/status': (body: unknown) => {
       const b = body as Record<string, unknown>
-      if (b.closedAt === '2026-10-13T06:00:00+07:00') throw backendError(422, 'MSG-FE10-07', { date: '2026-10-14T01:00:00Z' })
+      if (b.observedAt === '2026-10-13T06:00:00+07:00') throw backendError(422, 'MSG-FE10-07', { date: '2026-10-14T01:00:00Z' })
       return { id: 412, caseCode: 'HC-000412', status: 'CLOSED', version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: null, healthState: 'HEALTHY', outcome: b.outcome, closedAt: '2026-11-05T02:00:00Z', pendingExitVoucherId: 900 }
     },
   })
-  const died = await a.updateStatus(412, { expectedVersion: 2, action: 'CLOSE', progressText: '', diagnosis: '', suspectedContagious: false, outcome: 'DIED', closedAt: '2026-11-05T09:00', confirmedBy: 'Lê Quản Lý' })
+  const died = await a.updateStatus(412, update({ expectedVersion: 2, action: 'CLOSE', outcome: 'DIED', confirmedBy: 'Lê Quản Lý' }))
   assert.deepEqual(died.deathVoucher, { id: 900, cattleCode: 'BC-101', caseCode: 'HC-000412', type: 'DEATH', reason: 'Chết', date: '2026-11-05', reportedBy: 'Lê Quản Lý', status: 'PENDING' })
-  const missing = await a.updateStatus(412, { expectedVersion: 2, action: 'CLOSE', progressText: '', diagnosis: '', suspectedContagious: false, outcome: 'MISSING', closedAt: '2026-11-05T09:00', confirmedBy: '' })
+  const missing = await a.updateStatus(412, update({ expectedVersion: 2, action: 'CLOSE', outcome: 'MISSING' }))
   assert.deepEqual([missing.deathVoucher?.type, missing.deathVoucher?.reason], ['OTHER', 'Mất tích'])
-  const early = await rejection(a.updateStatus(412, { expectedVersion: 2, action: 'CLOSE', progressText: '', diagnosis: '', suspectedContagious: false, outcome: 'RECOVERED', closedAt: '2026-10-13T06:00', confirmedBy: '' }))
-  assert.equal((early as HealthValidationError).errors.closedAt, 'Thời điểm không được trước 14/10/2026 08:00, lần ghi gần nhất của ca này.')
+  const early = await rejection(a.updateStatus(412, update({ expectedVersion: 2, action: 'CLOSE', outcome: 'RECOVERED', observedAt: '2026-10-13T06:00' })))
+  assert.equal((early as HealthValidationError).errors.observedAt, 'Thời điểm không được trước 14/10/2026 08:00, lần ghi gần nhất của ca này.')
 })
 
 // ------------------------------------------------------------------ A7 / A8

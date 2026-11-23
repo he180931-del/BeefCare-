@@ -166,56 +166,37 @@ public class HealthCareCommandService {
         if (req == null) throw DomainException.required("status");
         assertWritable(healthCase);
         String action = upper(req.action());
-        String status = upper(healthCase.getStatus());
-        String latestProgress = optionalText(req.latestProgress(), "latestProgress", 1000);
-        // D35: the popup has its own progress radio; a follow-up written from this command needs it, never a default.
-        String progress = req.progress() == null || req.progress().isBlank() ? null : upper(req.progress());
-        if (progress != null && !PROGRESS.contains(progress)) throw DomainException.invalid("progress");
-        if (latestProgress != null && progress == null) throw DomainException.required("progress");
+        assertActionAllowed(action, upper(healthCase.getStatus()));
+        String outcome = "CLOSE".equals(action) ? upper(req.outcome()) : null;
+        if ("CLOSE".equals(action) && !OUTCOMES.contains(outcome)) throw DomainException.required("outcome");
+        // D54: một mốc thời gian cho cả lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca); BR-D33 / R-10-05 về thứ tự.
+        Instant at = updateTime(req);
+        clock.assertNotFuture(at);
+        assertAfterHerdEntry(farmId, cattle, at);
+        assertNotBeforeLatest(healthCase, at, null, null);
+        FollowUpPart followUp = followUpPart(req, action);
+        AppUser confirmedBy = "CLOSE".equals(action) && req.confirmedById() != null ? activeMember(farmId, req.confirmedById(), "confirmedById") : ctx.user();
         if (req.suspectedDiagnosis() != null) healthCase.setSuspectedDiagnosis(optionalText(req.suspectedDiagnosis(), "suspectedDiagnosis", 100));
         if (req.suspectedContagious() != null) healthCase.setIsSuspectedContagious(req.suspectedContagious());
         Map<String, Object> before = snapshot(healthCase);
-        // Popups work at minute precision: a follow-up written "now" with seconds would make a record saved right after
-        // with the default "now" of the same minute look earlier than it (MSG-FE10-07).
-        Instant now = clock.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        Long observationId = followUp == null ? null
+            : followUp(healthCase, at, followUp.description(), followUp.progress(), req.temperatureC(), ctx, ctx.user()).getId();
         Long pendingVoucherId = null;
-        Long observationId = null;
         switch (action) {
-            case "KEEP" -> {
-                // Q1: the latest progress is required when the status is kept; it is the only thing this command writes.
-                if (latestProgress == null) throw DomainException.required("latestProgress");
-                observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-            }
-            case "TO_CHRONIC" -> {
-                if (!"OPEN".equals(status)) throw DomainException.invalid("action");
-                if (latestProgress != null) observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-                healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(clock.toFarmDate(now));
-            }
-            case "TO_OPEN" -> {
-                if (!"CHRONIC".equals(status)) throw DomainException.invalid("action");
-                if (latestProgress != null) observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-                healthCase.setStatus("OPEN"); healthCase.setChronicSince(null);
-            }
+            case "TO_CHRONIC" -> { healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(clock.toFarmDate(at)); }
+            case "TO_OPEN" -> { healthCase.setStatus("OPEN"); healthCase.setChronicSince(null); }
             case "CLOSE" -> {
-                String outcome = upper(req.outcome());
-                if (!OUTCOMES.contains(outcome)) throw DomainException.required("outcome");
-                Instant closedAt = req.closedAt() == null ? now : req.closedAt();
-                clock.assertNotFuture(closedAt);
-                // BR-D33: the closure is not before the latest record of the case (the opening observation included).
-                assertNotBeforeLatest(healthCase, closedAt, null, null);
-                if (latestProgress != null) observationId = followUp(healthCase, closedAt, latestProgress, progress, null, ctx, ctx.user()).getId();
-                LocalDate closedDate = clock.toFarmDate(closedAt);
-                AppUser confirmedBy = req.confirmedById() == null ? ctx.user() : activeMember(farmId, req.confirmedById(), "confirmedById");
+                LocalDate closedDate = clock.toFarmDate(at);
                 if ("DIED".equals(outcome) || "MISSING".equals(outcome)) {
                     // R-10-07: the PENDING loss voucher, the Owner notice and REM-12 are created in this transaction (before the
                     // case changes, so a refused voucher leaves nothing half-written even if the row had been flushed).
                     HerdExitVoucher voucher = exits.createPendingLossVoucher(healthCase, ctx.user(), closedDate, "DIED".equals(outcome) ? LossKind.DIED : LossKind.MISSING);
                     pendingVoucherId = voucher.getId();
                 }
-                healthCase.setStatus("CLOSED"); healthCase.setOutcome(outcome); healthCase.setClosedDate(closedDate); healthCase.setClosedAt(closedAt);
+                healthCase.setStatus("CLOSED"); healthCase.setOutcome(outcome); healthCase.setClosedDate(closedDate); healthCase.setClosedAt(at);
                 healthCase.setClosedBy(confirmedBy);
             }
-            default -> throw DomainException.invalid("action");
+            default -> { /* KEEP: chỉ ghi lần theo dõi ở trên. */ }
         }
         em.flush();
         Map<String, Object> after = snapshot(healthCase);
@@ -402,6 +383,70 @@ public class HealthCareCommandService {
         revisions.record(ctx, "Treatment", treatmentId, RecordRevisionService.VOID, req.reason(), before, treatmentSnapshot(treatment));
         audit.log(ctx, "HEALTH_TREATMENT_VOID", "Treatment", treatmentId, Map.of("caseId", healthCase.getId()));
         return recordStatus(treatmentId, treatment.getStatus(), treatment.getVersion(), healthCase, cattle, withdrawalBefore);
+    }
+
+    // ------------------------------------------------------------------ A5 helpers (D54)
+
+    /** Phần theo dõi của một lần cập nhật ca: mô tả và diễn biến đã chuẩn hóa. */
+    private record FollowUpPart(String description, String progress) {}
+
+    /**
+     * Kiểm hành động so với trạng thái hiện tại của ca: chuyển mạn tính chỉ từ OPEN, mở lại chỉ từ CHRONIC.
+     *
+     * @param action hành động đã viết hoa
+     * @param status trạng thái ca đã viết hoa
+     */
+    private static void assertActionAllowed(String action, String status) {
+        boolean allowed = switch (action) {
+            case "KEEP", "CLOSE" -> true;
+            case "TO_CHRONIC" -> "OPEN".equals(status);
+            case "TO_OPEN" -> "CHRONIC".equals(status);
+            default -> false;
+        };
+        if (!allowed) {
+            throw DomainException.invalid("action");
+        }
+    }
+
+    /**
+     * Thời điểm của lần cập nhật: {@code observedAt}, nếu thiếu thì {@code closedAt} (bản cũ), nếu thiếu nữa thì hiện tại.
+     * Popup nhập tới phút nên "hiện tại" cũng làm tròn tới phút: nếu giữ giây, bản ghi lưu ngay sau với cùng phút mặc định
+     * sẽ trông như sớm hơn và bị MSG-FE10-07.
+     */
+    private Instant updateTime(CareDtos.CaseStatus req) {
+        if (req.observedAt() != null) {
+            return req.observedAt();
+        }
+        if (req.closedAt() != null) {
+            return req.closedAt();
+        }
+        return clock.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+    }
+
+    /**
+     * Đọc phần theo dõi của lệnh A5 (D54, D35). Ghi theo dõi khi Giữ trạng thái hoặc khi có nhập mô tả, diễn biến hay thân
+     * nhiệt; khi đó cần cả mô tả và diễn biến – không bao giờ tự điền diễn biến.
+     *
+     * @return phần theo dõi cần ghi, hoặc {@code null} khi lệnh chỉ đổi trạng thái
+     */
+    private FollowUpPart followUpPart(CareDtos.CaseStatus req, String action) {
+        String description = optionalText(req.latestProgress(), "latestProgress", 1000);
+        String progress = req.progress() == null || req.progress().isBlank() ? null : upper(req.progress());
+        if (progress != null && !PROGRESS.contains(progress)) {
+            throw DomainException.invalid("progress");
+        }
+        requireTemperature(req.temperatureC());
+        boolean wanted = "KEEP".equals(action) || description != null || progress != null || req.temperatureC() != null;
+        if (!wanted) {
+            return null;
+        }
+        if (description == null) {
+            throw DomainException.required("latestProgress");
+        }
+        if (progress == null) {
+            throw DomainException.required("progress");
+        }
+        return new FollowUpPart(description, progress);
     }
 
     // ------------------------------------------------------------------ shared rules

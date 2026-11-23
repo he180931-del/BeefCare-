@@ -2,7 +2,7 @@ import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { HealthDemoStore } from '../data/healthDemoStore'
-import type { CorrectEntryCommand, FollowUpCommand, HealthCaseFilters, OpenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
+import type { CorrectEntryCommand, HealthCaseFilters, OpenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
 import { createHealthBackend, type HealthBackend } from './healthBackend'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
@@ -16,7 +16,6 @@ export function createHealthApi({ mode, farmId, transport, store, clock }: { mod
     async listCases(filters: HealthCaseFilters = {}) { return store.listCases(filters) },
     async getProfile(cattleCode: string) { return store.getProfile(cattleCode) },
     async openCase(cattleCode: string, command: OpenCaseCommand) { return store.openCase(cattleCode, command) },
-    async recordFollowUp(caseId: number, command: FollowUpCommand) { return store.recordFollowUp(caseId, command) },
     async recordTreatment(caseId: number, command: TreatmentCommand) { return store.recordTreatment(caseId, command) },
     async updateStatus(caseId: number, command: StatusCommand) { return store.updateStatus(caseId, command) },
     async correctEntry(entryId: number, command: CorrectEntryCommand) { return store.correctEntry(entryId, command) },

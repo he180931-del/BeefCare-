@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { followUpErrors, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
+import { hasFollowUp, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
 
 // Quy tắc trường FE-10 (spec mục 6) dùng chung cho chế độ local và backend.
 const ctx = { now: '2026-11-05T12:00', entryDate: '2026-10-01' }
@@ -46,15 +46,19 @@ describe('FE-10 – quy tắc trường dùng chung', () => {
     expect(openCaseErrors({ ...openCase, observedAt: '2026-09-30T23:00' }, ctx).observedAt).toBeDefined()
   })
 
-  it('TC-10-07: lần theo dõi trước lúc mở ca bị chặn', () => {
-    const cmd = { observedAt: '2026-11-01T09:00', temperatureC: null, progress: 'IMPROVED', description: 'Ăn tốt hơn' }
-    expect(followUpErrors(cmd, { ...ctx, min: '2026-11-01T10:00' }).observedAt).toContain('lúc mở ca')
-    expect(followUpErrors({ ...cmd, observedAt: '2026-11-01T10:00' }, { ...ctx, min: '2026-11-01T10:00' })).toEqual({})
+  it('TC-10-07 / D54: cập nhật ca trước lần ghi gần nhất bị chặn', () => {
+    const cmd = { action: 'KEEP', observedAt: '2026-11-01T09:00', temperatureC: null, progress: 'IMPROVED', description: 'Ăn tốt hơn', diagnosis: '' }
+    expect(statusErrors(cmd, { ...ctx, latestAt: '2026-11-01T10:00' }).observedAt).toContain('lần ghi gần nhất')
+    expect(statusErrors({ ...cmd, observedAt: '2026-11-01T10:00' }, { ...ctx, latestAt: '2026-11-01T10:00' })).toEqual({})
   })
 
-  it('lần theo dõi: diễn biến và mô tả bắt buộc', () => {
-    const errors = followUpErrors({ observedAt: '2026-11-02T08:00', temperatureC: null, progress: '', description: '' }, ctx)
-    expect(Object.keys(errors).sort()).toEqual(['description', 'progress'])
+  it('D54: có phần theo dõi khi Giữ trạng thái hoặc khi nhập mô tả, diễn biến hay thân nhiệt', () => {
+    const change = { action: 'TO_CHRONIC', description: '', progress: '', temperatureC: null }
+    expect(hasFollowUp({ ...change, action: 'KEEP' })).toBe(true)
+    expect(hasFollowUp(change)).toBe(false)
+    expect(hasFollowUp({ ...change, description: 'Còn ho' })).toBe(true)
+    expect(hasFollowUp({ ...change, progress: 'UNCHANGED' })).toBe(true)
+    expect(hasFollowUp({ ...change, temperatureC: 39 })).toBe(true)
   })
 
   it('TC-10-08/09: điều trị hợp lệ; liệu trình và ngày ngưng để trống thì dùng mặc định', () => {
@@ -78,19 +82,20 @@ describe('FE-10 – quy tắc trường dùng chung', () => {
   })
 
   it('TC-10-17: đóng ca trước lần ghi gần nhất bị chặn; kết quả bắt buộc', () => {
-    const cmd = { action: 'CLOSE', progressText: '', diagnosis: '', outcome: '', closedAt: '2026-11-02T08:00' }
+    const cmd = { action: 'CLOSE', observedAt: '2026-11-02T08:00', temperatureC: null, progress: '', description: '', diagnosis: '', outcome: '' }
     const errors = statusErrors(cmd, { ...ctx, latestAt: '2026-11-03T08:00' })
-    expect(Object.keys(errors).sort()).toEqual(['closedAt', 'outcome'])
-    expect(statusErrors({ ...cmd, outcome: 'RECOVERED', closedAt: '2026-11-03T08:00' }, { ...ctx, latestAt: '2026-11-03T08:00' })).toEqual({})
+    expect(Object.keys(errors).sort()).toEqual(['observedAt', 'outcome'])
+    expect(statusErrors({ ...cmd, outcome: 'RECOVERED', observedAt: '2026-11-03T08:00' }, { ...ctx, latestAt: '2026-11-03T08:00' })).toEqual({})
   })
 
-  it('TC-10-27: giữ trạng thái cần diễn biến; đóng ca có chữ cần diễn biến; ô chữ trống thì không', () => {
-    expect(statusErrors({ action: 'KEEP', progressText: 'Ổn định', progress: '', diagnosis: '' }, ctx).progress).toBeDefined()
-    expect(statusErrors({ action: 'KEEP', progressText: '', progress: 'UNCHANGED', diagnosis: '' }, ctx).progressText).toBeDefined()
-    const close = { action: 'CLOSE', diagnosis: '', outcome: 'RECOVERED', closedAt: '2026-11-04T08:00' }
-    expect(statusErrors({ ...close, progressText: 'Đã khỏi', progress: '' }, ctx).progress).toBeDefined()
-    expect(statusErrors({ ...close, progressText: '', progress: '' }, ctx)).toEqual({})
-    expect(statusErrors({ ...close, progressText: 'Đã khỏi', progress: 'IMPROVED' }, ctx)).toEqual({})
+  it('TC-10-27: giữ trạng thái cần diễn biến và mô tả; đóng ca có mô tả cần diễn biến; phần theo dõi trống thì không', () => {
+    const keep = { action: 'KEEP', observedAt: '2026-11-04T08:00', temperatureC: null, diagnosis: '' }
+    expect(statusErrors({ ...keep, description: 'Ổn định', progress: '' }, ctx).progress).toBeDefined()
+    expect(statusErrors({ ...keep, description: '', progress: 'UNCHANGED' }, ctx).description).toBeDefined()
+    const close = { action: 'CLOSE', observedAt: '2026-11-04T08:00', temperatureC: null, diagnosis: '', outcome: 'RECOVERED' }
+    expect(statusErrors({ ...close, description: 'Đã khỏi', progress: '' }, ctx).progress).toBeDefined()
+    expect(statusErrors({ ...close, description: '', progress: '' }, ctx)).toEqual({})
+    expect(statusErrors({ ...close, description: 'Đã khỏi', progress: 'IMPROVED' }, ctx)).toEqual({})
   })
 
   it('TC-10-22: sửa / hủy không có lý do hoặc lý do quá 500 ký tự bị chặn', () => {

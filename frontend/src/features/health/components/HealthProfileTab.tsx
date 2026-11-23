@@ -11,19 +11,17 @@ import type { HealthCaseCard, HealthTimelineRow, PendingExit } from '../types'
 import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
 import DeathNoticeDialog from './DeathNoticeDialog'
-import FollowUpDialog from './FollowUpDialog'
 import HealthTimelineSource from './HealthTimelineSource'
 import { HealthStateBadge, Meta, useCanRecord, useHealthDialog, useToast } from './healthUi'
 import OpenCaseDialog from './OpenCaseDialog'
 import TreatmentDialog from './TreatmentDialog'
-import UpdateStatusDialog from './UpdateStatusDialog'
+import UpdateCaseDialog from './UpdateCaseDialog'
 
 const PAGE_NOTE = 'Tab Sức khỏe trong hồ sơ bò. Mỗi ca đang mở hoặc mạn tính có 1 thẻ với diễn biến theo thời gian. "Ngưng sử dụng thịt đến" là ngày muộn nhất từ các lần điều trị và mũi tiêm tại trại. Nút ghi chỉ hiện cho Quản lý; vai trò khác chỉ xem.'
 const DIALOG_NOTES: Record<string, string> = {
-  'open-case': 'Hộp thoại ghi một quan sát bất thường (Chủ trại, Quản lý). Mặc định mở ca mới; chọn "Nối vào ca đang có" để thêm vào ca đang mở hoặc mạn tính của bò. Thân nhiệt không bắt buộc, trong khoảng 35,0 – 43,0 °C.',
-  'follow-up': 'Hộp thoại ghi 1 lần theo dõi ca (Chủ trại, Quản lý). Thời điểm không được trước lúc mở ca. Lần theo dõi được thêm vào "Diễn biến & điều trị" của ca.',
+  'open-case': 'Mở ca mới cho một vấn đề mới. Diễn biến của ca đang có ghi ở "Cập nhật ca bệnh".',
   treatment: 'Hộp thoại ghi 1 lần điều trị (Chủ trại, Quản lý). Thuốc lấy từ danh mục; liều, đường dùng và số ngày ngưng được điền sẵn, có thể sửa. Hết ngưng = ngày dùng cuối + số ngày ngưng, dùng để tính ngày được xuất bán. Ca mạn tính hiện thêm lưu ý điều trị dài ngày.',
-  'update-status': 'Hộp thoại cập nhật hoặc đóng ca (Chủ trại, Quản lý). Ca OPEN: Giữ OPEN / Chuyển theo dõi mạn tính / Đóng ca. Ca mạn tính: Giữ mạn tính / Quay lại OPEN / Đóng ca. Kết quả và thời điểm đóng chỉ hiện khi chọn Đóng ca. Đóng với kết quả Chết hoặc Mất tích: hiện cảnh báo trước khi lưu, hệ thống tạo phiếu xuất "Chết / mất" ở trạng thái chờ để Chủ trại hoàn tất.',
+  'update-case': 'Ghi diễn biến và (nếu cần) đổi trạng thái ca trong một lần lưu.',
   correct: 'Hộp thoại sửa hoặc hủy 1 lần điều trị hoặc theo dõi (Chủ trại, Quản lý). Lần ghi mở ca chỉ sửa, không hủy.',
 }
 
@@ -100,11 +98,12 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
       <Foot>{PAGE_NOTE}</Foot>
       {active && DIALOG_NOTES[active] && <Foot>{DIALOG_NOTES[active]}</Foot>}
 
-      {active === 'open-case' && canAdd && options && <OpenCaseDialog cattle={cattle} activeCases={activeCases} options={options} onClose={dialog.close} onSaved={saved} />}
-      {active === 'follow-up' && canAdd && options && target && <FollowUpDialog card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={saved} />}
+      {active === 'open-case' && canAdd && options && (
+        <OpenCaseDialog cattle={cattle} activeCases={activeCases} options={options} onClose={dialog.close} onSaved={saved} onUpdateCase={(code) => openDialog('update-case', code)} />
+      )}
       {active === 'treatment' && canAdd && options && target && <TreatmentDialog card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={saved} />}
-      {active === 'update-status' && canAdd && options && target && (
-        <UpdateStatusDialog card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={(message, result) => { saved(message); if (result.deathVoucher) setNotice(result.deathVoucher) }} />
+      {active === 'update-case' && canAdd && options && target && (
+        <UpdateCaseDialog key={target.id} card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={(message, result) => { saved(message); if (result.deathVoucher) setNotice(result.deathVoucher) }} />
       )}
       {active === 'correct' && canEdit && options && entry && <CorrectRecordDialog row={entry} profile={profile} options={options} onClose={dialog.close} onSaved={saved} />}
       {notice && <DeathNoticeDialog voucher={notice} onClose={() => setNotice(null)} />}

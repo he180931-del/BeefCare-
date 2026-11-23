@@ -1,8 +1,8 @@
 import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
-import { followUpErrors, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
+import { hasFollowUp, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
-  CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
+  CorrectEntryCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
   HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
 } from '../types'
 import { HEALTH_DEMO_NOW, HEALTH_SEED, type CaseRecord, type EntryRecord, type HealthSeed } from './healthMock'
@@ -161,19 +161,9 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       const cattle = ensureCattle(cattleCode)
       assertCanAdd(cattle)
-      const existing = cmd.existingCaseId !== undefined ? activeCase(cmd.existingCaseId, cmd.expectedVersion) : null
-      if (existing && existing.cattleCode !== cattleCode) throw new Error(MSG.changed)
-      throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
+      throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
 
       const base = { occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
-      if (existing) {
-        const row = addEntry({ ...base, caseId: existing.id, type: 'OBSERVATION' })
-        existing.severity = cmd.severity as CaseRecord['severity']
-        if (cmd.diagnosis.trim()) existing.diagnosis = cmd.diagnosis.trim()
-        existing.suspectedContagious = existing.suspectedContagious || cmd.suspectedContagious
-        existing.version += 1
-        return structuredClone(result(existing, 'ADDED', row.id))
-      }
       const id = Math.max(0, ...db.cases.map((c) => c.id)) + 1
       const created: CaseRecord = {
         id, caseCode: `HC-${String(id).padStart(4, '0')}`, cattleCode, diagnosis: cmd.diagnosis.trim(), signs: cmd.signs.trim(), suspectedContagious: cmd.suspectedContagious,
@@ -182,16 +172,6 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       db.cases.push(created)
       const row = addEntry({ ...base, caseId: id, type: 'OPENING' })
       return structuredClone(result(created, 'OPENED', row.id))
-    },
-
-    async recordFollowUp(caseId: number, cmd: FollowUpCommand): Promise<HealthCaseResult> {
-      const c = activeCase(caseId, cmd.expectedVersion)
-      const cattle = cattleOf(c.cattleCode)
-      assertCanAdd(cattle)
-      throwIf(followUpErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: c.openedAt }))
-      const row = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, progress: cmd.progress as Exclude<typeof cmd.progress, ''>, description: cmd.description.trim() })
-      c.version += 1
-      return structuredClone(result(c, 'FOLLOWED', row.id))
     },
 
     async recordTreatment(caseId: number, cmd: TreatmentCommand): Promise<TreatmentResult> {
@@ -225,21 +205,21 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
 
       c.diagnosis = cmd.diagnosis.trim()
       c.suspectedContagious = cmd.suspectedContagious
-      let observationId: number | null = null
-      if (cmd.progressText.trim()) {
-        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: cmd.progress as Progress, description: cmd.progressText.trim() }).id
-      }
+      // D54: phần theo dõi và trạng thái là một lần cập nhật, cùng một thời điểm.
+      const observationId = hasFollowUp(cmd)
+        ? addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: cmd.temperatureC, progress: cmd.progress as Progress, description: cmd.description.trim() }).id
+        : null
       let kind: HealthCaseResult['kind'] = 'KEPT'
       let voucher: PendingExit | null = null
-      if (cmd.action === 'TO_CHRONIC') { c.status = 'CHRONIC'; c.chronicSince = dateOf(now()); kind = 'CHRONIC' }
+      if (cmd.action === 'TO_CHRONIC') { c.status = 'CHRONIC'; c.chronicSince = dateOf(cmd.observedAt); kind = 'CHRONIC' }
       else if (cmd.action === 'TO_OPEN') { c.status = 'OPEN'; c.chronicSince = undefined; kind = 'REOPENED' }
       else if (closing) {
-        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.closedAt; c.closedBy = cmd.confirmedBy || 'Quản lý'; kind = 'CLOSED'
+        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.observedAt; c.closedBy = cmd.confirmedBy || 'Quản lý'; kind = 'CLOSED'
         if (c.outcome === 'DIED' || c.outcome === 'MISSING') {
           // GBR-95: phiếu xuất chờ cho Chủ trại; bò vẫn ACTIVE đến khi Chủ trại xác nhận (herd-exit đọc phiếu này khi nối backend).
           voucher = {
             id: Math.max(0, ...db.vouchers.map((v) => v.id)) + 1, cattleCode: c.cattleCode, caseCode: c.caseCode, type: c.outcome === 'DIED' ? 'DEATH' : 'OTHER',
-            reason: c.outcome === 'DIED' ? 'Chết' : 'Mất tích', date: dateOf(cmd.closedAt!), reportedBy: c.closedBy, status: 'PENDING',
+            reason: c.outcome === 'DIED' ? 'Chết' : 'Mất tích', date: dateOf(cmd.observedAt), reportedBy: c.closedBy, status: 'PENDING',
           }
           db.vouchers.push(voucher)
         }

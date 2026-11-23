@@ -16,7 +16,9 @@ function setup() {
 const treatment = (over: Partial<TreatmentCommand> = {}): TreatmentCommand => ({
   medicineId: 3, treatmentTime: '2026-10-20T07:30', dose: '20 ml', route: 'INTRAMUSCULAR', courseDays: 1, withdrawalDays: 15, performer: 'Trần Quốc Long', veterinaryAdvice: '', ...over,
 })
-const status = (over: Partial<StatusCommand>): StatusCommand => ({ action: 'KEEP', progressText: '', diagnosis: '', suspectedContagious: false, confirmedBy: 'Trần Quốc Long', ...over })
+const status = (over: Partial<StatusCommand>): StatusCommand => ({
+  action: 'KEEP', observedAt: NOW, temperatureC: null, progress: '', description: '', diagnosis: '', suspectedContagious: false, confirmedBy: 'Trần Quốc Long', ...over,
+})
 
 async function rejection(promise: Promise<unknown>) {
   try { await promise } catch (e) { return e as Error }
@@ -66,7 +68,7 @@ describe('hồ sơ sức khỏe của bò', () => {
   })
 })
 
-describe('mở ca và ghi theo dõi', () => {
+describe('mở ca và cập nhật ca bệnh (D54)', () => {
   it('kiểm tra thân nhiệt, dấu hiệu, mức độ và thời điểm tương lai', async () => {
     const { api } = setup()
     const e = await rejection(api.openCase('BC-000231', { observedAt: '2026-10-21T08:00', observer: 'Trần Quốc Long', temperatureC: 44, signs: '', diagnosis: '', suspectedContagious: false, severity: '' }))
@@ -78,24 +80,25 @@ describe('mở ca và ghi theo dõi', () => {
     expect(errors.observedAt).toBe('Thời điểm không được ở tương lai.')
   })
 
-  it('mở ca mới có mã HC-nnnn, đặt trạng thái Theo dõi; nối vào ca đang có không tạo ca mới', async () => {
+  it('mở ca luôn tạo ca mới HC-nnnn, đặt Theo dõi; một con bò có thể có nhiều ca (GBR-45)', async () => {
     const { api } = setup()
     const opened = await api.openCase('BC-000125', { observedAt: '2026-10-20T06:50', observer: 'Trần Quốc Long', temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: 'Viêm phổi', suspectedContagious: false, severity: 'MILD' })
     expect(opened).toMatchObject({ caseCode: 'HC-0419', kind: 'OPENED', status: 'OPEN', healthState: 'MONITORING' })
-    const added = await api.openCase('BC-000125', { existingCaseId: opened.id, expectedVersion: opened.version, observedAt: '2026-10-20T07:30', observer: 'Trần Quốc Long', temperatureC: null, signs: 'Bú kém', diagnosis: '', suspectedContagious: false, severity: 'MODERATE' })
-    expect(added).toMatchObject({ caseCode: 'HC-0419', kind: 'ADDED' })
-    expect((await api.getProfile('BC-000125')).activeCases.map((c) => c.caseCode).sort()).toEqual(['HC-0398', 'HC-0419'])
+    const second = await api.openCase('BC-000125', { observedAt: '2026-10-20T07:30', observer: 'Trần Quốc Long', temperatureC: null, signs: 'Chướng hơi dạ cỏ', diagnosis: '', suspectedContagious: false, severity: 'MODERATE' })
+    expect(second).toMatchObject({ caseCode: 'HC-0420', kind: 'OPENED' })
+    expect((await api.getProfile('BC-000125')).activeCases.map((c) => c.caseCode).sort()).toEqual(['HC-0398', 'HC-0419', 'HC-0420'])
   })
 
-  it('theo dõi không được trước lúc mở ca và bị chặn khi phiên bản đã đổi', async () => {
+  it('cập nhật ca: thời điểm không trước lần ghi gần nhất, chặn khi phiên bản đã đổi, lưu thân nhiệt của lần theo dõi', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]
-    const base = { observedAt: '2026-10-20T07:10', temperatureC: 38.5, progress: 'IMPROVED' as const, description: 'Ăn uống bình thường' }
-    const early = await rejection(api.recordFollowUp(card.id, { ...base, expectedVersion: card.version, observedAt: '2026-10-12T07:00' }))
-    expect((early as HealthValidationError).errors.observedAt).toContain('13/10/2026 07:00')
-    const stale = await rejection(api.recordFollowUp(card.id, { ...base, expectedVersion: card.version + 5 }))
+    const base = status({ observedAt: '2026-10-20T07:10', temperatureC: 38.5, progress: 'IMPROVED', description: 'Ăn uống bình thường' })
+    const early = await rejection(api.updateStatus(card.id, { ...base, expectedVersion: card.version, observedAt: '2026-10-12T07:00' }))
+    expect((early as HealthValidationError).errors.observedAt).toContain('lần ghi gần nhất')
+    const stale = await rejection(api.updateStatus(card.id, { ...base, expectedVersion: card.version + 5 }))
     expect(stale.message).toContain('tải lại')
-    await api.recordFollowUp(card.id, { ...base, expectedVersion: card.version })
+    const kept = await api.updateStatus(card.id, { ...base, expectedVersion: card.version })
+    expect(kept).toMatchObject({ kind: 'KEPT', status: 'OPEN' })
     expect((await api.getProfile('BC-000203')).timeline[0]).toMatchObject({ type: 'FOLLOW_UP', details: 'Ăn uống bình thường · 38,5°C' })
   })
 })
@@ -134,20 +137,20 @@ describe('đóng ca', () => {
   it('thời điểm đóng không được trước lần ghi gần nhất; đóng Khỏi rồi không ghi thêm được', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]
-    const early = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'RECOVERED', closedAt: '2026-10-18T07:00' })))
-    expect((early as HealthValidationError).errors.closedAt).toContain('18/10/2026 07:10')
-    const missing = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', closedAt: NOW })))
+    const early = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'RECOVERED', observedAt: '2026-10-18T07:00' })))
+    expect((early as HealthValidationError).errors.observedAt).toContain('18/10/2026 07:10')
+    const missing = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE' })))
     expect((missing as HealthValidationError).errors.outcome).toBe('Kết quả là bắt buộc.')
-    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'RECOVERED', closedAt: NOW }))
+    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'RECOVERED' }))
     expect(closed).toMatchObject({ status: 'CLOSED', outcome: 'RECOVERED', healthState: 'HEALTHY', deathVoucher: null })
-    await rejection(api.recordFollowUp(card.id, { observedAt: NOW, temperatureC: null, progress: 'IMPROVED', description: 'x' }))
+    await rejection(api.updateStatus(card.id, status({ expectedVersion: closed.version, progress: 'IMPROVED', description: 'x' })))
   })
 
   it('đóng Chết tạo phiếu xuất chờ, bò vẫn ACTIVE nhưng không nhận sự kiện mới; vẫn sửa được bản ghi cũ', async () => {
     const { api } = setup()
     const profile = await api.getProfile('BC-000203')
     const card = profile.activeCases[0]
-    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Bỏ ăn hoàn toàn, nằm liệt', progress: 'WORSENED' }))
+    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', description: 'Bỏ ăn hoàn toàn, nằm liệt', progress: 'WORSENED' }))
     expect(r.deathVoucher).toMatchObject({ type: 'DEATH', status: 'PENDING', cattleCode: 'BC-000203', caseCode: 'HC-0412' })
     const after = await api.getProfile('BC-000203')
     expect(after.cattle.status).toBe('ACTIVE')
@@ -158,14 +161,16 @@ describe('đóng ca', () => {
     await api.correctEntry(row.id, { expectedVersion: row.version, reason: 'Sửa liều', dose: '25 ml' })
   })
 
-  it('TC-10-27 chế độ local: diễn biến bắt buộc khi tạo theo dõi, lưu đúng giá trị đã chọn', async () => {
+  it('TC-10-27 / D54 chế độ local: phần theo dõi bắt buộc khi Giữ trạng thái hoặc có nhập ô nào; lưu đúng diễn biến đã chọn', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]
     const keep = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'KEEP' })))
-    expect((keep as HealthValidationError).errors).toMatchObject({ progressText: 'Diễn biến mới là bắt buộc.', progress: 'Diễn biến là bắt buộc.' })
-    const withText = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'TO_CHRONIC', progressText: 'Còn ho' })))
+    expect((keep as HealthValidationError).errors).toMatchObject({ description: 'Mô tả là bắt buộc.', progress: 'Diễn biến là bắt buộc.' })
+    const withText = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'TO_CHRONIC', description: 'Còn ho' })))
     expect((withText as HealthValidationError).errors.progress).toBe('Diễn biến là bắt buộc.')
-    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Nằm yên', progress: 'UNCHANGED' }))
+    const tempOnly = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'TO_CHRONIC', temperatureC: 39 })))
+    expect((tempOnly as HealthValidationError).errors).toMatchObject({ description: 'Mô tả là bắt buộc.', progress: 'Diễn biến là bắt buộc.' })
+    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', description: 'Nằm yên', progress: 'UNCHANGED' }))
     const row = (await api.getProfile('BC-000203')).timeline.find((t) => t.id === closed.observationId)!
     expect(row).toMatchObject({ type: 'FOLLOW_UP', progress: 'UNCHANGED' })
   })
@@ -173,7 +178,7 @@ describe('đóng ca', () => {
   it('mất tích tạo phiếu OTHER với lý do Mất tích', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000017')).activeCases[0]
-    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'MISSING', closedAt: NOW }))
+    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'MISSING' }))
     expect(r.deathVoucher).toMatchObject({ type: 'OTHER', reason: 'Mất tích' })
   })
 })

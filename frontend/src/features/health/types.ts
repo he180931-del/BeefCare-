@@ -157,9 +157,8 @@ export interface HealthCaseFilters {
   dir?: 'asc' | 'desc'
 }
 
+/** Popup Mở ca: luôn mở ca mới; diễn biến của ca cũ ghi qua "Cập nhật ca bệnh" (D54). */
 export interface OpenCaseCommand {
-  existingCaseId?: number
-  expectedVersion?: number
   observedAt: string
   /** Khác DTO: tên người quan sát thay vì observerId (danh sách thành viên chưa có API). */
   observer: string
@@ -168,15 +167,6 @@ export interface OpenCaseCommand {
   diagnosis: string
   suspectedContagious: boolean
   severity: Severity | ''
-}
-
-export interface FollowUpCommand {
-  expectedVersion?: number
-  observedAt: string
-  temperatureC: number | null
-  progress: Progress | ''
-  description: string
-  observer?: string
 }
 
 export interface TreatmentCommand {
@@ -191,18 +181,20 @@ export interface TreatmentCommand {
   veterinaryAdvice: string
 }
 
+/** Popup "Cập nhật ca bệnh" (A5, D54): một lần cập nhật gồm phần theo dõi và trạng thái ca. */
 export interface StatusCommand {
   expectedVersion?: number
   action: StatusAction
-  /** Diễn biến mới, lưu thành một lần theo dõi khi có nội dung. */
-  progressText: string
-  /** Diễn biến người dùng chọn; bắt buộc khi lệnh tạo lần theo dõi (KEEP, hoặc ô chữ có nội dung) – D35. */
-  progress?: Progress | ''
+  /** Thời điểm của lần cập nhật: lần theo dõi, ngày bắt đầu mạn tính và lúc đóng ca. */
+  observedAt: string
+  temperatureC: number | null
+  /** Diễn biến người dùng chọn; bắt buộc khi có phần theo dõi, không tự điền (D35). */
+  progress: Progress | ''
+  /** Mô tả lần theo dõi; bắt buộc khi Giữ trạng thái hoặc khi nhập bất kỳ ô theo dõi nào. */
+  description: string
   diagnosis: string
   suspectedContagious: boolean
   outcome?: CaseOutcome | ''
-  /** Khác DTO (closingDate): có cả giờ. */
-  closedAt?: string
   confirmedBy: string
 }
 
@@ -225,7 +217,7 @@ export interface CorrectEntryCommand {
 
 export interface VoidEntryCommand { expectedVersion?: number; reason: string }
 
-export type CaseResultKind = 'OPENED' | 'ADDED' | 'FOLLOWED' | 'KEPT' | 'CHRONIC' | 'REOPENED' | 'CLOSED'
+export type CaseResultKind = 'OPENED' | 'KEPT' | 'CHRONIC' | 'REOPENED' | 'CLOSED'
 export interface HealthCaseResult {
   id: number
   caseCode: string

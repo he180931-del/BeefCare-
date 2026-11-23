@@ -2,16 +2,16 @@ import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { dateOf } from '../domain/healthFormat'
 import { caseDay, latestWithdrawalEnd, MSG } from '../domain/healthRules'
-import { correctionTreatmentErrors, followUpErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
+import { correctionTreatmentErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
 import { mapHealthError } from './healthError'
 import {
   ageText, mapCattle, mapHealthCaseCard, mapHealthCaseResult, mapHealthCaseRow, mapMedicine, mapPendingExit, mapRecordResult, mapTimelineRow,
   mapTreatmentResult, num, nullableNum, pick, pickOptional, SEVERITIES, STATES, STATUSES, OUTCOMES, text, toFarmTime, toInstant,
-  toObservationCorrectionRequest, toOpenCaseRequest, toFollowUpRequest, toStatusRequest, toTreatmentCorrectionRequest, toTreatmentRequest, toVoidRequest,
+  toObservationCorrectionRequest, toOpenCaseRequest, toStatusRequest, toTreatmentCorrectionRequest, toTreatmentRequest, toVoidRequest,
   type CaseRef, type EntryRef,
 } from './healthMapper'
 import type {
-  CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
+  CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
   HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile, HealthState, HealthTimelineRow, Medicine, OpenCaseCommand, PendingExit, Progress, RecordResult,
   Severity, StatusCommand, TreatmentCommand, TreatmentResult, TreatmentRoute, VoidEntryCommand,
 } from '../types'
@@ -182,22 +182,10 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       return run(async () => {
         const { cattle } = await resolve(cattleCode)
-        const existing = cmd.existingCaseId !== undefined ? cases.get(cmd.existingCaseId) : undefined
-        assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
+        assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
         const [{ cattleId }, observerId] = await Promise.all([resolve(cattleCode), memberId(cmd.observer)])
         const r = await transport.command(path('/health-cases'), toOpenCaseRequest(cattleId, { ...cmd, observerId }))
-        return result(r, cmd.existingCaseId !== undefined ? 'ADDED' : 'OPENED', { caseCode: '', cattleCode })
-      })
-    },
-
-    // A4
-    async recordFollowUp(caseId: number, cmd: FollowUpCommand): Promise<HealthCaseResult> {
-      return run(async () => {
-        const ctx = caseContext(caseId)
-        assertValid(followUpErrors(cmd, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.openedAt }))
-        const observerId = await memberId(cmd.observer)
-        const r = await transport.command(path(`/health-cases/${caseId}/observations`), toFollowUpRequest({ ...cmd, observerId }))
-        return result(r, 'FOLLOWED', cases.get(caseId))
+        return result(r, 'OPENED', { caseCode: '', cattleCode })
       })
     },
 
@@ -219,17 +207,17 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         assertValid(statusErrors(cmd, caseContext(caseId)))
         const confirmedById = await memberId(cmd.confirmedBy)
-        // D35: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
+        // D35 / D54: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu phần theo dõi thiếu mô tả hoặc diễn biến.
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest({ ...cmd, confirmedById })))
         const kind: CaseResultKind = cmd.action === 'TO_CHRONIC' ? 'CHRONIC' : cmd.action === 'TO_OPEN' ? 'REOPENED' : closing ? 'CLOSED' : 'KEPT'
         const ref = cases.get(caseId)
         const voucherId = num(r.pendingExitVoucherId)
         const deathVoucher: PendingExit | null = voucherId === undefined ? null : {
           id: voucherId, cattleCode: textValue(r.cattleCode, ref?.cattleCode), caseCode: textValue(r.caseCode, ref?.caseCode), type: cmd.outcome === 'MISSING' ? 'OTHER' : 'DEATH',
-          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.closedAt ?? now()), reportedBy: cmd.confirmedBy, status: 'PENDING',
+          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.observedAt), reportedBy: cmd.confirmedBy, status: 'PENDING',
         }
         return result(r, kind, ref, deathVoucher)
-      }, closing ? 'closedAt' : 'observedAt')
+      })
     },
 
     // A7 / A8 sửa: route theo loại bản ghi đã đọc ở A2.

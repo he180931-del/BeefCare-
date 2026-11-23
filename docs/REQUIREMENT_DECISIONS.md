@@ -878,3 +878,15 @@ TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì c
 4. Bản ghi `VOIDED` **không còn** trong lịch sử tiêm của bò (SCR-34) và lịch sử toàn đàn (SCR-35): `CareReadService.vaccinationHistory` lọc bỏ; không còn dòng mờ "(đã hủy)".
 
 Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
+
+### D54 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
+
+TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:
+
+1. Thẻ ca chỉ còn hai nút: **Ghi điều trị** và **Cập nhật ca bệnh**.
+2. Popup **Cập nhật ca bệnh**: thời điểm, thân nhiệt, diễn biến, mô tả, chẩn đoán / cờ truyền nhiễm, trạng thái ca (Giữ / Chuyển mạn tính hoặc Mở lại / Đóng ca → kết quả, người xác nhận). Một thời điểm dùng cho lần theo dõi, ngày mạn tính và lúc đóng ca. Giữ trạng thái → phần theo dõi bắt buộc; đổi trạng thái → tùy chọn, có nhập ô nào thì cần đủ diễn biến và mô tả (giữ D35, không tự điền diễn biến). Lỗi nhập liệu dưới ô, lỗi điều kiện popup (D49).
+3. Phần theo dõi và trạng thái lưu **trong một giao dịch** qua A5 (`POST …/health-cases/{id}/status` thêm `observedAt`, `temperatureC`); không gọi hai API liên tiếp từ giao diện.
+4. Popup **Mở ca** luôn mở ca mới (một bò có thể có nhiều ca – GBR-45). Bò đang có ca thì popup nhắc mã ca và có nút "Cập nhật ca …" chuyển sang đúng ca.
+5. Backend vẫn nhận `existingCaseId` ở A3 và giữ A4 (`/observations`) để không đổi hợp đồng; giao diện không dùng nữa. Không migration.
+
+Spec FE-10 đã cập nhật: UC-FE10-02/03, R-10-01, SCR-37 dòng 7, popup Mở ca dòng 8, popup Cập nhật ca bệnh (thay popup Ghi theo dõi và Cập nhật / Đóng ca), A3–A5, TC-10-04/05/07/27/29.

@@ -4,10 +4,10 @@ import { dateOf, fmtTemp, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { caseDay, latestWithdrawalEnd } from '../domain/healthRules'
 import type {
   CaseOutcome, CaseResultKind, CaseStatus, EntryType, HealthCaseCard, HealthCaseResult, HealthCaseRow, HealthCattle,
-  HealthTimelineRow, PendingExit, Progress, RecordResult, Severity, TreatmentResult, TreatmentRoute, HealthState,
+  HealthTimelineRow, PendingExit, Progress, RecordResult, Severity, StatusCommand, TreatmentResult, TreatmentRoute, HealthState,
 } from '../types'
 import type {
-  HealthBackendDto, HealthCattleDto, HealthMedicineDto, HealthTimelineDto, HealthOpenCaseRequestDto, HealthFollowUpRequestDto,
+  HealthBackendDto, HealthCattleDto, HealthMedicineDto, HealthTimelineDto, HealthOpenCaseRequestDto,
   HealthTreatmentRequestDto, HealthStatusRequestDto, HealthObservationCorrectionRequestDto, HealthTreatmentCorrectionRequestDto,
   HealthVoidRequestDto,
 } from './health.dto'
@@ -164,19 +164,19 @@ export function mapRecordResult(raw: unknown, action: RecordResult['action'], en
   }
 }
 
-export function toOpenCaseRequest(cattleId: number, cmd: { existingCaseId?: number; expectedVersion?: number; observedAt: string; observerId?: number; temperatureC: number | null; signs: string; diagnosis: string; suspectedContagious: boolean; severity: string }): HealthOpenCaseRequestDto {
-  return { cattleId, existingCaseId: cmd.existingCaseId ?? null, expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt), observerId: cmd.observerId ?? null, temperatureC: cmd.temperatureC, signs: cmd.signs.trim(), diagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, severity: cmd.severity || null }
-}
-export function toFollowUpRequest(cmd: { expectedVersion?: number; observedAt: string; temperatureC: number | null; progress: string; description: string; observerId?: number }): HealthFollowUpRequestDto {
-  return { expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt), temperatureC: cmd.temperatureC, progress: cmd.progress || null, description: cmd.description.trim(), observerId: cmd.observerId ?? null }
+export function toOpenCaseRequest(cattleId: number, cmd: { observedAt: string; observerId?: number; temperatureC: number | null; signs: string; diagnosis: string; suspectedContagious: boolean; severity: string }): HealthOpenCaseRequestDto {
+  return { cattleId, observedAt: toInstant(cmd.observedAt), observerId: cmd.observerId ?? null, temperatureC: cmd.temperatureC, signs: cmd.signs.trim(), diagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, severity: cmd.severity || null }
 }
 export function toTreatmentRequest(cmd: { expectedVersion?: number; medicineId: number | null; treatmentTime: string; dose: string; route: string; courseDays: number | null; withdrawalDays: number | null; performerBody: Record<string, unknown>; veterinaryAdvice: string }): HealthTreatmentRequestDto {
   const performer = cmd.performerBody.performerId !== undefined ? { performerId: cmd.performerBody.performerId as number } : { performerName: (cmd.performerBody.performerName as string | null | undefined) ?? null }
   return { expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime), dose: cmd.dose.trim(), route: cmd.route || null, courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, ...performer, veterinaryAdvice: cmd.veterinaryAdvice.trim() || null }
 }
-export function toStatusRequest(cmd: { expectedVersion?: number; action: string; progressText: string; progress?: string; diagnosis: string; suspectedContagious: boolean; outcome?: string; closedAt?: string; confirmedById?: number }): HealthStatusRequestDto {
-  const closing = cmd.action === 'CLOSE'
-  return { expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, latestProgress: cmd.progressText.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, outcome: closing ? cmd.outcome || null : null, closedAt: closing && cmd.closedAt ? toInstant(cmd.closedAt) : null, confirmedById: cmd.confirmedById ?? null }
+export function toStatusRequest(cmd: StatusCommand & { confirmedById?: number }): HealthStatusRequestDto {
+  return {
+    expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, observedAt: toInstant(cmd.observedAt), temperatureC: cmd.temperatureC,
+    latestProgress: cmd.description.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null,
+    suspectedContagious: cmd.suspectedContagious, outcome: cmd.action === 'CLOSE' ? cmd.outcome || null : null, confirmedById: cmd.confirmedById ?? null,
+  }
 }
 export function toObservationCorrectionRequest(cmd: { expectedVersion?: number; reason: string; observedAt?: string; temperatureC?: number | null; description?: string; progress?: string; observerId?: number }): HealthObservationCorrectionRequestDto {
   return { expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), observedAt: cmd.observedAt ? toInstant(cmd.observedAt) : null, temperatureC: cmd.temperatureC === undefined ? null : cmd.temperatureC, signs: cmd.description?.trim() || null, progress: cmd.progress || null, observerId: cmd.observerId ?? null }
