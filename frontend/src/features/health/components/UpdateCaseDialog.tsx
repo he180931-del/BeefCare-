@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Textarea } from '../../../shared/ui'
 import { statusToast } from '../domain/healthMessages'
-import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES, statusText } from '../domain/healthFormat'
+import { caseLabel, fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES, statusText } from '../domain/healthFormat'
 import { hasFollowUp, parseTemperature } from '../validation/healthValidation'
 import type { CaseOutcome, HealthCaseCard, HealthCaseResult, HealthFormOptions, Progress, StatusAction } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
@@ -54,7 +54,7 @@ export default function UpdateCaseDialog({ card, cattleCode, options, onClose, o
   const mark = (label: string) => (followUpRequired ? `${label} *` : label)
   return (
     <Modal title="Cập nhật ca bệnh" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${statusText(card.status, card.day, card.chronicSince)}`} width={640} onClose={onClose}>
-      <Field label="Ca sức khỏe" id="uc-case"><ReadonlyBox id="uc-case" value={caseLine(card.caseCode, card.signs, cattleCode)} /></Field>
+      <Field label="Ca sức khỏe" id="uc-case"><ReadonlyBox id="uc-case" value={caseLine(card.caseCode, caseLabel(card), cattleCode)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm *" id="uc-time" hint={hint(errors.observedAt)}><DateTimeInput id="uc-time" value={observedAt} onChange={setObservedAt} /></Field>
         <Field label="Thân nhiệt" id="uc-temp" hint={hint(errors.temperatureC, '35,0 – 43,0')}>

@@ -4,7 +4,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
-import { addDays, dateOf, SEVERITIES, SEVERITY_LABEL } from '../domain/healthFormat'
+import { addDays, caseLabel, dateOf, SEVERITIES, SEVERITY_LABEL } from '../domain/healthFormat'
 import { useHealthCases } from '../hooks/useHealthCases'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import type { CaseTab, HealthCaseFilters, Severity } from '../types'
@@ -73,7 +73,7 @@ export default function HealthCaseList() {
             <thead>
               <tr>
                 <Th className="w-[88px]"><button type="button" className="font-semibold" onClick={() => toggleSort('caseCode')}>Mã ca{arrow('caseCode')}</button></Th>
-                <Th>Bò</Th><Th>Chuồng</Th><Th>Dấu hiệu</Th><Th>Mức độ</Th>
+                <Th>Bò</Th><Th>Chuồng</Th><Th>Chẩn đoán / dấu hiệu</Th><Th>Mức độ</Th>
                 <Th><button type="button" className="font-semibold" onClick={() => toggleSort('openedAt')}>Mở lúc{arrow('openedAt')}</button></Th>
                 <Th>Trạng thái</Th><Th className="w-8"><span className="sr-only">Mở</span></Th>
               </tr>
@@ -86,7 +86,7 @@ export default function HealthCaseList() {
                     <Td><Link to={to} className="font-semibold text-brand no-underline hover:underline">{r.caseCode}</Link></Td>
                     <Td><div className="font-medium text-ink">{r.cattleCode}{r.cattleName && ` “${r.cattleName}”`}</div><div className="text-[11px] text-muted">{r.breed} · {r.sex}</div></Td>
                     <Td>{r.penCode} – {r.penName}</Td>
-                    <Td>{r.signs}{r.suspectedContagious && <> <Badge tone="err">Truyền nhiễm</Badge></>}</Td>
+                    <Td>{caseLabel(r)}{r.suspectedContagious && <> <Badge tone="err">Truyền nhiễm</Badge></>}</Td>
                     <Td><SeverityBadge severity={r.severity} /></Td>
                     <Td>{r.openedDate.split('-').reverse().join('/')}</Td>
                     <Td><CaseStatusBadge status={r.status} day={r.day} chronicSince={r.chronicSince} outcome={r.outcome} /></Td>

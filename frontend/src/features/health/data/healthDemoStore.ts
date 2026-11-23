@@ -76,7 +76,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     const first = db.entries.find((e) => e.caseId === c.id && e.type === 'OPENING')
     return {
       id: c.id, caseCode: c.caseCode, status: c.status, severity: c.severity, diagnosis: c.diagnosis, signs: c.signs, openingSigns: first?.description ?? c.signs,
-      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt,
+      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt, closedBy: c.closedBy,
       treatmentCount: valid.filter((e) => e.type === 'TREATMENT').length, day: caseDay(c.openedAt, now()),
       withdrawalEndDate: latestWithdrawalEnd(valid), latestEntryAt: valid.reduce((m, e) => (e.occurredAt > m ? e.occurredAt : m), c.openedAt), version: c.version,
     }

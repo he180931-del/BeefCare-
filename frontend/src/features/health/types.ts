@@ -92,6 +92,8 @@ export interface HealthCaseCard {
   chronicSince?: string
   outcome?: CaseOutcome
   closedAt?: string
+  /** Người xác nhận đóng ca (chỉ ca đã đóng). */
+  closedBy?: string
   treatmentCount: number
   day: number
   /** Ngày hết ngưng sử dụng thịt lớn nhất trong các điều trị hợp lệ của ca. */

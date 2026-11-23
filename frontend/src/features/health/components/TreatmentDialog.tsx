@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { treatmentToast } from '../domain/healthMessages'
-import { fmtDate, ROUTE_LABEL, ROUTES, statusText } from '../domain/healthFormat'
+import { caseLabel, fmtDate, ROUTE_LABEL, ROUTES, statusText } from '../domain/healthFormat'
 import { lastDoseDate, withdrawalEnd } from '../domain/healthRules'
 import type { HealthCaseCard, HealthFormOptions, TreatmentRoute } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
@@ -42,7 +42,7 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
 
   return (
     <Modal title="Ghi điều trị" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${statusText(card.status, card.day, card.chronicSince)}`} width={640} onClose={onClose}>
-      <Field label="Ca sức khỏe" id="tr-case"><ReadonlyBox id="tr-case" value={caseLine(card.caseCode, card.signs, cattleCode)} /></Field>
+      <Field label="Ca sức khỏe" id="tr-case"><ReadonlyBox id="tr-case" value={caseLine(card.caseCode, caseLabel(card), cattleCode)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thuốc (danh mục trại) *" id="tr-medicine" hint={hint(errors.medicineId)}>
           <Select id="tr-medicine" value={medicineId} onChange={(e) => pickMedicine(e.target.value)}>

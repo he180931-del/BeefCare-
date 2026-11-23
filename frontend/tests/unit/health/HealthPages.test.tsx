@@ -54,13 +54,36 @@ describe('danh sách ca sức khỏe /suc-khoe', () => {
 describe('tab Sức khỏe trong hồ sơ bò', () => {
   it('hiện ca đang mở, diễn biến, ngưng thịt và các ca trước', async () => {
     renderTab('BC-000203')
-    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
+    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy')).toBeInTheDocument()
     expect(screen.getByText('Đang mở · ngày 8')).toBeInTheDocument()
     expect(screen.getByText('Oxytetracycline 20% LA · 30 ml · tiêm bắp · ngưng 28 ngày')).toBeInTheDocument()
     expect(screen.getAllByText('10/11/2026').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Không xuất bán trước ngày hết ngưng sử dụng thịt.')).toBeInTheDocument()
     expect(screen.getByText('HC-0331')).toBeInTheDocument()
-    expect(screen.getByText('Khỏi · 05/2026')).toBeInTheDocument()
+    const closed = screen.getByText('HC-0331').closest('li')!
+    expect(closed).toHaveTextContent('Khỏi')
+    expect(closed).toHaveTextContent('05/2026')
+  })
+
+  it('ca đã đóng có nút Xem: tóm tắt, thuốc đã dùng và toàn bộ diễn biến', async () => {
+    const user = userEvent.setup()
+    renderTab('BC-000203')
+    await user.click(await screen.findByRole('button', { name: 'Xem ca HC-0331' }))
+    const dialog = await screen.findByRole('dialog', { name: /Ca HC-0331/ })
+    expect(within(dialog).getByText('Thuốc đã dùng')).toBeInTheDocument()
+    expect(within(dialog).getByText('Khỏi')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Diễn biến & điều trị \(\d+\)/)).toBeInTheDocument()
+  })
+
+  it('thẻ ca gọn: chỉ thẻ đầu hiện diễn biến, thẻ khác mở bằng nút; chỉ 3 bản ghi mới nhất, còn lại "Xem thêm"', async () => {
+    const user = userEvent.setup()
+    renderTab('BC-000203')
+    const toggle = await screen.findByRole('button', { name: /Ẩn diễn biến/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(toggle)
+    expect(screen.queryByText('Oxytetracycline 20% LA · 30 ml · tiêm bắp · ngưng 28 ngày')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Diễn biến & điều trị \(\d+\)/ }))
+    expect(screen.getByText('Oxytetracycline 20% LA · 30 ml · tiêm bắp · ngưng 28 ngày')).toBeInTheDocument()
   })
 
   it('D58: thẻ ca chỉ còn "Ghi điều trị" và "Cập nhật ca bệnh"; cập nhật báo lỗi dưới ô, rồi lưu thân nhiệt và diễn biến', async () => {
@@ -204,14 +227,14 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
 
   it('D41: Chủ trại ghi như Quản lý, mở được hộp thoại qua URL', async () => {
     renderTab('BC-000203', '&m=update-case', 'OWNER')
-    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
+    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy')).toBeInTheDocument()
     expect(await screen.findByRole('dialog', { name: 'Cập nhật ca bệnh' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Ghi điều trị|Cập nhật ca bệnh/ }).length).toBeGreaterThan(0)
   })
 
   it.each<AppRole>(['TECHNICIAN'])('%s chỉ xem: không có nút ghi và không mở hộp thoại qua URL', async (role) => {
     renderTab('BC-000203', '&m=update-case', role)
-    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
+    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Ghi điều trị|Cập nhật ca bệnh|Mở ca sức khỏe|Sửa/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })

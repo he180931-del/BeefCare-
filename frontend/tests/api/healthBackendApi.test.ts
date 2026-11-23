@@ -206,6 +206,19 @@ test('TC-10-08/09/10: điều trị gửi administeredAt giờ trại, người 
   assert.deepEqual([second.performerId, second.performerName, second.withdrawalDays, second.veterinaryAdvice], [undefined, 'BS. Hùng', null, 'Uống nhiều nước'])
 })
 
+test('Xem ca đã đóng: tải hồ sơ với historyCaseId, ca đã đóng có diễn biến, thuốc, người xác nhận và ngày ngưng', async () => {
+  const closedProfile = { ...profile, previousCases: [{ ...profile.previousCases[0], version: 4, timeline: [
+    { id: 61, caseId: 331, type: 'OPENING', occurredAt: '2026-09-01T01:00:00Z', observer: 'Lê Quản Lý', status: 'VALID', corrected: false, version: 0, temperatureC: null, description: 'Ho' },
+    { id: 62, caseId: 331, type: 'TREATMENT', occurredAt: '2026-09-02T01:00:00Z', status: 'VALID', corrected: false, version: 0, medicineId: 3, medicineName: 'Oxytetracycline 20% LA', dose: '30 ml', route: 'INTRAMUSCULAR', courseDays: 1, withdrawalDays: 28, withdrawalEndDate: '2026-09-30', performer: 'Lê Quản Lý' },
+  ] }] }
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/cattle/101?historyCaseId=331': closedProfile })
+  const p = await a.getProfile('BC-101', '331')
+  assert.ok(calls.some((c) => c.path === '/api/farms/1/health-cases/cattle/101?historyCaseId=331'))
+  const closed = p.previousCases[0]
+  assert.deepEqual([closed.closedBy, closed.treatmentCount, closed.withdrawalEndDate, closed.version], ['Lê Quản Lý', 1, '2026-09-30', 4])
+  assert.deepEqual(p.timeline.filter((r) => r.caseId === 331).map((r) => r.type).sort(), ['OPENING', 'TREATMENT'])
+})
+
 test('D62: mở lại ca đã đóng gửi version và lý do tới /reopen; thiếu lý do báo dưới ô, không gọi API', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/331/reopen': { id: 331, caseCode: 'HC-000331', status: 'OPEN', version: 3, cattleCode: 'BC-101', healthState: 'MONITORING' } })
   const empty = await rejection(a.reopenCase(331, { expectedVersion: 2, reason: '' }))
