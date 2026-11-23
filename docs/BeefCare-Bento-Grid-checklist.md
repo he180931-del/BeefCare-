@@ -39,7 +39,10 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento 
 - Nút Đóng của mọi hộp thoại có vùng chạm 44 px, tâm biểu tượng giữ nguyên vị trí.
 - Tiêu đề trên thanh trên xuống dòng thay vì bị cắt. Thanh cao tối thiểu 72 px.
 - `Note` xám đặt chữ `text-ink` để đọc được cả trong khối xanh đậm.
-- `Button size="bento"`: nút thao tác của các trang trong ứng dụng (cao tối thiểu 44 px, bo 8 px, chữ dài xuống dòng). Hộp thoại và các trang thiết lập ban đầu giữ `size="lg"` (46 px, bo 12) như các trang cùng luồng.
+- `Button size="bento"`: nút thao tác của các trang trong ứng dụng (cao tối thiểu 44 px, bo 8 px, chữ dài xuống dòng). Hộp thoại và các trang thiết lập ban đầu giữ `size="lg"` (46 px, bo 12) như các trang cùng luồng. Màn quét QR (tab 16) cũng dùng cỡ này.
+- `Card variant="panel"` dùng chung bề mặt và tiêu đề của `Panel`: tiêu đề h2 18 px, padding 16 px, 24 px khi vùng chứa từ 1.024 px. Khối lồng trong khối khác dùng `headingAs="h3"` (16 px). Các khối tóm tắt và kiểm tra trước khi lưu ở phiếu nhập kho, khẩu phần, kiểm kê và khối giả lập chuyển khoản chuyển sang tiêu đề chung này.
+- Màu nhãn và dòng phụ `#5b6a60` thành token `text-label`.
+- Bảng không xếp thẻ (`stack={false}`) cuộn ngang trong khung khi thiếu chỗ, thay vì bị cắt mất cột. Trước đó, ở 390 px, cột Trạng thái bị cắt ở `/pens` và bốn danh mục giống, mục đích, thuốc, vắc-xin. Khung đang cuộn được thì nhận focus bàn phím. Ô của bảng cuộn được chỉ xuống dòng giữa các từ, không cắt giữa chữ (trước đó ở 390 px tên vắc-xin bị cắt thành "huy ết"). Ở Lịch sử thanh toán, ô "Tạo lúc" và "Hết hạn" được xuống dòng giữa ngày và giờ để bảng vẫn vừa khung ở 1.024 px.
 
 ## Tab 12 · Guest – Công khai & Đăng nhập
 
