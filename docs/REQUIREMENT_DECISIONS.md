@@ -878,3 +878,13 @@ TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì c
 4. Bản ghi `VOIDED` **không còn** trong lịch sử tiêm của bò (SCR-34) và lịch sử toàn đàn (SCR-35): `CareReadService.vaccinationHistory` lọc bỏ; không còn dòng mờ "(đã hủy)".
 
 Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
+
+### D54 — FE-19: vào thẳng Tổng quan sau khi thanh toán (23/11/2026)
+
+DucNV (chủ FE-19) chốt trong phiên: khi BeefCare nhận trạng thái PAID, chủ trại được đưa thẳng vào Tổng quan của đúng trại; popup "Thanh toán thành công" hiện một lần tại đó, kèm mã thanh toán và kỳ dịch vụ; bấm Tiếp tục để đóng popup và ở lại Tổng quan; áp dụng cho cả mua lần đầu và gia hạn. Nếu trại đang tạm ngưng hoặc chưa thể truy cập, popup vẫn xác nhận đã thanh toán, nêu lý do và cho thử vào lại. Làm khác SRS 28/10 (UC-FE19-02 AF4, SCR-59 "Enter farm / Back to subscription": gia hạn về SCR-57; MSG-FE19-06 kiểu Toast):
+
+1. SCR-59 bỏ nút "Vào trại" / "Về gói dịch vụ". Mỗi lần đọc được `PAID` (tự tải, Kiểm tra lại, tải lại sau hủy bị từ chối, mở lại hướng dẫn của yêu cầu đã PAID), màn hiện "Đang vào trại…" và kiểm trại một lần qua bước của SCR-09 (FE-02 A5). Trại `ACTIVE` → lưu trại cho tab và nạp lại vào SCR-48, thay SCR-59 trong lịch sử tab.
+2. MSG-FE19-06 đổi từ toast sang hộp thoại trên SCR-48 của đúng trại, chỉ cho Owner, một lần (giữ trong sessionStorage của tab, đọc xong thì xóa). Mở SCR-48 trực tiếp không hiện. Không lưu được xác nhận thì vẫn vào trại, chỉ thiếu hộp thoại.
+3. Không vào được → hộp thoại MSG-FE19-06 trên SCR-59 kèm nguyên nhân, [Thử vào trại lại] và [Đóng xác nhận] (về màn nguồn). Trại không `ACTIVE` (vd. đã thanh toán nhưng vẫn SUSPENDED theo R-19-11) → Owner đọc MSG-FE02-03; từ nay mọi chỗ dùng bước vào trại của SCR-09 với Owner (cả quét QR) đều hiện MSG-FE02-03 thay vì MSG-FE02-04 "Vui lòng liên hệ Chủ trại".
+
+Đi kèm: chỉ frontend; không đổi API, DTO, OpenAPI hay DB, không có lệnh ghi mới. Spec FE-19 (UC-FE19-02, SCR-59 #3 / #7 / #8 / #10, MSG-FE19-06, TC-19-108, TC-19-110 → 112) và FE-15 (SCR-48 #10) đã cập nhật; SRS chưa sửa.
