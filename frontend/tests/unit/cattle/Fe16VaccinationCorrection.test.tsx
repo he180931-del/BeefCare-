@@ -74,7 +74,7 @@ describe('FE-16 vaccination withdrawal correction (FE-09 R-09-08/14)', () => {
     open()
     fireEvent.change(screen.getByLabelText('Ngày ngưng thịt'), { target: { value } })
     fireEvent.submit(screen.getByRole('button', { name: 'Lưu chỉnh sửa' }).closest('form')!)
-    expect(await screen.findByText(/MSG-COM-10/)).toHaveAttribute('role', 'alert')
+    expect(await screen.findByText('Ngày ngưng thịt phải là số nguyên từ 0 đến 365.')).toHaveAttribute('role', 'alert')
     expect(screen.getByLabelText('Ngày ngưng thịt')).toHaveAttribute('aria-invalid', 'true')
     expect(mutate).not.toHaveBeenCalled()
   })

@@ -128,7 +128,8 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
     const changes: Record<string, unknown> = {}
     if (action === 'correction') {
       if (vaccination && onFarm && !validWithdrawal) {
-        setWithdrawalError('MSG-COM-10: Ngày ngưng thịt phải là số nguyên từ 0 đến 365.')
+        // MSG-COM-10, shown next to the field using the FE-09 range.
+        setWithdrawalError('Ngày ngưng thịt phải là số nguyên từ 0 đến 365.')
         return
       }
       for (const field of fields) {
