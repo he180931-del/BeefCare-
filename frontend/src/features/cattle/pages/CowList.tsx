@@ -43,6 +43,7 @@ function statusCell(c: CowSeed) {
   if (c.status === 'EXITED') return { text: 'Đã xuất', detail: c.exitStatusLabel?.replace('Đã xuất · ', ''), tone: '' }
   if (c.status === 'VOIDED') return { text: 'Đã hủy', detail: undefined, tone: '' }
   if (c.status === 'EXIT_PENDING' || c.exitPending) return { text: 'Chờ xuất', detail: undefined, tone: 'text-[#b26b00]' }
+  if (c.status === 'ACTIVE') return { text: 'Đang nuôi', detail: undefined, tone: '' }
   return { text: '—', detail: undefined, tone: '' }
 }
 
@@ -215,7 +216,6 @@ export default function CowList() {
   const size = listQuery.data?.size || rows.length || 1
   const grandTotal = backend ? listQuery.data?.total ?? 0 : rows.length
   const pageCount = Math.max(1, Math.ceil(grandTotal / size))
-  const firstRow = rows.length ? page * size + 1 : 0
   const canEnter = session?.role !== 'TECHNICIAN'
   const initialLoad = listQuery.loading && !listQuery.data
 
@@ -333,7 +333,6 @@ export default function CowList() {
                 page={page + 1}
                 pageCount={pageCount}
                 onChange={(next) => setPage(next - 1)}
-                summary={`Hiển thị ${rows.length ? `${firstRow}–${firstRow + rows.length - 1}` : 0} trong ${grandTotal} · * cân ước tính`}
               />
             </div>
           </Panel>

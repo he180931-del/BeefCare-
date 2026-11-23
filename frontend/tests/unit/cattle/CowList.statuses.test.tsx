@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const response = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
@@ -33,7 +33,7 @@ describe('cattle list herd statuses', () => {
     render(<MemoryRouter><CowList /></MemoryRouter>)
     expect(await screen.findByText('BC-ACTIVE')).toBeInTheDocument()
     const activeRow = screen.getByText('BC-ACTIVE').closest('tr') as HTMLElement
-    expect(activeRow).toHaveTextContent('—')
+    expect(within(activeRow).getByRole('cell', { name: 'Đang nuôi', exact: true })).toBeInTheDocument()
     expect(activeRow).not.toHaveTextContent(/Chờ xuất|Đã xuất|Đã hủy/)
     expect(screen.getByText('Chờ xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã xuất')).toBeInTheDocument()
