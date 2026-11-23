@@ -244,7 +244,7 @@ export default function DeathView({ row, onReload }: { row: HerdExit; onReload: 
                 <Button variant="primary" block className="!py-[9px]" disabled={!confirmed || !checksCurrent || persisting} onClick={() => { void resolve('Đã xuất').catch(() => undefined) }}>Xác nhận xuất đàn</Button>
                 <Button block disabled={!checksCurrent} onClick={() => openModal('reject')}>Bác đề xuất</Button>
                 <Button variant="link" block onClick={() => nav('/herd-exit')}>Đóng</Button>
-                <p className="m-0 text-[11px] text-muted">Bác đề xuất: bò vẫn ACTIVE, ca sức khỏe giữ nguyên kết quả; bắt buộc nhập lý do (GBR-34).</p>
+                <p className="m-0 text-[11px] text-muted">Bác đề xuất: bò vẫn trong đàn, ca sức khỏe được mở lại; bắt buộc nhập lý do.</p>
               </>
             ) : (
               <>

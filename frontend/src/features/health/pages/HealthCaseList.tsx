@@ -12,7 +12,7 @@ import { CaseStatusBadge, SeverityBadge } from '../components/healthUi'
 
 const TITLE = 'Sức khỏe & Điều trị'
 const PAGE_SIZE = 10
-const NOTE = 'Màn danh sách ca sức khỏe của đàn. Tab Đang mở luôn hiện mọi ca chưa đóng, không lọc theo kỳ. Trạng thái: OPEN · ngày n, CHRONIC · từ ngày, CLOSED · kết quả. Nhấn mã ca hoặc › để mở tab Sức khỏe của hồ sơ bò.'
+const NOTE = 'Màn danh sách ca sức khỏe của đàn. Tab Đang mở luôn hiện mọi ca chưa đóng, không lọc theo kỳ. Trạng thái: Đang mở · ngày n, Theo dõi dài hạn · từ ngày, Đã đóng · kết quả. Nhấn mã ca hoặc › để mở tab Sức khỏe của hồ sơ bò.'
 
 export default function HealthCaseList() {
   const demo = useDemoState()
@@ -36,13 +36,13 @@ export default function HealthCaseList() {
 
   return (
     <Layout title={TITLE}>
-      <PageHeader title={TITLE} sub={`${counts.open} ca đang mở · ${counts.chronic} ca theo dõi mạn tính · mở ca mới từ hồ sơ bò`} />
+      <PageHeader title={TITLE} sub={`${counts.open} ca đang mở · ${counts.chronic} ca theo dõi dài hạn · mở ca mới từ hồ sơ bò`} />
       <Segmented
         value={filters.tab ?? 'open'}
         onChange={(tab) => update({ tab: tab as CaseTab })}
         options={[
           { value: 'open', label: `Đang mở (${counts.open})` },
-          { value: 'chronic', label: `Mạn tính (${counts.chronic})` },
+          { value: 'chronic', label: `Theo dõi dài hạn (${counts.chronic})` },
           { value: 'closed', label: `Đã đóng (${counts.closed})` },
           { value: 'all', label: `Tất cả (${counts.all})` },
         ]}

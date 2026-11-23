@@ -17,8 +17,6 @@ export type HealthPendingExitDto = HealthBackendDto
 
 export interface HealthOpenCaseRequestDto {
   cattleId: number
-  existingCaseId: number | null
-  expectedVersion: number | null
   observedAt: string
   observerId: number | null
   temperatureC: number | null
@@ -26,15 +24,6 @@ export interface HealthOpenCaseRequestDto {
   diagnosis: string | null
   suspectedContagious: boolean
   severity: string | null
-}
-
-export interface HealthFollowUpRequestDto {
-  expectedVersion: number | null
-  observedAt: string
-  temperatureC: number | null
-  progress: string | null
-  description: string
-  observerId: number | null
 }
 
 export interface HealthTreatmentRequestDto {
@@ -48,6 +37,7 @@ export interface HealthTreatmentRequestDto {
   performerId?: number
   performerName?: string | null
   veterinaryAdvice: string | null
+  returnToOpen?: boolean
 }
 
 export interface HealthStatusRequestDto {
@@ -58,8 +48,10 @@ export interface HealthStatusRequestDto {
   suspectedDiagnosis: string | null
   suspectedContagious: boolean
   outcome: string | null
-  closedAt: string | null
   confirmedById: number | null
+  /** D58: thời điểm của lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca). */
+  observedAt: string
+  temperatureC: number | null
 }
 
 export interface HealthObservationCorrectionRequestDto {

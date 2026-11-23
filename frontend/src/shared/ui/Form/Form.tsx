@@ -88,6 +88,35 @@ export function DateInput({ value, onChange, className, readOnly, id, label }: {
   )
 }
 
+/**
+ * Ô ngày giờ: hiện dd/mm/yyyy hh:mm + icon lịch như {@link DateInput}, bấm mở bộ chọn ngày giờ của trình duyệt.
+ * value/onChange dạng 'yyyy-mm-ddThh:mm'; `label` đặt tên cho ô ẩn khi không có nhãn hiển thị gắn với `id`.
+ */
+export function DateTimeInput({ value, onChange, className, id, label, max }: { value: string; onChange: (value: string) => void; className?: string; id?: string; label?: string; max?: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [date, time] = value ? value.split('T') : []
+  const [y, m, d] = date ? date.split('-') : []
+  return (
+    <div className={cx('relative', className)}>
+      <div className={cx(fieldCls, 'flex items-center gap-1.5')}>
+        <span className={cx('min-w-0 flex-1 whitespace-nowrap', !value && 'text-subtle')}>{value ? `${d}/${m}/${y} ${time?.slice(0, 5) ?? ''}` : 'dd/mm/yyyy hh:mm'}</span>
+        <Icon name="calendar-event" className="text-muted" />
+      </div>
+      <input
+        ref={ref}
+        id={id}
+        type="datetime-local"
+        value={value || ''}
+        max={max}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        onClick={() => ref.current?.showPicker?.()}
+        aria-label={id ? undefined : label ?? 'Chọn ngày giờ'}
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
+      />
+    </div>
+  )
+}
+
 export const Textarea = ({ className, rows = 2, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea rows={rows} className={cx(inputCls, 'resize-none leading-[1.4]', className)} {...p} />
 
 /** Radio tròn đặc màu xanh khi chọn (như Figma). Dùng trong <label> riêng cho từng lựa chọn. */

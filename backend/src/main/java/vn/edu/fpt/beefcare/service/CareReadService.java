@@ -148,7 +148,7 @@ public class CareReadService {
 
     private static CareDtos.PreviousHealthCase previousCase(HealthCase h,String signs,List<CareDtos.HealthTimelineRow> timeline){
         return new CareDtos.PreviousHealthCase(h.getId(),h.getCaseCode(),signs,h.getSuspectedDiagnosis(),h.getSeverity(),h.getOpenedDate(),h.getOutcome(),h.getClosedDate(),
-            h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName(),timeline);
+            h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName(),timeline,h.getVersion());
     }
 
     /** Opening observation per case: [observedTime, signs]. */

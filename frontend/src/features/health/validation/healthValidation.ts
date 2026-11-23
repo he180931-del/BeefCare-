@@ -4,8 +4,11 @@ import { dateOf } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import type { CorrectEntryCommand } from '../types'
 
-export const TEMP_MIN = 35
-export const TEMP_MAX = 43
+/** D61: ngoài 30–45 °C là gõ nhầm (chặn); ngoài 35–43 °C chỉ cần người dùng xác nhận lại số đo. */
+export const TEMP_MIN = 30
+export const TEMP_MAX = 45
+export const TEMP_CHECK_MIN = 35
+export const TEMP_CHECK_MAX = 43
 
 /** Lỗi kiểm tra theo từng trường: dialog hiện thông báo dưới ô tương ứng. */
 export class HealthValidationError extends Error {
@@ -28,6 +31,11 @@ export function temperatureError(value: number | null | undefined): string | nul
   if (value === null || value === undefined) return null
   const ok = Number.isFinite(value) && value >= TEMP_MIN && value <= TEMP_MAX && Math.round(value * 10) / 10 === value
   return ok ? null : MSG.temperature
+}
+
+/** Số đo hợp lệ nhưng nằm ngoài 35–43 °C: hỏi xác nhận trước khi lưu (D61). */
+export function temperatureNeedsCheck(value: number | null | undefined): boolean {
+  return value !== null && value !== undefined && temperatureError(value) === null && (value < TEMP_CHECK_MIN || value > TEMP_CHECK_MAX)
 }
 
 export function textError(label: string, value: string | undefined, { required = false, max }: { required?: boolean; max: number }): string | null {
@@ -78,13 +86,6 @@ export function openCaseErrors(cmd: { observedAt: string; temperatureC: number |
   return errors
 }
 
-export function followUpErrors(cmd: { observedAt: string; temperatureC: number | null; progress: string; description: string }, ctx: { now: string; entryDate?: string; min?: string }): FieldErrors {
-  const errors = observationErrors('Thời điểm', { time: cmd.observedAt, temperatureC: cmd.temperatureC }, { ...ctx, minWhat: 'lúc mở ca' })
-  if (!cmd.progress) errors.progress = MSG.required('Diễn biến')
-  put(errors, 'description', textError('Mô tả', cmd.description, { required: true, max: 1000 }))
-  return errors
-}
-
 export function treatmentErrors(
   v: { medicineId: number | null; treatmentTime: string; dose: string; route: string; courseDays: number | null; withdrawalDays: number | null; performer: string; veterinaryAdvice?: string },
   ctx: { now: string; entryDate?: string; openedAt?: string },
@@ -103,19 +104,25 @@ export function treatmentErrors(
   return errors
 }
 
-export function statusErrors(
-  cmd: { action: string; progressText: string; progress?: string; diagnosis: string; outcome?: string; closedAt?: string },
-  ctx: { now: string; entryDate?: string; latestAt?: string },
-): FieldErrors {
-  const errors: FieldErrors = {}
-  put(errors, 'progressText', textError('Diễn biến mới', cmd.progressText, { required: cmd.action === 'KEEP', max: 1000 }))
-  // D35: lần theo dõi tạo từ popup này cần diễn biến người dùng chọn.
-  if ((cmd.action === 'KEEP' || cmd.progressText.trim()) && !cmd.progress) errors.progress = MSG.required('Diễn biến')
-  put(errors, 'diagnosis', textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }))
-  if (cmd.action === 'CLOSE') {
-    if (!cmd.outcome) errors.outcome = MSG.required('Kết quả')
-    put(errors, 'closedAt', timeError('Thời điểm đóng', cmd.closedAt, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.latestAt, minWhat: 'lần ghi gần nhất của ca này' }))
+type CaseUpdateInput = { action: string; observedAt: string; temperatureC: number | null; progress: string; description: string; diagnosis: string; outcome?: string }
+
+/** Lần cập nhật có ghi theo dõi không (D58): Giữ trạng thái, hoặc có nhập mô tả, diễn biến hay thân nhiệt. */
+export function hasFollowUp(cmd: Pick<CaseUpdateInput, 'action' | 'description' | 'progress' | 'temperatureC'>): boolean {
+  return cmd.action === 'KEEP' || cmd.description.trim() !== '' || cmd.progress !== '' || cmd.temperatureC !== null
+}
+
+/**
+ * Popup "Cập nhật ca bệnh" (D58). Thời điểm dùng chung cho lần theo dõi, ngày mạn tính và lúc đóng ca nên luôn được
+ * kiểm (không tương lai, không trước bản ghi mới nhất của ca). Có phần theo dõi thì cần cả diễn biến và mô tả (D35).
+ */
+export function statusErrors(cmd: CaseUpdateInput, ctx: { now: string; entryDate?: string; latestAt?: string }): FieldErrors {
+  const errors = observationErrors('Thời điểm', { time: cmd.observedAt, temperatureC: cmd.temperatureC }, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.latestAt, minWhat: 'lần ghi gần nhất của ca này' })
+  if (hasFollowUp(cmd)) {
+    if (!cmd.progress) errors.progress = MSG.required('Diễn biến')
+    put(errors, 'description', textError('Mô tả', cmd.description, { required: true, max: 1000 }))
   }
+  put(errors, 'diagnosis', textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }))
+  if (cmd.action === 'CLOSE' && !cmd.outcome) errors.outcome = MSG.required('Kết quả')
   return errors
 }
 
