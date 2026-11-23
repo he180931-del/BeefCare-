@@ -780,3 +780,23 @@ TuanPQ (chủ FE-09) chốt trong phiên: "xóa trường này, ko ý nghĩa vì
 3. Dữ liệu cũ không xóa: cột `batch_no` giữ nguyên (không migration). API `POST /vaccinations` và `/vaccinations/{id}/correction` vẫn nhận `batchNo` tùy chọn (≤ 50 ký tự) để tương thích; frontend không gửi nữa, nên sửa bản ghi giữ nguyên số lô cũ trong DB.
 
 Đi kèm: `VaccinationCommandService` bỏ kiểm "bắt buộc số lô khi ON_FARM", giữ giới hạn 50 ký tự khi có gửi. Không đổi route hay hình dạng response. Spec FE-09 đã cập nhật: bảng dữ liệu, R-09-08, UC ghi tiêm / sửa, popup ghi tiêm (mục 3), bảng hồ sơ và Lịch sử tiêm, popup sửa, hợp đồng A6, MSG-FE09-05, TC-09-13. "Số lô" của nhập kho thức ăn (FE-23) không thuộc quyết định này.
+
+### D45 — FE-06 / FE-12: bê sinh tại trại – bố mẹ chỉ đọc và bê không sống (23/11/2026)
+
+AnNT (chủ FE-06) chốt trong phiên ngày 22–23/11/2026: theo SRS (UC-FE06-01 bước 4, AF1, GBR-31, GBR-93) và R-06-18, dữ liệu sinh của bê sinh tại trại lấy từ lần đẻ và **chỉ đọc** ở phiếu nhập.
+
+1. **Bố mẹ chỉ đọc.**
+   - Mẹ = bò mẹ của lần đẻ.
+   - Bố = đực giống / nguồn tinh của lần phối liên kết thai. Không có thì "Không rõ" (R-12-12).
+   - Gỡ lệnh `POST /pending-calves/{calfId}/parentage`: route trả 405 cho client cũ và không còn trong OpenAPI. Màn SCR-25 không còn ô chọn bò mẹ, bò bố, nguồn tinh.
+   - Phiếu chỉ chọn kết quả bê nguồn, không tạo dòng bê trực tiếp thiếu lần đẻ. Payload phiếu không được ghi đè bố mẹ hoặc dữ liệu sinh từ nguồn.
+   - Ghi sai bố mẹ thì sửa bản ghi nguồn: lần phối hoặc lần đẻ theo FE-11 / FE-12 (R-12-15, có lý do, version). Không sửa ở phiếu nhập.
+2. **Dữ liệu cũ không xóa.**
+   - Cột `assigned_dam_id`, `assigned_sire_id`, `assigned_sire_source`, `assigned_external_sire_code` của `calf_outcome` giữ nguyên, không migration.
+   - Backend thôi đọc các cột này khi hiện bê chờ và khi ghi sổ.
+   - Bò đã đăng ký trước đây giữ nguyên cha mẹ đã lưu trên hồ sơ bò.
+3. **Bê sinh ra nhưng không sống** có ba trường hợp, không thêm trạng thái mới:
+   - **Chết khi sinh**: ghi ở lần đẻ, kết quả bê `STILLBORN` (FE-12 §3.5). Giới tính được "Không rõ", không cân bắt buộc. Không bao giờ đăng ký, không tạo hồ sơ bò, không vào danh sách bê chờ (R-06-19, MSG-FE06-04). Lần đẻ vẫn đóng thai CALVED.
+   - **Sống lúc sinh, chết trước khi đăng ký**: ở danh sách bê chờ (SCR-25), "Đánh dấu chết trước đăng ký", bắt buộc lý do (A12, R-06-20, R-12-13). Kết quả bê **giữ LIVE**, trạng thái đăng ký `DIED_BEFORE_REGISTRATION`, REM-09 được giải quyết. Không tạo hồ sơ bò, không lập phiếu xuất. Không hoàn tác được nên phải qua hộp thoại xác nhận.
+   - **Đã đăng ký rồi chết**: là bò trong đàn, ghi bằng phiếu xuất loại chết (FE-13) như mọi con bò khác.
+   - Sửa nhầm "chết khi sinh" ↔ "sống" chỉ làm được ở lần đẻ khi bê chưa đăng ký và chưa đánh dấu chết trước đăng ký (R-12-13, R-12-15).
