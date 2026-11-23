@@ -12,8 +12,9 @@ import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
 import DeathNoticeDialog from './DeathNoticeDialog'
 import HealthTimelineSource from './HealthTimelineSource'
-import { HealthStateBadge, Meta, useCanRecord, useHealthDialog, useToast } from './healthUi'
+import { HealthStateBadge, Meta, useCanRecord, useHealthDialog, useIsFarmOwner, useToast } from './healthUi'
 import OpenCaseDialog from './OpenCaseDialog'
+import ReopenCaseDialog from './ReopenCaseDialog'
 import TreatmentDialog from './TreatmentDialog'
 import UpdateCaseDialog from './UpdateCaseDialog'
 
@@ -22,11 +23,13 @@ const DIALOG_NOTES: Record<string, string> = {
   'open-case': 'Mở ca mới cho một vấn đề mới. Diễn biến của ca đang có ghi ở "Cập nhật ca bệnh".',
   treatment: 'Hộp thoại ghi 1 lần điều trị (Chủ trại, Quản lý). Thuốc lấy từ danh mục; liều, đường dùng và số ngày ngưng được điền sẵn, có thể sửa. Hết ngưng = ngày dùng cuối + số ngày ngưng, dùng để tính ngày được xuất bán. Ca mạn tính hiện thêm lưu ý điều trị dài ngày.',
   'update-case': 'Ghi diễn biến và (nếu cần) đổi trạng thái ca trong một lần lưu.',
+  reopen: 'Mở lại ca đã đóng Khỏi / Chết / Mất tích (Chết / Mất tích: chỉ Chủ trại). Ca đóng do xuất đàn không mở lại được.',
   correct: 'Hộp thoại sửa hoặc hủy 1 lần điều trị hoặc theo dõi (Chủ trại, Quản lý). Lần ghi mở ca chỉ sửa, không hủy.',
 }
 
 export default function HealthProfileTab({ cattleCode }: { cattleCode: string }) {
   const canRecord = useCanRecord()
+  const owner = useIsFarmOwner()
   const demo = useDemoState()
   const dialog = useHealthDialog()
   const [params] = useSearchParams()
@@ -50,6 +53,9 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const saved = (message: string) => { showToast(message); dialog.close(); refetch() }
 
   const target: HealthCaseCard | undefined = activeCases.find((c) => c.caseCode === dialog.caseCode) ?? activeCases[0]
+  // D58: ca Khỏi mở lại khi bò còn nhận sự kiện; ca Chết / Mất tích chỉ Chủ trại mở lại, khi bò còn trong đàn (phiếu chờ xác nhận bị bác).
+  const canReopen = (c: HealthCaseCard) => canEdit && !!c.outcome && c.outcome !== 'CLOSED_BY_EXIT' && (c.outcome === 'RECOVERED' ? !pendingExit : owner)
+  const reopening = previousCases.find((c) => c.caseCode === dialog.caseCode)
   const entry: HealthTimelineRow | undefined = timeline.find((r) => String(r.id) === dialog.entryId) ?? timeline.find((r) => r.type === 'TREATMENT' && r.status === 'VALID')
   const openDialog = (name: string, caseCode?: string) => dialog.open(name, caseCode ? { case: caseCode } : {})
   const openCaseButton = canAdd && <Button type="button" variant="primary" onClick={() => openDialog('open-case')}><Icon name="circle-plus" size={16} /> Mở ca sức khỏe</Button>
@@ -80,13 +86,14 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
           <Card variant="panel" title="Các ca trước">
             {previousCases.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có ca nào đã đóng.</p> : (
               <Table stack={false}>
-                <thead><tr><Th>Mã ca</Th><Th>Dấu hiệu</Th><Th>Kết quả</Th></tr></thead>
+                <thead><tr><Th>Mã ca</Th><Th>Dấu hiệu</Th><Th>Kết quả</Th>{canEdit && <Th><span className="sr-only">Thao tác</span></Th>}</tr></thead>
                 <tbody>
                   {previousCases.map((c) => (
                     <tr key={c.id}>
                       <Td className="font-medium">{c.caseCode}</Td>
                       <Td>{c.signs}</Td>
                       <Td>{c.outcome ? OUTCOME_LABEL[c.outcome] : '—'} · {fmtMonth(c.closedAt)}</Td>
+                      {canEdit && <Td>{canReopen(c) && <Button type="button" variant="link" className="whitespace-nowrap text-[13px]" onClick={() => openDialog('reopen', c.caseCode)}>Mở lại ca</Button>}</Td>}
                     </tr>
                   ))}
                 </tbody>
@@ -105,6 +112,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
       {active === 'update-case' && canAdd && options && target && (
         <UpdateCaseDialog key={target.id} card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={(message, result) => { saved(message); if (result.deathVoucher) setNotice(result.deathVoucher) }} />
       )}
+      {active === 'reopen' && reopening && canReopen(reopening) && <ReopenCaseDialog card={reopening} cattleCode={cattle.code} onClose={dialog.close} onSaved={saved} />}
       {active === 'correct' && canEdit && options && entry && <CorrectRecordDialog row={entry} profile={profile} options={options} onClose={dialog.close} onSaved={saved} />}
       {notice && <DeathNoticeDialog voucher={notice} onClose={() => setNotice(null)} />}
       {toast}

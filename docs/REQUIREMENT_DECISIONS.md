@@ -915,3 +915,12 @@ TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải 
 2. Trong 30,0–45,0 nhưng ngoài **35,0–43,0 °C** → popup "Kiểm tra lại thân nhiệt" (MSG-FE10-06a) với nút "Kiểm tra lại" / "Xác nhận lưu". Đây là bước trên giao diện; API không thêm trường.
 3. Để trống → vẫn lưu. Sửa ô thân nhiệt thì lỗi cũ của ô biến mất (trước đây lỗi đỏ còn sau khi xóa trống ô).
 4. Áp dụng ở Mở ca sức khỏe, Cập nhật ca bệnh, Sửa bản ghi theo dõi. Không làm khoảng tham chiếu theo nhóm bò.
+
+### D58 — FE-10 / FE-13: mở lại ca sức khỏe đã đóng; bác phiếu chết / mất thì mở lại ca (23/11/2026)
+
+TuanPQ duyệt đợt 4 của bản đánh giá FE-10; chủ FE-13 đồng ý. Trước đây ca đã đóng không mở lại được (đóng nhầm phải mở ca mới, lịch sử bị tách), và bác phiếu chết / mất để bò ACTIVE nhưng ca vẫn ghi "Chết".
+
+1. **Mở lại ca** (FE-10, nút ở bảng "Các ca trước", popup lý do bắt buộc ≤ 500): ca về Đang mở, xóa kết quả / ngày đóng / người xác nhận / "theo dõi dài hạn từ"; lưu Record Revision hành động `REOPEN` và nhật ký `HEALTH_CASE_REOPEN`.
+2. Điều kiện: **Khỏi** → bò còn nhận sự kiện; **Chết / Mất tích** → bò còn trong đàn, phiếu PENDING của ca bị bác (lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận → bò EXITED → MSG-COM-13; **CLOSED_BY_EXIT** → không bao giờ (MSG-COM-05). Ca Khỏi: Owner và Manager (MANAGE_HEALTH); ca Chết / Mất tích: **chỉ Owner** vì phải bác phiếu xuất (MANAGE_EXIT_VOUCHERS, GBR-34) – TuanPQ chốt.
+3. **Bác phiếu chết / mất PENDING** (FE-13) → ca nguồn mở lại cùng lý do, thông báo MSG-FE13-10. Thay "ca giữ kết quả" của GBR-95 / R-13-09.
+4. API `POST …/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trả thêm `version` cho ca đã đóng. Không migration. Một lớp dùng chung `HealthCaseReopener` cho cả hai đường.

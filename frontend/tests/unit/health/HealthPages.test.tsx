@@ -83,6 +83,19 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('D58: mở lại ca đã đóng từ bảng Các ca trước, lý do bắt buộc', async () => {
+    const user = userEvent.setup()
+    renderTab('BC-000154')
+    await user.click(await screen.findByRole('button', { name: 'Mở lại ca' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Mở lại ca' })
+    await user.click(within(dialog).getByRole('button', { name: 'Mở lại ca' }))
+    expect(await within(dialog).findByText('Lý do là bắt buộc.')).toBeInTheDocument()
+    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do mở lại' }), 'Sưng khớp tái phát')
+    await user.click(within(dialog).getByRole('button', { name: 'Mở lại ca' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã mở lại ca HC-0411.')
+    expect(screen.queryByRole('button', { name: 'Mở lại ca' })).not.toBeInTheDocument()
+  })
+
   it('mở ca mới qua ?m=open-case', async () => {
     const user = userEvent.setup()
     renderTab('BC-000231', '&m=open-case')

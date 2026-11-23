@@ -49,12 +49,14 @@ public class HealthCareCommandService {
     private final FarmClock clock;
     private final CattleStateService cattleState;
     private final HerdExitVoucherService exits;
+    private final HealthCaseReopener reopener;
 
     public HealthCareCommandService(FarmAccessService access, CattleGuardService cattleGuard, IdempotencyCommandService idempotency,
                                    AuditService audit, RecordRevisionService revisions, FarmClock clock,
-                                   CattleStateService cattleState, HerdExitVoucherService exits) {
+                                   CattleStateService cattleState, HerdExitVoucherService exits, HealthCaseReopener reopener) {
         this.access = access; this.cattleGuard = cattleGuard; this.idempotency = idempotency;
         this.audit = audit; this.revisions = revisions; this.clock = clock; this.cattleState = cattleState; this.exits = exits;
+        this.reopener = reopener;
     }
 
     // ------------------------------------------------------------------ A3 open / add an observation
@@ -203,6 +205,43 @@ public class HealthCareCommandService {
         after.put("action", action); after.put("before", before);
         audit.log(ctx, "HEALTH_CASE_STATUS", "HealthCase", caseId, after);
         return result(healthCase, cattle, observationId, pendingVoucherId);
+    }
+
+    // ------------------------------------------------------------------ A5b mở lại ca đã đóng (D58)
+
+    public CareDtos.HealthCaseResult reopen(Long farmId, Long caseId, String key, CareDtos.ReopenCase request) {
+        return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "HEALTH_CASE_REOPEN", key,
+            Map.of("caseId", caseId, "request", request), CareDtos.HealthCaseResult.class, () -> reopenInCommand(farmId, caseId, request));
+    }
+
+    /**
+     * D58: ca đóng Khỏi mở lại khi bò còn ghi nhận được; ca đóng Chết / Mất tích chỉ mở lại khi bò còn trong đàn (phiếu
+     * chết / mất còn chờ xác nhận thì bác phiếu cùng giao dịch) và chỉ Chủ trại được làm (như bác phiếu, GBR-34); ca đóng
+     * do xuất đàn không bao giờ mở lại.
+     */
+    @Transactional
+    CareDtos.HealthCaseResult reopenInCommand(Long farmId, Long caseId, CareDtos.ReopenCase req) {
+        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_HEALTH);
+        HealthCase healthCase = caseForFarm(farmId, caseId);
+        VersionGuard.requireExpected(healthCase.getVersion(), req == null ? null : req.expectedVersion());
+        if (req == null) throw DomainException.required("reason");
+        requireText(req.reason(), "reason", 500);
+        reopener.assertReopenable(healthCase);
+        String outcome = upper(healthCase.getOutcome());
+        Cattle cattle;
+        if ("DIED".equals(outcome) || "MISSING".equals(outcome)) {
+            // Bác phiếu chết / mất là quyền của Chủ trại → Quản lý nhận MSG-COM-01.
+            access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
+            // Bò đang "Chờ xác nhận chết / mất" vẫn ACTIVE; phiếu đã xác nhận thì bò EXITED → MSG-COM-13.
+            cattle = cattleGuard.lockCattle(farmId, healthCase.getCattle().getId());
+            cattleGuard.assertActive(cattle);
+            exits.dismissForCaseReopen(ctx, healthCase, req.reason().trim());
+        } else {
+            cattle = cattleGuard.lockWritable(farmId, healthCase.getCattle().getId());
+        }
+        reopener.reopen(ctx, healthCase, req.reason().trim(), "HEALTH_CASE");
+        em.flush();
+        return result(healthCase, cattle, null, null);
     }
 
     // ------------------------------------------------------------------ A6 treatment

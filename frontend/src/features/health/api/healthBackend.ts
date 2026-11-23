@@ -13,7 +13,7 @@ import {
 import type {
   CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
   HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile, HealthState, HealthTimelineRow, Medicine, OpenCaseCommand, PendingExit, Progress, RecordResult,
-  Severity, StatusCommand, TreatmentCommand, TreatmentResult, TreatmentRoute, VoidEntryCommand,
+  ReopenCaseCommand, Severity, StatusCommand, TreatmentCommand, TreatmentResult, TreatmentRoute, VoidEntryCommand,
 } from '../types'
 
 /**
@@ -249,6 +249,12 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     },
 
     // A7 / A8 hủy.
+    // A5b (D58): mở lại ca đã đóng; ca Chết / Mất tích thì backend bác luôn phiếu chờ xác nhận.
+    async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
+      assertValid(reasonErrors(cmd.reason))
+      return run(async () => result(await transport.command(path(`/health-cases/${caseId}/reopen`), toVoidRequest(cmd)), 'RESUMED', cases.get(caseId)))
+    },
+
     async voidEntry(entryId: number, cmd: VoidEntryCommand): Promise<RecordResult> {
       const entry = entryOf(entryId)
       if (entry.type === 'OPENING') throw new Error(MSG.voidOpening)

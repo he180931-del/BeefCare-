@@ -124,7 +124,7 @@ export function mapHealthCaseCard(raw: unknown, cattleCode: string, now: string,
   const card: HealthCaseCard = closed ? {
     id, caseCode, status: 'CLOSED', severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns, suspectedContagious: false,
     openedAt: `${textValue(c.openedDate)}T00:00`, openedDate: textValue(c.openedDate), outcome: pickOptional(OUTCOMES, c.outcome), closedAt: text(c.closedDate) ? `${textValue(c.closedDate)}T00:00` : undefined,
-    treatmentCount: 0, day: 0, withdrawalEndDate: null, latestEntryAt: `${textValue(c.openedDate)}T00:00`, version: 0,
+    treatmentCount: 0, day: 0, withdrawalEndDate: null, latestEntryAt: `${textValue(c.openedDate)}T00:00`, version: num(c.version) ?? 0,
   } : {
     id, caseCode, status: pick(STATUSES, c.status, 'OPEN'), severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns,
     suspectedContagious: c.suspectedContagious === true, openedAt, openedDate: textValue(c.openedDate, dateOf(openedAt)), chronicSince: text(c.chronicSince),

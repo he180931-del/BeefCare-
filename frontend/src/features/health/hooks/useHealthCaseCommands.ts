@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { healthApi } from '../api/healthApi'
-import type { CorrectEntryCommand, OpenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
+import type { CorrectEntryCommand, OpenCaseCommand, ReopenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
 
 /** Command boundary used by health dialogs; components never reach the API adapter directly. */
 export function useHealthCaseCommands() {
@@ -10,5 +10,6 @@ export function useHealthCaseCommands() {
   const updateStatus = useCallback((caseId: number, command: StatusCommand) => healthApi.updateStatus(caseId, command), [])
   const correctEntry = useCallback((entryId: number, command: CorrectEntryCommand) => healthApi.correctEntry(entryId, command), [])
   const voidEntry = useCallback((entryId: number, command: VoidEntryCommand) => healthApi.voidEntry(entryId, command), [])
-  return { now, openCase, recordTreatment, updateStatus, correctEntry, voidEntry }
+  const reopenCase = useCallback((caseId: number, command: ReopenCaseCommand) => healthApi.reopenCase(caseId, command), [])
+  return { now, openCase, recordTreatment, updateStatus, correctEntry, voidEntry, reopenCase }
 }

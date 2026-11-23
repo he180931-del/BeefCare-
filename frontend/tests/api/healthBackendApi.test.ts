@@ -206,6 +206,16 @@ test('TC-10-08/09/10: điều trị gửi administeredAt giờ trại, người 
   assert.deepEqual([second.performerId, second.performerName, second.withdrawalDays, second.veterinaryAdvice], [undefined, 'BS. Hùng', null, 'Uống nhiều nước'])
 })
 
+test('D58: mở lại ca đã đóng gửi version và lý do tới /reopen; thiếu lý do báo dưới ô, không gọi API', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/331/reopen': { id: 331, caseCode: 'HC-000331', status: 'OPEN', version: 3, cattleCode: 'BC-101', healthState: 'MONITORING' } })
+  const empty = await rejection(a.reopenCase(331, { expectedVersion: 2, reason: '' }))
+  assert.deepEqual((empty as HealthValidationError).errors, { reason: 'Lý do là bắt buộc.' })
+  assert.equal(calls.filter((c) => c.method === 'POST').length, 0)
+  const r = await a.reopenCase(331, { expectedVersion: 2, reason: ' Đóng nhầm ' })
+  assert.deepEqual(post(calls, '/health-cases/331/reopen'), { expectedVersion: 2, reason: 'Đóng nhầm' })
+  assert.deepEqual([r.status, r.kind, r.version], ['OPEN', 'RESUMED', 3])
+})
+
 test('Người thực hiện trùng họ tên với hai thành viên → gửi tên, không gán nhầm id', async () => {
   const { api: a, calls } = api({
     ...baseRoutes(),

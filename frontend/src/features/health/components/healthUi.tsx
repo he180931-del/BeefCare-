@@ -15,6 +15,12 @@ export function useCanRecord() {
   return useCanRecordCare()
 }
 
+/** Chủ trại (D58: mở lại ca Chết / Mất tích vì phải bác phiếu xuất); không có phiên thì không áp quyền theo vai trò. */
+export function useIsFarmOwner() {
+  const session = useSession()
+  return session == null || session.role === 'OWNER'
+}
+
 /** Hộp thoại mở bằng `?m=<tên>`; `case` / `entry` chọn ca hoặc bản ghi cần thao tác. */
 export function useHealthDialog() {
   const [params, setParams] = useSearchParams()

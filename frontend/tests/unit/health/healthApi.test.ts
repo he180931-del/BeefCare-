@@ -182,6 +182,21 @@ describe('đóng ca', () => {
     expect(row).toMatchObject({ type: 'FOLLOW_UP', progress: 'UNCHANGED' })
   })
 
+  it('D58: mở lại ca đóng Chết bác phiếu chờ xác nhận, bò lại nhận sự kiện mới; lý do bắt buộc', async () => {
+    const { api } = setup()
+    const card = (await api.getProfile('BC-000203')).activeCases[0]
+    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED' }))
+    const noReason = await rejection(api.reopenCase(card.id, { expectedVersion: closed.version, reason: ' ' }))
+    expect((noReason as HealthValidationError).errors.reason).toBe('Lý do là bắt buộc.')
+    const reopened = await api.reopenCase(card.id, { expectedVersion: closed.version, reason: 'Bò chưa chết' })
+    expect(reopened).toMatchObject({ status: 'OPEN', kind: 'RESUMED' })
+    const after = await api.getProfile('BC-000203')
+    expect(after.pendingExit).toBeNull()
+    expect(after.activeCases.map((c) => c.id)).toContain(card.id)
+    await api.openCase('BC-000203', { observedAt: NOW, observerId: 1, temperatureC: null, signs: 'Ho', diagnosis: '', suspectedContagious: false, severity: 'MILD' })
+    await rejection(api.reopenCase(card.id, { expectedVersion: reopened.version, reason: 'Lần nữa' }))
+  })
+
   it('mất tích tạo phiếu OTHER với lý do Mất tích', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000017')).activeCases[0]

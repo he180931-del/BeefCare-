@@ -114,6 +114,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | R-10-12 | Hủy điều trị cuối của ca OPEN → sức khỏe về Theo dõi nếu không còn ca OPEN nào có điều trị. | UC-05 AF2 |
 | R-10-13 | Không sửa / hủy bản ghi thuộc ca CLOSED_BY_EXIT. | UC-05 PRE-2 |
 | R-10-14 | Owner và Manager ghi, đổi trạng thái, sửa, hủy (D41); Technician xem. | GBR-08 |
+| R-10-15 | **Mở lại ca đã đóng** (D58), bắt buộc lý do (≤ 500), lưu lịch sử (Record Revision, hành động REOPEN): ca về OPEN, xóa kết quả, ngày / lúc đóng, người xác nhận và "theo dõi dài hạn từ". Khỏi → được khi bò còn nhận sự kiện (không EXITED, không chờ xác nhận chết / mất). Chết / Mất tích → **chỉ Owner** (như bác phiếu, GBR-34; Manager → MSG-COM-01), khi bò còn trong đàn; phiếu chết / mất PENDING của ca bị bác (DISMISSED, lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận thì bò EXITED → MSG-COM-13. CLOSED_BY_EXIT → không bao giờ (MSG-COM-05). | D58, GBR-95 |
 
 ---
 
@@ -257,6 +258,7 @@ Gộp vào popup Cập nhật ca bệnh (D54).
 | A3 | Mở ca | `cattleId, observedAt, temperature?, signs, suspectedDiagnosis?, contagious, severity, observerId?, vaccinationId?` + `Idempotency-Key` (`existingCaseId` vẫn được backend nhận nhưng giao diện không dùng – D54) | `{caseId, caseCode, healthState}` | COM-06, FE10-06, COM-07, COM-15, COM-13, COM-17, COM-05, COM-02 | `POST /api/farms/{farmId}/health-cases` |
 | A4 | Ghi theo dõi (giao diện không dùng từ D54 – thay bằng A5) | `observedAt, temperature?, progress, description, version` + `Idempotency-Key` | Ca | COM-06, FE10-06, FE10-07, COM-05 | `POST …/health-cases/{caseId}/observations` |
 | A5 | Cập nhật ca bệnh (D54) | `action: KEEP\|TO_CHRONIC\|TO_OPEN\|CLOSE, observedAt?, temperatureC?, latestProgress? (mô tả), progress? (IMPROVED\|UNCHANGED\|WORSENED), suspectedDiagnosis?, contagious?, outcome?, confirmedById?, version` + `Idempotency-Key`. Phần theo dõi bắt buộc khi KEEP hoặc có `latestProgress` / `progress` / `temperatureC` – khi đó cần cả `latestProgress` và `progress`, không tự điền (D35). `observedAt` thiếu → `closedAt` (bản cũ) → hiện tại | `{case, healthState, observationId?, pendingExitVoucherId?}` | COM-06, FE10-06, COM-07, COM-15, FE10-07, COM-05, COM-13 | `POST …/health-cases/{caseId}/status` |
+| A5b | Mở lại ca đã đóng (D58) | `reason, expectedVersion` + `Idempotency-Key` | `{case, healthState}` | COM-06, COM-05, COM-13, COM-17 | `POST …/health-cases/{caseId}/reopen` |
 | A6 | Ghi điều trị | `medicineId, dose, route, administeredAt, courseDays?, withdrawalDays?, performerId? \| performerName?, vetAdvice?, version` + `Idempotency-Key` | `{treatmentId, withdrawalEnd, cattleWithdrawalUntil, healthState, caseStatus}` | COM-06, FE18-08, COM-07, FE10-07, COM-05, COM-13 | `POST …/health-cases/{caseId}/treatments` |
 | A7 | Sửa / hủy điều trị | `changes?, reason, version` + `Idempotency-Key` | `{status, withdrawalBefore, withdrawalAfter, healthState}` | COM-06, FE10-07, COM-05, COM-13, COM-18 | `POST /api/farms/{farmId}/treatments/{id}/correction` · `/void` |
 | A8 | Sửa / hủy theo dõi | Như A7 | Như A7 | + FE10-13 (hủy quan sát mở ca), FE10-06 | `POST /api/farms/{farmId}/health-observations/{id}/correction` · `/void` |
@@ -283,6 +285,7 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | MSG-FE10-11 | Toast thành công | Đã {sửa/hủy} {loại bản ghi}. Thay đổi và lý do được giữ trong lịch sử. |
 | MSG-FE10-12 | Sau khi lưu | Cách ly thịt của {cattle_code} đổi từ {old_date} thành {new_date}. |
 | MSG-FE10-13 | Trong hộp thoại | Không thể hủy quan sát mở ca. Hãy sửa nó, hoặc đóng ca kèm lý do. |
+| MSG-FE10-14 | Toast thành công | Đã mở lại ca {case_code}. Lý do được lưu trong lịch sử. (D58) |
 
 ---
 
@@ -319,6 +322,10 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | TC-10-27 | Popup Cập nhật ca bệnh | Giữ trạng thái để trống; đổi trạng thái chỉ nhập thân nhiệt; Đóng ca có mô tả không chọn diễn biến; Đóng ca phần theo dõi trống | Lỗi dưới ô Diễn biến và Mô tả / lỗi dưới Diễn biến và Mô tả / lỗi dưới Diễn biến / lưu được, không tạo theo dõi; lưu đúng diễn biến và thân nhiệt đã nhập | U, H | D35, D54 |
 | TC-10-28 | A5 | Có `latestProgress`, thiếu `progress` | 400 MSG-COM-06 `{field: progress}`; ca không đổi; backend không tự điền | H | D35 |
 | TC-10-29 | Owner, trại ACTIVE | Mở ca, cập nhật ca, ghi điều trị, đóng ca, sửa / hủy điều trị | Thành công như Manager; người ghi = Owner | H, I, E | R-10-14, D41 |
+| TC-10-30 | Ca đóng Khỏi | Mở lại không lý do / có lý do | MSG-COM-06 dưới ô / ca OPEN, sức khỏe Theo dõi, có revision REOPEN; mở lại lần nữa → MSG-COM-05 | U, I, E | R-10-15 |
+| TC-10-31 | Ca đóng Chết, phiếu PENDING | Manager / Owner mở lại có lý do | Manager: 403 MSG-COM-01, không có nút. Owner: ca OPEN; phiếu DISMISSED (lý do = lý do mở lại); REM-12 giải quyết; bò nhận sự kiện mới | I | R-10-15 |
+| TC-10-32 | Ca CLOSED_BY_EXIT | Mở lại | MSG-COM-05; không có nút trên giao diện | I, E | R-10-15 |
+| TC-10-33 | Phiếu chết / mất PENDING | Chủ trại bác phiếu (FE-13) | Ca nguồn OPEN; MSG-FE13-10 | I | R-10-15, R-13-09 |
 
 ---
 
@@ -328,7 +335,7 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 |---|---|---|---|
 | Q1 | "Diễn biến mới nhất" ở popup Cập nhật / Đóng ca có bắt buộc không? UC-03 E1 nói thiếu "progress, description" → MSG-COM-06 | Bắt buộc khi Giữ trạng thái; không bắt buộc khi Đóng / đổi trạng thái | Theo đề xuất; D54 giữ nguyên quy tắc trong popup Cập nhật ca bệnh |
 | Q2 | UC-FE10-01 không có đặc tả Part II | Theo SCR-36, SCR-37 | Theo SCR-36, SCR-37 |
-| Q3 | Code có "sửa việc đóng ca" (closure-correction) – SRS không có | Bỏ, hoặc bổ sung UC vào SRS | Bỏ: không làm chức năng sửa việc đóng ca (không có trong SRS); gỡ route hiện có khi làm FE-10 |
+| Q3 | Code có "sửa việc đóng ca" (closure-correction) – SRS không có | Bỏ, hoặc bổ sung UC vào SRS | Bỏ: không làm chức năng sửa việc đóng ca (không có trong SRS); gỡ route hiện có khi làm FE-10. Đóng nhầm xử lý bằng "Mở lại ca" (D58, R-10-15) |
 | Q4 | Chẩn đoán nghi ngờ có danh mục chuẩn không? | Không – chữ tự do + gợi ý từ dữ liệu trại | Theo đề xuất |
 
 ---
@@ -344,3 +351,4 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 23/11/2026 | 28/10/2026 | D54: gộp popup Ghi theo dõi và Cập nhật / Đóng ca thành "Cập nhật ca bệnh" (một thời điểm, có thân nhiệt; UC-FE10-03, SCR-37 dòng 7, mục 6, A5); popup Mở ca bỏ "Thêm vào ca đang có", nhắc và dẫn sang ca đang có (UC-FE10-02, R-10-01, A3); TC-10-04/05/07/27/29 | Tuấn |
 | 23/11/2026 | 28/10/2026 | D55: ghi điều trị cho ca CHRONIC có ô "Chuyển ca về Đang mở" (mặc định chọn; bỏ chọn = điều trị duy trì, ca giữ CHRONIC) – R-10-06, R-10-09, popup Ghi điều trị dòng 9, MSG-FE10-10, TC-10-10. D56: giao diện tiếng Việt cho trạng thái ca – Đang mở / Theo dõi dài hạn / Đã đóng (thay OPEN / CHRONIC / CLOSED và "mạn tính"); hành động "Chuyển theo dõi dài hạn", "Chuyển về đang mở" | Tuấn |
 | 23/11/2026 | 28/10/2026 | D57: thân nhiệt chặn ngoài 30,0–45,0 °C (số gõ nhầm); ngoài 35,0–43,0 °C hỏi xác nhận (MSG-FE10-06a); áp dụng Mở ca, Cập nhật ca bệnh, Sửa bản ghi theo dõi – R-10-04, MSG-FE10-06, TC-10-01 | Tuấn |
+| 23/11/2026 | 28/10/2026 | D58: "Mở lại ca" cho ca đã đóng Khỏi / Chết / Mất tích (nút ở bảng "Các ca trước", popup lý do bắt buộc) – R-10-15, A5b, MSG-FE10-14, TC-10-30..33; ca đã đóng trả `version` trong A2 | Tuấn |

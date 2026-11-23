@@ -9,6 +9,7 @@ export function statusToast(r: HealthCaseResult): string {
   if (r.kind === 'CLOSED') return `Đã đóng ca ${r.caseCode} với kết quả ${OUTCOME_LABEL[r.outcome ?? 'RECOVERED']}.`
   if (r.kind === 'CHRONIC') return `Ca ${r.caseCode} đã chuyển sang theo dõi dài hạn.`
   if (r.kind === 'REOPENED') return `Ca ${r.caseCode} đã chuyển về đang mở.`
+  if (r.kind === 'RESUMED') return `Đã mở lại ca ${r.caseCode}. Lý do được lưu trong lịch sử.`
   return `Đã cập nhật ca ${r.caseCode}.`
 }
 

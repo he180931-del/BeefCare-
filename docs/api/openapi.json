@@ -5323,6 +5323,58 @@
         }
       }
     },
+    "/api/farms/{farmId}/health-cases/{caseId}/reopen" : {
+      "post" : {
+        "tags" : [ "health-care-command-resource" ],
+        "operationId" : "reopen_1",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "caseId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReopenCase"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HealthCaseResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/health-cases/{caseId}/observations" : {
       "post" : {
         "tags" : [ "health-care-command-resource" ],
@@ -18630,6 +18682,18 @@
           }
         }
       },
+      "ReopenCase" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
       "FollowUp" : {
         "type" : "object",
         "properties" : {
@@ -21963,13 +22027,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -21988,18 +22052,18 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
           },
           "empty" : {
             "type" : "boolean"
@@ -22016,32 +22080,32 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "unpaged" : {
-            "type" : "boolean"
-          },
-          "paged" : {
-            "type" : "boolean"
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
+          "paged" : {
+            "type" : "boolean"
+          },
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
       "SortObject" : {
         "type" : "object",
         "properties" : {
+          "sorted" : {
+            "type" : "boolean"
+          },
           "empty" : {
             "type" : "boolean"
           },
           "unsorted" : {
-            "type" : "boolean"
-          },
-          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -24004,6 +24068,10 @@
             "items" : {
               "$ref" : "#/components/schemas/HealthTimelineRow"
             }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -24964,13 +25032,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
+          "headerName" : {
+            "type" : "string"
+          },
           "parameterName" : {
             "type" : "string"
           },
           "token" : {
-            "type" : "string"
-          },
-          "headerName" : {
             "type" : "string"
           }
         }

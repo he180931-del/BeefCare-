@@ -222,8 +222,10 @@ export interface CorrectEntryCommand {
 }
 
 export interface VoidEntryCommand { expectedVersion?: number; reason: string }
+/** D58: mở lại ca đã đóng Khỏi / Chết / Mất tích; lý do bắt buộc. */
+export interface ReopenCaseCommand { expectedVersion?: number; reason: string }
 
-export type CaseResultKind = 'OPENED' | 'KEPT' | 'CHRONIC' | 'REOPENED' | 'CLOSED'
+export type CaseResultKind = 'OPENED' | 'KEPT' | 'CHRONIC' | 'REOPENED' | 'CLOSED' | 'RESUMED'
 export interface HealthCaseResult {
   id: number
   caseCode: string

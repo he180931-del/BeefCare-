@@ -62,6 +62,8 @@ public final class CareDtos {
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
     public record VoidRecord(Integer expectedVersion, String reason) {}
+    /** D58: mở lại ca đã đóng (Khỏi / Chết / Mất tích); lý do bắt buộc, tối đa 500 ký tự. */
+    public record ReopenCase(Integer expectedVersion, String reason) {}
     /** A8: fields of a follow-up (or the opening observation) to correct; null = unchanged. */
     public record CorrectObservation(Integer expectedVersion, String reason, Instant observedAt, BigDecimal temperatureC,
                                      String signs, String progress, Long observerId) {}
@@ -245,7 +247,8 @@ public final class CareDtos {
                                  Long treatmentCount,Long linkedVaccinationId,Instant latestEntryAt,List<HealthTimelineRow> timeline,Integer version) {}
     /** A2 previous (CLOSED) case: code, opening signs, outcome and the month it was closed ({@code month} yyyy-MM). */
     public record PreviousHealthCase(Long id,String caseCode,String openingSigns,String diagnosis,String severity,LocalDate openedDate,
-                                     String outcome,LocalDate closedDate,String month,String confirmedBy,List<HealthTimelineRow> timeline) {}
+                                     String outcome,LocalDate closedDate,String month,String confirmedBy,List<HealthTimelineRow> timeline,
+                                     Integer version) {}
     /** A2: the PENDING loss voucher (DIED / MISSING) proposed from one of the cattle's cases and awaiting the Owner (GBR-26). */
     public record PendingHealthExit(Long voucherId,String code,String lossKind,LocalDate exitDate,Long caseId,String caseCode) {}
     public record HealthProfile(Long cattleId,String cattleCode,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,

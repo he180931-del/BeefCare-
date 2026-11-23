@@ -492,6 +492,78 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.withdrawalAfter").value(TODAY.minusDays(5).plusDays(14).toString()));
     }
 
+    /** D58: ca đóng Khỏi mở lại với lý do bắt buộc, lưu lịch sử; mở lại lần nữa (ca không còn đóng) → MSG-COM-05. */
+    @Test
+    void d58_aRecoveredCaseReopensWithAReasonAndKeepsTheRevision() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"RECOVERED\",\"closedAt\":\"" + hoursAgo(1) + "\"}")
+            .andExpect(status().isOk());
+        Integer version = versionOf(HealthCase.class, opened.id());
+        postJson("/health-cases/" + opened.id() + "/reopen", manager, "{\"expectedVersion\":" + version + ",\"reason\":\" \"}")
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.field").value("reason"));
+        postJson("/health-cases/" + opened.id() + "/reopen", manager, "{\"expectedVersion\":" + version + ",\"reason\":\"Đóng nhầm, bò còn sốt\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("OPEN"))
+            .andExpect(jsonPath("$.outcome").doesNotExist())
+            .andExpect(jsonPath("$.closedAt").doesNotExist())
+            .andExpect(jsonPath("$.healthState").value("MONITORING"));
+        em.flush(); em.clear();
+        assertThat(em.createQuery("select r from RecordRevision r where r.sourceType='HealthCase' and r.sourceId=:id", RecordRevision.class).setParameter("id", opened.id()).getResultList())
+            .singleElement().satisfies(r -> {
+                assertThat(r.getAction()).isEqualTo("REOPEN");
+                assertThat(r.getReason()).isEqualTo("Đóng nhầm, bò còn sốt");
+            });
+        postJson("/health-cases/" + opened.id() + "/reopen", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"reason\":\"Lần nữa\"}")
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
+    }
+
+    /** D58: chỉ Chủ trại mở lại ca đóng Chết; phiếu chết chờ xác nhận bị bác, REM-12 được giải quyết cùng giao dịch; bò lại nhận sự kiện mới. */
+    @Test
+    void d58_reopeningADiedCaseDismissesItsPendingVoucher() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"DIED\"}")
+            .andExpect(status().isOk());
+        postJson("/health-cases/" + opened.id() + "/reopen", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"reason\":\"Bò chưa chết\"}")
+            .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-COM-01"));
+        postJson("/health-cases/" + opened.id() + "/reopen", owner, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"reason\":\"Bò chỉ nằm li bì, chưa chết\"}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("OPEN"));
+        em.flush(); em.clear();
+        HerdExitVoucher voucher = em.createQuery("select v from HerdExitVoucher v where v.sourceHealthCase.id=:c", HerdExitVoucher.class).setParameter("c", opened.id()).getSingleResult();
+        assertThat(voucher.getStatus()).isEqualTo(ExitVoucherStatus.DISMISSED);
+        assertThat(voucher.getCloseReason()).isEqualTo("Bò chỉ nằm li bì, chưa chết");
+        assertThat(em.createQuery("select r from Reminder r where r.cattle.id=:c and r.ruleType=:rule", Reminder.class).setParameter("c", cow.getId()).setParameter("rule", HerdExitCheckService.REM_12).getResultList())
+            .singleElement().satisfies(r -> assertThat(r.getStatus()).isEqualTo("RESOLVED"));
+        postJson("/health-cases", manager, openBody(hoursAgo(1), "")).andExpect(status().isCreated());
+    }
+
+    /** D58: Chủ trại bác phiếu chết chờ xác nhận thì ca nguồn mở lại (bò không chết / mất), thông báo MSG-FE13-10. */
+    @Test
+    void d58_dismissingThePendingVoucherReopensTheSourceCase() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"MISSING\"}")
+            .andExpect(status().isOk());
+        em.flush(); em.clear();
+        HerdExitVoucher voucher = em.createQuery("select v from HerdExitVoucher v where v.sourceHealthCase.id=:c", HerdExitVoucher.class).setParameter("c", opened.id()).getSingleResult();
+        postJson("/exit-vouchers/" + voucher.getId() + "/dismiss", owner, "{\"reason\":\"Đã tìm thấy bò\",\"expectedVersion\":" + voucher.getVersion() + "}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message.code").value("MSG-FE13-10"));
+        em.flush(); em.clear();
+        HealthCase reopened = em.find(HealthCase.class, opened.id());
+        assertThat(reopened.getStatus()).isEqualTo("OPEN");
+        assertThat(reopened.getOutcome()).isNull();
+    }
+
+    /** D58 / R-10-13: ca đóng do xuất đàn không bao giờ mở lại. */
+    @Test
+    void d58_aCaseClosedByExitNeverReopens() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        HealthCase c = em.find(HealthCase.class, opened.id());
+        c.setStatus("CLOSED"); c.setOutcome("CLOSED_BY_EXIT"); c.setClosedDate(TODAY);
+        em.flush();
+        postJson("/health-cases/" + opened.id() + "/reopen", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"reason\":\"Thử\"}")
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
+    }
+
     @Test
     void tc10_15_closingAsMissingIsAnOtherVoucherWithTheMissingReason() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));

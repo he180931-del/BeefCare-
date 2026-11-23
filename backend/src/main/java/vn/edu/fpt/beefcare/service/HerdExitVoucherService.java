@@ -120,6 +120,7 @@ public class HerdExitVoucherService {
     private final RecordRevisionService revisions;
     private final VoucherPaymentService payments;
     private final HerdExitCheckService checks;
+    private final HealthCaseReopener reopener;
 
     public HerdExitVoucherService(
         FarmAccessService access,
@@ -143,7 +144,8 @@ public class HerdExitVoucherService {
         AuditService audit,
         RecordRevisionService revisions,
         VoucherPaymentService payments,
-        HerdExitCheckService checks
+        HerdExitCheckService checks,
+        HealthCaseReopener reopener
     ) {
         this.access = access;
         this.clock = clock;
@@ -167,6 +169,7 @@ public class HerdExitVoucherService {
         this.revisions = revisions;
         this.payments = payments;
         this.checks = checks;
+        this.reopener = reopener;
     }
 
     // ================================================================== queries
@@ -570,7 +573,10 @@ public class HerdExitVoucherService {
 
     // ================================================================== dismiss
 
-    /** Dismisses a PENDING death voucher: the cattle stays ACTIVE and the health case keeps its outcome (GBR-95). */
+    /**
+     * Bác phiếu chết / mất PENDING: bò vẫn ACTIVE (GBR-95). D58: bò không chết / mất nên ca sức khỏe nguồn (đóng Chết /
+     * Mất tích) được mở lại trong cùng giao dịch, cùng lý do bác.
+     */
     @Transactional
     public DismissResult dismiss(Long farmId, Long id, ExitVoucherRequests.Dismiss req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
@@ -583,20 +589,47 @@ public class HerdExitVoucherService {
         if (isBlank(reason)) {
             throw DomainException.required("reason");
         }
+        List<HerdExit> ls = markDismissed(ctx, farmId, v, reason.trim(), "EXIT_VOUCHER");
+        String cattleCode = ls.isEmpty() ? "" : ls.get(0).getCattle().getDisplayCode();
+        HealthCase source = v.getSourceHealthCase();
+        if (source != null && "CLOSED".equals(source.getStatus()) && HealthCaseReopener.REOPENABLE_OUTCOMES.contains(source.getOutcome())) {
+            reopener.reopen(ctx, source, reason.trim(), "EXIT_DISMISS");
+            healthCases.saveAndFlush(source);
+            return new DismissResult(detail(v), checks.message(MessageCodes.FE13_10, "voucher_code", v.getCode(), "cattle_code", cattleCode,
+                "case_code", source.getCaseCode()));
+        }
+        return new DismissResult(detail(v), checks.message(MessageCodes.FE13_04, "voucher_code", v.getCode(), "cattle_code", cattleCode));
+    }
+
+    /**
+     * D58: mở lại ca đóng Chết / Mất tích từ FE-10 thì bác phiếu PENDING của ca đó (nếu còn) trong cùng giao dịch, bỏ
+     * nhắc REM-12. Phiếu đã xác nhận thì bò đã rời đàn, bên gọi đã chặn trước.
+     *
+     * @param ctx        người mở lại ca
+     * @param healthCase ca nguồn của phiếu
+     * @param reason     lý do mở lại ca, dùng làm lý do bác phiếu
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void dismissForCaseReopen(FarmContext ctx, HealthCase healthCase, String reason) {
+        vouchers.findFirstBySourceHealthCaseIdAndStatusIn(healthCase.getId(), List.of(ExitVoucherStatus.PENDING))
+            .ifPresent(found -> markDismissed(ctx, ctx.farmId(), lock(ctx.farmId(), found.getId()), reason, "HEALTH_CASE_REOPEN"));
+    }
+
+    /** Chuyển phiếu PENDING và các dòng sang DISMISSED, bỏ nhắc REM-12 và ghi nhật ký. */
+    private List<HerdExit> markDismissed(FarmContext ctx, Long farmId, HerdExitVoucher v, String reason, String source) {
         List<HerdExit> ls = activeLines(v);
         for (HerdExit l : ls) {
             l.setStatus(ExitLineStatus.DISMISSED);
             lines.save(l);
         }
         v.setStatus(ExitVoucherStatus.DISMISSED);
-        v.setCloseReason(reason.trim());
+        v.setCloseReason(reason);
         v.setClosedBy(ctx.user());
         v.setClosedAt(clock.now());
         resolveReminder(farmId, v, "RESOLVED");
         touch(v);
-        audit.log(ctx, "EXIT_DISMISS", TARGET, v.getId(), Map.of("code", v.getCode(), "reason", reason.trim()));
-        String cattleCode = ls.isEmpty() ? "" : ls.get(0).getCattle().getDisplayCode();
-        return new DismissResult(detail(v), checks.message(MessageCodes.FE13_04, "voucher_code", v.getCode(), "cattle_code", cattleCode));
+        audit.log(ctx, "EXIT_DISMISS", TARGET, v.getId(), Map.of("code", v.getCode(), "reason", reason, "source", source));
+        return ls;
     }
 
     // ================================================================== void

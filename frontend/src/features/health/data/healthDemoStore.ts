@@ -3,7 +3,7 @@ import { hasFollowUp, HealthValidationError, observationErrors as observationFie
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
-  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
+  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, ReopenCaseCommand, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
 } from '../types'
 import { HEALTH_DEMO_NOW, HEALTH_SEED, type CaseRecord, type EntryRecord, type HealthSeed } from './healthMock'
 
@@ -229,6 +229,20 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       }
       c.version += 1
       return structuredClone(result(c, kind, observationId, voucher))
+    },
+
+    async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
+      const c = caseById(caseId)
+      if (c.status !== 'CLOSED' || !c.outcome || c.outcome === 'CLOSED_BY_EXIT' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== c.version)) throw new Error(MSG.changed)
+      const cattle = cattleOf(c.cattleCode)
+      assertExitedFree(cattle)
+      throwIf(reasonErrors(cmd.reason))
+      // D58: ca Chết / Mất tích mở lại thì phiếu chờ xác nhận của ca đó bị bác.
+      if (c.outcome === 'DIED' || c.outcome === 'MISSING') db.vouchers = db.vouchers.filter((v) => v.caseCode !== c.caseCode)
+      else assertCanAdd(cattle)
+      Object.assign(c, { status: 'OPEN', outcome: undefined, closedAt: undefined, closedBy: undefined, chronicSince: undefined })
+      c.version += 1
+      return structuredClone(result(c, 'RESUMED', null))
     },
 
     async correctEntry(entryId: number, cmd: CorrectEntryCommand): Promise<RecordResult> {
