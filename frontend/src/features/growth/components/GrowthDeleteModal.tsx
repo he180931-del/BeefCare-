@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
+import { Modal, ModalButton, ModalFooter, NoticeDialog } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
@@ -41,7 +41,7 @@ export default function GrowthDeleteModal({ record, onClose, onDeleted }: { reco
   return (
     <Modal title="Xóa lần đo?" sub={`${record.cattleCode} · ${recordSummary(record)}`} width={480} onClose={onClose}>
       <p className="m-0 text-sm">Lần đo này sẽ không còn được tính vào cân hiện tại, ADG và dự kiến xuất bán, và không hiện trong lịch sử đo.</p>
-      {error && <Note tone="err">{error}</Note>}
+      {error && <NoticeDialog message={error} onClose={() => setError(null)} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="danger" disabled={busy} onClick={() => void remove()}>Xóa</ModalButton>

@@ -74,7 +74,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
         {projection ? <FinishingBlocks profile={data} projection={projection} /> : <WeighingSummary profile={data} />}
         <Panel
           title="Cân nặng theo thời gian"
-          sub="Chỉ vẽ bản ghi hợp lệ"
+         
           actions={<ChartLegend />}
           className={`col-span-full ${projection ? '@min-[1024px]:col-span-8' : ''}`}
         >
@@ -117,7 +117,7 @@ function nextWeighing(profile: GrowthProfile): { tone: MetricTone; status?: stri
 }
 
 const BcsMetric = ({ profile: { latestBcs } }: { profile: GrowthProfile }) => (
-  <Metric surface="panel" compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} sub={latestBcs === undefined ? 'Chưa có điểm thể trạng' : 'Điểm thể trạng · thang trại v1'} />
+  <Metric surface="panel" compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} sub={latestBcs === undefined ? 'Chưa có điểm thể trạng' : 'Điểm thể trạng'} />
 )
 
 const CountMetric = ({ profile: { count, correctedCount } }: { profile: GrowthProfile }) => (
@@ -253,7 +253,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect, onDelete }: Row
       className="col-span-full"
     >
       {rows.length === 0 ? (
-        <EmptyBlock title="Chưa có lần đo nào" sub="Các lần cân và chấm BCS sẽ hiện ở đây." />
+        <EmptyBlock title="Chưa có lần đo nào"  />
       ) : (
         <Table>
           <thead>

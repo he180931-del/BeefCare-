@@ -63,7 +63,7 @@ export default function GrowthHerdPage() {
           <Metric surface="panel" tone="emphasis" label="Quá hạn cân" value={tiles.overdue} sub="chu kỳ cân 30 ngày" />
           <Metric compact surface="panel" tone={tiles.lowAdg ? 'warn' : 'default'} warn={Boolean(tiles.lowAdg)} label="ADG thấp hơn TB chuồng" value={tiles.lowAdg} sub={`trong kỳ ${windowDays} ngày`} />
           <Metric compact surface="panel" tone={tiles.lowBcs ? 'warn' : 'default'} label="BCS < 2,5" value={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>{tiles.lowBcs}</span>} sub="theo lần đo gần nhất" />
-          <Metric compact surface="panel" tone={tiles.weighings30 ? 'ok' : 'default'} label="Lượt cân 30 ngày" value={tiles.weighings30} sub="bản ghi hợp lệ" />
+          <Metric compact surface="panel" tone={tiles.weighings30 ? 'ok' : 'default'} label="Lượt cân 30 ngày" value={tiles.weighings30} />
         </div>
         {rows.length === 0 ? (
           <EmptyBlock title="Không có bò phù hợp" sub="Thử đổi bộ lọc hoặc từ khóa tìm kiếm." />
