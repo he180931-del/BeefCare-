@@ -25,7 +25,7 @@ export default function VaccinationTechnicianTab({ cattleCode }: { cattleCode: s
       {data.doses.map((d) => (
         <div key={d.id} className={cardCls}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-muted">Hạn {fmtDate(d.effectiveDate)}</span>
+            <span className="text-[11px] font-semibold text-muted">Hạn {fmtDate(d.dueDate)}</span>
             <DoseStatusBadge row={d} />
           </div>
           <div className="text-[13px] font-semibold">{d.kind === 'BOOSTER' ? `${d.scheduleShort} · nhắc lại` : `${d.scheduleName} · ${d.doseText}`}</div>

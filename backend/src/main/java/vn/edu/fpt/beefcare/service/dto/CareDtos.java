@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.service.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -35,7 +36,9 @@ public final class CareDtos {
      * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
      */
     public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
-                                   Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {}
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
+                                   Long performerId, String performerName, String veterinaryAdvice) {}
     /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
@@ -45,14 +48,18 @@ public final class CareDtos {
                                      String signs, String progress, Long observerId) {}
     /** A7: fields of a treatment to correct; null = unchanged. Same rules as {@link TreatmentCommand}. */
     public record CorrectTreatment(Integer expectedVersion, String reason, Long medicineId, Instant administeredAt,
-                                   String dose, String route, Integer courseDays, Integer withdrawalDays,
+                                   String dose, String route,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
                                    Long performerId, String performerName, String veterinaryAdvice) {}
     /** A7 / A8 result: the cattle's withdrawal end before and after the change (MSG-FE10-12 when they differ) and the health state. */
     public record RecordStatus(Long id, String status, Integer version, String healthState, Long caseId, String caseStatus,
                                LocalDate withdrawalBefore, LocalDate withdrawalAfter) {}
-    public record CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate, Integer doseCount,
-                                            Integer intervalDays, Integer boosterIntervalMonths, List<Long> cattleIds,
-                                            List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> excludedCattleIds) {
+    public record CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer doseCount,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer intervalDays,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer boosterIntervalMonths,
+                                            List<Long> cattleIds, List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> excludedCattleIds) {
         public CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate, Integer doseCount,
                                          Integer intervalDays, Integer boosterIntervalMonths, List<Long> cattleIds) {
             this(name, vaccineId, firstDueDate, doseCount, intervalDays, boosterIntervalMonths, cattleIds, List.of(), List.of(), List.of(), List.of());
@@ -67,8 +74,10 @@ public final class CareDtos {
      * like A3 - added cattle get PLANNED doses, removed cattle lose their open doses, DONE doses never change (TC-09-09).
      */
     public record EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
-                                          Integer intervalDays, Integer boosterIntervalMonths, Integer doseCount, Boolean removeBooster,
-                                          ScheduleTarget target) {
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer intervalDays,
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer boosterIntervalMonths,
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer doseCount,
+                                          Boolean removeBooster, ScheduleTarget target) {
         public EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
                                        Integer intervalDays, Integer boosterIntervalMonths) {
             this(expectedVersion, name, vaccineId, firstDueDate, intervalDays, boosterIntervalMonths, null, null, null);
@@ -77,37 +86,84 @@ public final class CareDtos {
     /** The stored target with display codes, so SCR-32 shows the same selection when the schedule is edited (GAP-FE09-01). */
     public record ScheduleTargetView(List<Long> penIds, List<String> penCodes, List<String> herdGroups, List<String> lifeStages,
                                      List<Long> cattleIds, List<String> cattleCodes, List<Long> excludedCattleIds, List<String> excludedCattleCodes) {}
-    public record ScheduledDoseView(Long id, Long cattleId, String cattleCode, Integer doseNo, LocalDate dueDate,
-                                    LocalDate newExpectedDate, String status, String deferralReason, Integer version) {}
-    public record VaccinationScheduleView(Long id, String name, String targetGroup, Long vaccineId, String vaccineName,
-                                          LocalDate firstDueDate, Integer doseCount, Integer intervalDays, Integer boosterIntervalMonths,
-                                          String status, Integer version, List<ScheduledDoseView> doses, String stopReason,
-                                          ScheduleTargetView target) {}
+    /** Một mũi theo lịch: {@code status} là PLANNED (chờ tiêm), DONE (đã tiêm) hoặc CANCELLED (đã hủy) – không còn hoãn (D46). */
+    public record ScheduledDoseView(
+        Long id,
+        Long cattleId,
+        String cattleCode,
+        Integer doseNo,
+        LocalDate dueDate,
+        String status,
+        Integer version
+    ) {}
+
+    /**
+     * A2 – một lịch tiêm. {@code status} lưu trong DB là ACTIVE hoặc STOPPED; {@code completed} = {@code true} khi lịch
+     * ACTIVE không còn mũi chờ tiêm nào (đã tiêm hoặc đã hủy hết) – lịch đó bị khóa, không sửa được (D46).
+     */
+    public record VaccinationScheduleView(
+        Long id,
+        String name,
+        String targetGroup,
+        Long vaccineId,
+        String vaccineName,
+        LocalDate firstDueDate,
+        Integer doseCount,
+        Integer intervalDays,
+        Integer boosterIntervalMonths,
+        String status,
+        boolean completed,
+        Integer version,
+        List<ScheduledDoseView> doses,
+        String stopReason,
+        ScheduleTargetView target
+    ) {}
+
     /** A5: stopping a schedule needs a reason (R-09-06, ≤ 500 characters, Q1). */
     public record StopVaccinationSchedule(String reason) {}
-    public record DeferDose(Integer expectedVersion, String reason, LocalDate newExpectedDate, String note) {}
-    public record DoseResult(Long id, String status, Integer version, String reason, LocalDate newExpectedDate) {}
-    public record VaccinationAnimal(Long cattleId, Long scheduledDoseId, Integer expectedDoseVersion, String decision,
-                                    String deferralReason, LocalDate newExpectedDate) {}
-    public record RecordVaccinations(Long vaccineId, String source, LocalDate vaccinationDate, Instant administeredAt, String batchNo, String dose,
-                                     String route, Integer withdrawalDays, String vaccinator, List<VaccinationAnimal> animals) {}
+
+    /** Một con bò trong lô ghi tiêm; {@code scheduledDoseId} để trống khi tiêm ngoài lịch. Không còn lựa chọn hoãn (D46). */
+    public record VaccinationAnimal(Long cattleId, Long scheduledDoseId, Integer expectedDoseVersion) {}
+    /**
+     * A6 – ghi tiêm. {@code route}: mã chuẩn (INTRAMUSCULAR, SUBCUTANEOUS, ORAL, INTRANASAL) hoặc mô tả người dùng nhập
+     * khi chọn "Khác"; chuỗi {@code OTHER} trơn bị từ chối (D45). {@code withdrawalDays}: số nguyên 0–365, không nhận số
+     * thập phân (D45).
+     */
+    public record RecordVaccinations(
+        Long vaccineId,
+        String source,
+        LocalDate vaccinationDate,
+        Instant administeredAt,
+        String batchNo,
+        String dose,
+        String route,
+        @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
+        String vaccinator,
+        List<VaccinationAnimal> animals
+    ) {}
     /**
      * A6. {@code skipped} (R-09-10, TC-09-17): animals left out of the batch - the dose was already given (MSG-FE09-09) or
      * the animal left the herd meanwhile (MSG-COM-13); the other animals are still recorded.
      */
-    public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds, List<SkippedAnimal> skipped) {
-        public VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {
-            this(vaccinatedCount, deferredCount, vaccinationIds, List.of());
-        }
-    }
+    public record VaccinationBatchResult(int vaccinatedCount, List<Long> vaccinationIds, List<SkippedAnimal> skipped) {}
     /** One animal skipped in a batch: its code, the message code and, for MSG-FE09-09, the dose number. */
     public record SkippedAnimal(Long cattleId, String cattleCode, String messageCode, Integer doseNo) {}
     /**
      * A10. {@code withdrawalDays}: new withdrawal period (0-365) of an ON_FARM record; null keeps the current one
      * (GAP-FE09-04, TC-09-27). A HISTORICAL record has no withdrawal (R-09-08).
      */
-    public record CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
-                                     String batchNo, String dose, String route, String vaccinator, String reason, Integer withdrawalDays) {
+    public record CorrectVaccination(
+        Integer expectedVersion,
+        Long vaccineId,
+        LocalDate vaccinationDate,
+        Instant administeredAt,
+        String batchNo,
+        String dose,
+        String route,
+        String vaccinator,
+        String reason,
+        @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays
+    ) {
         public CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
                                   String batchNo, String dose, String route, String vaccinator, String reason) {
             this(expectedVersion, vaccineId, vaccinationDate, administeredAt, batchNo, dose, route, vaccinator, reason, null);

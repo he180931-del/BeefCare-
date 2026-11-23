@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ReproductionActionDialog from '../../../src/features/reproduction/components/ReproductionActionDialog'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
+import { ReproductionValidationError } from '../../../src/features/reproduction/domain/reproductionRules'
 import type { CalvingRecord, ReproductionCommand, ReproductionEvent, ReproductionFemale } from '../../../src/features/reproduction/types'
 
 type Target = Parameters<typeof ReproductionActionDialog>[0]['target']
@@ -163,5 +164,67 @@ describe('correct and void dialogs show current against new values and need a re
     await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
     expect(onCorrectCalving).toHaveBeenCalledWith('calv-087-2', expect.objectContaining({ course: 'ASSISTED' }), 'Bổ sung diễn biến')
     expect(onCorrectCalving.mock.calls[0]![1]).not.toHaveProperty('calves')
+  })
+})
+
+describe('D51: lỗi nhập liệu hiện dưới ô, lỗi điều kiện hiện popup', () => {
+  it('khám thai: số tháng là ô chữ, lỗi có ô hiện dưới ô và không mở popup', async () => {
+    const { user, onRecord } = open({ mode: 'record', action: 'RECORD_PREGNANCY_CHECK' }, 'BC-000061')
+    onRecord.mockRejectedValueOnce(new ReproductionValidationError([{ field: 'estimatedMonths', message: 'Số tháng mang thai phải là số nguyên từ 1 đến 9.' }]))
+    const dialog = screen.getByRole('dialog', { name: 'Ghi khám thai' })
+    await user.click(within(dialog).getByRole('radio', { name: 'Có thai' }))
+    const months = within(dialog).getByRole('textbox', { name: 'Số tháng chửa' })
+    await user.type(months, 'hai')
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu kết quả khám' }))
+    expect(onRecord).toHaveBeenCalledWith(expect.objectContaining({ estimatedMonths: Number.NaN }))
+    expect(await within(dialog).findByText('Số tháng mang thai phải là số nguyên từ 1 đến 9.')).toHaveClass('text-err-fg')
+    expect(months).toHaveValue('hai')
+    expect(screen.queryByRole('dialog', { name: 'Chưa ghi được sự kiện' })).not.toBeInTheDocument()
+  })
+
+  it('khám thai: lỗi điều kiện (không gắn ô) hiện popup và đóng được', async () => {
+    const { user, onRecord } = open({ mode: 'record', action: 'RECORD_PREGNANCY_CHECK' }, 'BC-000061')
+    onRecord.mockRejectedValueOnce(new ReproductionValidationError([{ message: 'Chỉ ghi sự kiện cho bò đang nuôi.' }]))
+    await user.click(screen.getByRole('button', { name: 'Lưu kết quả khám' }))
+    const notice = await screen.findByRole('dialog', { name: 'Chưa ghi được sự kiện' })
+    expect(within(notice).getByText('Chỉ ghi sự kiện cho bò đang nuôi.')).toBeInTheDocument()
+    await user.click(within(notice).getByRole('button', { name: 'Đã hiểu' }))
+    expect(screen.queryByRole('dialog', { name: 'Chưa ghi được sự kiện' })).not.toBeInTheDocument()
+  })
+
+  it('sửa kết quả bê: cân gõ sai báo dưới ô và không gửi đi (không lưu null âm thầm)', async () => {
+    // Bê mẫu đều đã đăng ký (ô cân bị khóa) nên dùng bản sao có bê chưa đăng ký.
+    const base = cow('BC-000087')
+    const profile: ReproductionFemale = {
+      ...base,
+      calvings: base.calvings.map((calving) => ({ ...calving, calves: calving.calves.map((calf) => ({ ...calf, registrationStatus: null })) })),
+    }
+    const onCorrectCalving = vi.fn(async (_id: string, _patch: Partial<CalvingRecord>, _reason: string) => undefined)
+    const noop = vi.fn(async () => undefined)
+    render(
+      <MemoryRouter>
+        <ReproductionActionDialog
+          target={{ mode: 'revise', record: { kind: 'event', event: eventOf('BC-000087', 're-087-pu1') }, action: 'correct' }}
+          profile={profile} onClose={vi.fn()} onRecord={noop} onCorrectEvent={noop} onVoidEvent={noop}
+          onCorrectCalving={onCorrectCalving} onVoidCalving={noop} onVoidCalf={noop}
+        />
+      </MemoryRouter>,
+    )
+    const user = userEvent.setup()
+    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy bản ghi mang thai & sinh bê' })
+    await user.click(within(dialog).getByRole('radio', { name: 'Kết quả bê' }))
+    const weight = within(dialog).getByRole('textbox', { name: 'Cân sơ sinh' })
+    await user.clear(weight)
+    await user.type(weight, 'abc')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Sửa cân')
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
+    expect(onCorrectCalving).not.toHaveBeenCalled()
+    expect(within(dialog).getByText('Cân sơ sinh phải là số từ 1 đến 80 kg, ví dụ 21 hoặc 21,5.')).toHaveClass('text-err-fg')
+    expect(weight).toHaveValue('abc')
+
+    await user.clear(weight)
+    await user.type(weight, '23,5')
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
+    expect(onCorrectCalving).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ calves: [expect.objectContaining({ weightKg: 23.5 })] }), 'Sửa cân')
   })
 })

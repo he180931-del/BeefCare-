@@ -781,6 +781,104 @@ TuanPQ (chủ FE-09) chốt trong phiên: "xóa trường này, ko ý nghĩa vì
 
 Đi kèm: `VaccinationCommandService` bỏ kiểm "bắt buộc số lô khi ON_FARM", giữ giới hạn 50 ký tự khi có gửi. Không đổi route hay hình dạng response. Spec FE-09 đã cập nhật: bảng dữ liệu, R-09-08, UC ghi tiêm / sửa, popup ghi tiêm (mục 3), bảng hồ sơ và Lịch sử tiêm, popup sửa, hợp đồng A6, MSG-FE09-05, TC-09-13. "Số lô" của nhập kho thức ăn (FE-23) không thuộc quyết định này.
 
+### D45 — FE-09: kiểm liều, đường tiêm "Khác" và số ngày ngưng thịt (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: liều chỉ nhận số dương; chọn đường tiêm "Khác" thì phải cho nhập và bắt buộc không để trống; ngưng thịt chỉ là số nguyên, "nếu người dùng không chọn thì tự để là 0". Bổ sung cho popup Ghi tiêm và popup Sửa bản ghi tiêm của spec FE-09 (SCR-33, mục 5 – 7):
+
+1. **Liều** (không bắt buộc): nếu nhập phải là số dương, có thể kèm đơn vị bắt đầu bằng chữ cái ("2", "2,5 ml", "1 liều"); từ chối 0, số âm, chữ, khoảng "1-2 ml". Frontend báo "Liều không hợp lệ."; backend kiểm lại liều do người dùng gửi (liều tham chiếu lấy từ danh mục không kiểm lại).
+2. **Đường tiêm "Khác"**: hiện ô "Đường tiêm khác", bắt buộc, tối đa 255 ký tự. Mô tả lưu thẳng vào cột `route` (thay cho mã `OTHER`) và hiển thị lại đúng chữ đã nhập; gửi `OTHER` trơn bị từ chối với `field = routeOther`. Không migration (cột `route` varchar(255)).
+3. **Ngưng thịt**: số nguyên 0 – 365, giữ cho phép 0 vì có vắc-xin không cần ngưng thịt. Ô để trống được ghi là 0 ngày. Backend không còn làm tròn ngầm số thập phân (trước đây `1.5` thành `1`): trường `withdrawalDays` của ghi tiêm và sửa bản ghi đọc bằng `WholeNumberDeserializer`, gửi số thập phân trả HTTP 400.
+
+Đi kèm: `VaccinationCommandService` thêm `requireValidDose`, `requireRouteDescription`, `requireWithdrawalDays` (Javadoc tiếng Việt, hằng số đặt đầu class); `CareDtos.RecordVaccinations` / `CorrectVaccination` gắn deserializer cho `withdrawalDays`. Không đổi route API hay hình dạng response; client API không gửi `withdrawalDays` vẫn lấy theo danh mục vắc-xin như cũ.
+
+### D46 — FE-09: bỏ hoãn mũi tiêm, khóa lịch đã hoàn thành và điều kiện sửa lịch (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: lịch tiêm xong hết "phải khóa lịch đấy chứ sao lại còn cho chỉnh sửa để dùng lại"; "hoãn không có ý nghĩa" – con nào chưa tiêm được thì sửa lịch bỏ con đó ra; bỏ tab Sắp tới; số ngày "Đến hạn" theo tham số trại; đồng ý bảng quy tắc sửa lịch và cách chuyển dữ liệu hoãn cũ. Làm khác UC-FE09-06, R-09-05, R-09-12, GBR-43 (tab) và SCR-31 / SCR-32 / SCR-33 của spec FE-09 (SRS 28/10):
+
+1. **Bỏ hoãn mũi**: không còn API `POST /scheduled-doses/{doseId}/defer` (trả 404), popup Hoãn, lựa chọn "Hoãn" từng con khi ghi theo lô, trạng thái `DEFERRED`, tab "Đã hoãn", MSG-FE09-06 / 11. Hủy bản ghi tiêm thì mũi quay về PLANNED (lịch đã dừng thì CANCELLED).
+2. **Lịch đã hoàn thành**: lịch ACTIVE không còn mũi PLANNED (đã tiêm hoặc đã hủy hết) được suy ra là "đã hoàn thành" (`completed` trong A2), hiện nhãn trên thẻ lịch và bị khóa: không sửa, không thêm bò (backend trả MSG-COM-05 `schedule_completed`); màn Quản lý lịch ẩn nút Lưu và Dừng. Lịch có nhắc lại sinh mũi nhắc mới sau mỗi lần tiêm mũi cuối nên chỉ kết thúc khi dừng. Hủy một bản ghi làm mũi quay về PLANNED thì lịch tự mở lại.
+3. **Điều kiện sửa lịch đang chạy**: chưa ai tiêm thì sửa tự do; đã có mũi DONE thì khóa vắc-xin (như Q3), ngày bắt đầu và khoảng cách giữa mũi; số mũi không giảm dưới mũi đã tiêm, không đổi khi đã bắt đầu loạt nhắc lại; vẫn đổi được tên, nhắc lại, thêm / bỏ bò. Bò thêm vào lịch có ngày bắt đầu đã qua thì mũi 1 hạn hôm nay (trước đây bị quá hạn ngay khi thêm).
+4. **Tab danh sách mũi**: Tất cả · Quá hạn · Đến hạn trong N ngày · Đã tiêm. N = `VACCINATION_LEAD_DAYS` của phiên bản tham số trại đang hiệu lực (mặc định 7). Mũi còn xa hạn chỉ hiện ở "Tất cả".
+5. **Dữ liệu cũ**: changeset mới `20261123000100_vaccination_remove_deferral` chuyển mũi DEFERRED về PLANNED, hạn = ngày hẹn mới nếu có, tăng version; cột `deferral_reason`, `new_expected_date`, `deferral_note` giữ nguyên (không còn dùng). Không sửa migration cũ.
+
+Đi kèm: `VaccinationCommandService` viết lại phần sửa lịch thành các hàm nhỏ (`applyName`, `applyVaccine`, `applyDates`, `applyBooster`, `applyDoseCount`, `applyTarget`, `planMissingDoses`, `isCompleted`) theo Java Code Convention, Javadoc tiếng Việt; `CareDtos` bỏ `DeferDose`, `DoseResult`, trường hoãn của `VaccinationAnimal` / `ScheduledDoseView` và `deferredCount` của `VaccinationBatchResult`; `VaccinationCommandResource` viết lại. OpenAPI và API catalog đã sinh lại. Phần chỉ đọc trạng thái hoãn của FE-04 (xuất đàn), FE-14 (nhắc việc REM-06) và FE-15 (dashboard, báo cáo) **không sửa**: sau migration không còn mũi DEFERRED nên các nhánh đó không còn chạy; trang Tổng quan vẫn tự giữ "Đến hạn 7 ngày" của FE-15 – cần báo chủ các feature nếu muốn thống nhất.
+
+### D47 — FE-09: lọc và "Chọn tất cả" ở danh sách mũi tiêm (23/11/2026)
+
+TuanPQ (chủ FE-09) yêu cầu trong phiên: trang Tiêm phòng không có cách chọn nhanh mà phải ấn từng mũi; lọc "như lúc chọn bò cho vào phiếu". Bổ sung cho SCR-31 (SRS chỉ có ô chọn từng dòng):
+
+1. **Bộ lọc** như màn chọn bò vào phiếu xuất: Tìm kiếm (mã / tên bò), Chuồng, Nhóm đàn – kết hợp VÀ, áp cho bảng và số đếm trên tab; bỏ lọc bằng lựa chọn "Tất cả" của từng ô (không có nút Xóa lọc riêng). Hệ thống không có khái niệm "khu" (chuồng chỉ có mã, tên, sức chứa) nên gom theo chuồng.
+2. **Chọn tất cả**: ô đầu cột chọn mọi mũi chưa tiêm khớp lịch đang xem + tab + bộ lọc, kể cả các trang chưa mở; bấm lại để bỏ; thêm nút "Bỏ chọn".
+3. **Một lần ghi một vắc-xin**: màn ghi tiêm theo lô dùng một vắc-xin cho cả lô và backend từ chối mũi của lịch khác vắc-xin, nên "Chọn tất cả" chỉ bật khi các mũi khớp bộ lọc cùng vắc-xin (đang xem tất cả các lịch thì tắt, gợi ý chọn một lịch); chọn tay lẫn vắc-xin thì báo và khóa nút "Ghi nhận".
+
+Chỉ đổi frontend (lọc trên dữ liệu A2 đã đọc); không đổi backend, route hay DTO. Spec FE-09 SCR-31 đã cập nhật (mục 6a, 7).
+
+### D48 — FE-09: lịch đã hoàn thành không chiếm trang Tiêm phòng (23/11/2026)
+
+TuanPQ (chủ FE-09) nêu trong phiên: để thẻ lịch đã hoàn thành ở trang Tiêm phòng thì sẽ "cộng dồn vô hạn"; đồng ý phương án chỉ đổi giao diện:
+
+1. Hàng thẻ SCR-31 chỉ hiện lịch đang chạy (còn mũi chờ tiêm); dòng phụ đếm đúng số lịch đang chạy.
+2. Lịch đã hoàn thành (D46) gom vào mục "Lịch đã hoàn thành (n)", mặc định đóng; mở ra và chọn thẻ để xem lại các mũi đã tiêm của lịch đó.
+3. Chưa chọn lịch nào thì danh sách mũi chỉ gồm lịch đang chạy; lịch sử tiêm đầy đủ vẫn ở SCR-35.
+4. SCR-32 theo ảnh mẫu TuanPQ duyệt: dropdown "Lịch tiêm" chia nhóm "Đang chạy" / "Đã hoàn thành" (chỉ hiện nhóm có lịch; chưa chọn hiện "Chọn lịch tiêm"), mặc định mở lịch đang chạy đầu tiên; nút "⊕ Tạo lịch mới" (cùng cỡ ô chọn) ngay bên phải mở form trống tiêu đề "Tạo lịch tiêm" (bỏ mục "+ Lịch mới" trong dropdown); nút lưu "Lưu lịch" khi tạo, "Lưu thay đổi" khi sửa, ẩn khi lịch đã hoàn thành; thẻ "Thông tin lịch" có nhãn "Đã hoàn thành".
+
+Không lưu trạng thái COMPLETED vào DB (vẫn suy ra như D46): không migration, không đổi API. Spec FE-09 SCR-31 mục 4 đã cập nhật.
+
+### D49 — Lỗi điều kiện nghiệp vụ hiện popup, lỗi nhập liệu hiện dưới ô (23/11/2026)
+
+TuanPQ chốt trong phiên: "tất cả các lỗi liên quan đến điều kiện bắt buộc phải hiện popup báo, chỉ các lỗi về validate dữ liệu hiện đỏ dưới trường dữ liệu". Phát hiện khi tạo lịch tiêm cho chuồng có bò đang chờ xác nhận chết: màn hình chỉ hiện "Không thể lưu dữ liệu…" dạng dòng đỏ, không nói lý do.
+
+1. **Lỗi điều kiện** (bò đang chờ xác nhận chết / mất MSG-COM-17, bò đã rời đàn MSG-COM-13, lịch đã khóa, dữ liệu vừa bị thay đổi MSG-COM-05, chưa chọn mũi, chọn lẫn vắc-xin…) hiện bằng popup `NoticeDialog` (component dùng chung mới trong `shared/ui`, nút "Đã hiểu"), nội dung nói rõ đối tượng và cách xử lý.
+2. **Lỗi nhập liệu** (bắt buộc, định dạng, giới hạn) giữ chữ đỏ dưới đúng ô.
+3. Đã áp cho FE-09: Quản lý lịch, Ghi nhận tiêm, popup Sửa / Hủy bản ghi tiêm, trang Tiêm phòng; MSG-COM-17 / COM-13 có câu tiếng Việt kèm mã bò và ngày.
+
+Phạm vi các feature khác (FE-08, FE-10 → FE-12 và của thành viên khác) chưa áp – cần thống nhất với nhóm trước khi đổi đồng loạt.
+
+### D50 — FE-09: "Ngày tiêm" và đọc nghiêm ô số (23/11/2026)
+
+TuanPQ yêu cầu trong phiên: đổi "Ngày bắt đầu" thành "Ngày tiêm" ở SCR-32; "tuyệt đối không tự ý lưu null khi không đọc được chữ, phải báo lỗi validate dưới các trường nhập".
+
+1. SCR-32 "Ngày bắt đầu" → **"Ngày tiêm"** (ngày dự kiến mũi 1); các câu báo lỗi / khóa D46 đổi theo. Trường API vẫn là `firstDueDate`.
+2. Lỗi phát hiện: ô Số mũi, Cách giữa mũi, Nhắc lại sau (SCR-32) và Ngưng thịt (SCR-33, popup Sửa) là ô số của trình duyệt – gõ chữ thì trình duyệt trả chuỗi rỗng, nên "Nhắc lại sau" bị lưu null và "Ngưng thịt" thành 0 ngày mà không báo. Đổi sang ô chữ bàn phím số và đọc nghiêm (`parseIntField`): để trống mới là không nhập; gõ chữ, số thập phân, số âm → chữ đỏ dưới ô ("… phải là số nguyên từ … đến …"), không gửi lên máy chủ.
+3. Backend vẫn kiểm lại: trường số nguyên nhận chữ hoặc số thập phân trả 400 (D45), không đổi thành null.
+
+### D51 — Rà phần nhập liệu chăm sóc theo D49 / D50 (FE-08, FE-10, FE-11/12) (23/11/2026)
+
+TuanPQ yêu cầu trong phiên: áp quy tắc D49 (lỗi điều kiện → popup, lỗi nhập liệu → chữ đỏ dưới ô) và D50 (không âm thầm lưu null / 0 khi gõ sai) cho cân nặng – thể trạng, sức khỏe – điều trị, sinh sản.
+
+1. **FE-08 cân nặng – thể trạng:** ô Cân nặng, Vòng ngực, Dài thân chéo đổi sang ô chữ bàn phím số, đọc nghiêm (nhận "325", "325,5", "325.5"); gõ sai → chữ đỏ dưới ô ("Cân nặng phải là số, ví dụ 325 hoặc 325,5."), không tự tính cân thước dây từ số đọc sai. Lỗi chung của popup Ghi nhận / Sửa / Xóa lần đo hiện bằng `NoticeDialog`.
+2. **FE-10 sức khỏe – điều trị:** ô số vốn đã đọc nghiêm; lỗi chung (không gắn ô) của 5 popup (mở ca, theo dõi, điều trị, cập nhật trạng thái, sửa bản ghi) chuyển sang `NoticeDialog`.
+3. **FE-11/12 sinh sản:** kiểm tra sự kiện trả lỗi theo ô (`reproductionIssues`, khóa trùng tên tham số backend); lỗi có ô hiện dưới ô trong popup ghi động dục / phối / khám thai / diễn biến, lỗi điều kiện (bò không còn nuôi, không phải bò cái, không có thai kỳ mở…) hiện popup. Ô Số tháng chửa, Cân sơ sinh (màn ghi đẻ) và Cân sơ sinh trong popup Sửa kết quả bê đổi sang ô chữ đọc nghiêm — sửa lỗi gõ chữ vào cân bê khi sửa bị gửi đi thành `null` (xóa cân) mà không báo. Màn ghi đẻ bỏ dòng tóm tắt đỏ: lỗi có ô đã đỏ dưới ô, lỗi không gắn ô hiện popup.
+4. **Backend:** các trường số nguyên người dùng nhập — `estimatedMonths` (khám thai, sửa sự kiện), `courseDays` / `withdrawalDays` (ghi và sửa điều trị), `doseCount` / `intervalDays` / `boosterIntervalMonths` (tạo và sửa lịch tiêm) — dùng `WholeNumberDeserializer`: gửi `2.7` hoặc `"3"` trả 400 thay vì bị cắt ngầm thành 2. Không đổi route, không migration.
+
+Feature của thành viên khác chưa áp (chờ nhóm thống nhất như ghi chú ở D49).
+
+### D52 — Rút gọn chú thích trong các tab chăm sóc; chốt hai câu hỏi còn mở (23/11/2026)
+
+TuanPQ chốt trong phiên:
+
+1. Quản lý lịch tiêm **không** tự bỏ qua bò đang chờ xác nhận chết / mất khi chọn theo chuồng: vẫn báo popup (D49) để người dùng tự bỏ con đó ra.
+2. Quy tắc popup / lỗi dưới ô (D49, D51) **không** tự áp cho feature của thành viên khác.
+3. Hạn chế chữ thừa: giữ gợi ý giúp nhập đúng (khoảng giá trị, đơn vị, khi nào bắt buộc); bỏ hoặc rút ngắn câu giải thích lặp lại tiêu đề hay nói cách hệ thống hoạt động. Áp cho FE-08 → FE-12, ví dụ:
+   - SCR-32: bỏ "Các điều kiện kết hợp với nhau (VÀ)"; dòng dưới tiêu đề từ "Lịch tiêm Tháng 11 · đang chạy từ 23/11/2026" thành "Đang chạy" / "Đã hoàn thành" (tên lịch đã ở ô chọn lịch); ghi chú khóa / sửa lịch rút còn một câu.
+   - FE-08: bỏ "Chỉ vẽ bản ghi hợp lệ", "thang trại v1", công thức cân thước dây trong gợi ý ô.
+   - FE-10: gợi ý số ngày điều trị còn "1 – 30 ngày"; bỏ "Lấy từ danh mục, có thể sửa", "Được lưu thành 1 lần theo dõi".
+   - FE-11/12: bỏ chú thích cách đọc dòng thời gian, cách tính cửa sổ phối, cơ sở ngày dự kiến; chế độ chỉ xem ghi "Chế độ chỉ xem."
+   - Trạng thái trống bỏ câu phụ khi tiêu đề đã đủ nghĩa.
+
+Chỉ đổi chữ hiển thị, không đổi dữ liệu, API hay quy tắc.
+
+### D53 — FE-09: Sửa / Xóa bản ghi tiêm tách như FE-08; bản ghi đã xóa không hiện (23/11/2026)
+
+TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì chẳng có ý nghĩa theo dõi gì"; "popup sửa và xóa cũng thể hiện tương tự như bên cân nặng, xóa thì chỉ hiện popup xác nhận tách hẳn không dùng chung với sửa". Làm theo D43 (FE-08), khác R-09-14 / UC-FE09-08 cũ:
+
+1. Tab Tiêm phòng (SCR-34) có hai nút riêng **Sửa** và **Xóa** thay cho "Sửa · Hủy" và ô chọn hành động trong popup.
+2. Popup **Sửa bản ghi tiêm** chỉ để sửa giá trị; "Lý do *" đổi thành **Ghi chú** không bắt buộc (≤ 500), điền sẵn ghi chú lần sửa gần nhất.
+3. **Xóa** là popup xác nhận "Xóa mũi tiêm?", không có ô lý do. Phía máy chủ vẫn là xóa mềm (`POST …/void`, trạng thái `VOIDED`): mũi theo lịch quay lại chưa tiêm (R-09-14), ngày hết ngưng thịt tính lại, Record Revision vẫn lưu trước / sau, người và thời điểm (BR-D15).
+4. Bản ghi `VOIDED` **không còn** trong lịch sử tiêm của bò (SCR-34) và lịch sử toàn đàn (SCR-35): `CareReadService.vaccinationHistory` lọc bỏ; không còn dòng mờ "(đã hủy)".
+
+Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
+
 ### D54 — FE-19: vào thẳng Tổng quan sau khi thanh toán (23/11/2026)
 
 DucNV (chủ FE-19) chốt trong phiên: khi BeefCare nhận trạng thái PAID, chủ trại được đưa thẳng vào Tổng quan của đúng trại; popup "Thanh toán thành công" hiện một lần tại đó, kèm mã thanh toán và kỳ dịch vụ; bấm Tiếp tục để đóng popup và ở lại Tổng quan; áp dụng cho cả mua lần đầu và gia hạn. Nếu trại đang tạm ngưng hoặc chưa thể truy cập, popup vẫn xác nhận đã thanh toán, nêu lý do và cho thử vào lại. Làm khác SRS 28/10 (UC-FE19-02 AF4, SCR-59 "Enter farm / Back to subscription": gia hạn về SCR-57; MSG-FE19-06 kiểu Toast):

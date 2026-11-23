@@ -3,7 +3,6 @@ import { useQuery } from '../../../shared/hooks/useQuery'
 import { vaccinationApi } from '../api/vaccinationApi'
 import type {
   CorrectVaccinationCommand,
-  DeferDoseCommand,
   DoseFilters,
   HistoryFilters,
   RecordVaccinationsCommand,
@@ -32,7 +31,7 @@ export function useVaccinationSchedules(reload = 0, demoMode?: string | null) {
 export function useVaccinationDoses(filters: DoseFilters) {
   return useQuery(
     () => vaccinationApi.listDoses(filters),
-    [filters.scheduleId, filters.tab, filters.page, filters.size, filters.dir],
+    [filters.scheduleId, filters.tab, filters.q, filters.penCode, filters.herdGroup, filters.page, filters.size, filters.dir],
   )
 }
 
@@ -77,10 +76,9 @@ export function useVaccinationCommands() {
   const updateSchedule = useCallback((id: number, command: ScheduleCommand) => vaccinationApi.updateSchedule(id, command), [])
   const stopSchedule = useCallback((id: number, command: { reason: string; expectedVersion: number }) => vaccinationApi.stopSchedule(id, command), [])
   const recordVaccinations = useCallback((command: RecordVaccinationsCommand) => vaccinationApi.recordVaccinations(command), [])
-  const deferDose = useCallback((id: number, command: DeferDoseCommand) => vaccinationApi.deferDose(id, command), [])
   const correctRecord = useCallback((id: number, command: CorrectVaccinationCommand) => vaccinationApi.correctRecord(id, command), [])
   const voidRecord = useCallback((id: number, command: VoidRecordCommand) => vaccinationApi.voidRecord(id, command), [])
-  return { previewTarget, createSchedule, updateSchedule, stopSchedule, recordVaccinations, deferDose, correctRecord, voidRecord }
+  return { previewTarget, createSchedule, updateSchedule, stopSchedule, recordVaccinations, correctRecord, voidRecord }
 }
 
 /** Stable aggregate name used by the feature package contract. */

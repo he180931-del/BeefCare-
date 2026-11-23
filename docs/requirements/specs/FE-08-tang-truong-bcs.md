@@ -134,7 +134,7 @@ SCR-29 (danh sách đàn, ô tổng hợp, lọc) → mở SCR-30 của một co
 | 2 | Latest weight / Cân gần nhất | Tất cả | kg, ngày, cơ sở |
 | 3 | Tăng cân bình quân (ADG) | | kg/ngày theo kỳ 90 ngày; dòng phụ ghi số ngày và số lần cân thực tế ("Tính trên 40 ngày · 2 lần cân") hoặc lý do chưa tính được, không ghi cứng "90 ngày" |
 | 4 | Finishing projection / Dự kiến xuất chuồng | Bò FATTENING có cân mục tiêu | "Mục tiêu 450 kg · dự kiến dd/mm/yyyy (n ngày)", dòng "Tính theo" ghi ADG và số ngày thực tế trong kỳ 60 ngày / "Đạt cân mục tiêu" / "Chưa đủ số lần cân" |
-| 5 | Latest BCS / BCS gần nhất | | Giá trị / thang (ví dụ "3,0 / 5 · thang trại v1") |
+| 5 | Latest BCS / BCS gần nhất | | Giá trị / thang (ví dụ "3,0 / 5"; D52 bỏ "thang trại v1") |
 | 6 | Number of measurements / Số lần đo | | Số lần đo VALID (không đếm lần đã xóa), kèm "n đã sửa" |
 | 7 | Weight chart / Biểu đồ cân | | Cân VALID theo thời gian; đo và ước tính dùng ký hiệu khác nhau; không vẽ bản ghi loại trừ |
 | 8 | Measured at / Thời điểm đo | | dd/mm/yyyy HH:mm, sắp xếp được |
