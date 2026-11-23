@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
+import { PaymentSuccessOnArrival } from '../../../src/features/subscription'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
 import SubscriptionRoutes from '../../../src/features/subscription/pages/SubscriptionRoutes'
 
@@ -152,25 +153,35 @@ describe('Hướng dẫn chuyển khoản', () => {
     expect(screen.getAllByRole('button', { name: /^Sao chép/ })).toHaveLength(5)
   })
 
-  it('kiểm tra lại khi giao dịch về: yêu cầu thành PAID và mở kỳ mới', async () => {
+  it('thanh toán gia hạn đưa thẳng vào trại và hiện xác nhận một lần', async () => {
     const user = userEvent.setup()
-    renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9?demo=bank-paid', 'OWNER')
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    const transfer = renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9?demo=bank-paid', 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
-    expect(await screen.findByText(/đã được xác nhận\. Kỳ dịch vụ 15\/11\/2026 → 14\/11\/2027/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Về gói dịch vụ' })).toBeInTheDocument()
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
+    transfer.unmount()
+
+    const dashboard = render(<PaymentSuccessOnArrival farmId={1} />)
+    const dialog = await screen.findByRole('dialog', { name: 'Thanh toán thành công' })
+    expect(within(dialog).getByText(/đã được xác nhận\. Kỳ dịch vụ 15\/11\/2026 → 14\/11\/2027/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    dashboard.unmount()
+
+    render(<PaymentSuccessOnArrival farmId={1} />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('lần mua đầu ở dữ liệu mẫu: "Vào trại" lưu trại cho tab rồi mở trang chủ trại (hai kho mẫu không chung trại nên không kiểm lại)', async () => {
+  it('lần mua đầu lưu trại cho tab rồi tự mở trang Tổng quan', async () => {
     const user = userEvent.setup()
     clearCurrentFarmId()
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     const overview = await subscriptionDemoStore.getOverview(2)
     const payment = await subscriptionDemoStore.createPayment(2, { durationYears: 1, expectedPriceVersionId: overview.currentPrices!.id })
     renderAt(`/goi-dich-vu/chuyen-khoan/${payment.quoteRef}?farm=2&demo=bank-paid`, 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
-    await user.click(await screen.findByRole('button', { name: 'Vào trại' }))
     // Farm screens need the farm of the tab (RequireFarm); a plain route change would land on Select Farm.
-    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
     expect(readCurrentFarmId()).toBe(2)
   })
 
