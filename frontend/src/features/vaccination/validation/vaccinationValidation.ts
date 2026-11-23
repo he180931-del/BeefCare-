@@ -1,13 +1,15 @@
 // Input validation moved out of src/features/vaccination/domain/vaccinationRules.ts (refactor phase 2): field rules only, the
 // business policy stays in the domain file.
-import type { ScheduleCommand, VaccineItem, VaccinationSource } from '../types'
+import type { ScheduleCommand, VaccineItem, VaccinationSource, VaccineRoute } from '../types'
 import { fmtDate } from '../domain/vaccinationFormat'
-import { type FieldErrors, NOTE_MAX, REASON_MAX, VACCINATOR_MAX } from '../domain/vaccinationRules'
+import { type FieldErrors, ROUTE_OTHER_MAX, NOTE_MAX, REASON_MAX, VACCINATOR_MAX } from '../domain/vaccinationRules'
 
 interface RecordFields {
   vaccineId?: number
   source: VaccinationSource
   administeredAt?: string
+  route?: VaccineRoute
+  routeOther?: string
   withdrawalDays?: number
   vaccinator?: string
 }
@@ -20,6 +22,9 @@ export function validateRecordFields(input: RecordFields, ctx: { now: string; va
   if (!input.administeredAt) e.administeredAt = 'Thời điểm tiêm là bắt buộc.'
   else if (input.administeredAt > ctx.now) e.administeredAt = 'Thời điểm không được ở tương lai.'
   else if (input.source === 'ON_FARM' && ctx.herdEntryDate && input.administeredAt.slice(0, 10) < ctx.herdEntryDate) e.administeredAt = `Thời điểm không được trước ngày nhập đàn (${fmtDate(ctx.herdEntryDate)}).`
+  // D45: chọn "Khác" thì bắt buộc mô tả đường tiêm.
+  if (input.route === 'OTHER' && !input.routeOther?.trim()) e.routeOther = 'Nhập đường tiêm khác.'
+  else if (input.route === 'OTHER' && input.routeOther!.trim().length > ROUTE_OTHER_MAX) e.routeOther = `Đường tiêm khác tối đa ${ROUTE_OTHER_MAX} ký tự.`
   const days = input.withdrawalDays
   if (days !== undefined && (!Number.isInteger(days) || days < 0 || days > 365)) e.withdrawalDays = 'Số ngày ngưng phải là số nguyên từ 0 đến 365.'
   if (input.vaccinator && input.vaccinator.length > VACCINATOR_MAX) e.vaccinator = 'Người tiêm tối đa 100 ký tự.'
@@ -33,13 +38,6 @@ export function validateReason(reason: string | undefined, label = 'Lý do'): Fi
 }
 
 /** UC-FE09-06: lý do bắt buộc, ngày mới không trước hôm nay (MSG-FE09-11). */
-export function validateDefer(input: { reason?: string; newExpectedDate?: string; note?: string }, today: string): FieldErrors {
-  const e = validateReason(input.reason, 'Lý do chưa tiêm')
-  if (input.newExpectedDate && input.newExpectedDate < today) e.newExpectedDate = 'Ngày mới phải từ hôm nay trở đi.'
-  if (input.note && input.note.length > NOTE_MAX) e.note = 'Ghi chú tối đa 255 ký tự.'
-  return e
-}
-
 /** SCR-32: kiểm tra thông tin lịch. */
 export function validateSchedule(input: ScheduleCommand, ctx: { activeNames: string[]; vaccine?: VaccineItem }): FieldErrors {
   const e: FieldErrors = {}

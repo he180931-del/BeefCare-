@@ -7,7 +7,6 @@ import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
 import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
 import type { CattleVaccination, DoseRow, VaccinationRecord } from '../types'
 import CorrectVaccinationModal from './CorrectVaccinationModal'
-import DeferModal from './DeferModal'
 import { DoseStatusBadge, SOURCE_LABEL, healthCasePath, profilePath, recordPath, useCanWrite, useNotice } from './vaccinationParts'
 
 export default function VaccinationProfileTab({ cattleCode }: { cattleCode: string }) {
@@ -31,7 +30,6 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   const back = encodeURIComponent(profilePath(cattleCode))
   const goRecord = (doseId?: number) => navigate(`/tiem-phong/ghi-nhan?${doseId ? `doses=${doseId}` : `cattle=${cattleCode}`}&back=${back}`)
   const saved = (message: string) => { setNotice(message); setModal(null); refetch() }
-  const deferTarget = modal === 'defer' ? (data.doses.find((d) => String(d.id) === params.get('d')) ?? data.doses[0]) : undefined
   // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
   const correctTarget = modal === 'correct'
     ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
@@ -45,16 +43,15 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} onDefer={(id) => setModal('defer', 'd', id)} />
+      <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} />
       <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} />
-      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Hoãn, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
-      {canWrite && deferTarget && <DeferModal key={deferTarget.id} doseId={deferTarget.id} onClose={() => setModal(null)} onSaved={saved} />}
+      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
       {canWrite && correctTarget && <CorrectVaccinationModal key={correctTarget.id} record={correctTarget} onClose={() => setModal(null)} onSaved={saved} />}
     </div>
   )
 }
 
-function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccination; canWrite: boolean; onRecord: (id: number) => void; onDefer: (id: number) => void }) {
+function Scheduled({ data, canWrite, onRecord }: { data: CattleVaccination; canWrite: boolean; onRecord: (id: number) => void }) {
   return (
     // Bento (Figma Tab 17 ②b): mũi còn phải tiêm là việc tiếp theo của tab, nền xanh nhạt khi có mũi.
     <Panel tone={data.doses.length ? 'ok' : 'default'} title={<span className="text-sm font-semibold">Mũi tiêm theo lịch</span>} sub="Các mũi chưa tiêm của bò này" className="gap-3! p-4!">
@@ -68,9 +65,9 @@ function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccinat
               <tr key={d.id}>
                 <Td className="font-medium">{d.scheduleName}</Td>
                 <Td>{d.kind === 'BOOSTER' ? 'Nhắc lại' : `${d.doseNo} / ${d.doseCount}`}</Td>
-                <Td>{fmtDate(d.effectiveDate)}</Td>
+                <Td>{fmtDate(d.dueDate)}</Td>
                 <Td><DoseStatusBadge row={d} /></Td>
-                {canWrite && <Td><Button variant="link" onClick={() => onRecord(d.id)}>Ghi nhận</Button> · <Button variant="link" onClick={() => onDefer(d.id)}>Hoãn</Button></Td>}
+                {canWrite && <Td><Button variant="link" onClick={() => onRecord(d.id)}>Ghi nhận</Button></Td>}
               </tr>
             ))}
           </tbody>

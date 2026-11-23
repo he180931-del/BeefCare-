@@ -1,13 +1,15 @@
 import type {
-  CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseTab, HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand,
+  CattleVaccination, CorrectVaccinationCommand, DoseFilters, DosePage, DoseRow, DoseTab, HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand,
   Schedule, ScheduleCard, ScheduleCommand, ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions, VaccinationRecord, VoidRecordCommand,
 } from '../types'
-import { addDays, addMonths, dayNumber, fmtDate } from '../domain/vaccinationFormat'
-import { CONFLICT_MESSAGE, VaccinationValidationError, doseDate, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, withdrawalEndOf, type FieldErrors } from '../domain/vaccinationRules'
-import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
+import { addMonths, dayNumber } from '../domain/vaccinationFormat'
+import { CONFLICT_MESSAGE, DEFAULT_LEAD_DAYS, VaccinationValidationError, doseDate, doseTextOf, dueStateOf, hasErrors, matchesDoseFilters, selectableOf, plannedDoseRows, resolveTarget, withdrawalEndOf, type FieldErrors } from '../domain/vaccinationRules'
+import { validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import { MEMBERS, STATIC_OPTIONS, VACCINES, VACC_DEMO, VACC_NOW } from './vaccinationMock'
 
 const PAGE_SIZE = 6
+/** Chế độ local không có tham số trại: dùng số ngày nhắc mặc định. */
+const LEAD_DAYS = DEFAULT_LEAD_DAYS
 const clone = <T>(v: T): T => structuredClone(v)
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
@@ -24,15 +26,18 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
   const scheduleOf = (id: number) => schedules.find((s) => s.id === id)
   const activeSchedules = () => schedules.filter((s) => s.status === 'ACTIVE')
   const live = (d: ScheduledDose) => d.status !== 'CANCELLED'
+  /** D46: lịch đang chạy không còn mũi chờ tiêm là đã hoàn thành (khóa sửa). */
+  const completedOf = (s: Schedule) => s.status === 'ACTIVE' && !doses.some((d) => d.scheduleId === s.id && d.status === 'PLANNED')
+  const withState = (s: Schedule): Schedule => ({ ...s, completed: completedOf(s) })
 
   const rowOf = (d: ScheduledDose): DoseRow => {
     const s = scheduleOf(d.scheduleId)!
     const c = cattleOf(d.cattleCode)!
-    const state = dueStateOf(d, today())
+    const state = dueStateOf(d, today(), LEAD_DAYS)
     return {
-      id: d.id, cattleCode: c.code, cattleName: c.name, breed: c.breed, sex: c.sex, penName: c.penName,
-      scheduleId: s.id, scheduleName: s.name, scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind,
-      doseText: doseTextOf(d.kind, d.doseNo, s.doseCount), dueDate: d.dueDate, effectiveDate: effectiveDate(d), newExpectedDate: d.newExpectedDate,
+      id: d.id, cattleCode: c.code, cattleName: c.name, breed: c.breed, sex: c.sex, penCode: c.penCode, penName: c.penName, herdGroup: c.herdGroup,
+      scheduleId: s.id, vaccineId: s.vaccineId, scheduleName: s.name, scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind,
+      doseText: doseTextOf(d.kind, d.doseNo, s.doseCount), dueDate: d.dueDate,
       state, daysOverdue: state === 'OVERDUE' ? dayNumber(today()) - dayNumber(d.dueDate) : 0, rawStatus: d.status, doneAt: d.doneAt, version: d.version,
     }
   }
@@ -49,7 +54,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       const regular = list.filter((d) => d.kind === 'DOSE').sort((a, b) => a.doseNo - b.doseNo)
       const boosters = list.filter((d) => d.kind === 'BOOSTER' && d.status !== 'DONE').sort((a, b) => a.doseNo - b.doseNo)
       const open = regular.find((d) => d.status !== 'DONE')
-      const dueBooster = boosters.find((d) => ['OVERDUE', 'DUE'].includes(dueStateOf(d, today())))
+      const dueBooster = boosters.find((d) => ['OVERDUE', 'DUE'].includes(dueStateOf(d, today(), LEAD_DAYS)))
       const head = open ?? dueBooster ?? regular[regular.length - 1] ?? boosters[0]
       if (head) heads.push(head)
     })
@@ -72,9 +77,11 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
     })
     let created = 0
     members.forEach((m) => {
+      const isNew = !doses.some((d) => d.scheduleId === s.id && d.cattleCode === m.code && d.status !== 'CANCELLED')
+      const start = isNew && s.firstDueDate < today() ? today() : s.firstDueDate
       for (let n = 1; n <= s.doseCount; n++) {
         if (doses.some((d) => d.scheduleId === s.id && d.cattleCode === m.code && d.kind === 'DOSE' && d.doseNo === n && d.status !== 'CANCELLED')) continue
-        doses.push({ id: ids.dose++, scheduleId: s.id, cattleCode: m.code, doseNo: n, kind: 'DOSE', dueDate: doseDate(s, n), status: 'PLANNED', version: 1 })
+        doses.push({ id: ids.dose++, scheduleId: s.id, cattleCode: m.code, doseNo: n, kind: 'DOSE', dueDate: doseDate({ ...s, firstDueDate: start }, n), status: 'PLANNED', version: 1 })
         created++
       }
     })
@@ -89,12 +96,12 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
 
   const detailOf = (s: Schedule): ScheduleDetail => {
     const targetCount = resolveTarget(cattle, s.target).length
-    return { schedule: clone(s), vaccine: clone(vaccineOf(s.vaccineId)!), targetCount, plannedRows: plannedDoseRows(s, doses.filter((d) => d.scheduleId === s.id), targetCount, today()) }
+    const own = doses.filter((d) => d.scheduleId === s.id)
+    return { schedule: clone(withState(s)), vaccine: clone(vaccineOf(s.vaccineId)!), targetCount, plannedRows: plannedDoseRows(s, own, targetCount, today()), hasDoneDoses: own.some((d) => d.status === 'DONE') }
   }
 
   /** Đóng một mũi theo lịch khi đã ghi nhận tiêm; sinh mũi nhắc lại khi là mũi cuối của chuỗi (AF3). */
   const closeDose = (d: ScheduledDose, r: VaccinationRecord) => {
-    d.prior = { status: d.status, newExpectedDate: d.newExpectedDate, deferralReason: d.deferralReason }
     d.status = 'DONE'
     d.vaccinationId = r.id
     d.doneAt = r.administeredAt
@@ -109,14 +116,6 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       doses.push(booster)
       r.spawnedDoseId = booster.id
     }
-  }
-
-  const applyDefer = (d: ScheduledDose, cmd: Pick<DeferDoseCommand, 'reason' | 'newExpectedDate' | 'note'>) => {
-    d.status = 'DEFERRED'
-    d.deferralReason = cmd.reason.trim()
-    d.newExpectedDate = cmd.newExpectedDate || undefined
-    d.deferralNote = cmd.note?.trim() || undefined
-    d.version++
   }
 
   const liveRecord = (id: number, expectedVersion: number) => {
@@ -138,24 +137,24 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
           own.filter((d) => d.kind === 'DOSE').forEach((d) => byCattle.set(d.cattleCode, [...(byCattle.get(d.cattleCode) ?? []), d]))
           const doneCount = [...byCattle.values()].filter((list) => list.find((d) => d.doseNo === s.doseCount)?.status === 'DONE').length
           return {
-            schedule: s, vaccine: vaccineOf(s.vaccineId)!, targetCount: resolveTarget(cattle, s.target).length, doneCount,
-            overdueCount: own.filter((d) => dueStateOf(d, today()) === 'OVERDUE').length,
+            schedule: withState(s), vaccine: vaccineOf(s.vaccineId)!, targetCount: resolveTarget(cattle, s.target).length, doneCount,
+            overdueCount: own.filter((d) => dueStateOf(d, today(), LEAD_DAYS) === 'OVERDUE').length,
           }
         }),
       )
     },
 
     async listDoses(filters: DoseFilters = {}): Promise<DosePage> {
-      const all = headDoses(filters.scheduleId).map(rowOf)
+      const all = headDoses(filters.scheduleId).map(rowOf).filter((r) => matchesDoseFilters(r, filters))
       const count = (state: DoseRow['state']) => all.filter((r) => r.state === state).length
-      const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), upcoming: count('UPCOMING'), deferred: count('DEFERRED'), done: count('DONE') }
+      const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), done: count('DONE') }
       const tab = filters.tab ?? 'all'
-      const stateOf: Record<string, DoseRow['state']> = { overdue: 'OVERDUE', due: 'DUE', upcoming: 'UPCOMING', deferred: 'DEFERRED', done: 'DONE' }
+      const stateOf: Record<Exclude<DoseTab, 'all'>, DoseRow['state']> = { overdue: 'OVERDUE', due: 'DUE', done: 'DONE' }
       const sign = filters.dir === 'desc' ? -1 : 1
-      const rows = all.filter((r) => tab === 'all' || r.state === stateOf[tab]).sort((a, b) => sign * cmp(a.effectiveDate, b.effectiveDate) || cmp(a.cattleCode, b.cattleCode))
+      const rows = all.filter((r) => tab === 'all' || r.state === stateOf[tab]).sort((a, b) => sign * cmp(a.dueDate, b.dueDate) || cmp(a.cattleCode, b.cattleCode))
       const size = filters.size ?? PAGE_SIZE
       const page = Math.min(Math.max(1, filters.page ?? 1), Math.max(1, Math.ceil(rows.length / size)))
-      return clone({ rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts })
+      return clone({ rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts, leadDays: LEAD_DAYS, selectable: selectableOf(rows) })
     },
 
     async getDose(id: number): Promise<DoseRow & { cattleCode: string }> {
@@ -179,7 +178,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       const s: Schedule = {
         id: ids.schedule++, name: cmd.name.trim(), vaccineId: cmd.vaccineId!, firstDueDate: cmd.firstDueDate, doseCount: cmd.doseCount!, intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : undefined,
-        boosterIntervalMonths: cmd.boosterIntervalMonths, status: 'ACTIVE', version: 1, target: clone(cmd.target),
+        boosterIntervalMonths: cmd.boosterIntervalMonths, status: 'ACTIVE', completed: false, version: 1, target: clone(cmd.target),
       }
       schedules.push(s)
       const { targetCount, created } = syncDoses(s, false)
@@ -189,7 +188,12 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
     async updateSchedule(id: number, cmd: ScheduleCommand): Promise<ScheduleResult> {
       const s = mustHave(scheduleOf(id), 'Không tìm thấy lịch tiêm.')
       if (s.status !== 'ACTIVE' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== s.version)) throw new Error(CONFLICT_MESSAGE)
+      if (completedOf(s)) throw new Error('Lịch đã tiêm xong hết nên đã khóa. Tạo lịch mới để tiêm cho bò khác.')
       const errors = scheduleErrors(cmd, id)
+      // D46: lịch đã có mũi tiêm thì giữ ngày bắt đầu và khoảng cách giữa mũi.
+      const anyDone = doses.some((d) => d.scheduleId === s.id && d.status === 'DONE')
+      if (anyDone && cmd.firstDueDate !== s.firstDueDate) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày bắt đầu.'
+      if (anyDone && cmd.intervalDays !== s.intervalDays) errors.intervalDays = 'Lịch đã có mũi được tiêm: không đổi được khoảng cách giữa mũi.'
       if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       const redate = cmd.firstDueDate !== s.firstDueDate || cmd.intervalDays !== s.intervalDays
       Object.assign(s, {
@@ -197,7 +201,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
         boosterIntervalMonths: cmd.boosterIntervalMonths, target: clone(cmd.target), version: s.version + 1,
       })
       const { targetCount, created } = syncDoses(s, redate)
-      return clone({ schedule: s, targetCount, plannedDoseCount: created, message: `Đã lưu lịch ${s.name}: ${created} mũi dự kiến mới cho ${targetCount} bò.` })
+      return clone({ schedule: withState(s), targetCount, plannedDoseCount: created, message: `Đã lưu lịch ${s.name}: ${created} mũi dự kiến mới cho ${targetCount} bò.` })
     },
 
     async stopSchedule(id: number, cmd: { reason: string; expectedVersion: number }): Promise<ScheduleResult> {
@@ -207,7 +211,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       if (s.status !== 'ACTIVE' || s.version !== cmd.expectedVersion) throw new Error(CONFLICT_MESSAGE)
       let cancelled = 0
       doses.forEach((d) => {
-        if (d.scheduleId === s.id && (d.status === 'PLANNED' || d.status === 'DEFERRED')) { d.status = 'CANCELLED'; cancelled++ }
+        if (d.scheduleId === s.id && d.status === 'PLANNED') { d.status = 'CANCELLED'; cancelled++ }
       })
       Object.assign(s, { status: 'STOPPED', stopReason: cmd.reason.trim(), version: s.version + 1 })
       return clone({ schedule: s, targetCount: 0, plannedDoseCount: cancelled, message: `Đã dừng lịch ${s.name}.` })
@@ -218,12 +222,12 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       ;(input.doseIds ?? []).forEach((id) => {
         const d = doses.find((x) => x.id === id)
         const c = d && cattleOf(d.cattleCode)
-        if (d && c && (d.status === 'PLANNED' || d.status === 'DEFERRED')) rows.push({ cattle: c, dose: rowOf(d) })
+        if (d && c && d.status === 'PLANNED') rows.push({ cattle: c, dose: rowOf(d) })
       })
       ;(input.cattleCodes ?? []).forEach((code) => {
         const c = cattleOf(code)
         if (!c || rows.some((r) => r.cattle.code === code)) return
-        const open = doses.filter((d) => d.cattleCode === code && (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.status === 'ACTIVE').sort((a, b) => cmp(effectiveDate(a), effectiveDate(b)))[0]
+        const open = doses.filter((d) => d.cattleCode === code && d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.status === 'ACTIVE').sort((a, b) => cmp(a.dueDate, b.dueDate))[0]
         rows.push({ cattle: c, dose: open && rowOf(open) })
       })
       const doseRows = rows.map((r) => r.dose)
@@ -236,38 +240,24 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
     async recordVaccinations(cmd: RecordVaccinationsCommand): Promise<VaccinationBatchResult> {
       if (!cmd.animals.length) throw new VaccinationValidationError({ form: 'Chưa chọn bò nào để ghi nhận.' })
       const vaccine = vaccineOf(cmd.vaccineId)
-      const vaccinated = cmd.animals.filter((a) => a.decision === 'VACCINATE')
-      const herdEntryDate = vaccinated.map((a) => cattleOf(a.cattleCode)?.herdEntryDate ?? '').sort().pop() || undefined
+      const herdEntryDate = cmd.animals.map((a) => cattleOf(a.cattleCode)?.herdEntryDate ?? '').sort().pop() || undefined
       const fields = validateRecordFields(cmd, { now: now(), vaccine, herdEntryDate })
-      const rowErrors: FieldErrors = {}
-      cmd.animals.filter((a) => a.decision === 'DEFER').forEach((a) => {
-        const e = validateDefer({ reason: a.deferralReason, newExpectedDate: a.newExpectedDate }, today())
-        if (e.reason) rowErrors[a.cattleCode] = 'Lý do chưa tiêm là bắt buộc.'
-        else if (e.newExpectedDate) rowErrors[a.cattleCode] = e.newExpectedDate
-      })
-      if (hasErrors(fields) || hasErrors(rowErrors)) throw new VaccinationValidationError(fields, rowErrors)
+      if (hasErrors(fields)) throw new VaccinationValidationError(fields)
 
       const skipped: VaccinationBatchResult['skipped'] = []
       const vaccinationIds: number[] = []
-      let deferredCount = 0
       for (const a of cmd.animals) {
         const c = cattleOf(a.cattleCode)
         if (!c || c.status !== 'ACTIVE') { skipped.push({ cattleCode: a.cattleCode, message: `${a.cattleCode} đã rời đàn nên được bỏ qua.` }); continue }
         let dose = a.scheduledDoseId ? doses.find((d) => d.id === a.scheduledDoseId) : undefined
-        if (!dose && a.decision === 'VACCINATE' && cmd.source === 'ON_FARM') {
-          dose = doses.filter((d) => d.cattleCode === a.cattleCode && (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.status === 'ACTIVE' && scheduleOf(d.scheduleId)?.vaccineId === cmd.vaccineId).sort((x, y) => cmp(effectiveDate(x), effectiveDate(y)))[0]
+        if (!dose && cmd.source === 'ON_FARM') {
+          dose = doses.filter((d) => d.cattleCode === a.cattleCode && d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.status === 'ACTIVE' && scheduleOf(d.scheduleId)?.vaccineId === cmd.vaccineId).sort((x, y) => cmp(x.dueDate, y.dueDate))[0]
         }
         if (dose && dose.status === 'DONE') { skipped.push({ cattleCode: a.cattleCode, message: `${a.cattleCode} đã tiêm mũi ${dose.doseNo} của lịch này nên được bỏ qua.` }); continue }
         if (dose && (dose.status === 'CANCELLED' || (a.expectedDoseVersion !== undefined && a.expectedDoseVersion !== dose.version))) { skipped.push({ cattleCode: a.cattleCode, message: `${a.cattleCode}: mũi tiêm đã thay đổi nên được bỏ qua.` }); continue }
-        if (a.decision === 'DEFER') {
-          if (!dose) { skipped.push({ cattleCode: a.cattleCode, message: `${a.cattleCode} chưa có mũi theo lịch để hoãn.` }); continue }
-          applyDefer(dose, { reason: a.deferralReason!, newExpectedDate: a.newExpectedDate })
-          deferredCount++
-          continue
-        }
         const days = cmd.source === 'ON_FARM' ? cmd.withdrawalDays ?? vaccine!.withdrawalDays : 0
         const r: VaccinationRecord = {
-          id: ids.record++, cattleCode: c.code, vaccineId: vaccine!.id, vaccineLabel: vaccine!.shortName, dose: cmd.dose, route: cmd.route,
+          id: ids.record++, cattleCode: c.code, vaccineId: vaccine!.id, vaccineLabel: vaccine!.shortName, dose: cmd.dose, route: cmd.route, routeText: cmd.route === 'OTHER' ? cmd.routeOther?.trim() : undefined,
           administeredAt: cmd.administeredAt, precision: 'EXACT', source: cmd.source, vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: days,
           withdrawalEndDate: withdrawalEndOf(cmd.source, cmd.administeredAt, days), status: 'VALID', corrected: false, version: 1, revisions: [],
         }
@@ -275,17 +265,8 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
         if (dose && cmd.source === 'ON_FARM') closeDose(dose, r)
         vaccinationIds.push(r.id)
       }
-      const result = { vaccinatedCount: vaccinationIds.length, deferredCount, vaccinationIds, skipped }
-      return clone({ ...result, message: `Đã ghi nhận ${result.vaccinatedCount} mũi tiêm; hoãn ${deferredCount} mũi.` })
-    },
-
-    async deferDose(id: number, cmd: DeferDoseCommand) {
-      const d = mustHave(doses.find((x) => x.id === id), 'Không tìm thấy mũi tiêm.')
-      if (d.version !== cmd.expectedVersion || (d.status !== 'PLANNED' && d.status !== 'DEFERRED')) throw new Error(CONFLICT_MESSAGE)
-      const errors = validateDefer(cmd, today())
-      if (hasErrors(errors)) throw new VaccinationValidationError(errors)
-      applyDefer(d, cmd)
-      return clone({ id: d.id, status: d.status, version: d.version, reason: d.deferralReason, newExpectedDate: d.newExpectedDate, message: `Đã hoãn mũi tiêm${d.newExpectedDate ? ` đến ${fmtDate(d.newExpectedDate)}` : ''}.` })
+      const result = { vaccinatedCount: vaccinationIds.length, vaccinationIds, skipped }
+      return clone({ ...result, message: `Đã ghi nhận ${result.vaccinatedCount} mũi tiêm.` })
     },
 
     async listHistory(filters: HistoryFilters = {}): Promise<HistoryPage> {
@@ -307,10 +288,10 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
 
     async getCattleVaccination(code: string): Promise<CattleVaccination> {
       const c = cattleOf(code) ?? ({ code, breed: '', sex: 'Cái', penCode: '', penName: '', herdGroup: 'OTHER', lifeStage: 'ADULT', herdEntryDate: '2020-01-01', status: 'ACTIVE' } as VaccCattle)
-      const open = doses.filter((d) => d.cattleCode === code && (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.status === 'ACTIVE' && cattleOf(code))
+      const open = doses.filter((d) => d.cattleCode === code && d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.status === 'ACTIVE' && cattleOf(code))
       return clone({
         cattle: c,
-        doses: open.map(rowOf).sort((a, b) => cmp(a.effectiveDate, b.effectiveDate)),
+        doses: open.map(rowOf).sort((a, b) => cmp(a.dueDate, b.dueDate)),
         records: records.filter((r) => r.cattleCode === code).sort((a, b) => cmp(b.administeredAt, a.administeredAt)),
       })
     },
@@ -318,13 +299,13 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
       const r = liveRecord(id, cmd.expectedVersion)
       const c = cattleOf(r.cattleCode)
-      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateReason(cmd.reason) }
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateReason(cmd.reason) }
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
       const before = { vaccineId: r.vaccineId ?? 0, administeredAt: r.administeredAt, batchNo: r.batchNo, dose: r.dose, route: r.route, withdrawalDays: r.withdrawalDays, vaccinator: r.vaccinator }
       const vaccine = vaccineOf(cmd.vaccineId)!
       const days = r.source === 'ON_FARM' ? cmd.withdrawalDays ?? 0 : 0
       Object.assign(r, {
-        vaccineId: vaccine.id, vaccineLabel: vaccine.shortName, administeredAt: cmd.administeredAt, dose: cmd.dose, route: cmd.route,
+        vaccineId: vaccine.id, vaccineLabel: vaccine.shortName, administeredAt: cmd.administeredAt, dose: cmd.dose, route: cmd.route, routeText: cmd.route === 'OTHER' ? cmd.routeOther?.trim() : undefined,
         vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: days, withdrawalEndDate: withdrawalEndOf(r.source, cmd.administeredAt, days), corrected: true, version: r.version + 1,
         precision: 'EXACT',
       })
@@ -340,9 +321,8 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       const dose = r.scheduledDoseId ? doses.find((d) => d.id === r.scheduledDoseId) : undefined
       if (dose) {
         const stopped = scheduleOf(dose.scheduleId)?.status !== 'ACTIVE'
-        dose.status = stopped ? 'CANCELLED' : dose.prior?.status === 'DEFERRED' ? 'DEFERRED' : 'PLANNED'
-        dose.newExpectedDate = dose.prior?.newExpectedDate
-        dose.deferralReason = dose.prior?.deferralReason
+        // R-09-14: hủy bản ghi thì mũi quay về chờ tiêm (lịch còn chạy) hoặc bị hủy (lịch đã dừng).
+        dose.status = stopped ? 'CANCELLED' : 'PLANNED'
         dose.vaccinationId = undefined
         dose.doneAt = undefined
         dose.version++

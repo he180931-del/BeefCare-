@@ -169,4 +169,5 @@
     <include file="config/liquibase/changelog/20261117000100_fixed_business_time_zone.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261121000100_local_runtime_cattle_qr.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261121000200_system_test_accounts.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261123000100_vaccination_remove_deferral.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

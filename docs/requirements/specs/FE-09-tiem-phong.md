@@ -21,7 +21,7 @@
 | UC-FE09-03 | Sửa lịch tiêm / thêm bớt bò | Owner, Manager | SCR-32 |
 | UC-FE09-04 | Dừng lịch tiêm | Owner, Manager | SCR-32 |
 | UC-FE09-05 | Ghi nhận tiêm (một con, cả lô, hoặc tiêm lịch sử) | Owner, Manager | SCR-33 |
-| UC-FE09-06 | Hoãn mũi tiêm | Owner, Manager | Popup Hoãn mũi |
+| ~~UC-FE09-06~~ | ~~Hoãn mũi tiêm~~ – bỏ theo D46 (bò chưa tiêm được thì sửa lịch để bỏ con đó ra) | — | — |
 | UC-FE09-07 | Xem lịch sử tiêm | Owner, Manager, Technician | SCR-34, SCR-35 |
 | UC-FE09-08 | Sửa / hủy bản ghi tiêm | Owner, Manager | Popup Sửa / Hủy bản ghi tiêm |
 
@@ -34,7 +34,7 @@
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem lịch, mũi, lịch sử | Có | Có | Có |
-| Tạo / sửa / dừng lịch, ghi tiêm, hoãn, sửa / hủy bản ghi | Có (D41) | Có | — (có thể được chọn là người tiêm) |
+| Tạo / sửa / dừng lịch, ghi tiêm, sửa / hủy bản ghi | Có (D41) | Có | — (có thể được chọn là người tiêm) |
 
 Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING không nhận bản ghi mới (GBR-26).
 
@@ -62,9 +62,9 @@ Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING
 |---|---|
 | Lịch + bò + số mũi (hoặc nhắc lại) | Duy nhất (BR-D17) |
 | Ngày dự kiến | Mũi k = ngày bắt đầu + (k − 1) × số ngày giữa các mũi |
-| Trạng thái | `PLANNED` → `DONE` / `DEFERRED` (→ PLANNED lại với ngày mới, hoặc DONE) / `CANCELLED` |
-| Lý do hoãn, ngày dự kiến mới, bản ghi tiêm hoàn thành mũi | Mỗi mũi được hoàn thành bởi tối đa 1 bản ghi ON_FARM (BR-D17) |
-| Tình trạng hạn **suy ra** | Sắp tới (còn > số ngày nhắc trước), Đến hạn (trong số ngày nhắc trước, mặc định 7), Quá hạn (qua ngày mà chưa DONE) (GBR-43) |
+| Trạng thái | `PLANNED` (chờ tiêm) → `DONE` / `CANCELLED`. Không còn `DEFERRED` (D46); dữ liệu hoãn cũ đã chuyển về PLANNED với hạn = ngày hẹn mới |
+| Bản ghi tiêm hoàn thành mũi | Mỗi mũi được hoàn thành bởi tối đa 1 bản ghi ON_FARM (BR-D17) |
+| Tình trạng hạn **suy ra** | Đến hạn (trong số ngày nhắc trước – tham số trại VACCINATION_LEAD_DAYS, mặc định 7), Quá hạn (qua hạn mà chưa DONE), còn lại là chưa đến hạn (không có tab riêng – D46) (GBR-43) |
 
 ### 3.3 Bản ghi tiêm (Vaccination Record)
 
@@ -95,18 +95,18 @@ Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING
 | R-09-02 | Lưu lịch tạo đúng 1 mũi PLANNED cho mỗi bò × số mũi, trong một transaction; sau đó đánh giá REM-06 (JOB-01). | GBR-41, BR-D17 |
 | R-09-03 | Tên lịch trùng một lịch ACTIVE → MSG-FE09-10. Vắc-xin ngưng → MSG-FE18-08. | SCR-32, UC-02 E2 |
 | R-09-04 | Bò đã tiêm cùng vắc-xin gần đây được đánh dấu trong danh sách; Manager tự quyết giữ hay bỏ. | UC-02 AF1 |
-| R-09-05 | Sửa lịch chỉ ảnh hưởng mũi **chưa tiêm** (PLANNED / DEFERRED); mũi DONE không bao giờ đổi. | GBR-41 |
-| R-09-06 | Dừng lịch: bắt buộc lý do, xác nhận MSG-FE09-02; mọi mũi PLANNED và DEFERRED → CANCELLED; mũi DONE giữ nguyên; lịch STOPPED. | GBR-41, SCR-32 |
+| R-09-05 | Sửa lịch chỉ ảnh hưởng mũi **chưa tiêm** (PLANNED); mũi DONE không bao giờ đổi. Khóa (D46): lịch **đã hoàn thành** (ACTIVE nhưng không còn mũi PLANNED) hoặc STOPPED không sửa được gì; lịch đã có mũi DONE không đổi vắc-xin, ngày bắt đầu, khoảng cách giữa mũi; số mũi không giảm dưới mũi đã tiêm. Bò thêm vào lịch có ngày bắt đầu đã qua: mũi 1 hạn hôm nay. | GBR-41, D46 |
+| R-09-06 | Dừng lịch: bắt buộc lý do, xác nhận MSG-FE09-02; mọi mũi PLANNED → CANCELLED; mũi DONE giữ nguyên; lịch STOPPED. | GBR-41, SCR-32 |
 | R-09-07 | Nhắc lại: khi ghi mũi cuối của loạt (hoặc một mũi nhắc lại) và lịch còn ACTIVE → tạo mũi nhắc lại tiếp theo vào ngày tiêm + số tháng nhắc lại. | UC-02 AF3 |
 | R-09-08 | Ghi tiêm ON_FARM bắt buộc vắc-xin, thời điểm (không có số lô – D44); HISTORICAL có thể thiếu thời điểm chính xác, **không** đóng mũi theo lịch và **không** tính ngưng thịt. | GBR-42, UC-05 AF2, D44 |
-| R-09-09 | Ghi theo lô: mỗi bò "Tiêm" một bản ghi; bò chuyển "Hoãn" áp R-09-12. Tất cả lưu trong **một transaction**: bản ghi, mũi DONE, tính lại ngày mũi kế, hoãn, ngày hết ngưng thịt, dòng thời gian. Lỗi → không lưu gì. | GBR-42, UC-05 bước 7, E6 |
+| R-09-09 | Ghi theo lô: mỗi bò được chọn một bản ghi (không còn lựa chọn "Hoãn" – D46). Tất cả lưu trong **một transaction**: bản ghi, mũi DONE, tính lại ngày mũi kế, ngày hết ngưng thịt, dòng thời gian. Lỗi → không lưu gì. | GBR-42, UC-05 bước 7, E6 |
 | R-09-10 | Mũi đã DONE cho một bò → MSG-FE09-09, bỏ qua bò đó; bò đã EXITED trong lúc đó → MSG-COM-13, bỏ qua. | UC-05 E3, E5 |
-| R-09-11 | Ghi từ hồ sơ một con: bò có mũi PLANNED / DEFERRED khớp vắc-xin → tự liên kết. | UC-05 AF1 |
-| R-09-12 | Hoãn mũi: bắt buộc lý do; ngày mới tùy chọn, không trước hôm nay (MSG-FE09-11); mũi DEFERRED; nhắc theo ngày mới; không có ngày mới → nằm ở tab "Đã hoãn". Hoãn lại được nhiều lần. Mũi DONE / CANCELLED → MSG-COM-05. | GBR-43 |
+| R-09-11 | Ghi từ hồ sơ một con: bò có mũi PLANNED khớp vắc-xin → tự liên kết. | UC-05 AF1 |
+| ~~R-09-12~~ | Bỏ theo D46: không còn hoãn mũi. Bò chưa tiêm được thì sửa lịch để bỏ con đó ra (mũi chưa tiêm CANCELLED) hoặc tạo lịch mới cho nhóm đó. | D46 |
 | R-09-13 | Ngày hết ngưng thịt của bò = ngày lớn nhất trong các điều trị VALID và bản ghi tiêm ON_FARM VALID; còn ≥ hôm nay thì hiện "Cách ly thịt đến …". | GBR-46 |
-| R-09-14 | Sửa / hủy bản ghi: bắt buộc lý do; giữ giá trị gốc (Record Revision); kiểm version. Hủy bản ghi ON_FARM → mũi quay về PLANNED (hoặc DEFERRED với ngày cũ), trừ khi lịch đã STOPPED; nhắc việc khôi phục. Sau sửa / hủy tính lại ngày hết ngưng thịt. | GBR-44, BR-D15 |
+| R-09-14 | Sửa / hủy bản ghi: bắt buộc lý do; giữ giá trị gốc (Record Revision); kiểm version. Hủy bản ghi ON_FARM → mũi quay về PLANNED, trừ khi lịch đã STOPPED (khi đó CANCELLED); nhắc việc khôi phục. Sau sửa / hủy tính lại ngày hết ngưng thịt. | GBR-44, BR-D15 |
 | R-09-15 | Ca sức khỏe phản ứng sau tiêm giữ liên kết khi bản ghi tiêm bị hủy và hiện rằng mũi tiêm đã bị hủy. | UC-08 AF2, GBR-47 |
-| R-09-16 | Owner và Manager ghi / sửa / hủy / hoãn / quản lý lịch (D41); Technician xem. | GBR-08 |
+| R-09-16 | Owner và Manager ghi / sửa / hủy / quản lý lịch (D41); Technician xem. | GBR-08 |
 
 ---
 
@@ -116,7 +116,7 @@ Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING
 SCR-32 → tên, vắc-xin (hiện bệnh, liều, đường dùng, ngưng thịt tham chiếu), ngày bắt đầu, số mũi, số ngày giữa mũi, nhắc lại → chọn đối tượng (chuồng, nhóm đàn, giai đoạn) → hệ thống hiện số bò khớp và danh sách (bỏ / thêm từng con) → bảng mũi dự kiến → **Lưu lịch** → R-09-01 → R-09-03 → R-09-02 → MSG-FE09-01.
 
 ### UC-FE09-03 Sửa lịch
-Mở lịch ACTIVE ở SCR-32 → đổi thông tin / đối tượng → **Lưu lịch** → áp R-09-05: bò thêm mới nhận mũi PLANNED; bò bị bỏ → mũi chưa tiêm CANCELLED; đổi ngày / số mũi → tính lại mũi chưa tiêm → MSG-FE09-01.
+Mở lịch ACTIVE chưa hoàn thành ở SCR-32 → đổi thông tin / đối tượng → **Lưu lịch** → áp R-09-05: bò thêm mới nhận mũi PLANNED (mũi 1 hạn hôm nay nếu ngày bắt đầu đã qua); bò bị bỏ → mũi chưa tiêm CANCELLED; đổi ngày / khoảng cách (chỉ khi chưa có mũi tiêm) hoặc số mũi → tính lại mũi chưa tiêm → MSG-FE09-01. Lịch đã hoàn thành chỉ xem (D46).
 
 ### UC-FE09-04 Dừng lịch
 SCR-32 → **Dừng lịch** → lý do → xác nhận MSG-FE09-02 → R-09-06 → MSG-FE09-03.
@@ -124,13 +124,13 @@ SCR-32 → **Dừng lịch** → lý do → xác nhận MSG-FE09-02 → R-09-06 
 ### UC-FE09-05 Ghi tiêm
 1. SCR-33: lịch và mũi (nếu bắt đầu từ lịch), các bò đã chọn (mã, chuồng).
 2. Xác nhận / chọn vắc-xin, thời điểm (mặc định bây giờ), liều, đường dùng, ngày ngưng thịt (điền sẵn), người tiêm, nguồn "Tiêm tại trại".
-3. Mỗi bò mặc định "Tiêm"; chuyển "Hoãn" thì nhập lý do và ngày mới.
-4. Tóm tắt (số tiêm, số hoãn) → **Lưu n mũi tiêm** → kiểm → R-09-09 → JOB-01 → MSG-FE09-04.
+3. Mọi bò được chọn đều ghi "Tiêm"; con nào chưa tiêm được thì bỏ chọn (D46).
+4. Tóm tắt (số tiêm) → **Lưu n mũi tiêm** → kiểm → R-09-09 → JOB-01 → MSG-FE09-04.
 
 AF1 một con từ hồ sơ (R-09-11) · AF2 tiêm lịch sử (R-09-08) · AF3 phản ứng sau tiêm → mở ca sức khỏe liên kết (FE-10) · AF4 Hủy.
 
-### UC-FE09-06 Hoãn mũi
-Popup → lý do, ngày mới (tùy chọn), ghi chú → **Lưu hoãn** → R-09-12 → MSG-FE09-06.
+### ~~UC-FE09-06 Hoãn mũi~~
+Bỏ theo D46.
 
 ### UC-FE09-01 / 07 Xem
 SCR-31 (thẻ lịch, tab mũi theo tình trạng hạn, danh sách mũi) · SCR-34 (tab hồ sơ) · SCR-35 (lịch sử toàn đàn).
@@ -151,14 +151,15 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | 3 | Record vaccination / Ghi nhận tiêm | Nút | Owner, Manager | Mở SCR-33 cho các mũi đã chọn |
 | 4 | Schedule card / Thẻ lịch | Thẻ | Tất cả | Tên, vắc-xin, số mũi, khoảng cách |
 | 5 | Progress / Tiến độ | Chữ | | "Đã tiêm x / y" và "n quá hạn" hoặc "Đúng tiến độ" |
-| 6 | Dose tabs / Tab mũi | Tab | | Tất cả, Quá hạn, Đến hạn trong 7 ngày, Sắp tới, Đã hoãn, Đã tiêm – có số |
-| 7 | Select / Chọn | Checkbox | Owner, Manager | Chọn để ghi theo lô |
+| 6 | Dose tabs / Tab mũi | Tab | | Tất cả, Quá hạn, Đến hạn trong N ngày (N = tham số trại "Thời gian nhắc tiêm"), Đã tiêm – có số. Bỏ Sắp tới và Đã hoãn (D46) |
+| 6a | Filters / Bộ lọc | Ô chữ + 2 dropdown | Tất cả | Như màn chọn bò vào phiếu (D47): Tìm kiếm (mã / tên bò), Chuồng, Nhóm đàn – kết hợp VÀ; áp cho bảng và số đếm trên tab; bỏ lọc bằng "Tất cả chuồng" / "Tất cả nhóm" |
+| 7 | Select / Chọn | Checkbox | Owner, Manager | Chọn từng mũi để ghi theo lô. Ô đầu cột **Chọn tất cả** (D47): chọn mọi mũi chưa tiêm khớp lịch + tab + bộ lọc, kể cả trang chưa xem; chỉ bật khi các mũi đó cùng một vắc-xin (đang xem tất cả lịch thì tắt, gợi ý chọn một lịch). Chọn tay lẫn vắc-xin thì báo và khóa nút Ghi nhận; có "Bỏ chọn" |
 | 8 | Cattle / Bò | Cột | | Mã hiển thị, giống, giới tính |
 | 9 | Pen / Chuồng | Cột | | Mã – tên |
 | 10 | Schedule · Dose / Lịch · Mũi | Cột | | Ví dụ "LMLM 2026 · mũi 2/2" hoặc "nhắc lại" |
 | 11 | Planned date / Ngày dự kiến | Cột | | dd/mm/yyyy, sắp xếp được |
-| 12 | Status / Tình trạng | Huy hiệu | | Quá hạn n ngày / Đến hạn / Sắp tới / Hoãn đến dd/mm / Đã tiêm dd/mm |
-| 13 | Actions / Thao tác | Nút | Owner, Manager | "Ghi" → SCR-33 với mũi đó; "Hoãn" → popup |
+| 12 | Status / Tình trạng | Huy hiệu | | Quá hạn n ngày / Đến hạn dd/mm / Sắp tới / Đã tiêm dd/mm |
+| 13 | Actions / Thao tác | Nút | Owner, Manager | "Ghi" → SCR-33 với mũi đó. Thẻ lịch hiện "Đã hoàn thành" khi không còn mũi chờ tiêm (D46) |
 
 ### SCR-32 Quản lý lịch tiêm
 
@@ -185,15 +186,15 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | 2 | Vaccine / Vắc-xin | Dropdown | * | ACTIVE | Từ lịch | MSG-COM-06, MSG-FE18-08 |
 | 3 | ~~Batch number / Số lô~~ | — | — | Bỏ theo D44 | — | — |
 | 4 | Administered at / Thời điểm tiêm | Ngày giờ | * | Không tương lai, không trước ngày nhập đàn | Bây giờ | MSG-COM-07, MSG-COM-15 |
-| 5 | Dose / Liều | Số + đơn vị | — | ml hoặc liều | Từ vắc-xin | MSG-COM-10 |
-| 6 | Route / Đường dùng | Dropdown | — | Tiêm bắp / Tiêm dưới da / Uống / Nhỏ mũi / Khác | Từ vắc-xin | — |
-| 7 | Withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | — | 0–365; chỉ Tiêm tại trại; hiện ngày hết (chỉ đọc) | Từ vắc-xin | MSG-COM-10 |
+| 5 | Dose / Liều | Số + đơn vị | — | Số dương (dấu chấm hoặc phẩy), đơn vị ml hoặc liều; từ chối 0, số âm, chữ, khoảng "1-2" (D45) | Từ vắc-xin | MSG-COM-10 |
+| 6 | Route / Đường dùng | Dropdown | — | Tiêm bắp / Tiêm dưới da / Uống / Nhỏ mũi / Khác; chọn **Khác** thì hiện ô "Đường tiêm khác" **bắt buộc**, ≤ 255 ký tự, lưu đúng mô tả đã nhập (D45) | Từ vắc-xin | MSG-COM-06 |
+| 7 | Withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | — | 0–365, không nhận số thập phân; **để trống = 0 ngày** (D45); chỉ Tiêm tại trại; hiện ngày hết (chỉ đọc) | Từ vắc-xin | MSG-COM-10 |
 | 8 | Vaccinator / Người tiêm | Dropdown hoặc chữ | — | Thành viên ACTIVE hoặc tên người ngoài ≤ 100 | — | MSG-COM-10 |
 | 9 | Data source / Nguồn dữ liệu | Radio | * | Tiêm tại trại / Nhập lịch sử | Tiêm tại trại | — |
 | 10 | Cattle, Pen / Bò, Chuồng | Dòng chỉ đọc | — | — | — | — |
-| 11 | Result / Kết quả | Radio mỗi dòng | — | Tiêm / Hoãn | Tiêm | MSG-FE09-09, MSG-COM-13 |
-| 12 | Deferral reason · new date / Lý do hoãn · ngày mới | Ô chữ + ngày | * lý do khi Hoãn | Lý do ≤ 500; ngày ≥ hôm nay | — | MSG-COM-06, MSG-FE09-11 |
-| 13 | Summary / Tóm tắt | Chữ | — | Lịch, mũi, số ghi, số hoãn | — | — |
+| 11 | Dose / Mũi | Chữ mỗi dòng | — | Lịch · mũi của con đó, hoặc "Ngoài lịch" (không còn lựa chọn Hoãn – D46) | — | MSG-FE09-09, MSG-COM-13 |
+| 12 | ~~Deferral reason · new date~~ | — | — | Bỏ theo D46 | — | — |
+| 13 | Summary / Tóm tắt | Chữ | — | Lịch, mũi, số ghi | — | — |
 | 14 | Cancel / Save n vaccinations – Hủy / Lưu n mũi tiêm | Nút | — | — | — | MSG-COM-02; thành công MSG-FE09-04 |
 
 ### SCR-34 Tab Tiêm phòng (hồ sơ bò)
@@ -201,7 +202,7 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | # | Trường | Nội dung |
 |---|---|---|
 | 1 | Record vaccination / Ghi nhận tiêm | Nút (Owner, Manager) → SCR-33 cho bò này |
-| 2 | Scheduled doses / Mũi theo lịch | Lịch, mũi, ngày dự kiến, tình trạng (như SCR-31); "Ghi", "Hoãn" (Owner, Manager) |
+| 2 | Scheduled doses / Mũi theo lịch | Lịch, mũi, hạn tiêm, tình trạng (như SCR-31); "Ghi" (Owner, Manager) |
 | 3 | Administered at / Thời điểm tiêm | dd/mm/yyyy HH:mm, sắp xếp được |
 | 4 | Vaccine · dose / Vắc-xin · mũi | Tên snapshot và số mũi |
 | 5 | Amount / Liều | — |
@@ -211,15 +212,9 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | 9 | Reaction / Phản ứng | Mã ca sức khỏe liên kết, hoặc "—" |
 | 10 | Actions / Thao tác | "Sửa · Hủy" (Owner, Manager); dòng đã hủy hiện mờ |
 
-### Popup Hoãn mũi
+### ~~Popup Hoãn mũi~~
 
-| # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
-|---|---|---|---|---|---|
-| 1 | Dose / Mũi | Chỉ đọc | — | Lịch, số mũi, ngày dự kiến; mã bò, chuồng | — |
-| 2 | Reason for not vaccinating / Lý do chưa tiêm | Ô chữ dài | * | ≤ 500 | MSG-COM-06 |
-| 3 | New expected date / Ngày dự kiến mới | Ngày | — | ≥ hôm nay | MSG-FE09-11 |
-| 4 | Note / Ghi chú | Ô chữ | — | ≤ 255 | MSG-COM-10 |
-| 5 | Cancel / Save deferral – Hủy / Lưu hoãn | Nút | — | — | MSG-COM-05, MSG-COM-02; thành công MSG-FE09-06 |
+Bỏ theo D46.
 
 ### SCR-35 Lịch sử tiêm (toàn đàn)
 
@@ -236,7 +231,7 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 |---|---|---|---|---|---|
 | 1 | Record / Bản ghi | Chỉ đọc | — | Bò, vắc-xin, thời điểm, người tiêm | — |
 | 2 | Action / Hành động | Radio | * | Sửa bản ghi (mặc định) / Hủy bản ghi | — |
-| 3 | Field / Current / New | Bảng | — | Vắc-xin, Thời điểm tiêm, Liều, Đường dùng, Ngưng thịt (ngày), Người tiêm (chỉ khi Sửa); lưu xong tính lại ngày hết ngưng thịt | MSG-COM-07 |
+| 3 | Field / Current / New | Bảng | — | (ràng buộc Liều, Đường dùng, Ngưng thịt như popup ghi – D45) Vắc-xin, Thời điểm tiêm, Liều, Đường dùng, Ngưng thịt (ngày), Người tiêm (chỉ khi Sửa); lưu xong tính lại ngày hết ngưng thịt | MSG-COM-07 |
 | 4 | Reason / Lý do | Ô chữ dài | * | ≤ 500 | MSG-COM-06 |
 | 5 | Cancel / Save | Nút | — | — | MSG-COM-05, MSG-COM-02; thành công MSG-FE09-08 |
 
@@ -246,13 +241,13 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
-| A1 | Danh sách lịch + mũi | `tab? (ALL\|OVERDUE\|DUE_7\|UPCOMING\|DEFERRED\|DONE), scheduleId?, page, size` | `{schedules[{scheduleId, name, vaccine, doses, interval, done, total, overdue, status}], counts{…}, doses[{doseId, cattle, pen, scheduleName, doseNo, booster, plannedDate, newExpectedDate?, status, dueStatus, overdueDays?, version}]}` | COM-03 | `GET /api/farms/{farmId}/vaccination-schedules` (mũi theo tab: chưa có – Q2) |
+| A1 | Danh sách lịch + mũi | `tab? (ALL\|OVERDUE\|DUE\|DONE), scheduleId?, page, size` (D46) | `{schedules[{scheduleId, name, vaccine, doses, interval, done, total, overdue, status}], counts{…}, doses[{doseId, cattle, pen, scheduleName, doseNo, booster, plannedDate, status, dueStatus, overdueDays?, version}]}`; lịch có `completed` (D46) | COM-03 | `GET /api/farms/{farmId}/vaccination-schedules` (mũi theo tab: chưa có – Q2) |
 | A2 | Xem trước bò khớp đối tượng | `penIds[], herdGroups[], lifeStages[]` | `{count, cattle[{cattleId, code, pen, recentSameVaccine}]}` | FE09-07 | chưa có – thêm `POST …/vaccination-schedules/preview` |
 | A3 | Tạo lịch | `name, vaccineId, startDate, doses, daysBetween?, boosterMonths?, target {penIds, herdGroups, lifeStages}, cattleIds[] (đã chốt)` + `Idempotency-Key` | `{scheduleId, plannedDoses[{doseNo, date, cattleCount}]}` | FE09-07, FE09-10, FE18-08, COM-06, COM-10, COM-02 | `POST /api/farms/{farmId}/vaccination-schedules` |
-| A4 | Sửa lịch | Như A3 + `version` | Như A3 | + COM-05 | `PUT …/vaccination-schedules/{scheduleId}` |
+| A4 | Sửa lịch | Như A3 + `version` | Như A3 | + COM-05 (`reason`: schedule_completed, start_date_locked_after_done, interval_locked_after_done, vaccine_change_after_done – D46) | `PUT …/vaccination-schedules/{scheduleId}` |
 | A5 | Dừng lịch | `reason` + `If-Match` + `Idempotency-Key` | `{status: STOPPED, cancelledDoses}` | COM-06, COM-05 | `POST …/vaccination-schedules/{scheduleId}/stop` (body `{reason}`, phiên bản qua `If-Match`; lý do lưu ở `stopReason`) |
-| A6 | Ghi tiêm | `vaccineId, administeredAt, dose?, doseUnit?, route?, withdrawalDays?, vaccinatorId? \| vaccinatorName?, source, scheduleId?, doseNo?, items[{cattleId, doseId?, result: VACCINATE\|DEFER, deferReason?, newDate?, version}]` + `Idempotency-Key` | `{recorded, deferred, skipped[{cattleId, code}], records[{recordId, cattleId, withdrawalUntil?}]}` | FE09-09, FE09-11, FE18-08, COM-07, COM-15, COM-13, COM-17, COM-02 | `POST /api/farms/{farmId}/vaccinations` |
-| A7 | Hoãn mũi | `reason, newDate?, note?, version` + `Idempotency-Key` | Mũi | COM-06, FE09-11, COM-05 | `POST /api/farms/{farmId}/scheduled-doses/{doseId}/defer` |
+| A6 | Ghi tiêm | `vaccineId, administeredAt, dose?, doseUnit?, route?, withdrawalDays?, vaccinatorId? \| vaccinatorName?, source, scheduleId?, doseNo?, items[{cattleId, doseId?, version}]` + `Idempotency-Key` | `{recorded, skipped[{cattleId, code}], records[{recordId, cattleId, withdrawalUntil?}]}` | FE09-09, FE18-08, COM-07, COM-15, COM-13, COM-17, COM-02 | `POST /api/farms/{farmId}/vaccinations` |
+| ~~A7~~ | ~~Hoãn mũi~~ – bỏ theo D46 (route trả 404) | — | — | — | — |
 | A8 | Tab tiêm của một con | — | `{doses[…], history[{recordId, administeredAt, vaccineName, doseNo, batchNo, amount, withdrawalUntil, source, vaccinator, reactionCaseCode, status, corrected, version}]}` | COM-08 | chưa có riêng – thêm `GET /api/farms/{farmId}/cattle/{cattleId}/vaccinations` |
 | A9 | Lịch sử toàn đàn | `search?, vaccineId?, source?, from?, to?, page, size` | Như A8 history + `cattle, pen` | COM-03 | `GET /api/farms/{farmId}/vaccinations/history` |
 | A10 | Sửa bản ghi | `changes{…}, reason, version` + `Idempotency-Key` | Bản ghi + `withdrawalUntil` của bò | FE09-05, COM-06, COM-07, COM-05 | `POST …/vaccinations/{id}/correction` |
@@ -265,16 +260,16 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | Mã | Kiểu | Nội dung VN (đề xuất) |
 |---|---|---|
 | MSG-FE09-01 | Toast thành công | Đã lưu lịch {name}: {doses} mũi cho {count} con. |
-| MSG-FE09-02 | Hộp thoại xác nhận | Dừng lịch {name}? {count} mũi chưa tiêm hoặc đang hoãn sẽ bị hủy. Mũi đã tiêm được giữ lại. |
+| MSG-FE09-02 | Hộp thoại xác nhận | Dừng lịch {name}? {count} mũi chưa tiêm sẽ bị hủy. Mũi đã tiêm được giữ lại. |
 | MSG-FE09-03 | Toast thành công | Đã dừng lịch {name}. |
-| MSG-FE09-04 | Toast thành công | Đã ghi {recorded} mũi tiêm; hoãn {deferred} mũi. |
+| MSG-FE09-04 | Toast thành công | Đã ghi nhận {recorded} mũi tiêm. |
 | MSG-FE09-05 | — | Bỏ theo D44 (không còn số lô). |
-| MSG-FE09-06 | Toast thành công | Đã hoãn mũi{ đến {date}}. |
+| MSG-FE09-06 | — | Bỏ theo D46. |
 | MSG-FE09-07 | Trên form | Không có bò đang nuôi nào khớp đối tượng đã chọn. |
 | MSG-FE09-08 | Toast thành công | Bản ghi tiêm đã được {action}. Giá trị gốc được giữ trong lịch sử. |
 | MSG-FE09-09 | Trên dòng | {cattle_code} đã tiêm mũi {dose} của lịch này và được bỏ qua. |
 | MSG-FE09-10 | Dưới trường | Đã có lịch đang hoạt động tên {name}. |
-| MSG-FE09-11 | Dưới trường | Ngày mới phải từ hôm nay trở đi. |
+| MSG-FE09-11 | — | Bỏ theo D46. |
 
 ---
 
@@ -289,30 +284,30 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | TC-09-05 | Đối tượng không khớp bò nào | Lưu | MSG-FE09-07 | I | R-09-01 |
 | TC-09-06 | 4 bò, 2 mũi, bắt đầu 01/11, khoảng 21 ngày | Lưu | 8 mũi PLANNED: 01/11 và 22/11 | I | R-09-02 |
 | TC-09-07 | Lịch đã lưu | Nhập đàn bò mới khớp tiêu chí | Bò mới không có mũi nào; MSG-FE06-05 gợi ý | I | R-09-01 |
-| TC-09-08 | Lịch 2 mũi, mũi 1 đã DONE cho 4 bò | Đổi khoảng 21 → 28 | Mũi 2 thành 29/11; mũi 1 không đổi | I | R-09-05 |
+| TC-09-08 | Lịch 2 mũi chưa ai tiêm / mũi 1 đã DONE cho 4 bò | Đổi khoảng 21 → 28 | Chưa tiêm: mũi 2 dời theo khoảng mới / Đã tiêm: MSG-COM-05 (`interval_locked_after_done`), không đổi gì | I | R-09-05, D46 |
 | TC-09-09 | Như trên | Bỏ 1 bò khỏi đối tượng | Mũi 2 của bò đó CANCELLED; mũi 1 DONE giữ nguyên | I | R-09-05 |
-| TC-09-10 | Lịch có 3 PLANNED, 1 DEFERRED, 4 DONE | Dừng có lý do | 4 CANCELLED, 4 DONE giữ; STOPPED; REM-06 tương ứng bị hủy | I | R-09-06 |
+| TC-09-10 | Lịch có 4 PLANNED, 4 DONE | Dừng có lý do | 4 CANCELLED, 4 DONE giữ; STOPPED; REM-06 tương ứng bị hủy | I | R-09-06 |
 | TC-09-11 | Lịch 1 mũi, nhắc lại 6 tháng | Ghi mũi 1 ngày 01/11/2026 | Tạo mũi nhắc lại 01/05/2027 PLANNED | I | R-09-07 |
 | TC-09-12 | Như trên, lịch đã STOPPED | Ghi mũi | Không tạo mũi nhắc lại | I | R-09-07 |
 | TC-09-13 | Tiêm tại trại | Không nhập số lô (màn ghi không còn ô số lô) | Ghi thành công; bản ghi lưu số lô rỗng | U, H | R-09-08, D44 |
 | TC-09-14 | Nhập lịch sử | Chỉ có tháng | Lưu được; không đóng mũi; không có ngày hết ngưng thịt | I | R-09-08 |
-| TC-09-15 | Chọn 5 bò, 1 bò "Hoãn" có lý do | Lưu | 4 bản ghi, 4 mũi DONE, 1 mũi DEFERRED; MSG-FE09-04 "4 … 1" | I | R-09-09 |
+| TC-09-15 | Chọn 5 bò ở màn ghi tiêm | Lưu | 5 bản ghi, 5 mũi DONE; MSG-FE09-04 "5"; không có lựa chọn Hoãn | I | R-09-09, D46 |
 | TC-09-16 | Như trên, lỗi ở bản ghi thứ 3 | Lưu | Không có bản ghi nào, không mũi nào đổi | I | R-09-09 |
 | TC-09-17 | 1 trong 5 bò đã DONE mũi đó | Lưu | MSG-FE09-09 cho bò đó, 4 bò còn lại được ghi | I | R-09-10 |
 | TC-09-18 | Bò có mũi PLANNED cùng vắc-xin | Ghi từ hồ sơ | Bản ghi liên kết mũi đó, mũi DONE | I | R-09-11 |
 | TC-09-19 | Ngưng thịt 21 ngày, tiêm 01/11 | Lưu | Ngày hết 22/11; hồ sơ "Cách ly thịt đến 22/11/2026" | I | R-09-13 |
 | TC-09-20 | Bò có điều trị hết ngưng 30/11 và tiêm hết 22/11 | Tính | 30/11 | U | R-09-13 |
-| TC-09-21 | Hoãn mũi | Không lý do / ngày mới hôm qua | MSG-COM-06 / MSG-FE09-11 | U, H | R-09-12 |
-| TC-09-22 | Mũi DEFERRED không có ngày mới | Mở SCR-31 | Mũi ở tab "Đã hoãn" | E | R-09-12 |
-| TC-09-23 | Mũi DONE | Hoãn | MSG-COM-05 | I | R-09-12 |
+| TC-09-21 | Lịch đã tiêm xong hết (không còn mũi PLANNED) | Mở SCR-32 / gửi sửa lịch | Nhãn "Đã hoàn thành", ô bị khóa / MSG-COM-05 (`schedule_completed`) | U, I | R-09-05, D46 |
+| TC-09-22 | Lịch bắt đầu 01/10, hôm nay 23/11 | Thêm 1 bò vào lịch | Mũi 1 của bò đó hạn 23/11 (không quá hạn ngay) | I | R-09-05, D46 |
+| TC-09-23 | Dữ liệu cũ có mũi DEFERRED hẹn 24/11 | Chạy migration D46 | Mũi PLANNED, hạn 24/11, version tăng | I | D46 |
 | TC-09-24 | Bản ghi ON_FARM đóng mũi 2 | Hủy có lý do | Bản ghi VOIDED; mũi 2 về PLANNED; REM-06 khôi phục; ngày ngưng thịt tính lại | I | R-09-14 |
 | TC-09-25 | Như trên, lịch đã STOPPED | Hủy | Mũi giữ CANCELLED | I | R-09-14 |
 | TC-09-26 | Bản ghi có ca phản ứng liên kết | Hủy bản ghi | Ca vẫn liên kết, hiện "mũi tiêm đã bị hủy" | I | R-09-15 |
 | TC-09-27 | Sửa ngưng thịt 21 → 30 | Lưu | Revision giữ 21; ngày hết của bò tính lại | I | R-09-14 |
 | TC-09-28 | Technician | Gọi ghi tiêm / tạo lịch | 403 | H | R-09-16 |
-| TC-09-29 | Hôm nay 05/11, nhắc trước 7 ngày | Mũi 10/11 / 13/11 / 04/11 chưa tiêm | Đến hạn / Sắp tới / Quá hạn 1 ngày | U | §3.2 |
+| TC-09-29 | Hôm nay 05/11, tham số nhắc trước 10 ngày | Mũi 12/11 / 22/11 / 01/11 chưa tiêm | Đến hạn (tab "Đến hạn trong 10 ngày") / chỉ ở Tất cả / Quá hạn 4 ngày | U | §3.2, D46 |
 | TC-09-30 | Đổi tên vắc-xin trong danh mục | Xem bản ghi cũ | Vẫn tên cũ (snapshot) | I | §3.3 |
-| TC-09-31 | Owner, trại ACTIVE | Tạo lịch, ghi tiêm một con và theo lô, hoãn mũi, sửa / hủy bản ghi tiêm | Thành công như Manager; người ghi = Owner | H, I, E | R-09-16, D41 |
+| TC-09-31 | Owner, trại ACTIVE | Tạo lịch, ghi tiêm một con và theo lô, sửa / hủy bản ghi tiêm | Thành công như Manager; người ghi = Owner | H, I, E | R-09-16, D41 |
 
 ---
 
@@ -336,3 +331,6 @@ Popup → Sửa (vắc-xin, thời điểm, liều, đường dùng, ngày ngưn
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 22/11/2026 | 28/10/2026 | D44: bỏ số lô khỏi ghi tiêm, popup sửa, bảng lịch sử và hợp đồng A6; gỡ MSG-FE09-05; viết lại TC-09-13 | Tuấn |
+| 23/11/2026 | 28/10/2026 | D45: liều số dương, đường tiêm "Khác" bắt buộc mô tả, ngưng thịt để trống = 0 và không nhận số thập phân | Tuấn |
+| 23/11/2026 | 28/10/2026 | D46: bỏ hoãn mũi (UC-FE09-06, R-09-12, popup Hoãn, A7, MSG-FE09-06/11); lịch đã hoàn thành bị khóa; khóa vắc-xin / ngày bắt đầu / khoảng cách khi đã có mũi tiêm; bò thêm vào lịch đã bắt đầu có mũi 1 từ hôm nay; tab còn Tất cả · Quá hạn · Đến hạn trong N ngày · Đã tiêm | Tuấn |
+| 23/11/2026 | 28/10/2026 | D47: SCR-31 thêm bộ lọc (tìm kiếm, chuồng, nhóm đàn) và "Chọn tất cả" mũi chưa tiêm theo bộ lọc; chặn ghi lẫn vắc-xin | Tuấn |

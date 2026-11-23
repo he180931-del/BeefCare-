@@ -155,7 +155,7 @@ class CatalogueFe18Test extends DomainTestSupport {
         var replacement = care.saveVaccine(f.getId(), null, "new-" + next(), vaccine("VX-NEW", null, 0));
         var cow = cattle(f, breed(f), purpose(f, PurposeType.FATTENING), Sex.MALE, LifeStage.ADULT);
         Long recordId = vaccination.record(f.getId(), "record-" + next(), new CareDtos.RecordVaccinations(old.id(), "HISTORICAL", TODAY.minusDays(1), null, null,
-            "2 ml", "SC", null, "Trại cũ", java.util.List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+            "2 ml", "SC", null, "Trại cũ", java.util.List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null)))).vaccinationIds().get(0);
         vaccination.correct(f.getId(), recordId, "correct-" + next(), new CareDtos.CorrectVaccination(
             versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, recordId), replacement.id(), null, null, null, null, null, null, "Chọn nhầm vắc-xin"));
         em.flush(); em.clear();
@@ -187,7 +187,7 @@ class CatalogueFe18Test extends DomainTestSupport {
         var vaccine = care.saveVaccine(f.getId(), null, "vaccine-" + next(), vaccine("VX-OLD", null, 21));
         var cow = cattle(f, breed(f), purpose(f, PurposeType.FATTENING), Sex.MALE, LifeStage.ADULT);
         Long id = vaccination.record(f.getId(), "record-" + next(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null, clock.instant().minusSeconds(3600), "LOT-1",
-            "2 ml", "SC", 21, "Thú y", java.util.List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+            "2 ml", "SC", 21, "Thú y", java.util.List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null)))).vaccinationIds().get(0);
         care.saveVaccine(f.getId(), vaccine.id(), "stop-" + next(), new CareDtos.VaccineCommand(vaccine.version(), vaccine.code(), "Tên mới", vaccine.diseasePrevented(), null, "3 ml", "SC", 7, null, false));
         vaccination.correct(f.getId(), id, "correct-" + next(), new CareDtos.CorrectVaccination(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id), vaccine.id(), null, null, null, "2.5 ml", null, null, "Sửa liều đã ghi"));
         em.flush(); em.clear();

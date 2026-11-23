@@ -52,18 +52,21 @@ export function parseDoseAmount(text: string, unit: string): { amount?: string; 
 }
 export const DOSE_INVALID = 'Liều không hợp lệ.'
 
+/** Nhãn đường tiêm để hiển thị: với "Khác" thì hiện đúng mô tả người dùng đã nhập (D45). */
+export const routeLabelOf = (route: VaccineRoute | undefined, routeText?: string): string =>
+  !route ? '—' : route === 'OTHER' && routeText ? routeText : ROUTE_LABEL[route]
+
 /** Tách "2 ml" thành số và đơn vị. */
 export function splitDose(dose: string | undefined, fallbackUnit = 'ml'): { amount: string; unit: string } {
   const m = /^\s*([\d.,]+)\s*(.*)$/.exec(dose ?? '')
   return m ? { amount: m[1], unit: m[2] || fallbackUnit } : { amount: '', unit: fallbackUnit }
 }
 
-export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'effectiveDate' | 'newExpectedDate' | 'doneAt'> }) {
+export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'dueDate' | 'doneAt'> }) {
   switch (row.state) {
     case 'OVERDUE': return <Badge tone="err" icon="alert-triangle">Quá hạn {row.daysOverdue} ngày</Badge>
-    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.effectiveDate)}</Badge>
+    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.dueDate)}</Badge>
     case 'UPCOMING': return <Badge tone="outline" icon="clock">Sắp tới</Badge>
-    case 'DEFERRED': return <Badge tone="warn">{row.newExpectedDate ? `Hoãn đến ${fmtDayMonth(row.newExpectedDate)}` : 'Đã hoãn'}</Badge>
     default: return <Badge tone="ok" icon="circle-check">Đã tiêm{row.doneAt ? ` ${fmtDayMonth(row.doneAt)}` : ''}</Badge>
   }
 }

@@ -780,3 +780,35 @@ TuanPQ (chủ FE-09) chốt trong phiên: "xóa trường này, ko ý nghĩa vì
 3. Dữ liệu cũ không xóa: cột `batch_no` giữ nguyên (không migration). API `POST /vaccinations` và `/vaccinations/{id}/correction` vẫn nhận `batchNo` tùy chọn (≤ 50 ký tự) để tương thích; frontend không gửi nữa, nên sửa bản ghi giữ nguyên số lô cũ trong DB.
 
 Đi kèm: `VaccinationCommandService` bỏ kiểm "bắt buộc số lô khi ON_FARM", giữ giới hạn 50 ký tự khi có gửi. Không đổi route hay hình dạng response. Spec FE-09 đã cập nhật: bảng dữ liệu, R-09-08, UC ghi tiêm / sửa, popup ghi tiêm (mục 3), bảng hồ sơ và Lịch sử tiêm, popup sửa, hợp đồng A6, MSG-FE09-05, TC-09-13. "Số lô" của nhập kho thức ăn (FE-23) không thuộc quyết định này.
+
+### D45 — FE-09: kiểm liều, đường tiêm "Khác" và số ngày ngưng thịt (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: liều chỉ nhận số dương; chọn đường tiêm "Khác" thì phải cho nhập và bắt buộc không để trống; ngưng thịt chỉ là số nguyên, "nếu người dùng không chọn thì tự để là 0". Bổ sung cho popup Ghi tiêm và popup Sửa bản ghi tiêm của spec FE-09 (SCR-33, mục 5 – 7):
+
+1. **Liều** (không bắt buộc): nếu nhập phải là số dương, có thể kèm đơn vị bắt đầu bằng chữ cái ("2", "2,5 ml", "1 liều"); từ chối 0, số âm, chữ, khoảng "1-2 ml". Frontend báo "Liều không hợp lệ."; backend kiểm lại liều do người dùng gửi (liều tham chiếu lấy từ danh mục không kiểm lại).
+2. **Đường tiêm "Khác"**: hiện ô "Đường tiêm khác", bắt buộc, tối đa 255 ký tự. Mô tả lưu thẳng vào cột `route` (thay cho mã `OTHER`) và hiển thị lại đúng chữ đã nhập; gửi `OTHER` trơn bị từ chối với `field = routeOther`. Không migration (cột `route` varchar(255)).
+3. **Ngưng thịt**: số nguyên 0 – 365, giữ cho phép 0 vì có vắc-xin không cần ngưng thịt. Ô để trống được ghi là 0 ngày. Backend không còn làm tròn ngầm số thập phân (trước đây `1.5` thành `1`): trường `withdrawalDays` của ghi tiêm và sửa bản ghi đọc bằng `WholeNumberDeserializer`, gửi số thập phân trả HTTP 400.
+
+Đi kèm: `VaccinationCommandService` thêm `requireValidDose`, `requireRouteDescription`, `requireWithdrawalDays` (Javadoc tiếng Việt, hằng số đặt đầu class); `CareDtos.RecordVaccinations` / `CorrectVaccination` gắn deserializer cho `withdrawalDays`. Không đổi route API hay hình dạng response; client API không gửi `withdrawalDays` vẫn lấy theo danh mục vắc-xin như cũ.
+
+### D46 — FE-09: bỏ hoãn mũi tiêm, khóa lịch đã hoàn thành và điều kiện sửa lịch (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: lịch tiêm xong hết "phải khóa lịch đấy chứ sao lại còn cho chỉnh sửa để dùng lại"; "hoãn không có ý nghĩa" – con nào chưa tiêm được thì sửa lịch bỏ con đó ra; bỏ tab Sắp tới; số ngày "Đến hạn" theo tham số trại; đồng ý bảng quy tắc sửa lịch và cách chuyển dữ liệu hoãn cũ. Làm khác UC-FE09-06, R-09-05, R-09-12, GBR-43 (tab) và SCR-31 / SCR-32 / SCR-33 của spec FE-09 (SRS 28/10):
+
+1. **Bỏ hoãn mũi**: không còn API `POST /scheduled-doses/{doseId}/defer` (trả 404), popup Hoãn, lựa chọn "Hoãn" từng con khi ghi theo lô, trạng thái `DEFERRED`, tab "Đã hoãn", MSG-FE09-06 / 11. Hủy bản ghi tiêm thì mũi quay về PLANNED (lịch đã dừng thì CANCELLED).
+2. **Lịch đã hoàn thành**: lịch ACTIVE không còn mũi PLANNED (đã tiêm hoặc đã hủy hết) được suy ra là "đã hoàn thành" (`completed` trong A2), hiện nhãn trên thẻ lịch và bị khóa: không sửa, không thêm bò (backend trả MSG-COM-05 `schedule_completed`); màn Quản lý lịch ẩn nút Lưu và Dừng. Lịch có nhắc lại sinh mũi nhắc mới sau mỗi lần tiêm mũi cuối nên chỉ kết thúc khi dừng. Hủy một bản ghi làm mũi quay về PLANNED thì lịch tự mở lại.
+3. **Điều kiện sửa lịch đang chạy**: chưa ai tiêm thì sửa tự do; đã có mũi DONE thì khóa vắc-xin (như Q3), ngày bắt đầu và khoảng cách giữa mũi; số mũi không giảm dưới mũi đã tiêm, không đổi khi đã bắt đầu loạt nhắc lại; vẫn đổi được tên, nhắc lại, thêm / bỏ bò. Bò thêm vào lịch có ngày bắt đầu đã qua thì mũi 1 hạn hôm nay (trước đây bị quá hạn ngay khi thêm).
+4. **Tab danh sách mũi**: Tất cả · Quá hạn · Đến hạn trong N ngày · Đã tiêm. N = `VACCINATION_LEAD_DAYS` của phiên bản tham số trại đang hiệu lực (mặc định 7). Mũi còn xa hạn chỉ hiện ở "Tất cả".
+5. **Dữ liệu cũ**: changeset mới `20261123000100_vaccination_remove_deferral` chuyển mũi DEFERRED về PLANNED, hạn = ngày hẹn mới nếu có, tăng version; cột `deferral_reason`, `new_expected_date`, `deferral_note` giữ nguyên (không còn dùng). Không sửa migration cũ.
+
+Đi kèm: `VaccinationCommandService` viết lại phần sửa lịch thành các hàm nhỏ (`applyName`, `applyVaccine`, `applyDates`, `applyBooster`, `applyDoseCount`, `applyTarget`, `planMissingDoses`, `isCompleted`) theo Java Code Convention, Javadoc tiếng Việt; `CareDtos` bỏ `DeferDose`, `DoseResult`, trường hoãn của `VaccinationAnimal` / `ScheduledDoseView` và `deferredCount` của `VaccinationBatchResult`; `VaccinationCommandResource` viết lại. OpenAPI và API catalog đã sinh lại. Phần chỉ đọc trạng thái hoãn của FE-04 (xuất đàn), FE-14 (nhắc việc REM-06) và FE-15 (dashboard, báo cáo) **không sửa**: sau migration không còn mũi DEFERRED nên các nhánh đó không còn chạy; trang Tổng quan vẫn tự giữ "Đến hạn 7 ngày" của FE-15 – cần báo chủ các feature nếu muốn thống nhất.
+
+### D47 — FE-09: lọc và "Chọn tất cả" ở danh sách mũi tiêm (23/11/2026)
+
+TuanPQ (chủ FE-09) yêu cầu trong phiên: trang Tiêm phòng không có cách chọn nhanh mà phải ấn từng mũi; lọc "như lúc chọn bò cho vào phiếu". Bổ sung cho SCR-31 (SRS chỉ có ô chọn từng dòng):
+
+1. **Bộ lọc** như màn chọn bò vào phiếu xuất: Tìm kiếm (mã / tên bò), Chuồng, Nhóm đàn – kết hợp VÀ, áp cho bảng và số đếm trên tab; bỏ lọc bằng lựa chọn "Tất cả" của từng ô (không có nút Xóa lọc riêng). Hệ thống không có khái niệm "khu" (chuồng chỉ có mã, tên, sức chứa) nên gom theo chuồng.
+2. **Chọn tất cả**: ô đầu cột chọn mọi mũi chưa tiêm khớp lịch đang xem + tab + bộ lọc, kể cả các trang chưa mở; bấm lại để bỏ; thêm nút "Bỏ chọn".
+3. **Một lần ghi một vắc-xin**: màn ghi tiêm theo lô dùng một vắc-xin cho cả lô và backend từ chối mũi của lịch khác vắc-xin, nên "Chọn tất cả" chỉ bật khi các mũi khớp bộ lọc cùng vắc-xin (đang xem tất cả các lịch thì tắt, gợi ý chọn một lịch); chọn tay lẫn vắc-xin thì báo và khóa nút "Ghi nhận".
+
+Chỉ đổi frontend (lọc trên dữ liệu A2 đã đọc); không đổi backend, route hay DTO. Spec FE-09 SCR-31 đã cập nhật (mục 6a, 7).

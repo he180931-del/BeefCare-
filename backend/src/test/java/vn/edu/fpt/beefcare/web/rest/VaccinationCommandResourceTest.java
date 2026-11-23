@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -113,6 +114,20 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
             .andExpect(status().isForbidden());
     }
 
+    /** D45: số ngày ngưng thịt là số nguyên; gửi 1.5 bị từ chối (400) thay vì bị làm tròn ngầm thành 1. */
+    @Test
+    void d45_aDecimalWithdrawalPeriodIsRejected() throws Exception {
+        actAs(owner);
+        String body = "{\"vaccineId\":" + vaccine.id() + ",\"source\":\"ON_FARM\",\"administeredAt\":\"" + clock.instant().minusSeconds(3600) + "\","
+            + "\"dose\":\"2 ml\",\"route\":\"SC\",\"withdrawalDays\":1.5,\"vaccinator\":\"Chủ trại\",\"animals\":[{\"cattleId\":" + herd.get(0).getId()
+            + ",\"decision\":\"VACCINATE\"}]}";
+        mvc.perform(post(url("/vaccinations")).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
+        assertThat(em.createQuery("select count(v) from Vaccination v where v.cattle.farm.id = :farm", Long.class)
+            .setParameter("farm", farm.getId())
+            .getSingleResult()).isZero();
+    }
+
     /** D41 (TC-09-31): the Owner plans, records and stops a schedule like a Manager. */
     @Test
     void tc09_31_theOwnerPlansRecordsAndStopsLikeAManager() throws Exception {
@@ -140,7 +155,7 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
     void correctionAcceptsWithdrawalDaysAndAnswersTheCattleWithdrawalEnd() throws Exception {
         Long id = vaccination.record(farm.getId(), UUID.randomUUID().toString(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
             clock.instant().minusSeconds(3600), "LOT-1", "2 ml", "SC", 21, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null)))).vaccinationIds().get(0);
         em.flush();
         Integer version = versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id);
         mvc.perform(post(url("/vaccinations/" + id + "/correction")).with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON)
@@ -162,7 +177,7 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
     void historyRowsCarryTheRouteAndTheRevisions() throws Exception {
         Long id = vaccination.record(farm.getId(), UUID.randomUUID().toString(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
             clock.instant().minusSeconds(3600), "LOT-1", "2 ml", "SC", 21, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null)))).vaccinationIds().get(0);
         em.flush();
         vaccination.correct(farm.getId(), id, UUID.randomUUID().toString(), new CareDtos.CorrectVaccination(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id),
             null, null, null, "LOT-2", null, null, null, "Ghi nhầm số lô", null));
