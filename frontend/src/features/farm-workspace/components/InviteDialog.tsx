@@ -46,7 +46,7 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
         {alternative?.kind === 'resend' && <Note tone="warn"><p className="m-0">Đã có lời mời đang chờ cho email này.</p><p className="mb-0">Gửi lại lời mời cho {alternative.invitation.email} với vai trò {roleLabel(alternative.invitation.role)}, hiệu lực {alternative.invitation.validityDays} ngày?</p></Note>}
         {alternative?.kind === 'reactivate' && <Note tone="warn">{alternative.member.email} là thành viên đã ngưng. Kích hoạt lại thay vì mời? Vai trò hiện tại: {roleLabel(alternative.member.role)}.</Note>}
         {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-        <ModalFooter compact>
+        <ModalFooter>
           {discarding ? <>
             <Button size="lg" onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</Button>
             <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>

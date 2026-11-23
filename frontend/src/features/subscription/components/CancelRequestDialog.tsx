@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, DISCARD_PROMPT, Field, Modal, Note, Textarea } from '../../../shared/ui'
+import { Button, DISCARD_PROMPT, Field, Modal, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { CANCEL_REASON_MAX, subscriptionApi } from '../api/subscriptionApi'
 import { stateFromError } from '../domain/subscriptionRules'
 import { SubscriptionError, type Payment, type StateDialogState } from '../types'
@@ -60,7 +60,7 @@ export default function CancelRequestDialog({ farmId, payment, onClose, onCancel
       {tooLong && <p role="alert" className="m-0 text-[12px] text-err-fg">Lý do tối đa {CANCEL_REASON_MAX.toLocaleString('vi-VN')} ký tự.</p>}
       {error && <Note tone="err">{error}</Note>}
       {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-      <div className="flex flex-wrap justify-end gap-3">
+      <ModalFooter>
         {discarding ? <>
           <Button size="lg" onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</Button>
           <Button size="lg" variant="danger" onClick={onClose}>{DISCARD_PROMPT.discard}</Button>
@@ -68,7 +68,7 @@ export default function CancelRequestDialog({ farmId, payment, onClose, onCancel
           <Button size="lg" disabled={busy} onClick={close}>Quay lại</Button>
           <Button size="lg" variant="danger" disabled={busy || tooLong} onClick={() => void confirm()}>{busy ? 'Đang hủy…' : 'Hủy yêu cầu'}</Button>
         </>}
-      </div>
+      </ModalFooter>
     </Modal>
   )
 }

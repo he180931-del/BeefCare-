@@ -43,7 +43,7 @@ export function ReasonDialog({
       {warn && <Note tone="warn">{warn}</Note>}
       {note && <Note tone={noteTone}>{note}</Note>}
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
         {secondary && <ModalButton onClick={secondary.onClick}>{secondary.label}</ModalButton>}
         <ModalButton variant="primary" onClick={submit} disabled={busy || blocked}>{submitIcon && <Icon name={submitIcon} size={16} />} {submitLabel}</ModalButton>

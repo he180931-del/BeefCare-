@@ -62,7 +62,7 @@ export default function CancelModal({ record, onConfirm, onClose, error, saving,
       </Field>
 
       {onReload && <VoucherCommandError error={error} onReload={onReload} />}
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={!reason.trim() || blocked || saving} onClick={() => { void Promise.resolve(onConfirm(reason.trim())).catch(() => undefined) }}>
           <Icon name="circle-x" />Hủy phiếu nhập

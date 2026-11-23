@@ -329,7 +329,7 @@ function SupplierFormDialog({ supplier, saving, onClose, onSave }: {
         <Field label="Khu vực / địa chỉ" id="feed-supplier-area"><input id="feed-supplier-area" maxLength={255} disabled={saving} value={area} onChange={(event) => setArea(event.target.value)} className={inputCls} /></Field>
         <Field label="Ghi chú" id="feed-supplier-note"><Textarea id="feed-supplier-note" maxLength={500} disabled={saving} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
       </div>
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={submit}>{saving ? 'Đang lưu…' : 'Lưu nhà cung cấp'}</ModalButton>
       </ModalFooter>

@@ -46,7 +46,7 @@ export default function ReviewDialog({ viewer, draftId, onBack, onPublished }: {
           {error && <p role="alert" className="m-0 text-xs text-err-fg">{error}</p>}
         </div>
       )}
-      <ModalFooter className="px-0! pb-0! pt-0! [&>button]:w-full @min-[480px]:[&>button]:w-auto">
+      <ModalFooter className="[&>button]:w-full @min-[480px]:[&>button]:w-auto">
         <ModalButton onClick={onBack}><Icon name="arrow-left" size={16} /> Quay lại sửa</ModalButton>
         <ModalButton variant="primary" disabled={!a || people.length === 0 || busy} onClick={publish}><Icon name="speakerphone" size={16} /> Đăng thông báo</ModalButton>
       </ModalFooter>

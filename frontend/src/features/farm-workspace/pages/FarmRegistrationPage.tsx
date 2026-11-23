@@ -1,5 +1,5 @@
 import { useFarmRegistration } from '../hooks/useFarmRegistration'
-import { Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, Note, Select } from '../../../shared/ui'
+import { Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
 import { BreedMultiSelect } from '../components/BreedMultiSelect'
 import SetupLayout from '../components/SetupLayout'
 import { FieldError, Stepper } from '../components/WorkspaceUi'
@@ -47,7 +47,7 @@ export default function FarmRegistrationPage() {
       {profileRequired && (
         <Modal title="Chưa hoàn tất hồ sơ Chủ trại" width={560} onClose={openOwnerProfile}>
           <p className="m-0 text-sm text-ink">Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.</p>
-          <div className="flex justify-end"><ModalButton variant="primary" onClick={openOwnerProfile}>Hoàn tất hồ sơ</ModalButton></div>
+          <ModalFooter><ModalButton variant="primary" onClick={openOwnerProfile}>Hoàn tất hồ sơ</ModalButton></ModalFooter>
         </Modal>
       )}
     </SetupLayout>

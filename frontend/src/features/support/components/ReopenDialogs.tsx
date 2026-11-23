@@ -44,7 +44,7 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
         </Field>
         <Note tone="warn">Lý do là bắt buộc. Mở lại đưa yêu cầu về Đang mở, giữ nhân viên hỗ trợ phụ trách và lịch sử; xác nhận cho kết quả v{resolution.version} không còn hiệu lực.</Note>
       </div>
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>
           <Icon name="arrow-left" size={16} /> Quay lại
         </ModalButton>

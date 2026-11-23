@@ -49,7 +49,7 @@ export default function InvitationsPage() {
         <Modal title="Hủy lời mời" width={560} onClose={closeCancel}>
           <p className="m-0 text-sm text-ink">Hủy lời mời gửi {confirmCancel.email}? Link sẽ không còn tác dụng.</p>
           {confirmError && <Note tone="err">{confirmError}</Note>}
-          <ModalFooter compact>
+          <ModalFooter>
             <Button size="lg" disabled={busy !== null} onClick={closeCancel}>Quay lại</Button>
             <Button size="lg" variant="danger" disabled={busy !== null} onClick={() => run(confirmCancel, 'cancel')}>{busy !== null ? 'Đang hủy…' : 'Hủy lời mời'}</Button>
           </ModalFooter>

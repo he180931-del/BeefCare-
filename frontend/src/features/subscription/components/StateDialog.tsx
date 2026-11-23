@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Icon, type IconName, Modal, Note } from '../../../shared/ui'
+import { Button, Icon, type IconName, Modal, ModalFooter, Note } from '../../../shared/ui'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { fmtDate, fmtDateTime, fmtEndDay, paymentQuote, quoteText, termLabel } from '../domain/subscriptionRules'
@@ -105,14 +105,14 @@ export function StateDialog({ state, handlers, phone }: { state: StateDialogStat
     <Modal title={b.title} sub={b.sub} width={560} dialogClassName="@container" onClose={handlers.close}>
       {b.facts && <Facts items={b.facts} cols={2} />}
       {b.text && <p className="m-0 text-[13px] text-ink">{b.text}</p>}
-      <div className="flex flex-wrap justify-end gap-3 [&>button]:h-auto! [&>button]:min-h-11 [&>button]:max-w-full [&>button]:whitespace-normal! [&>button]:py-2">
+      <ModalFooter>
         {b.actions.map((a) => (
           <Button key={a.label} size="lg" variant={a.primary ? 'primary' : 'default'} onClick={a.onClick}>
             {a.icon && <Icon name={a.icon} size={16} />}
             {a.label}
           </Button>
         ))}
-      </div>
+      </ModalFooter>
     </Modal>
   )
 }

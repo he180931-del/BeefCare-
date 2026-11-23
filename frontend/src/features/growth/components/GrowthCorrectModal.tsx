@@ -99,7 +99,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
         <FieldError>{errors.reason}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={() => void submit()}>Lưu chỉnh sửa</ModalButton>
       </ModalFooter>

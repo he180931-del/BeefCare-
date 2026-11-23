@@ -316,7 +316,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
         {barn && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 
-      <ModalFooter compact className="min-[768px]:!px-3">
+      <ModalFooter>
         {(validationError || receptionError || criterionIssues.length > 0) && (
           <div className="min-w-0 basis-full min-[768px]:basis-auto min-[768px]:flex-1 [&>div]:text-sm [&>div]:font-medium">
             {validationError && <Note tone="err">{validationError}</Note>}
@@ -372,7 +372,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
           </Field>
           <Field label="Mô tả bổ sung" id="entry-history-repro-note"><textarea id="entry-history-repro-note" aria-label="Mô tả bổ sung" rows={3} maxLength={1000} className={`${compactInputCls} resize-y`} value={detailSource} placeholder="Thông tin sinh sản bổ sung" onChange={(e) => setDetailSource(e.target.value)} /></Field>
         </div> : null}
-        <ModalFooter compact className="-mt-2 !px-0 [&_button]:h-10 [&_button]:rounded-lg [&_button]:px-3 [&_button]:text-xs"><ModalButton onClick={() => setDetailModal(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={saveDetail}>Lưu chi tiết</ModalButton></ModalFooter>
+        <ModalFooter className="[&_button]:rounded-lg [&_button]:px-3 [&_button]:text-xs"><ModalButton onClick={() => setDetailModal(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={saveDetail}>Lưu chi tiết</ModalButton></ModalFooter>
       </Modal>
     )}
     </>

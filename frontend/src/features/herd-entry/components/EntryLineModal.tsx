@@ -60,7 +60,7 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
     </>}
     <Field label={<span>Lý do <span aria-hidden="true">*</span></span>} id="entry-line-reason" hint="Tối đa 500 ký tự"><Textarea id="entry-line-reason" aria-label="Lý do" value={s.reason} onChange={e => s.setReason(e.target.value)} maxLength={500} required disabled={s.saving} /></Field>
     <VoucherCommandError error={s.error} onReload={onReload} formatError={herdEntryError} />
-    <ModalFooter className="px-0! pt-0! pb-0!">
+    <ModalFooter>
       {s.confirming ? <><ModalButton disabled={s.saving} onClick={s.back}>Quay lại</ModalButton><ModalButton variant="danger" disabled={!s.canSave} onClick={() => { void s.submit() }}>Xác nhận hủy</ModalButton></> : <>
         <ModalButton disabled={s.saving} onClick={onClose}>Đóng</ModalButton><ModalButton variant="primary" disabled={!s.canSave} onClick={() => { void s.submit() }}>{s.saving ? 'Đang lưu…' : 'Lưu'}</ModalButton>
       </>}

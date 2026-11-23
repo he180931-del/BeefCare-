@@ -57,7 +57,7 @@ export default function DisableModal({ barn, onConfirm, onClose, saving = false,
           : 'Chuồng dùng lại sẽ nhận bò mới theo tiêu chí nhận bò hiện hành.'}
       </Note>
 
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
           {Boolean(saveError) && <span className="text-sm text-err-fg">{penError(saveError, 'Không đổi được trạng thái chuồng. Vui lòng thử lại.')}</span>}
         </div>

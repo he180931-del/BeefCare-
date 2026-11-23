@@ -84,7 +84,7 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
       </Note>
 
       {onReload && <VoucherCommandError error={error} onReload={onReload} />}
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={invalid || saving} onClick={() => { void Promise.resolve(onSave({ date, by: defaults.by, method, ref, amount, note })).catch(() => undefined) }}>
           Lưu thanh toán

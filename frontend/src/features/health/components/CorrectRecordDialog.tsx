@@ -107,7 +107,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
       {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
       {form.formError && <Note tone="err">{form.formError}</Note>}
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving || blocked}>{voiding ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>
       </ModalFooter>

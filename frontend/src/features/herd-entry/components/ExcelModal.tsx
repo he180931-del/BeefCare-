@@ -97,7 +97,7 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
         {`${rows.length} dòng: ${valid.length} hợp lệ (${warn} cảnh báo) · ${bad} lỗi. Dòng lỗi không được thêm – sửa tệp rồi tải lại, hoặc thêm tay bằng "+ Thêm con". Tối đa 200 dòng.`}
       </Note>}
 
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton disabled={loading} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={!valid.length || loading} onClick={add}><Icon name="circle-plus" />{`Thêm ${valid.length} con vào phiếu`}</ModalButton>
       </ModalFooter>

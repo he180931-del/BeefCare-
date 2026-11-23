@@ -26,7 +26,7 @@ export function ConfirmedDialog({ ticket, onReopen, onBack, onClose }: { ticket:
       <div className="mt-3">
         <Note tone="info">Giữ Đã giải quyết; nhân viên hỗ trợ sẽ xem xác nhận trước khi đóng.</Note>
       </div>
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         {ticket.status === 'RESOLVED' && (
           <ModalButton onClick={onReopen}>
             <Icon name="refresh" size={16} /> Mở lại kèm lý do
@@ -57,7 +57,7 @@ export function ClosedDialog({ ticket, onList, onNew, onClose }: { ticket: Ticke
           ['Thời điểm', formatDateTime(closure.at)],
         ]}
       />
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onList}>Danh sách yêu cầu</ModalButton>
         <ModalButton variant="primary" onClick={onNew}>
           <Icon name="circle-plus" size={16} /> Tạo yêu cầu mới
@@ -72,7 +72,7 @@ export function ResultChangedDialog({ ticket, onReload, onClose }: { ticket: Tic
   return (
     <Modal title="Kết quả đã thay đổi" sub={ticket.code} width={560} onClose={onClose}>
       <p className="m-0 text-[13px] text-ink">Yêu cầu vừa có kết quả mới hơn phiên bản bạn đang xem.</p>
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton variant="primary" onClick={onReload}>
           <Icon name="refresh" size={16} /> Tải lại yêu cầu
         </ModalButton>

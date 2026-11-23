@@ -121,7 +121,7 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
         </Field>
         {step === 'confirm' && <Note tone="warn">{confirmText}</Note>}
         {step === 'discard' && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-        <ModalFooter compact className="[&_button]:whitespace-normal!">
+        <ModalFooter>
           {step === 'discard' ? <>
             <Button size="lg" onClick={() => setStep('form')}>{DISCARD_PROMPT.keep}</Button>
             <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>

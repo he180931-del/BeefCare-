@@ -93,7 +93,7 @@ export default function InternalRequestsPage() {
       {code && access === 'FORBIDDEN' && (
         <Modal title="Yêu cầu không còn được giao cho bạn" width={640} onClose={back}>
           <Note tone="warn">Người nhận hoặc quyền truy cập đã thay đổi. Không thể xem chi tiết hay gửi kết quả cho yêu cầu này.</Note>
-          <ModalFooter className="!px-0 !pb-0"><ModalButton variant="primary" onClick={back}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
+          <ModalFooter><ModalButton variant="primary" onClick={back}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
         </Modal>
       )}
       {selected && (m === 'hoan-thanh' || m === 'ket-thuc') && <SummaryDialog ir={selected} finished={m === 'ket-thuc'} onClose={back} />}
@@ -106,7 +106,7 @@ export default function InternalRequestsPage() {
         <Modal title="Kết quả miền đã lưu, chưa lưu Hoàn thành" width={640} onClose={closeModal}>
           <Field label="IR hiện tại" id="rt-ir"><input id="rt-ir" readOnly className={inputCls} value={`${selected.code} · ${IR_STATUS_LABEL[selected.status]} · người nhận ${selected.recipient}`} /></Field>
           <Note tone="info">Chỉ thử lại bước lưu kết quả IR với tham chiếu cũ. Không thực hiện Chấp nhận, gia hạn hoặc thao tác tài khoản lần nữa.</Note>
-          <ModalFooter className="!px-0 !pb-0">
+          <ModalFooter>
             <ModalButton onClick={closeModal}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
             <ModalButton variant="primary" disabled={!pending} onClick={() => void retry()}><Icon name="refresh" size={16} /> Thử lại lưu Hoàn thành</ModalButton>
           </ModalFooter>
@@ -167,7 +167,7 @@ function SummaryDialog({ ir, finished, onClose }: { ir: InternalView; finished: 
       </div>
       <Field label="Kết quả đã lưu" id="sm-r"><input id="sm-r" readOnly className={inputCls} value={ir.result ?? '—'} /></Field>
       <Note tone="info">Yêu cầu chỉ đọc. Nhân viên hỗ trợ dùng kết quả đã làm sạch để trả lời Chủ trại; yêu cầu vẫn giữ nguyên trạng thái.</Note>
-      <ModalFooter className="!px-0 !pb-0"><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
     </Modal>
   )
 }

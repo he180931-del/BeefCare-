@@ -64,7 +64,7 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
         <Select id="hc-observer" value={observer} onChange={(e) => setObserver(e.target.value)}>{options.members.map((m) => <option key={m}>{m}</option>)}</Select>
       </Field>
       {form.formError && <Note tone="err">{form.formError}</Note>}
-      <ModalFooter className="px-0! pt-0! pb-0!">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={form.saving}>Lưu ghi nhận</ModalButton>
       </ModalFooter>
