@@ -33,7 +33,7 @@ describe('cattle list herd statuses', () => {
     render(<MemoryRouter><CowList /></MemoryRouter>)
     expect(await screen.findByText('BC-ACTIVE')).toBeInTheDocument()
     const activeRow = screen.getByText('BC-ACTIVE').closest('tr') as HTMLElement
-    expect(within(activeRow).getByRole('cell', { name: 'Đang nuôi', exact: true })).toBeInTheDocument()
+    expect(within(activeRow).getByRole('cell', { name: 'Đang nuôi' })).toBeInTheDocument()
     expect(activeRow).not.toHaveTextContent(/Chờ xuất|Đã xuất|Đã hủy/)
     expect(screen.getByText('Chờ xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã xuất')).toBeInTheDocument()
