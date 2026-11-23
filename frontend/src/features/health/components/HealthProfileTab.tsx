@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
-import { caseLabel, fmtDate, fmtMonth, OUTCOME_LABEL } from '../domain/healthFormat'
+import { caseLabel, daysBetween, fmtDate, fmtMonth, OUTCOME_LABEL } from '../domain/healthFormat'
 import { isWithdrawalActive, MSG } from '../domain/healthRules'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { useHealthFormOptions, useHealthProfile } from '../hooks/useHealthProfile'
@@ -18,6 +18,12 @@ import OpenCaseDialog from './OpenCaseDialog'
 import ReopenCaseDialog from './ReopenCaseDialog'
 import TreatmentDialog from './TreatmentDialog'
 import UpdateCaseDialog from './UpdateCaseDialog'
+
+/** Số ngày còn ngưng thịt tính đến hết ngày kết thúc (ngày kết thúc vẫn còn ngưng). */
+const withdrawalLeft = (end: string, now: string) => {
+  const days = daysBetween(now, end)
+  return days === 0 ? 'hết sau hôm nay' : `còn ${days} ngày`
+}
 
 /** Số ca đã đóng hiện sẵn ở khối "Các ca trước"; phần còn lại xem bằng "Xem thêm". */
 const PREVIOUS_ROWS = 5
@@ -80,15 +86,24 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
           ))}
         </div>
         <div className="flex min-w-0 flex-col gap-4">
-          {/* Bento (Figma Tab 17 ③b): khối tình trạng đỏ nhạt khi bò đang điều trị hoặc đang ngưng sử dụng thịt. */}
-          <Panel tone={withdrawing || profile.healthState === 'UNDER_TREATMENT' ? 'err' : 'default'} title={<span className="text-sm font-semibold">Tình trạng sức khỏe</span>}>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Bento: một tín hiệu mỗi khối – trạng thái bằng huy hiệu, ngưng thịt là dải cảnh báo riêng chỉ khi còn hiệu lực. */}
+          <Panel title={<span className="text-sm font-semibold">Tình trạng sức khỏe</span>}>
+            <div className="grid grid-cols-3 gap-3">
               <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
-              <Meta label="Ca đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
-              <Meta label="Ngưng sử dụng thịt đến">{withdrawing ? fmtDate(profile.withdrawalEndDate) : '—'}</Meta>
-              <Meta label="Ca theo dõi dài hạn">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
+              <Meta label="Đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
+              <Meta label="Theo dõi dài hạn">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
             </div>
-            {withdrawing && <Note tone="warn">Không xuất bán trước ngày hết ngưng sử dụng thịt.</Note>}
+            {withdrawing && (
+              <Note tone="warn">
+                <span className="flex items-start gap-2">
+                  <Icon name="alert-triangle" size={16} className="mt-px shrink-0" />
+                  <span className="flex flex-col gap-0.5">
+                    <strong className="text-[13px] font-semibold">Ngưng sử dụng thịt đến {fmtDate(profile.withdrawalEndDate)} · {withdrawalLeft(profile.withdrawalEndDate ?? '', now())}</strong>
+                    <span>Chưa bán giết mổ trước ngày này.</span>
+                  </span>
+                </span>
+              </Note>
+            )}
           </Panel>
           <Card variant="panel" title="Các ca trước">
             {previousCases.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có ca nào đã đóng.</p> : (

@@ -976,3 +976,31 @@ TuanPQ duyệt đợt 4 của bản đánh giá FE-10; chủ FE-13 đồng ý. T
 2. Điều kiện: **Khỏi** → bò còn nhận sự kiện; **Chết / Mất tích** → bò còn trong đàn, phiếu PENDING của ca bị bác (lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận → bò EXITED → MSG-COM-13; **CLOSED_BY_EXIT** → không bao giờ (MSG-COM-05). Ca Khỏi: Owner và Manager (MANAGE_HEALTH); ca Chết / Mất tích: **chỉ Owner** vì phải bác phiếu xuất (MANAGE_EXIT_VOUCHERS, GBR-34) – TuanPQ chốt.
 3. **Bác phiếu chết / mất PENDING** (FE-13) → ca nguồn mở lại cùng lý do, thông báo MSG-FE13-10. Thay "ca giữ kết quả" của GBR-95 / R-13-09.
 4. API `POST …/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trả thêm `version` cho ca đã đóng. Không migration. Một lớp dùng chung `HealthCaseReopener` cho cả hai đường.
+
+### D64 — FE-10: mã ca sức khỏe đếm theo trại (24/11/2026)
+
+SRS §3.2 và spec FE-10: mã ca `HC-nnnn`, duy nhất trong trại. Code cũ lấy ID toàn hệ thống (`HC-` + 6 chữ số), nên trại mới có vài ca đã thấy HC-008001 và số nhảy cóc theo các trại khác.
+
+1. Mã ca lấy từ bộ đếm theo trại như các mã nghiệp vụ khác (`CodeSequenceService`, loại `HEALTH_CASE`, BR-D34): `HC-0001`, `HC-0002`…; không đặt lại theo năm; quá 9999 thì dài thêm.
+2. Ca tạo trước giữ nguyên mã (đã hiện ở phiếu xuất, nhắc việc, lịch sử). Số mới trùng một mã cũ trong trại thì lấy số kế tiếp.
+3. Không migration: `code_sequence.code_type` là chuỗi, không có ràng buộc danh sách.
+
+### D65 — FE-10 / FE-18: liều thuốc số + đơn vị; số ngày dùng; "Ghi chú" thay "Lời khuyên thú y" (24/11/2026)
+
+TuanPQ duyệt, chủ FE-18 đồng ý. Liều là chữ tự do ("30ml", "30 cc", "3 ống"), liều tham chiếu của thuốc dài tới 100 ký tự trong khi ô Liều khi ghi điều trị chỉ 50, thuốc chưa có đường dùng bị tự điền "Khác", ghi chú chung của thuốc hiện như "Tham chiếu" liều, và Tiêm phòng đã nhập số + đơn vị.
+
+1. **Liều = số + đơn vị** (ml, lít, mg, g, viên, gói, liều) cho ghi / sửa điều trị và liều tham chiếu của thuốc; vẫn lưu một chuỗi ("30 ml", tối đa 50) nên không đổi API / DB. Không làm liều theo thể trọng trong ô liều (TuanPQ chốt): ghi ở Ghi chú của thuốc; liều điều trị là lượng thực tế mỗi lần. Liều cũ không theo chuẩn hiện nguyên văn và giữ nguyên nếu người dùng không nhập lại.
+2. Liều tham chiếu chỉ điền sẵn khi đường dùng trùng đường của thuốc; đổi đường khác thì bỏ liều điền sẵn và báo "Liều tham chiếu chỉ áp cho …". Thuốc chưa có đường dùng thì để trống.
+3. "Liệu trình (ngày)" → **"Số ngày dùng (mỗi ngày 1 lần)"** kèm "Tổng: liều × số ngày"; "Mũi cuối" → **"Ngày dùng cuối"** (đúng GBR-46: một đợt cùng thuốc, liều, đường mỗi ngày một lần).
+4. "Lời khuyên thú y" → **"Ghi chú"** (gợi ý: lời dặn của thú y, phản ứng sau dùng thuốc); API giữ `veterinaryAdvice`. Ghi chú của thuốc hiện "Ghi chú thuốc: …" dưới ô Thuốc.
+5. Danh mục thuốc gợi ý: thuốc nhiều dạng (tiêm / uống) tạo mỗi dạng một mục, vì liều và ngày ngưng thịt khác nhau.
+
+### D66 — FE-10 / FE-09: màn danh sách Sức khỏe & Điều trị và bảng mũi Tiêm phòng theo Bento (24/11/2026)
+
+TuanPQ: màn danh sách rối, các khối giống nhau, màu không mang thông tin, bo góc không thống nhất, rời rạc. Màn Sức khỏe để **xem ca nào cần chú ý và đi tới hồ sơ bò**; không ghi nhận trực tiếp.
+
+1. **SCR-36** một hàng 3 khối (5 + 4 + 3): **Ca chưa đóng** (khối nổi bật, số đang mở / đang điều trị, thanh tỷ lệ theo mức độ Nặng · Trung bình · Nhẹ); **khối cảnh báo** xanh nhạt "Không có ca cần xử lý gấp" hoặc đỏ nhạt "Cần chú ý ngay" khi có ca nặng / nghi truyền nhiễm, ba dòng ca nặng (nút Xem lọc ngay) · nghi truyền nhiễm · đang điều trị; **Theo dõi dài hạn**. Không có ô "Đã đóng trong kỳ" (không giúp việc trước mắt).
+2. Tab gạch chân, bộ lọc (tìm, mức độ, chuồng – cùng kiểu ô) và bảng gom trong **một khối**. Kỳ chỉ hiện ở tab Đã đóng / Tất cả. Bảng gộp cột Chuồng vào dòng phụ của Bò, vạch màu đầu dòng theo mức độ, nền đỏ nhạt khi nghi truyền nhiễm, cả dòng bấm được (chuột, Enter / Space) mở tab Sức khỏe của bò. Mọi khối bo 16, ô điều khiển bo 12.
+3. **Sửa lỗi:** tab Theo dõi dài hạn trước đây bị lọc theo kỳ – nay luôn hiện đủ như Đang mở.
+4. A1 `counts` (Map) thêm `treating`, `severe`, `moderate`, `mild`, `contagious` cho ca chưa đóng; không đổi schema OpenAPI, không migration.
+5. **Tiêm phòng (SCR-31):** giữ phần trên (thẻ lịch, nút); khối danh sách mũi làm cùng kiểu – tab gạch chân, bộ lọc, thanh "Ghi nhận n mũi đã chọn" và bảng trong một khối; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm (quá hạn đỏ, đến hạn vàng, đã tiêm xanh); trạng thái trống nằm trong khối.

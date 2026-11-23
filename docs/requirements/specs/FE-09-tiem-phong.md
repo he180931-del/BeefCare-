@@ -346,3 +346,4 @@ Bỏ theo D46.
 | 23/11/2026 | 28/10/2026 | D47: SCR-31 thêm bộ lọc (tìm kiếm, chuồng, nhóm đàn) và "Chọn tất cả" mũi chưa tiêm theo bộ lọc; chặn ghi lẫn vắc-xin | Tuấn |
 | 23/11/2026 | 28/10/2026 | D48: lịch đã hoàn thành rời hàng thẻ SCR-31, gom vào mục "Lịch đã hoàn thành"; SCR-32 tách nhóm Đang chạy / Đã hoàn thành | Tuấn |
 | 23/11/2026 | 28/10/2026 | D50: SCR-32 "Ngày bắt đầu" → "Ngày tiêm"; ô số (Số mũi, Cách giữa mũi, Nhắc lại sau, Ngưng thịt) gõ sai báo lỗi dưới ô, không coi là trống | Tuấn |
+| 24/11/2026 | 28/10/2026 | D66: SCR-31 giữ phần thẻ lịch; khối danh sách mũi gom tab, bộ lọc, thanh ghi nhận và bảng trong một khối Bento; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm | Tuấn |

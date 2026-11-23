@@ -130,11 +130,17 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const sign = dir === 'asc' ? 1 : -1
       rows.sort((a, b) => sign * (sort === 'caseCode' ? a.caseCode.localeCompare(b.caseCode) : a.openedAt.localeCompare(b.openedAt) || a.caseCode.localeCompare(b.caseCode)))
       const count = (s: string) => db.cases.filter((c) => c.status === s).length
+      const active = db.cases.filter((c) => c.status !== 'CLOSED')
       const pens = new Map<string, string>()
       for (const c of db.cases) { const k = cattleOf(c.cattleCode); if (k.penCode) pens.set(k.penCode, k.penName) }
       return structuredClone({
         rows,
-        counts: { open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length },
+        counts: {
+          open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length,
+          treating: active.filter((c) => c.status === 'OPEN' && validOf(c.id).some((e) => e.type === 'TREATMENT')).length,
+          severe: active.filter((c) => c.severity === 'SEVERE').length, moderate: active.filter((c) => c.severity === 'MODERATE').length,
+          mild: active.filter((c) => c.severity === 'MILD').length, contagious: active.filter((c) => c.suspectedContagious).length,
+        },
         pens: [...pens].map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code)),
       })
     },

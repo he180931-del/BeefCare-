@@ -71,9 +71,9 @@ export function mapCattle(raw: unknown, today: string): HealthCattle {
   }
 }
 
-export function mapMedicine(raw: unknown): { id: number; name: string; active: boolean; defaultDose: string; doseNote: string; route: TreatmentRoute; withdrawalDays: number } {
+export function mapMedicine(raw: unknown): { id: number; name: string; active: boolean; defaultDose: string; doseNote: string; route: TreatmentRoute | ''; withdrawalDays: number } {
   const m = asRecord(raw)
-  return { id: num(m.id) ?? 0, name: textValue(m.name), active: m.available === true, defaultDose: textValue(m.dose), doseNote: textValue(m.description), route: toRoute(m.route) ?? 'OTHER', withdrawalDays: num(m.withdrawalDays) ?? 0 }
+  return { id: num(m.id) ?? 0, name: textValue(m.name), active: m.available === true, defaultDose: textValue(m.dose), doseNote: textValue(m.description), route: toRoute(m.route) ?? '', withdrawalDays: num(m.withdrawalDays) ?? 0 }
 }
 
 /** Dòng mô tả dựng sẵn cho bảng dòng thời gian (SCR-37 #8). */

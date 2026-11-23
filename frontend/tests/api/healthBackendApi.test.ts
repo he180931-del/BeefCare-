@@ -70,12 +70,12 @@ test('A1 / TC-10-26: danh sách ca gửi tab, kỳ, chuồng theo id và đọc 
     ...baseRoutes(),
     '/api/farms/1/health-cases': {
       items: [{ id: 412, caseCode: 'HC-000412', cattleId: 101, cattleCode: 'BC-101', breed: 'Brahman', sex: 'FEMALE', penId: 11, penCode: 'A1', penName: 'Chuồng A1', diagnosis: 'Viêm phổi', signs: 'Sốt', suspectedContagious: true, severity: 'MODERATE', openedDate: '2026-10-13', openedAt: '2026-10-13T00:00:00Z', dayN: 24, status: 'OPEN', chronicSince: null, outcome: null, closedDate: null, treatmentCount: 1, version: 2 }],
-      total: 1, page: 0, size: 200, counts: { open: 3, chronic: 1, closed: 0, all: 4 },
+      total: 1, page: 0, size: 200, counts: { open: 3, chronic: 1, closed: 0, all: 4, treating: 2, severe: 1, moderate: 2, mild: 1, contagious: 1 },
     },
   })
   const list = await a.listCases({ tab: 'closed', penCode: 'B1', from: '2026-10-01', to: '2026-11-05', severity: 'SEVERE', search: ' bc ', sort: 'caseCode', dir: 'asc' })
   assert.equal(calls.find((c) => c.path.startsWith('/api/farms/1/health-cases?'))!.path, '/api/farms/1/health-cases?tab=CLOSED&search=bc&severity=SEVERE&penId=12&from=2026-10-01&to=2026-11-05&sort=caseCode&dir=asc&page=0&size=200')
-  assert.deepEqual(list.counts, { open: 3, chronic: 1, closed: 0, all: 4 })
+  assert.deepEqual(list.counts, { open: 3, chronic: 1, closed: 0, all: 4, treating: 2, severe: 1, moderate: 2, mild: 1, contagious: 1 })
   assert.deepEqual(list.pens, [{ id: 11, code: 'A1', name: 'Chuồng A1' }, { id: 12, code: 'B1', name: 'Chuồng B1' }])
   assert.deepEqual(list.rows[0], {
     id: 412, caseCode: 'HC-000412', cattleCode: 'BC-101', cattleName: '', breed: 'Brahman', sex: 'Cái', penCode: 'A1', penName: 'Chuồng A1', diagnosis: 'Viêm phổi', signs: 'Sốt', suspectedContagious: true,

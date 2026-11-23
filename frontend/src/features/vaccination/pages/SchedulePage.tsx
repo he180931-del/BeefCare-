@@ -1,19 +1,25 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Note, NoticeDialog, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, NoticeDialog, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs, Td, Th } from '../../../shared/ui'
+import { cx } from '../../../shared/ui/cx'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
 import { DoseStatusBadge, profilePath, recordPath, useCanWrite, useNotice } from '../components/vaccinationParts'
 import { fmtDate } from '../domain/vaccinationFormat'
 import { useVaccinationDoses, useVaccinationOptions, useVaccinationSchedules } from '../hooks/useVaccinationUseCase'
-import type { DoseFilters, DoseTab, HerdGroup, ScheduleCard, VaccinationOptions } from '../types'
+import type { DoseFilters, DoseTab, DueState, HerdGroup, ScheduleCard, VaccinationOptions } from '../types'
 
 const TITLE = 'Tiêm phòng'
 /** D46: chỉ còn 4 tab; số ngày "Đến hạn" lấy theo tham số trại "Thời gian nhắc tiêm". */
 const TAB_ORDER: DoseTab[] = ['all', 'overdue', 'due', 'done']
 const tabLabel = (tab: DoseTab, leadDays: number) =>
   ({ all: 'Tất cả', overdue: 'Quá hạn', due: `Đến hạn trong ${leadDays} ngày`, done: 'Đã tiêm' })[tab]
+
+/** Vạch màu đầu dòng theo hạn tiêm (cùng màu với huy hiệu trạng thái). */
+const STATE_EDGE: Record<DueState, string> = {
+  OVERDUE: 'border-l-[#cc6b5c]', DUE: 'border-l-[#d6a34d]', UPCOMING: 'border-l-transparent', DONE: 'border-l-[#9fd3b2]',
+}
 
 /** Mũi đã chọn kèm vắc-xin của lịch: một lần ghi theo lô chỉ dùng một vắc-xin (D47). */
 type PickedDose = { id: number; vaccineId: number }
@@ -144,40 +150,38 @@ function DoseList({ scheduleId, tab, onTab, canWrite, filters, onFilters, option
   const mixed = new Set(picked.map((p) => p.vaccineId)).size > 1
   const setFilter = (patch: RowFilters) => { setPage(1); onFilters({ ...filters, ...patch }) }
   return (
-    <>
-      {/* Bento: hàng lọc gọn như các màn danh sách khác (Cân nặng, Đàn bò) – ô tìm có kính lúp, nhãn nằm trong lựa chọn. */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[260px_repeat(2,minmax(0,200px))]">
-        <SearchInput aria-label="Tìm mã bò, tên bò" placeholder="Tìm mã bò, tên bò" value={filters.q ?? ''} onChange={(e) => setFilter({ q: e.target.value || undefined })} />
-        <FilterSelect aria-label="Chuồng" value={filters.penCode ?? ''} onChange={(e) => setFilter({ penCode: e.target.value || undefined })}>
-          <option value="">Chuồng: Tất cả</option>
-          {(options?.pens ?? []).map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
-        </FilterSelect>
-        <FilterSelect aria-label="Nhóm đàn" value={filters.herdGroup ?? ''} onChange={(e) => setFilter({ herdGroup: (e.target.value || undefined) as HerdGroup | undefined })}>
-          <option value="">Nhóm đàn: Tất cả</option>
-          {(options?.herdGroups ?? []).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-        </FilterSelect>
+    <Panel className="gap-0 overflow-hidden p-0!">
+      <div className="flex flex-col gap-3 border-b border-rule px-4 pt-3 @min-[1024px]:px-6">
+        <Tabs value={tab} onChange={(v) => { setPage(1); onTab(v as DoseTab) }} tabs={TAB_ORDER.map((t) => ({ value: t, label: `${tabLabel(t, leadDays)} (${counts[t]})` }))} />
+        <div className="flex flex-wrap items-center gap-2.5 pb-4">
+          <SearchInput className="w-full sm:w-[260px]" aria-label="Tìm mã bò, tên bò" placeholder="Tìm mã bò, tên bò" value={filters.q ?? ''} onChange={(e) => setFilter({ q: e.target.value || undefined })} />
+          <Select className="w-full sm:w-[200px]" aria-label="Chuồng" value={filters.penCode ?? ''} onChange={(e) => setFilter({ penCode: e.target.value || undefined })}>
+            <option value="">Chuồng: Tất cả</option>
+            {(options?.pens ?? []).map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
+          </Select>
+          <Select className="w-full sm:w-[200px]" aria-label="Nhóm đàn" value={filters.herdGroup ?? ''} onChange={(e) => setFilter({ herdGroup: (e.target.value || undefined) as HerdGroup | undefined })}>
+            <option value="">Nhóm đàn: Tất cả</option>
+            {(options?.herdGroups ?? []).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+          </Select>
+          {canWrite && picked.length > 0 && (
+            <div className="ml-auto flex items-center gap-2.5">
+              <span className="text-xs font-medium text-muted">Đã chọn {picked.length} mũi</span>
+              <Button variant="link" onClick={() => onPick([])}>Bỏ chọn</Button>
+              <Button variant="primary" disabled={mixed} onClick={onRecordPicked}>Ghi nhận {picked.length} mũi đã chọn</Button>
+            </div>
+          )}
+        </div>
+        {canWrite && mixed && <div className="pb-3"><Note tone="warn">{MIXED_VACCINES}</Note></div>}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented
-          options={TAB_ORDER.map((t) => ({ value: t, label: `${tabLabel(t, leadDays)} (${counts[t]})` }))}
-          value={tab}
-          onChange={(v) => { setPage(1); onTab(v as DoseTab) }}
-        />
-        <div className="flex-1" />
-        {canWrite && picked.length > 0 && (
-          <>
-            <span className="text-xs font-medium text-muted">Đã chọn {picked.length} mũi</span>
-            <Button variant="link" onClick={() => onPick([])}>Bỏ chọn</Button>
-            <Button variant="primary" disabled={mixed} onClick={onRecordPicked}>Ghi nhận {picked.length} mũi đã chọn</Button>
-          </>
-        )}
-      </div>
-      {canWrite && mixed && <Note tone="warn">{MIXED_VACCINES}</Note>}
       {rows.length === 0 ? (
-        <EmptyBlock title="Không có mũi nào trong mục này" sub="Chọn tab, lịch hoặc bộ lọc khác để xem các mũi còn lại." />
+        // Trống nằm ngay trong khối danh sách, không thêm khung viền thứ hai.
+        <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
+          <p className="m-0 text-sm font-semibold text-ink">Không có mũi nào trong mục này</p>
+          <p className="m-0 text-xs text-muted">Chọn tab, lịch hoặc bộ lọc khác để xem các mũi còn lại.</p>
+        </div>
       ) : (
-        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-field bg-white p-4">
-          <Table>
+        <>
+          <Table wide bordered={false}>
             <thead>
               <tr>
                 {canWrite && (
@@ -191,7 +195,7 @@ function DoseList({ scheduleId, tab, onTab, canWrite, filters, onFilters, option
                     />
                   </Th>
                 )}
-                <Th>Bò</Th><Th>Chuồng</Th><Th>Lịch · Mũi</Th>
+                <Th>Bò</Th><Th>Lịch · Mũi</Th>
                 <Th><button type="button" className="font-semibold" onClick={() => setDir(dir === 'asc' ? 'desc' : 'asc')}>Hạn tiêm {dir === 'asc' ? '↓' : '↑'}</button></Th>
                 <Th>Trạng thái</Th>{canWrite && <Th>Thao tác</Th>}
               </tr>
@@ -199,23 +203,24 @@ function DoseList({ scheduleId, tab, onTab, canWrite, filters, onFilters, option
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={pickedIds.has(r.id) ? 'bg-page' : undefined}>
-                  {canWrite && <Td>{r.state !== 'DONE' && <Checkbox aria-label={`Chọn ${r.cattleCode}`} checked={pickedIds.has(r.id)} onChange={() => toggle(r.id, r.vaccineId)} />}</Td>}
-                  <Td>
-                    <Link to={profilePath(r.cattleCode)} className="font-medium text-ink no-underline hover:underline">{r.cattleName ? `${r.cattleCode} “${r.cattleName}”` : r.cattleCode}</Link>
-                    <span className="block text-[11px] text-muted">{r.breed} · {r.sex}</span>
+                  {canWrite && <Td className={cx('border-l-4', STATE_EDGE[r.state])}>{r.state !== 'DONE' && <Checkbox aria-label={`Chọn ${r.cattleCode}`} checked={pickedIds.has(r.id)} onChange={() => toggle(r.id, r.vaccineId)} />}</Td>}
+                  <Td className={canWrite ? undefined : cx('border-l-4', STATE_EDGE[r.state])}>
+                    <Link to={profilePath(r.cattleCode)} className="font-medium text-ink no-underline hover:underline">{r.cattleName ? `${r.cattleCode} · ${r.cattleName}` : r.cattleCode}</Link>
+                    <span className="block text-[11px] text-muted">{[r.breed, r.sex, r.penName].filter(Boolean).join(' · ')}</span>
                   </Td>
-                  <Td>{r.penName}</Td>
                   <Td>{r.scheduleShort} · {r.doseText}</Td>
-                  <Td>{fmtDate(r.dueDate)}</Td>
+                  <Td className="whitespace-nowrap">{fmtDate(r.dueDate)}</Td>
                   <Td><DoseStatusBadge row={r} /></Td>
                   {canWrite && <Td>{r.state === 'DONE' ? '—' : <Button variant="link" onClick={() => onRecord(r.id)}>Ghi nhận</Button>}</Td>}
                 </tr>
               ))}
             </tbody>
           </Table>
-          <Pagination page={data.page} pageCount={Math.max(1, Math.ceil(total / size))} onChange={setPage} summary={`Hiển thị ${first}–${first + rows.length - 1} / ${total} mũi${tab === 'all' ? '' : ` ${tabLabel(tab, leadDays).toLowerCase()}`}`} />
-        </div>
+          <div className="border-t border-rule px-4 py-3">
+            <Pagination page={data.page} pageCount={Math.max(1, Math.ceil(total / size))} onChange={setPage} summary={`Hiển thị ${first}–${first + rows.length - 1} / ${total} mũi${tab === 'all' ? '' : ` ${tabLabel(tab, leadDays).toLowerCase()}`}`} />
+          </div>
+        </>
       )}
-    </>
+    </Panel>
   )
 }

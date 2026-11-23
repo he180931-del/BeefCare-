@@ -11,7 +11,7 @@ export const FIELD_ALIASES: Record<string, string> = {
 export const FIELD_LABELS: Record<string, string> = {
   signs: 'Dấu hiệu / mô tả', description: 'Mô tả', progress: 'Diễn biến', diagnosis: 'Chẩn đoán nghi ngờ', severity: 'Mức độ',
   temperatureC: 'Thân nhiệt', observedAt: 'Thời điểm', observer: 'Người quan sát', medicineId: 'Thuốc', dose: 'Liều', route: 'Đường dùng', treatmentTime: 'Thời điểm bắt đầu',
-  courseDays: 'Liệu trình (ngày)', withdrawalDays: 'Số ngày ngưng', performer: 'Người thực hiện', veterinaryAdvice: 'Lời khuyên thú y', outcome: 'Kết quả',
+  courseDays: 'Số ngày dùng', withdrawalDays: 'Số ngày ngưng', performer: 'Người thực hiện', veterinaryAdvice: 'Ghi chú', outcome: 'Kết quả',
   confirmedBy: 'Người xác nhận', reason: 'Lý do', vaccinationId: 'Mũi tiêm liên kết',
 }
 
