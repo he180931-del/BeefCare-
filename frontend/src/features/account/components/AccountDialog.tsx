@@ -25,7 +25,7 @@ export function AccountDialog({ active, onTabChange, onClose }: AccountDialogPro
     }
   }, [onClose])
 
-  const tabClass = (selected: boolean) => `flex min-w-max items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm font-semibold text-white transition-colors md:w-full ${selected ? 'bg-[#28785c]' : 'hover:bg-white/10'}`
+  const tabClass = (selected: boolean) => `flex min-w-max items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm font-semibold text-white transition-colors md:w-full ${selected ? 'bg-[#3b8b6d]' : 'hover:bg-white/10'}`
 
   const trapFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab' || (event.target as Element).closest('[role="dialog"]') !== event.currentTarget) return
@@ -65,7 +65,7 @@ export function AccountDialog({ active, onTabChange, onClose }: AccountDialogPro
         </header>
 
         <div data-testid="account-dialog-body" className="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[220px_minmax(0,1fr)] md:overflow-hidden">
-          <aside className="shrink-0 border-b border-[#0f573f] bg-[#176448] p-2.5 md:h-full md:border-b-0 md:border-r md:p-3">
+          <aside className="shrink-0 border-b border-[#216b51] bg-[#2a765b] p-2.5 md:h-full md:border-b-0 md:border-r md:p-3">
             <nav aria-label="Tài khoản" className="flex gap-2 overflow-x-auto md:h-full md:flex-col md:overflow-visible">
               <button type="button" aria-current={active === 'profile' ? 'page' : undefined} onClick={() => onTabChange('profile')} className={tabClass(active === 'profile')}>
                 <Icon name="user-circle" size={18} />
@@ -78,7 +78,7 @@ export function AccountDialog({ active, onTabChange, onClose }: AccountDialogPro
             </nav>
           </aside>
 
-          <div data-testid="account-dialog-content" className="min-w-0 bg-[#fbfbf8] px-4 pb-8 pt-7 sm:px-7 sm:pb-10 sm:pt-10 md:h-full md:min-h-0 md:overflow-y-auto md:px-10 md:pb-12 md:pr-16 md:pt-12">
+          <div data-testid="account-dialog-content" className="@container min-w-0 bg-[#fbfbf8] px-4 pb-8 pt-7 sm:px-6 sm:pb-8 sm:pt-8 md:h-full md:min-h-0 md:overflow-y-auto">
             {active === 'profile' ? <AccountProfilePanel /> : <RolePermissionsPanel />}
           </div>
         </div>

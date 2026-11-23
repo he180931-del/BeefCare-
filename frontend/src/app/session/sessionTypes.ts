@@ -20,6 +20,8 @@ export interface SessionUser {
   farmName: string | null
   /** Server-authoritative onboarding and membership facts used only for initial routing. */
   ownerRegistrationCompleted?: boolean
+  googleSignInLinked?: boolean
+  termsAccepted?: boolean
   platformRole?: PlatformRole | null
   activeFarmCount?: number
   /** Every farm the account belongs to, whatever its service status. */

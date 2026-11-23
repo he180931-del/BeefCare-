@@ -83,7 +83,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
     <Modal title={hasPassword ? 'Đổi mật khẩu' : 'Thêm mật khẩu'} sub={profile.email} width={520} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         {error && <Note tone="err">{error}</Note>}
-        {needsReauth && <Note tone="info">Tài khoản này chưa có mật khẩu. Xác thực lại với Google để thêm mật khẩu.</Note>}
+        {needsReauth && <Note tone="info">Tài khoản này chưa có mật khẩu. Xác minh bằng Google để tiếp tục thêm mật khẩu.</Note>}
         {requireCurrent && (
           <Field label="Mật khẩu hiện tại *" id="cp-current">
             <PasswordInput id="cp-current" label="mật khẩu hiện tại" autoComplete="current-password" value={values.currentPassword} onChange={(value) => set('currentPassword', value)} visible={visible.current} onToggle={() => toggleVisibility('current')} />
@@ -101,9 +101,9 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
           </Field>
         </>)}
         {profile.googleSignInLinked && !reauthed && (
-          <div className="text-xs text-subtle">{hasPassword ? 'Quên mật khẩu hiện tại? ' : ''}<Button variant="link" size="sm" onClick={reauthenticate}>Xác thực lại với Google</Button></div>
+          <div className="text-xs text-subtle">{hasPassword ? 'Quên mật khẩu hiện tại? ' : ''}<Button variant="link" size="sm" onClick={reauthenticate}>Xác minh bằng Google</Button></div>
         )}
-        {reauthed && <Note tone="ok">Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.</Note>}
+        {reauthed && <Note tone="ok">{hasPassword ? 'Đã xác minh bằng Google. Hãy đặt mật khẩu BeefCare mới.' : 'Đã xác minh bằng Google. Bạn có thể thêm mật khẩu BeefCare.'}</Note>}
         {samplePasswordHint && hasPassword && <p className="m-0 text-[11px] text-subtle">{samplePasswordHint}</p>}
         <ModalFooter>
           <Button size="lg" onClick={onClose}>Hủy</Button>

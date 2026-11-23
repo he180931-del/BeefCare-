@@ -35,11 +35,11 @@ describe('shared account layout', () => {
     expect(screen.getByTestId('account-dialog-header')).toHaveClass('border-b', 'bg-white')
     expect(screen.getByTestId('account-dialog-body')).toHaveClass('md:grid', 'md:grid-cols-[220px_minmax(0,1fr)]')
     expect(navigation).toHaveClass('flex', 'overflow-x-auto', 'md:h-full', 'md:flex-col', 'md:overflow-visible')
-    expect(navigation.closest('aside')).toHaveClass('bg-[#176448]', 'md:h-full')
+    expect(navigation.closest('aside')).toHaveClass('bg-[#2a765b]', 'md:h-full')
     expect(screen.getByRole('button', { name: 'Hồ sơ' })).toHaveClass('text-white')
-    expect(screen.getByRole('button', { name: 'Quyền theo vai trò' })).toHaveClass('bg-[#28785c]', 'text-white')
+    expect(screen.getByRole('button', { name: 'Quyền theo vai trò' })).toHaveClass('bg-[#3b8b6d]', 'text-white')
     expect(screen.getByRole('button', { name: 'Quyền theo vai trò' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByTestId('account-dialog-content')).toHaveClass('md:min-h-0', 'md:overflow-y-auto', 'md:h-full')
+    expect(screen.getByTestId('account-dialog-content')).toHaveClass('@container', 'md:min-h-0', 'md:overflow-y-auto', 'md:h-full')
     expect(screen.getByTestId('account-dialog-content')).not.toHaveClass('overflow-y-auto')
     expect(container.querySelector('[data-testid="account-dialog-backdrop"]')).toHaveClass('fixed', 'inset-0')
   })
@@ -59,11 +59,32 @@ describe('shared account layout', () => {
       </MemoryRouter>,
     )
 
-    const card = screen.getByRole('heading', { name: 'Hồ sơ cá nhân' }).closest('section')
-    expect(card?.parentElement).toHaveClass('w-full', 'max-w-none')
-    expect(screen.getByText(profile.fullName).parentElement?.parentElement).toHaveClass('gap-4', 'pb-2')
-    expect(container.querySelector('#profile-form')).toHaveClass('gap-6')
-    expect(container.querySelector('#profile-form > div')).toHaveClass('gap-x-6', 'gap-y-5')
-    expect(screen.getByRole('button', { name: 'Đổi mật khẩu' }).parentElement).toHaveClass('pt-2')
+    expect(screen.queryByRole('heading', { name: 'Hồ sơ cá nhân' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('profile-bento-grid')).toHaveClass('grid', 'gap-4', '@min-[560px]:grid-cols-[1.2fr_0.9fr]')
+    expect(screen.getByTestId('profile-bento-identity')).toHaveClass('rounded-2xl', 'bg-[#edf5f0]', 'text-ink')
+    expect(container.querySelector('#profile-form > div')).toHaveClass('flex', 'flex-col', 'gap-4')
+    expect(screen.getByRole('button', { name: 'Đổi mật khẩu' })).toBeInTheDocument()
+  })
+
+  it('organizes profile data into Bento identity, personal, and security tiles', () => {
+    render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <ProfileCard
+          profile={profile}
+          headline="Tài khoản BeefCare"
+          values={{ fullName: profile.fullName, phone: profile.phone }}
+          onChange={vi.fn()}
+          errors={{}}
+          onSubmit={vi.fn()}
+          onPassword={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('profile-bento-identity')).toBeInTheDocument()
+    expect(screen.getByTestId('profile-bento-personal')).toContainElement(screen.getByLabelText('Họ và tên *'))
+    expect(screen.getByTestId('profile-bento-personal')).toContainElement(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+    expect(screen.getByTestId('profile-bento-status')).toContainElement(screen.getByText('Email đã xác minh'))
+    expect(screen.getByTestId('profile-bento-security')).toContainElement(screen.getByText(/Email - mật khẩu/))
   })
 })

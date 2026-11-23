@@ -207,6 +207,26 @@ public class AccountResource {
 
     public record OwnerRegistrationResponse(Long id, String email, String fullName, String contactPhone, boolean completed) {}
 
+    /** Records consent without completing Owner registration or granting any farm/platform access. */
+    @PostMapping("/account/terms-acceptance")
+    @Transactional
+    public TermsAcceptanceResponse acceptTerms(@RequestBody TermsAcceptanceRequest request) {
+        if (!request.accepted()) {
+            throw DomainException.badRequest(MessageCodes.FE01_14, "field", "accepted");
+        }
+        AppUser user = farmAccessService.currentActiveUser();
+        if (!user.isTermsAccepted()) {
+            user.setTermsAccepted(true);
+            user.setTermsAcceptedAt(Instant.now());
+            appUserRepository.save(user);
+        }
+        return new TermsAcceptanceResponse(user.isTermsAccepted(), user.getTermsAcceptedAt());
+    }
+
+    public record TermsAcceptanceRequest(boolean accepted) {}
+
+    public record TermsAcceptanceResponse(boolean termsAccepted, Instant termsAcceptedAt) {}
+
     @GetMapping("/account/profile")
     public ProfileResponse getProfile() {
         return profile(farmAccessService.currentActiveUser());

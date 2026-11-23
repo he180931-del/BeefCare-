@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import type { AuthClient, RegistrationRequest } from "../types";
 import {
@@ -20,7 +20,9 @@ import {
 import { ActionLink } from "../../../shared/ui";
 import { AUTH_PATH } from "../domain/authPaths";
 import { friendlyAccountError } from "../domain/authErrors";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { LegalDialog } from "../components/LegalDialog";
+import type { LegalKind } from "../domain/legalContent";
 
 export function RegisterPage({ client }: { client: AuthClient }) {
   const navigate = useNavigate();
@@ -28,13 +30,14 @@ export function RegisterPage({ client }: { client: AuthClient }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState<ReturnType<typeof validateRegistration>>(
     {},
   );
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [legalKind, setLegalKind] = useState<LegalKind | null>(null);
+  const registerTrigger = useRef<HTMLButtonElement>(null);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,7 +48,7 @@ export function RegisterPage({ client }: { client: AuthClient }) {
       email: normalizeEmail(email),
       password,
       confirmPassword,
-      termsAccepted,
+      termsAccepted: true,
     };
     const nextErrors = validateRegistration({ ...request });
     setErrors(nextErrors);
@@ -54,6 +57,18 @@ export function RegisterPage({ client }: { client: AuthClient }) {
       setError("Dịch vụ đăng ký chưa được nối với máy chủ.");
       return;
     }
+    setLegalKind('terms');
+  };
+
+  const confirmRegistration = async () => {
+    if (!client.register || submitting) return;
+    const request: RegistrationRequest = {
+      fullName: fullName.trim(),
+      email: normalizeEmail(email),
+      password,
+      confirmPassword,
+      termsAccepted: true,
+    };
     setSubmitting(true);
     try {
       await client.register(request);
@@ -83,7 +98,7 @@ export function RegisterPage({ client }: { client: AuthClient }) {
       description="Tạo tài khoản để bắt đầu đăng ký trang trại."
       eyebrow="Đăng ký chủ trại"
       alert={
-        error ? (
+        error && !legalKind ? (
           <Alert>
             {error}
             {duplicate && (
@@ -157,36 +172,8 @@ export function RegisterPage({ client }: { client: AuthClient }) {
             placeholder="Nhập lại mật khẩu"
             autoComplete="new-password"
           />
-          <div>
-            <div className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-5 text-subtle">
-              <input
-                className="mt-0.5 size-5 shrink-0 accent-brand"
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(event) => setTermsAccepted(event.target.checked)}
-              />
-              <span>
-                Tôi đồng ý với{" "}
-                <Link to="/terms" className="font-bold text-brand underline">
-                  Điều khoản sử dụng
-                </Link>{" "}
-                và{" "}
-                <Link
-                  to="/data-policy"
-                  className="font-bold text-brand underline"
-                >
-                  Chính sách dữ liệu
-                </Link>
-                .
-              </span>
-            </div>
-            {errors.termsAccepted && (
-              <span className="mt-1 block text-xs text-[#b54843]">
-                {errors.termsAccepted}
-              </span>
-            )}
-          </div>
           <button
+            ref={registerTrigger}
             type="submit"
             disabled={submitting}
             className={primaryButtonClass}
@@ -195,6 +182,14 @@ export function RegisterPage({ client }: { client: AuthClient }) {
           </button>
         </Form>
       </div>
+      {legalKind ? <LegalDialog
+        initialKind={legalKind}
+        onClose={() => setLegalKind(null)}
+        onConfirm={confirmRegistration}
+        confirming={submitting}
+        error={error ?? undefined}
+        returnFocusRef={registerTrigger}
+      /> : null}
     </AuthShell>
   );
 }

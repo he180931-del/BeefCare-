@@ -6,7 +6,7 @@ import { SessionContext, type Session } from '../../../src/app/session/sessionCo
 
 function Where() {
   const location = useLocation()
-  return <output data-testid="where" data-return-to={(location.state as { returnTo?: string } | null)?.returnTo ?? ''}>{location.pathname}</output>
+  return <output data-testid="where" data-search={location.search} data-return-to={(location.state as { returnTo?: string } | null)?.returnTo ?? ''}>{location.pathname}</output>
 }
 
 const routeCases = [
@@ -28,6 +28,12 @@ describe('application route smoke', () => {
   it.each(routeCases)('renders %s through its registered route', async (path, heading) => {
     render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+
+  it('does not expose the internal SRS source note on the public legal page', async () => {
+    render(<MemoryRouter initialEntries={['/terms']}><App /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Điều khoản sử dụng' })).toBeInTheDocument()
+    expect(screen.queryByText(/SRS 28\/10\/2026/)).not.toBeInTheDocument()
   })
 })
 
@@ -57,6 +63,12 @@ describe('farm screens without an entered farm (UC-FE02-02)', () => {
     render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/chon-trai')
+  })
+
+  it('keeps the password modal parameters after Google returns through the retired account route', async () => {
+    render(<MemoryRouter initialEntries={['/tai-khoan?m=doi-mat-khau&googleReauthenticated=true']}><App /><Where /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveAttribute('data-search', '?m=doi-mat-khau&googleReauthenticated=true')
   })
 
   it('keeps the Owner pages that name their farm in the address (?farm=, ?farmId=) reachable', async () => {

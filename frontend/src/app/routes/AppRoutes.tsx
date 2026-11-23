@@ -20,7 +20,7 @@ import { loadInternalRequestRoutes, loadSupportDeskRoutes } from '../../features
 import { loadFarmServiceRoutes, loadPaymentReconciliationRoutes, loadPlanPriceRoutes, loadPlatformSubscriptionRoutes } from '../../features/platform-service/routes'
 import { loadCashReportRoutes, loadManualFinanceRoutes, loadPmSupportNoticePage, loadReceiptRoutes, loadReconciliationNoticePage } from '../../features/platform-finance/routes'
 import { loadAdminNoticePage, loadAuditRoutes, loadStaffAccessRoutes, loadUserAccountRoutes } from '../../features/platform-admin/routes'
-import { HomeRedirect, RoleGate, type AppRole } from '../../features/authorization'
+import { AccountRouteRedirect, HomeRedirect, RoleGate, type AppRole } from '../../features/authorization'
 import { RequireFarm } from './RequireFarm'
 import { loadLegalPage } from '../../features/authentication/routes'
 
@@ -155,7 +155,7 @@ export default function AppRoutes() {
         <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
         <Route path="/ho-tro/*" element={owner(<Support />, 'farmId')} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
-        <Route path="/tai-khoan" element={<Navigate to="/" replace />} />
+        <Route path="/tai-khoan" element={<AccountRouteRedirect />} />
         <Route path="/quyen-theo-vai-tro" element={<Navigate to="/" replace />} />
         <Route path="/ho-so" element={<Navigate to="/" replace />} />
 

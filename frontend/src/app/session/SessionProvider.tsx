@@ -9,6 +9,7 @@ import { markOwnerRegistrationCompleted, SessionContext } from './sessionContext
 import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
 import { sessionFromProfile } from './sessionProfile'
 import type { Session, SessionUser } from './sessionTypes'
+import { TermsAcceptancePage } from '../../features/authentication/pages/TermsAcceptancePage'
 
 /** UC-FE02-02 E1: the farm entered in this tab is no longer one of the account's farms (membership ended or changed). */
 export function isStaleFarmSelection(profile: unknown, selected: number | null): boolean {
@@ -18,7 +19,7 @@ export function isStaleFarmSelection(profile: unknown, selected: number | null):
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { mode, logout } = useAuth()
-  const { loadSessionProfile } = useAuthenticationUseCase()
+  const { loadSessionProfile, acceptTerms } = useAuthenticationUseCase()
   const [user, setUser] = useState<SessionUser | null>(null)
   const [error, setError] = useState('')
 
@@ -62,7 +63,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const session = useMemo<Session | null>(() => user && { ...user, logout }, [user, logout])
 
+  const acceptGoogleTerms = async () => {
+    await acceptTerms()
+    const profile = await loadSessionProfile()
+    setUser(sessionFromProfile(profile, readCurrentFarmId()))
+  }
+
   if (error) return <div role="alert" className="grid min-h-screen place-items-center px-4 text-center text-sm text-err-fg">{error}</div>
   if (!session) return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang tải hồ sơ…</div>
+  if (session.googleSignInLinked && !session.termsAccepted) {
+    return <TermsAcceptancePage onAccept={acceptGoogleTerms} onLogout={logout} />
+  }
   return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Button, ErrorBlock, LoadingBlock, Note } from '../../../shared/ui'
+import { ErrorBlock, LoadingBlock, Note } from '../../../shared/ui'
 import { useAccountProfile, useProfileForm } from '../hooks/useAccountProfile'
 import { ChangePasswordDialog } from './ChangePasswordDialog'
 import { ProfileCard } from './ProfileParts'
@@ -20,15 +20,13 @@ export function AccountProfilePanel() {
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-end gap-4">
-        <h1 className="m-0 text-3xl font-bold tracking-[-0.03em] text-brand-dark sm:text-4xl">Hồ sơ của tôi</h1>
-        <div className="flex-1" />
-        <Button variant="primary" type="submit" form="profile-form" disabled={form.saving}>{form.saving ? 'Đang lưu…' : 'Lưu thay đổi'}</Button>
+      <div className="mb-5 flex flex-wrap items-end gap-4">
+        <h1 className="m-0 text-2xl font-bold tracking-[-0.02em] text-brand-dark">Hồ sơ của tôi</h1>
       </div>
       {notice && <Note tone="ok">{notice}</Note>}
       {form.error && <Note tone="err">{form.error}</Note>}
-      <div className="mt-6 w-full">
-        <ProfileCard profile={data} headline="Tài khoản BeefCare" values={form.values} onChange={form.setValues} errors={form.errors} onSubmit={form.submit} onPassword={() => openModal('doi-mat-khau')} />
+      <div className="w-full">
+        <ProfileCard profile={data} headline="Tài khoản BeefCare" values={form.values} onChange={form.setValues} errors={form.errors} onSubmit={form.submit} onPassword={() => openModal('doi-mat-khau')} saving={form.saving} />
       </div>
       {modal === 'doi-mat-khau' && (
         <ChangePasswordDialog

@@ -164,7 +164,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 
 | # | Trường (SRS / VN) | Loại | Ràng buộc / Nội dung | Hành vi |
 |---|---|---|---|---|
-| 1 | User menu / Menu người dùng | Nút menu | Avatar viết tắt và họ tên; đúng hai mục **Hồ sơ của tôi**, **Đăng xuất** | Hồ sơ mở SCR-08; đăng xuất theo UC-FE01-03 |
+| 1 | User menu / Menu người dùng | Nút menu | Avatar viết tắt và họ tên; đúng hai mục **Hồ sơ của tôi**, **Đăng xuất** | Hồ sơ mở popup SCR-08 ngay trên SCR-09; đăng xuất theo UC-FE01-03 |
 | 2 | Register new farm / Đăng ký trại mới | Nút (chỉ Owner) | — | Mở SCR-10; mở SCR-07 trước nếu chưa xong đăng ký Owner |
 | **Thẻ trại (mỗi trại một thẻ)** | | | | |
 | 3 | Farm name, address / Tên trại, địa chỉ | Chữ | Xã, tỉnh | — |
@@ -360,3 +360,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 08/11/2026 | 28/10/2026 | UC-FE02-03: xác nhận luồng (Q1); chốt Q2 (3 múi giờ UTC+7), Q4 (vẫn hiện số ngày còn lại khi SUSPENDED) và Q8 (Manager / Technician mở SCR-11 → về trang chủ). Mục 3.1, 5, 6 (SCR-11), 7 (A3, A4), TC-02-17 | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-04, UC-FE02-05: xác nhận luồng UC-04 (Q1); chốt Q9 (lịch sử dịch vụ lưu trong audit). Mục 3.3, 5 (UC-04), 7 (A6 → A9 theo code, A7 đã có API) | DucNV |
 | 23/11/2026 | 28/10/2026 | Theo D48: bổ sung bộ chuyển trại nhanh trên thanh trên cùng, menu người dùng dùng chung, R-02-14, AF6/AF7 và TC-02-33 → 36 | LamKD |
+| 23/11/2026 | 28/10/2026 | Làm rõ menu Hồ sơ của tôi mở popup SCR-08 tại chỗ, không điều hướng sang trang hồ sơ độc lập | LamKD |

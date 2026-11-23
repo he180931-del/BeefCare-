@@ -87,7 +87,8 @@ describe('account dialog profile panel', () => {
 
     expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Thêm mật khẩu' })).toBeDisabled()
-    await user.click(within(dialog).getByRole('button', { name: 'Xác thực lại với Google' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Xác minh bằng Google' }))
+    expect(await within(dialog).findByText('Đã xác minh bằng Google. Bạn có thể thêm mật khẩu BeefCare.')).toBeInTheDocument()
     await user.type(await within(dialog).findByLabelText('Mật khẩu mới *'), 'NewPassw0rd')
     await user.type(within(dialog).getByLabelText('Nhập lại mật khẩu mới *'), 'NewPassw0rd')
     await user.click(within(dialog).getByRole('button', { name: 'Thêm mật khẩu' }))
@@ -99,7 +100,7 @@ describe('account dialog profile panel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
 
     expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
-    expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Đã xác minh bằng Google. Hãy đặt mật khẩu BeefCare mới.')).toBeInTheDocument()
   })
 
   it('keeps the account dialog open when Escape closes the nested password dialog', async () => {
@@ -133,6 +134,11 @@ describe('role permissions page', () => {
     renderAs('owner', '/chon-trai', 'permissions')
 
     expect(screen.getByRole('heading', { name: 'Quyền theo vai trò' })).toBeInTheDocument()
+    expect(screen.getByTestId('permissions-bento-role')).toHaveClass('bg-white', 'border-field')
+    expect(screen.getByTestId('permissions-bento-role')).not.toHaveClass('bg-brand-dark')
+    expect(screen.getByTestId('permissions-bento-matrix')).toBeInTheDocument()
+    expect(screen.getByTestId('permissions-bento-matrix')).toHaveClass('rounded-2xl', 'bg-white')
+    expect(screen.getByText(/Chủ trại có quyền quản lý toàn bộ hoạt động trang trại/i)).toBeInTheDocument()
     expect(screen.getByText('Gói dịch vụ & thanh toán')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Quản lý' }))
     expect(screen.getByText('Hồ sơ bò & thẻ QR')).toBeInTheDocument()

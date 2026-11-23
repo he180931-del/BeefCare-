@@ -40,6 +40,8 @@ export function sessionFromProfile(value: unknown, selectedFarmId: number | null
     farmId: farm ? numberValue(farm.farmId) : null,
     farmName: farm ? textValue(farm.farmName) : null,
     ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    googleSignInLinked: row.googleSignInLinked === true,
+    termsAccepted: row.termsAccepted === true,
     platformRole: isPlatformRole(platformRole) ? platformRole : null,
     activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
     farmCount: farms.length,
