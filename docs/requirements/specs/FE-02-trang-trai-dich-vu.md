@@ -113,6 +113,7 @@ Danh mục khởi tạo thuộc riêng trại đó; sửa không ảnh hưởng 
 | R-02-11 | PM chỉ thấy thông tin dịch vụ (tên trại, Owner, trạng thái, hạn, tạm ngưng, số bò ACTIVE); không thấy dữ liệu bò, chăm sóc, sinh sản. | GBR-11, SCR-12 |
 | R-02-12 | Đổi trại hiện tại: xóa dữ liệu và bộ lọc của trại trước rồi mới đặt trại mới. | UC-02 bước 5 |
 | R-02-13 | Ngày giờ nghiệp vụ trên toàn hệ thống tính theo UTC+07:00 (D39). | GBR-66 |
+| R-02-14 | Trong không gian trại, nút tên trại trên thanh trên cùng mở bộ chuyển trại nhanh. Chọn trại `ACTIVE` phải kiểm lại quyền và trạng thái, áp dụng R-02-12 rồi mở trang chủ đúng vai trò; trại không `ACTIVE` và hành động **Quản lý trang trại** mở SCR-09. | UC-02, SCR-09 |
 
 ---
 
@@ -129,13 +130,13 @@ AF1 bấm "Để sau" ở SCR-58 → trại ở `PENDING_PAYMENT`, hiện ở SC
 E1 chưa hoàn tất đăng ký Owner → MSG-FE02-02 · E2 thiếu / sai trường → MSG-COM-06 / MSG-COM-10 · E3 lỗi lưu → MSG-COM-02.
 
 ### UC-FE02-02 Xem và chọn trại
-1. Mở SCR-09.
+1. Người dùng mở SCR-09, hoặc mở bộ chuyển trại nhanh từ tên trại hiện tại trên thanh trên cùng.
 2. Hệ thống liệt kê mọi trại mà người dùng có membership ACTIVE, ở mọi trạng thái dịch vụ (thẻ: tên, địa chỉ, trạng thái dịch vụ, vai trò, số bò ACTIVE, ngày hết dịch vụ). Owner thấy cả trại của mình đang `PENDING_PAYMENT`, `EXPIRED`, `SUSPENDED`; Manager / Technician thấy trại không ACTIVE dưới dạng thẻ khóa (AF3, Q6).
-3. Bấm **Vào trại** ở trại ACTIVE.
+3. Tại SCR-09 người dùng bấm **Vào trại**; tại bộ chuyển nhanh người dùng chọn một trại trong danh sách.
 4. Hệ thống kiểm lại membership, vai trò, trạng thái dịch vụ.
 5. Xóa dữ liệu trại trước, đặt trại hiện tại, mở trang chủ: Owner / Manager → SCR-48, Technician → SCR-74.
 
-AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán để kích hoạt" / "Gia hạn", đặt trại làm trại hiện tại và mở SCR-58 (chọn thời hạn) kèm MSG-FE02-03 (Q5) · AF2 Owner chọn trại `SUSPENDED` → nút "Gửi phiếu hỗ trợ", mở SCR-65 · AF3 Manager / Technician ở trại không ACTIVE → thẻ bị khóa, MSG-FE02-04 · AF4 chỉ có 1 trại khả dụng → mở thẳng (Q7: ngay sau đăng nhập, danh sách có đúng 1 trại và trại đó ACTIVE) · AF5 không có trại → MSG-FE01-15; Owner thấy "Đăng ký trại mới".
+AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán để kích hoạt" / "Gia hạn", đặt trại làm trại hiện tại và mở SCR-58 (chọn thời hạn) kèm MSG-FE02-03 (Q5) · AF2 Owner chọn trại `SUSPENDED` → nút "Gửi phiếu hỗ trợ", mở SCR-65 · AF3 Manager / Technician ở trại không ACTIVE → thẻ bị khóa, MSG-FE02-04 · AF4 chỉ có 1 trại khả dụng → mở thẳng (Q7: ngay sau đăng nhập, danh sách có đúng 1 trại và trại đó ACTIVE) · AF5 không có trại → MSG-FE01-15; Owner thấy "Đăng ký trại mới" · AF6 chọn trại không `ACTIVE` trong bộ chuyển nhanh → mở SCR-09, không vào dữ liệu vận hành · AF7 bấm **Quản lý trang trại** trong bộ chuyển nhanh → mở SCR-09.
 E1 membership bị ngưng / đổi vai trò sau khi danh sách đã hiện → MSG-COM-01 và tải lại danh sách · E2 lỗi tải → MSG-COM-03.
 
 ### UC-FE02-03 Cập nhật thông tin trại
@@ -163,7 +164,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 
 | # | Trường (SRS / VN) | Loại | Ràng buộc / Nội dung | Hành vi |
 |---|---|---|---|---|
-| 1 | User / Người dùng | Chữ chỉ đọc | Họ tên, email; link đăng xuất | — |
+| 1 | User menu / Menu người dùng | Nút menu | Avatar viết tắt và họ tên; đúng hai mục **Hồ sơ của tôi**, **Đăng xuất** | Hồ sơ mở SCR-08; đăng xuất theo UC-FE01-03 |
 | 2 | Register new farm / Đăng ký trại mới | Nút (chỉ Owner) | — | Mở SCR-10; mở SCR-07 trước nếu chưa xong đăng ký Owner |
 | **Thẻ trại (mỗi trại một thẻ)** | | | | |
 | 3 | Farm name, address / Tên trại, địa chỉ | Chữ | Xã, tỉnh | — |
@@ -180,6 +181,14 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | Owner + EXPIRED | Gia hạn | SCR-58 |
 | Owner + SUSPENDED | Gửi phiếu hỗ trợ | SCR-65 |
 | Manager / Technician + không ACTIVE | Thẻ bị khóa, "Chủ trại quản lý gói dịch vụ" | MSG-FE02-04 |
+
+**Bộ chuyển trại nhanh trên thanh trên cùng**
+
+| # | Thành phần | Nội dung | Hành vi |
+|---|---|---|---|
+| 1 | Current farm / Trại hiện tại | Tên trại hoặc **Chọn trại** khi chưa có trại hiện tại | Mở / đóng danh sách |
+| 2 | Farm option / Lựa chọn trại | Các trại từ hồ sơ phiên; trại hiện tại có nhãn **Đang chọn** | Trại `ACTIVE`: đổi ngay theo R-02-12; trại khác: mở SCR-09 |
+| 3 | Manage farms / Quản lý trang trại | Link cuối danh sách | Mở SCR-09 |
 
 ### SCR-10 Đăng ký trại
 
@@ -317,6 +326,10 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | TC-02-30 | CS hoặc SA | Gọi API tạm ngưng / tổng quan | 403 | H | UC-05 E1 |
 | TC-02-31 | PM | Gọi tổng quan dịch vụ | Response không có trường bò / chăm sóc nào | H | R-02-11 |
 | TC-02-32 | 10 trại: 6 ACTIVE, 2 EXPIRED, 1 PENDING, 1 SUSPENDED | Mở SCR-12 | Ô: 10 / 6 (60%) / 1 / 2 / 1; bấm ô EXPIRED → 2 dòng | E | SCR-12 |
+| TC-02-33 | Owner / Manager đang ở trại A và có trại B `ACTIVE` | Mở bộ chuyển nhanh, chọn B | B có nhãn hiện tại sau tải lại; dữ liệu / bộ lọc A bị xóa; mở SCR-48 của B | U, E | R-02-12, R-02-14 |
+| TC-02-34 | Technician đang ở trại A và có trại B `ACTIVE` | Chọn B từ bộ chuyển nhanh | Đặt B và mở SCR-74 | U, E | R-02-14 |
+| TC-02-35 | Người dùng thấy trại không `ACTIVE` trong bộ chuyển nhanh | Chọn trại đó | Mở SCR-09; không vào màn hình vận hành | U, E | UC-02 AF6 |
+| TC-02-36 | Bất kỳ người dùng có membership | Bấm **Quản lý trang trại** trong bộ chuyển nhanh | Mở SCR-09 | U, E | UC-02 AF7 |
 
 ---
 
@@ -330,7 +343,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | Q4 | "Số ngày còn lại" khi đang SUSPENDED có hiện không? | Vẫn hiện (kỳ dịch vụ không đổi khi tạm ngưng) |
 | Q5 | Nút "Thanh toán để kích hoạt" / "Gia hạn" mở SCR-57 (AF1) hay SCR-58 (bảng nút SCR-09, trigger UC-FE19-02)? | SCR-58 kèm MSG-FE02-03 |
 | Q6 | Bước 2 đọc được là Manager / Technician không thấy trại không ACTIVE; AF3, SCR-09 và TC-02-11 nói thẻ khóa | Hiện thẻ khóa |
-| Q7 | AF4: "khả dụng" là gì, áp dụng lúc nào? | Ngay sau đăng nhập, đúng 1 trại và trại đó ACTIVE; mở từ nút đổi trại vẫn hiện SCR-09 |
+| Q7 | AF4: "khả dụng" là gì, áp dụng lúc nào? | Ngay sau đăng nhập, đúng 1 trại và trại đó ACTIVE; trong không gian trại, nút đổi trại mở bộ chuyển nhanh theo R-02-14 |
 | Q8 | Manager / Technician mở SCR-11 (gõ đường dẫn hoặc link cũ): hiện MSG-COM-01 hay đưa về trang chủ? | Hiện MSG-COM-01 |
 | Q9 | Lịch sử thay đổi dịch vụ (mục 3.3) lưu ở bảng riêng hay trong audit? | Dùng audit đang có, không migration |
 
@@ -346,3 +359,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 08/11/2026 | 28/10/2026 | UC-FE02-02: chốt Q5 (AF1 mở SCR-58 thay vì SCR-57), Q6 (thẻ khóa cho Manager / Technician) và Q7 (cách hiểu AF4). A2 / A5 dùng tên trường như code; MSG-FE02-04 sửa câu "đang ở trạng thái {status}" | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-03: xác nhận luồng (Q1); chốt Q2 (3 múi giờ UTC+7), Q4 (vẫn hiện số ngày còn lại khi SUSPENDED) và Q8 (Manager / Technician mở SCR-11 → về trang chủ). Mục 3.1, 5, 6 (SCR-11), 7 (A3, A4), TC-02-17 | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-04, UC-FE02-05: xác nhận luồng UC-04 (Q1); chốt Q9 (lịch sử dịch vụ lưu trong audit). Mục 3.3, 5 (UC-04), 7 (A6 → A9 theo code, A7 đã có API) | DucNV |
+| 23/11/2026 | 28/10/2026 | Theo D43: bổ sung bộ chuyển trại nhanh trên thanh trên cùng, menu người dùng dùng chung, R-02-14, AF6/AF7 và TC-02-33 → 36 | LamKD |

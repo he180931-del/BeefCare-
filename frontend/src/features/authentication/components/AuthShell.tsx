@@ -32,10 +32,10 @@ export function AuthShell({ title, description, eyebrow, children, footer, alert
     <main className="flex min-h-screen bg-page text-ink">
       <aside className="relative hidden w-[520px] shrink-0 flex-col overflow-hidden bg-side text-white lg:flex">
         <div className="px-7 pt-7"><Brand light /></div>
-        <h2 className="m-0 mt-[52px] px-7 text-[30px] font-bold leading-[1.25]">Mỗi con bò một hồ sơ —<br />ghi ngay tại chuồng.</h2>
-        <p className="m-0 mt-4 px-7 text-[15px] text-[#d7ebdf]">Gọn việc mỗi ngày. Rõ dữ liệu cả vòng đời đàn bò.</p>
+        <h2 className="m-0 mt-[52px] px-7 text-[30px] font-bold leading-[1.25]">Ghi đúng từng con — quản trọn cả đàn.</h2>
+        <p className="m-0 mt-4 px-7 text-[15px] text-[#d7ebdf]">BeefCare giúp bạn lưu lại mọi thông tin quan trọng ngay tại chuồng, theo dõi sức khỏe thuận tiện và chăm đàn chủ động hơn mỗi ngày.</p>
         <img src={farm} alt="" className="mt-auto w-full" />
-        <p className="m-0 px-7 pb-7 pt-3 text-sm text-[#d7ebdf]">Thiết kế cho công việc thực tế tại trại.</p>
+        <p className="m-0 px-7 pb-7 pt-3 text-sm text-[#d7ebdf]">Dễ dàng ghi chép công việc tại trại.</p>
       </aside>
       <div className="relative min-w-0 flex-1 overflow-hidden">
         <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full object-cover" />

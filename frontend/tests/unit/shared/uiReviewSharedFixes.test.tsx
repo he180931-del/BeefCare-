@@ -31,6 +31,6 @@ describe('shared UI fixes from the UI review', () => {
     const session: Session = { role: 'OWNER', fullName: 'Chủ Trại Mới', email: 'new@example.test', farmId: null, farmName: null, logout: vi.fn() }
     render(<SessionContext.Provider value={session}><MemoryRouter><Layout title="Gói dịch vụ"><p>Nội dung</p></Layout></MemoryRouter></SessionContext.Provider>)
     expect(screen.queryByText('Trại bò Yên Bài – Ba Vì')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Chọn trại/ })).toHaveAttribute('href', '/chon-trai')
+    expect(screen.getByRole('button', { name: /Chọn trại/ })).toHaveAttribute('aria-haspopup', 'menu')
   })
 })

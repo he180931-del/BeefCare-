@@ -181,12 +181,14 @@ Mỗi quy tắc viết thành câu kiểm được. Mã `R-01-xx` dùng để n�
 | E6 | Dịch vụ không khả dụng | MSG-COM-03; không tạo phiên |
 
 ### UC-FE01-03 Đăng xuất
-Người dùng chọn **Đăng xuất** trong menu người dùng (mọi màn hình đã đăng nhập) → hệ thống kết thúc phiên, xóa trại đang chọn trên thiết bị → mở SCR-02.
+Mọi khung giao diện đã đăng nhập dùng cùng một menu người dùng: nút hiển thị avatar viết tắt và họ tên; khi mở có đúng hai hành động **Hồ sơ của tôi** và **Đăng xuất**. **Hồ sơ của tôi** mở SCR-08 tại `/tai-khoan`. **Đăng xuất** kết thúc phiên, xóa trại đang chọn trên thiết bị và mở SCR-02.
 
 ### UC-FE01-04 Xem và sửa hồ sơ của tôi
-1. Người dùng mở SCR-08: họ tên, "vai trò tại tên trại" (hoặc vai trò platform), email đăng nhập và trạng thái xác minh, phương thức đăng nhập, bảng quyền của vai trò trong trại hiện tại (Table III-2).
-2. Sửa họ tên và / hoặc SĐT → **Lưu hồ sơ** → kiểm tra → lưu → MSG-FE01-13.
-Email **không** sửa được. Nhân viên platform thấy vai trò platform thay cho bảng quyền trại.
+1. Người dùng mở khung SCR-08 dùng chung; tab **Hồ sơ** ở `/tai-khoan`, tab **Quyền theo vai trò** ở `/quyen-theo-vai-tro`. Hai route không phụ thuộc vai trò platform, vai trò trại hoặc trại đang chọn; các route hồ sơ cũ chuyển hướng về `/tai-khoan`.
+2. Tab **Hồ sơ** hiển thị họ tên, email đăng nhập và trạng thái xác minh, phương thức đăng nhập.
+3. Người dùng sửa họ tên và / hoặc SĐT → **Lưu thay đổi** → kiểm tra → lưu → MSG-FE01-13. Không yêu cầu nhập lại mật khẩu vì email và phương thức đăng nhập không thay đổi.
+4. Tab **Quyền theo vai trò** cho chọn Chủ trại / Quản lý / Kỹ thuật viên và hiển thị các chức năng được phép theo Table III-2. Bảng chỉ đọc, bỏ các chức năng có mức `NO`; đây là bảng tham khảo cố định theo vai trò, không phải quyền riêng của tài khoản hoặc của trại đang chọn.
+Email **không** sửa được. Hồ sơ thuộc tài khoản và không phụ thuộc trại đang chọn.
 
 ### UC-FE01-05 Đặt lại mật khẩu đã quên
 1. Khách nhập email ở SCR-05, bấm **Gửi link đặt lại**.
@@ -207,7 +209,7 @@ E1 link hết hạn / đã dùng → trạng thái "Link không còn hiệu lự
 4. Lưu hash mới, giữ phiên hiện tại, kết thúc các phiên khác, gửi email "đã đổi mật khẩu".
 5. Đóng popup, MSG-FE01-07.
 
-AF1 **Thêm mật khẩu** (tài khoản chưa có mật khẩu): xác thực lại Google trong 5 phút; popup chỉ hỏi mật khẩu mới + xác nhận (R-01-13) · AF2 quên mật khẩu hiện tại → xác thực lại Google, hoặc đăng xuất và dùng UC-05 · AF3 Hủy → không đổi gì.
+AF1 **Thêm mật khẩu** (tài khoản chưa có mật khẩu): xác thực lại Google trong 5 phút; Google luôn trả về `/tai-khoan`; popup chỉ hỏi mật khẩu mới + xác nhận (R-01-13) · AF2 quên mật khẩu hiện tại → xác thực lại Google, hoặc đăng xuất và dùng UC-05 · AF3 Hủy → không đổi gì.
 E1 sai mật khẩu hiện tại → MSG-FE01-16; sau 5 lần → MSG-FE01-02 · E2 mật khẩu mới sai quy tắc → MSG-FE01-08 / 09 · E3 phiên hết hạn → phải đăng nhập lại, không lưu · E4 lỗi lưu → MSG-COM-02, giữ mật khẩu cũ.
 
 ---
@@ -288,18 +290,25 @@ Cột **Bắt buộc**: `*` theo SRS. Cột **Lỗi** ghi mã MSG ở mục 8. K
 
 ### SCR-08 Hồ sơ và quyền của tôi
 
+SCR-08 là màn hình logic dùng chung cho mọi vai trò và dùng cùng `AccountShell`, gồm hai tab **Hồ sơ** tại `/tai-khoan` và **Quyền theo vai trò** tại `/quyen-theo-vai-tro`. `/ho-so`, `/kt/tai-khoan` và `/nen-tang/ho-so` chỉ là route tương thích và chuyển hướng về `/tai-khoan`.
+
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi | Hành vi |
 |---|---|---|---|---|---|---|
-| 1 | Header / Tiêu đề | Chữ | — | Họ tên + "vai trò tại tên trại" (hoặc vai trò platform) | — | — |
-| 2 | Sign-in email / Email đăng nhập | Chữ chỉ đọc | — | Kèm trạng thái xác minh | — | Không sửa được |
-| 3 | Sign-in methods / Phương thức đăng nhập | Chữ chỉ đọc | — | Google và / hoặc Email & mật khẩu | — | — |
-| 4 | Full name / Họ tên | Ô chữ | * | 2–100 | MSG-COM-06, MSG-COM-10 | — |
-| 5 | Contact phone / Số điện thoại liên hệ | Ô chữ | — | Định dạng SĐT Việt Nam như SCR-07 | MSG-COM-10 | — |
-| 6 | Change password / Add password – Đổi mật khẩu / Thêm mật khẩu | Nút | — | "Thêm mật khẩu" khi tài khoản chưa có mật khẩu | — | Mở popup Đổi mật khẩu |
-| 7 | Save profile / Lưu hồ sơ | Nút | — | Chỉ lưu họ tên, SĐT | MSG-COM-02 | MSG-FE01-13 |
-| **Khối: Quyền của tôi trong trại này** (ẩn với nhân viên platform) | | | | | | |
-| 8 | Role / Vai trò | Chữ chỉ đọc | — | Chủ trại / Quản lý / Kỹ thuật viên | — | — |
-| 9 | Permission table / Bảng quyền | Bảng chỉ đọc | — | Các nhóm quyền với giá trị của vai trò, theo Table III-2 | — | — |
+| 1 | Account navigation / Điều hướng tài khoản | Tab | — | Hồ sơ / Quyền theo vai trò | — | Chuyển nội dung trong cùng SCR-08 |
+| 2 | Header / Tiêu đề | Chữ | — | Hồ sơ của tôi | — | — |
+| 3 | Sign-in email / Email đăng nhập | Chữ chỉ đọc | — | Kèm trạng thái xác minh | — | Không sửa được |
+| 4 | Sign-in methods / Phương thức đăng nhập | Chữ chỉ đọc | — | Google và / hoặc Email & mật khẩu | — | — |
+| 5 | Full name / Họ tên | Ô chữ | * | 2–100 | MSG-COM-06, MSG-COM-10 | — |
+| 6 | Contact phone / Số điện thoại liên hệ | Ô chữ | — | Định dạng SĐT Việt Nam như SCR-07 | MSG-COM-10 | — |
+| 7 | Change password / Add password – Đổi mật khẩu / Thêm mật khẩu | Nút | — | "Thêm mật khẩu" khi tài khoản chưa có mật khẩu | — | Mở popup Đổi mật khẩu |
+| 8 | Save profile / Lưu thay đổi | Nút | — | Chỉ lưu họ tên, SĐT; không xác thực lại mật khẩu | MSG-COM-02 | MSG-FE01-13 |
+
+**Tab: Quyền theo vai trò**
+
+| # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi | Hành vi |
+|---|---|---|---|---|---|---|
+| 1 | Role / Vai trò | Nút chuyển | — | Chủ trại / Quản lý / Kỹ thuật viên | — | Mỗi lần hiện một vai trò |
+| 2 | Functions / Chức năng | Bảng chỉ đọc | — | Chỉ liệt kê chức năng có quyền; mô tả ngắn: Xem, Quản lý, Ghi, sửa… theo Table III-2; bỏ mức `NO` | — | Không chỉnh sửa; không phụ thuộc trại đang chọn |
 
 ### Popup Đổi mật khẩu (mở từ SCR-08)
 
@@ -329,12 +338,12 @@ SRS không quy định đường dẫn API. **Dữ liệu vào / ra và mã lỗ
 | A7 | Thông tin người đang đăng nhập | — | `{id, fullName, email, emailVerified, contactPhone, status, ownerRegistrationCompleted, signInMethods[GOOGLE, PASSWORD], platformRole?, farms[{farmId, farmName, role, serviceStatus}], hasPassword}` | 401 || `GET /api/account/profile` |
 | A8 | Đăng xuất | — | — | — || `POST /api/logout` |
 | A9 | Sửa hồ sơ | `fullName, contactPhone?` | Hồ sơ (A7) | COM-06, COM-10, COM-02 || `POST /api/account/profile` |
-| A10 | Bảng quyền trong trại hiện tại | `farmId` | `{role, permissions[{area, value: FULL\|RESTRICTED\|NO}]}` | COM-01 || chưa có riêng – thêm vào A7 hoặc `GET /api/farms/{farmId}/my-permissions` |
+| A10 | Bảng quyền membership (API tương thích; tab Quyền theo vai trò của SCR-08 không gọi) | `farmId` | `{role, permissions[{area, value: FULL\|RESTRICTED\|NO}]}` | COM-01 || `GET /api/farms/{farmId}/my-permissions` |
 | A11 | Yêu cầu đặt lại mật khẩu | `email` | **Luôn** thành công như nhau | COM-10 (chỉ định dạng) || `POST /api/account/reset-password/init` |
 | A12 | Kiểm tra link đặt lại | `token` | `{email}` | FE01-06 || `GET /api/account/reset-password/validate?token=` |
 | A13 | Đặt mật khẩu mới | `token, newPassword, confirmPassword` | — | FE01-06, 08, 09, COM-02 || `POST /api/account/reset-password/finish` |
 | A14 | Đổi mật khẩu | `currentPassword, newPassword, confirmPassword` | — | FE01-16, 02, 08, 09, COM-02 || `POST /api/account/change-password` |
-| A15 | Thêm mật khẩu đầu tiên | `newPassword, confirmPassword` (cần xác thực lại Google ≤ 5 phút) | — | FE01-08, 09, cần xác thực lại (xem Q2), COM-02 || `POST /api/account/google-reauthentication` rồi `POST /api/account/change-password` (không gửi `currentPassword`) |
+| A15 | Thêm mật khẩu đầu tiên | `newPassword, confirmPassword` (cần xác thực lại Google ≤ 5 phút) | — | FE01-08, 09, cần xác thực lại (xem Q2), COM-02 || `POST /api/account/google-reauthentication` (luôn trở về `/tai-khoan`) rồi `POST /api/account/change-password` (không gửi `currentPassword`) |
 
 **Không bao giờ** có trường `password` / `passwordHash` trong bất kỳ response nào (R-01-05).
 Lỗi trả theo khuôn chung: `{code: "MSG-FE01-08", field?: "newPassword", params?: {...}}` để FE hiện đúng chỗ.
@@ -429,9 +438,13 @@ Tầng: **U** = unit, **I** = integration BE (service + DB), **H** = HTTP (contr
 | TC-01-44 | Tài khoản chỉ Google, vừa xác thực lại | Thêm mật khẩu hợp lệ | Mật khẩu `ACTIVE` ngay; đăng nhập bằng email + mật khẩu được | I | R-01-13 |
 | TC-01-45 | Bất kỳ | Gọi mọi API của FE-01 | Không response nào có trường mật khẩu / hash; log không chứa mật khẩu | H | R-01-05 |
 | TC-01-46 | Sửa hồ sơ | Gửi kèm `email` mới | Email không đổi | H | UC-04 |
-| TC-01-47 | Nhân viên platform | Mở SCR-08 | Thấy vai trò platform, không có bảng quyền trại | E | SCR-08 |
+| TC-01-47 | Nhân viên platform | Mở SCR-08 | Mở được Hồ sơ tại `/tai-khoan`; tab Quyền theo vai trò vẫn là bảng tham khảo ba vai trò trại | E | SCR-08 |
 | TC-01-48 | Đang đăng nhập, đã chọn trại | Đăng xuất | Phiên kết thúc, trại đang chọn bị xóa khỏi thiết bị, về SCR-02 | E | UC-03 |
 | TC-01-49 | Dịch vụ email lỗi | Đăng ký email | MSG-COM-02; không có tài khoản nào được tạo | I | R-01-15 |
+| TC-01-50 | Bất kỳ vai trò đã đăng nhập | Mở `/ho-so`, `/kt/tai-khoan` hoặc `/nen-tang/ho-so` | Chuyển hướng về `/tai-khoan` | E | SCR-08 |
+| TC-01-51 | SCR-08 tab Hồ sơ | Chỉ sửa họ tên hoặc SĐT rồi lưu | Lưu thành công, không hỏi mật khẩu; email và phương thức đăng nhập không đổi | U, H | UC-04 |
+| TC-01-52 | Mở `/quyen-theo-vai-tro` | Chọn lần lượt Owner, Manager, Technician | Tab Quyền theo vai trò đang hoạt động; hiện đúng Table III-2 của vai trò; không có dòng mức `NO`; không gọi A10 | U, E | SCR-08 |
+| TC-01-53 | Màn hình trong trại, chọn trại hoặc tài khoản | Mở menu avatar | Có đúng Hồ sơ của tôi và Đăng xuất; Hồ sơ mở `/tai-khoan` | U, E | UC-03, SCR-08 |
 
 ---
 
@@ -454,3 +467,4 @@ Tầng: **U** = unit, **I** = integration BE (service + DB), **H** = HTTP (contr
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại hoàn toàn từ SRS (không dựa trên code) | Claude (cho LamKD duyệt) |
 | 06/11/2026 | 28/10/2026 | Điền cột Route theo route hiện có trong code | Claude |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 23/11/2026 | 28/10/2026 | Theo D43: giữ SCR-08, tổ chức thành hai tab dùng chung `AccountShell` tại `/tai-khoan` và `/quyen-theo-vai-tro`; chuẩn hóa menu người dùng và đường về sau Google re-authentication; bổ sung TC-01-50 → 53 | LamKD |

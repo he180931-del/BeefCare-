@@ -391,21 +391,12 @@ public class AccountResource {
     @PostMapping(path = "/account/google-reauthentication")
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
     public void startGoogleReauthentication(@RequestBody(required = false) GoogleReauthenticationRequest request, HttpServletRequest httpRequest) {
-        AppUser account = farmAccessService.currentActiveUser();
-        String requested = request == null ? null : request.returnTo();
-        httpRequest.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH, reauthenticationReturnPath(account, requested));
+        farmAccessService.currentActiveUser();
+        httpRequest.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH, reauthenticationReturnPath());
     }
 
-    /** Only known account routes are retained, and each privileged route is derived from the active server-side role. */
-    private String reauthenticationReturnPath(AppUser account, String requested) {
-        if ("/nen-tang/ho-so".equals(requested) && platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").isPresent()) {
-            return requested;
-        }
-        if ("/kt/tai-khoan".equals(requested) && farmMembershipRepository.existsByUserIdAndRoleIgnoreCaseAndStatusIgnoreCase(account.getId(), "TECHNICIAN", "ACTIVE")) {
-            return requested;
-        }
-        return "/ho-so";
-    }
+    /** Google always returns to the one account route shared by every authenticated role. */
+    private String reauthenticationReturnPath() { return "/tai-khoan"; }
 
     public record GoogleReauthenticationRequest(String returnTo) {}
 

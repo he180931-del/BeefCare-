@@ -4,8 +4,9 @@ import { Icon } from '../../../shared/ui'
 import type { AuthClient } from '../types'
 import { normalizeEmail } from '../validation/authValidation'
 import { AuthShell, primaryButtonClass } from '../components/AuthShell'
-import { ActionLink } from '../components/AuthControls'
-import { AUTH_PATH, emailFromState, friendlyEmailRequestError } from '../domain/authErrors'
+import { ActionLink } from '../../../shared/ui'
+import { AUTH_PATH } from '../domain/authPaths'
+import { emailFromState, friendlyEmailRequestError } from '../domain/authErrors'
 import { Link } from 'react-router-dom'
 
 /** Nút gửi lại: khóa 60 giây sau mỗi lần gửi (SCR-04, SCR-05). */

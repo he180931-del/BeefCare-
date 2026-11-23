@@ -755,3 +755,15 @@ AnNT đồng ý phương án trong phiên: "Được, sửa theo đề xuất c�
 5. Mỗi phiên sửa gửi version đã đọc ban đầu. Backend kiểm lại quyền, version và tham chiếu trong giao dịch; phối hợp khóa giữa xóa vắc-xin và tạo tham chiếu, không để tham chiếu mồ côi.
 
 Thứ tự thực hiện: cập nhật spec / câu hỏi / quyết định trước, sau đó sửa code và kiểm chứng. Quyết định này chưa tự chứng nhận API hoặc UI; bằng chứng nằm ở kiểm thử của gói triển khai.
+
+### D43 — Tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
+
+Chủ dự án xác nhận cập nhật tài liệu theo hành vi giao diện đã chốt, giữ nguyên hệ thống mã của SRS 28/10:
+
+1. Không tạo `UC-FE01-04A` hoặc `SCR-08A`. `SCR-08` vẫn là màn hình logic **Hồ sơ & quyền của tôi**, dùng chung một `AccountShell` cho mọi vai trò, gồm hai tab **Hồ sơ** (`/tai-khoan`) và **Quyền theo vai trò** (`/quyen-theo-vai-tro`). Các route hồ sơ cũ chỉ chuyển hướng về `/tai-khoan`.
+2. Tab Hồ sơ chỉ sửa họ tên và số điện thoại liên hệ; email và phương thức đăng nhập chỉ đọc. Lưu hai trường hồ sơ không yêu cầu xác thực lại mật khẩu. Đổi hoặc thêm mật khẩu vẫn theo UC-FE01-06 / D07; Google xác thực lại luôn trở về `/tai-khoan`.
+3. Tab Quyền theo vai trò là bảng tham khảo cố định Table III-2 cho Owner, Manager và Technician, không phụ thuộc membership hoặc trại hiện tại, không cấp quyền và không gọi API quyền membership. Các dòng `NO` được ẩn; API quyền membership giữ lại để tương thích.
+4. Mọi khung giao diện đã đăng nhập dùng cùng menu avatar + họ tên với đúng hai mục **Hồ sơ của tôi** và **Đăng xuất**. Hồ sơ mở SCR-08; đăng xuất kết thúc phiên và xóa trại đang chọn.
+5. Trong không gian trại, tên trại trên thanh trên cùng mở bộ chuyển nhanh. Chọn trại `ACTIVE` kiểm lại quyền / trạng thái, xóa dữ liệu và bộ lọc trại trước rồi mở trang chủ đúng vai trò; chọn trại không `ACTIVE` hoặc **Quản lý trang trại** mở SCR-09.
+
+Ảnh hưởng: cập nhật SRS UC-FE01-04, UC-FE02-02, SCR-08, SCR-09, quy ước thanh trên cùng và chú thích Table III-2; cập nhật spec FE-01 / FE-02 và test case tương ứng. Đây là thay đổi điều hướng và trình bày quyền, không đổi schema dữ liệu hay hình dạng API hồ sơ / danh sách trại.

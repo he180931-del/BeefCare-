@@ -10,7 +10,7 @@ const TABS: ReadonlyArray<{ label: string; to: string; icon: IconName; end?: boo
   { label: 'Quét QR', to: '/kt/quet-qr', icon: 'qrcode' },
   { label: 'Sinh sản', to: '/kt/sinh-san', icon: 'dna' },
   { label: 'Thức ăn', to: '/kt/thuc-an', icon: 'grain' },
-  { label: 'Tài khoản', to: '/kt/tai-khoan', icon: 'user-circle' },
+  { label: 'Tài khoản', to: '/tai-khoan', icon: 'user-circle' },
 ]
 
 /**
