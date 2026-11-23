@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../../shared/ui'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -9,7 +10,7 @@ import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
 import { dm, money } from '../../../shared/lib/format'
 import { getExitDraftState, herdExitApi, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
+import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { useExitEditor } from '../hooks/useExitEditor'
@@ -279,7 +280,7 @@ function ExportForm({ onReload, exports, draftId, selectableCattle, buyers }: { 
                       {hasPricing && (
                         <>
                           <Td className={TH}>
-                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" />
+                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" formatWhileTyping />
                           </Td>
                           <Td className={TH}>{money(amount(c))}</Td>
                         </>
@@ -334,8 +335,8 @@ function ExportForm({ onReload, exports, draftId, selectableCattle, buyers }: { 
                   <div><div className="mb-[3px] text-[11px] text-faint">Tổng phải thu</div><div className="text-[13px] font-medium">{money(receivable)} đ</div></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3.5">
-                  <Field label="Khấu trừ (hao hụt, môi giới)"><MoneyInput value={deduction} onChange={setDeduction} suffix="đ" /></Field>
-                  <Field label="Đã thu (đặt cọc)"><MoneyInput value={collected} onChange={setCollected} suffix="đ" /></Field>
+                  <Field label="Khấu trừ (hao hụt, môi giới)"><MoneyInput value={deduction} onChange={setDeduction} suffix="đ" formatWhileTyping /></Field>
+                  <Field label="Đã thu (đặt cọc)"><MoneyInput value={collected} onChange={setCollected} suffix="đ" formatWhileTyping /></Field>
                 </div>
                 <div>
                   <div className="mb-[3px] text-[11px] text-faint">Còn phải thu</div>

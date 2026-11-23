@@ -930,3 +930,16 @@ Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google 
 3. `POST /api/account/terms-acceptance` chỉ đặt `termsAccepted = true` và `termsAcceptedAt` ở lần đầu; gọi lại giữ nguyên thời điểm. Không hoàn tất đăng ký Owner, không tạo trại/membership, không cấp vai trò hoặc gói.
 4. Khi chưa chấp thuận, backend vẫn cho đọc hồ sơ, lấy CSRF, chấp thuận và đăng xuất; API nghiệp vụ khác trả `403` + `MSG-FE01-14` nhưng không hủy phiên. OAuth redirect ưu tiên `/chap-nhan-dieu-khoan` trước luồng Owner/chọn trại; frontend kiểm lại profile để không phụ thuộc riêng redirect.
 5. Dùng hai cột hiện có `terms_accepted`, `terms_accepted_at`; chưa thêm phiên bản điều khoản hoặc migration. Khi có quy trình ban hành nhiều phiên bản sẽ quyết định migration và luồng chấp thuận lại riêng.
+
+### D63 — Dọn form nhập bò mua ngoài SCR-24 (23/11/2026)
+
+An chốt theo brief PR-K, áp dụng cho popup thêm / sửa con của phiếu mua ngoài:
+
+1. Chỉ nhập **Tháng sinh (ước tính)**; có tháng gửi ngày 01 và ESTIMATED, trống gửi UNKNOWN. Nháp / Excel có EXACT giữ nguyên ngày đầy đủ và độ chính xác khi không sửa tháng.
+2. Chỉ một ô **Cân nhập (kg)**, không chọn cơ sở cân. Có cân nhập tay gửi MEASURED, không cân gửi null. Dòng ESTIMATED từ Excel / nháp cũ giữ nguyên nếu không đổi số cân; đổi số cân chuyển MEASURED. Đây là điều chỉnh yêu cầu chọn Weight basis của popup trong SRS; Excel vẫn giữ cột cơ sở cân và bảng vẫn hiện UT.
+3. Theo con chỉ một ô **Giá con (đ)** lưu vào unitPrice; theo kg nhập đơn giá và hiện thành tiền chỉ đọc. Không gán trước giá hoặc tháng sinh cho con mới. Giá luôn nhập được.
+4. Cảnh báo của tóm tắt SCR-24 và tiêu chí chuồng trong popup hiện đỏ nhưng vẫn không chặn lưu; lỗi dữ liệu / sức chứa vẫn kiểm như trước.
+5. Con mới chỉ vào phiếu sau khi lưu popup; hủy không để dòng rỗng. Con đã có trong nháp luôn được xóa sau xác nhận, kể cả chưa có mã bò. Thẻ tai tùy chọn (tối đa 30), nhắc bổ sung đặc điểm khi chưa có thẻ.
+6. Mục đích nuôi lấy danh mục ACTIVE theo ID và purposeType, giới hạn SIRE cho đực và BREEDING cho cái. Cách ly nhập đàn là ngày theo dõi riêng sau mua, khác cách ly thịt; không trước ngày nhập, có +14/+21 ngày, phải giữ qua mở lại nháp và hiện trên hồ sơ khi còn hiệu lực.
+
+Không đổi backend, OpenAPI, migration, nhập Excel, sửa hồ sơ FE-05 hay nghiệp vụ bê sinh tại trại. Các điều kiện backend và giới hạn field hiện hành tiếp tục áp dụng.
