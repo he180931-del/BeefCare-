@@ -3,6 +3,7 @@ import { Button, Foot, Icon, type IconName, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
 import type { CattleViewModel as CowSeed } from '../types'
+import { localCattleList } from '../api/cattleApi'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
 const dmy = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').reverse().join('/') : value ?? '')
@@ -24,6 +25,10 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
   const nav = useNavigate()
   const weighDue = cow.care.reminders.find((r) => r.title.startsWith('Cân'))?.due.label
   const code = encodeURIComponent(cow.code)
+  const backend = localCattleList === null
+  const entryCode = typeof cow.entryVoucherCode === 'string' ? cow.entryVoucherCode : ''
+  const entryId = typeof cow.entryId === 'number' && Number.isInteger(cow.entryId) && cow.entryId > 0 ? cow.entryId : undefined
+  const canEditEntry = canWrite && cow.status === 'ACTIVE' && !cow.exitPending && (backend ? Boolean(entryCode && entryId != null) : Boolean(cow.importRecord))
   // Bento (Figma Tab 16 ①b): lối tắt ghi nhận 4 cột, nội dung 8+4 (5+3 khi vùng nội dung 880–1.023 px); khối nổi bật là
   // Tóm tắt chăm sóc. Đo theo vùng nội dung sau sidebar.
   return (
@@ -53,7 +58,7 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
           <Panel
             title="Thông tin cá thể"
             gap="gap-3.5"
-            action={cow.status === 'ACTIVE' && cow.importRecord && <Button variant="link" small className="leading-[normal]" onClick={() => onOpenModal('record-edit')}>Sửa / hủy bản ghi nhập đàn</Button>}
+            action={canEditEntry && <Button variant="link" small className="leading-[normal]" onClick={() => backend ? nav(`/herd-entry/${encodeURIComponent(entryCode)}?m=line&entry=${entryId}`) : onOpenModal('record-edit')}>Sửa / hủy bản ghi nhập đàn</Button>}
           >
             <Fields
               cols="grid-cols-2 sm:grid-cols-4"
