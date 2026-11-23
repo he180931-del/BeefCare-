@@ -182,7 +182,7 @@ class CareWorkflowIT extends DomainTestSupport {
 
         CareDtos.VaccinationBatchResult recorded = vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
             hoursAgo(1), "LOT-1", "2 ml", "SC", 0, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(cow.getId(), first.getId(), first.getVersion(), "VACCINATE", null, null))));
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), first.getId(), first.getVersion()))));
         assertThat(recorded.vaccinatedCount()).isEqualTo(1);
         em.flush();
         em.clear();
@@ -194,12 +194,8 @@ class CareWorkflowIT extends DomainTestSupport {
         vaccination.voidRecord(farm.getId(), vaccinationId, key(), new CareDtos.VoidRecord(vaccinationVersion, "Wrong animal"));
         em.flush();
         em.clear();
-        assertThat(em.find(ScheduledDose.class, first.getId()).getStatus()).isIn("PLANNED", "DEFERRED");
-
-        ScheduledDose second = em.find(ScheduledDose.class, doses.get(1).getId());
-        CareDtos.DoseResult deferred = vaccination.deferDose(farm.getId(), second.getId(), key(),
-            new CareDtos.DeferDose(second.getVersion(), "Animal unwell", TODAY.plusDays(30), null));
-        assertThat(deferred.status()).isEqualTo("DEFERRED");
+        // D46: hủy bản ghi thì mũi quay về chờ tiêm (không còn hoãn).
+        assertThat(em.find(ScheduledDose.class, first.getId()).getStatus()).isEqualTo("PLANNED");
 
         Integer scheduleVersion = versionOf(vn.edu.fpt.beefcare.domain.VaccinationSchedule.class, schedule.id());
         assertThat(vaccination.stopSchedule(farm.getId(), schedule.id(), key(), scheduleVersion, "Season over").status()).isEqualTo("STOPPED");
@@ -229,7 +225,7 @@ class CareWorkflowIT extends DomainTestSupport {
             new CareDtos.VaccineCommand(null, "HS" + next(), "HS vaccine", "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, true));
         actAs(manager);
         vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(used.id(), "ON_FARM", null, hoursAgo(1), "LOT-2", "2 ml", "IM", 0, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null))));
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null))));
         actAs(owner);
         Integer usedVersion = versionOf(vn.edu.fpt.beefcare.domain.Vaccine.class, used.id());
         assertThatThrownBy(() -> catalogue.deleteUnusedVaccine(farm.getId(), used.id(), key(), usedVersion)).isInstanceOf(DomainException.class);

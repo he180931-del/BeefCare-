@@ -7,7 +7,7 @@ import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
 import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
 import type { CattleVaccination, DoseRow, VaccinationRecord } from '../types'
 import CorrectVaccinationModal from './CorrectVaccinationModal'
-import DeferModal from './DeferModal'
+import DeleteVaccinationModal from './DeleteVaccinationModal'
 import { DoseStatusBadge, SOURCE_LABEL, healthCasePath, profilePath, recordPath, useCanWrite, useNotice } from './vaccinationParts'
 
 export default function VaccinationProfileTab({ cattleCode }: { cattleCode: string }) {
@@ -31,35 +31,36 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   const back = encodeURIComponent(profilePath(cattleCode))
   const goRecord = (doseId?: number) => navigate(`/tiem-phong/ghi-nhan?${doseId ? `doses=${doseId}` : `cattle=${cattleCode}`}&back=${back}`)
   const saved = (message: string) => { setNotice(message); setModal(null); refetch() }
-  const deferTarget = modal === 'defer' ? (data.doses.find((d) => String(d.id) === params.get('d')) ?? data.doses[0]) : undefined
   // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
-  const correctTarget = modal === 'correct'
+  const targetOf = (name: string) => modal === name
     ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
     : undefined
+  const correctTarget = targetOf('correct')
+  const deleteTarget = targetOf('delete')
   const sourceId = modal ? null : params.get('r')
   const sourceRecord = sourceId == null ? undefined : data.records.find((record) => String(record.id) === sourceId)
   if (sourceId != null) return sourceRecord
-    ? <History data={{ ...data, records: [sourceRecord] }} title="Bản ghi tiêm phòng" canWrite={false} onCorrect={() => undefined} />
+    ? <History data={{ ...data, records: [sourceRecord] }} title="Bản ghi tiêm phòng" canWrite={false} onCorrect={() => undefined} onDelete={() => undefined} />
     : <Note tone="warn">Không tìm thấy bản ghi tiêm phòng này.</Note>
 
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} onDefer={(id) => setModal('defer', 'd', id)} />
-      <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} />
-      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Hoãn, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
-      {canWrite && deferTarget && <DeferModal key={deferTarget.id} doseId={deferTarget.id} onClose={() => setModal(null)} onSaved={saved} />}
+      <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} />
+      <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} onDelete={(id) => setModal('delete', 'r', id)} />
+      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
       {canWrite && correctTarget && <CorrectVaccinationModal key={correctTarget.id} record={correctTarget} onClose={() => setModal(null)} onSaved={saved} />}
+      {canWrite && deleteTarget && <DeleteVaccinationModal key={deleteTarget.id} record={deleteTarget} onClose={() => setModal(null)} onDeleted={saved} />}
     </div>
   )
 }
 
-function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccination; canWrite: boolean; onRecord: (id: number) => void; onDefer: (id: number) => void }) {
+function Scheduled({ data, canWrite, onRecord }: { data: CattleVaccination; canWrite: boolean; onRecord: (id: number) => void }) {
   return (
     // Bento (Figma Tab 17 ②b): mũi còn phải tiêm là việc tiếp theo của tab, nền xanh nhạt khi có mũi.
-    <Panel tone={data.doses.length ? 'ok' : 'default'} title={<span className="text-sm font-semibold">Mũi tiêm theo lịch</span>} sub="Các mũi chưa tiêm của bò này" className="gap-3! p-4!">
+    <Panel tone={data.doses.length ? 'ok' : 'default'} title={<span className="text-sm font-semibold">Mũi tiêm theo lịch</span>} className="gap-3! p-4!">
       {data.doses.length === 0 ? (
-        <EmptyBlock title="Không còn mũi nào cần tiêm" sub="Bò này không có mũi chưa tiêm trong các lịch đang chạy." />
+        <EmptyBlock title="Không còn mũi nào cần tiêm"  />
       ) : (
         <Table>
           <thead><tr><Th>Lịch</Th><Th>Mũi</Th><Th>Ngày dự kiến</Th><Th>Trạng thái</Th>{canWrite && <Th>Thao tác</Th>}</tr></thead>
@@ -68,9 +69,9 @@ function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccinat
               <tr key={d.id}>
                 <Td className="font-medium">{d.scheduleName}</Td>
                 <Td>{d.kind === 'BOOSTER' ? 'Nhắc lại' : `${d.doseNo} / ${d.doseCount}`}</Td>
-                <Td>{fmtDate(d.effectiveDate)}</Td>
+                <Td>{fmtDate(d.dueDate)}</Td>
                 <Td><DoseStatusBadge row={d} /></Td>
-                {canWrite && <Td><Button variant="link" onClick={() => onRecord(d.id)}>Ghi nhận</Button> · <Button variant="link" onClick={() => onDefer(d.id)}>Hoãn</Button></Td>}
+                {canWrite && <Td><Button variant="link" onClick={() => onRecord(d.id)}>Ghi nhận</Button></Td>}
               </tr>
             ))}
           </tbody>
@@ -80,13 +81,15 @@ function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccinat
   )
 }
 
-function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect }: { data: CattleVaccination; title?: string; canWrite: boolean; onCorrect: (id: number) => void }) {
+interface RowActions { canWrite: boolean; onCorrect: (id: number) => void; onDelete: (id: number) => void }
+
+function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect, onDelete }: { data: CattleVaccination; title?: string } & RowActions) {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
-  const rows = [...data.records].sort((a, b) => (a.administeredAt < b.administeredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
+  const rows = data.records.filter((r) => r.status !== 'VOIDED').sort((a, b) => (a.administeredAt < b.administeredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   return (
-    <Card variant="panel" title={title} sub={title === 'Lịch sử tiêm' ? 'Mới nhất ở trên · dòng đã hủy in xám' : undefined}>
+    <Card variant="panel" title={title}>
       {rows.length === 0 ? (
-        <EmptyBlock title="Chưa có mũi tiêm nào" sub="Các mũi đã tiêm và lịch sử nhập từ người bán sẽ hiện ở đây." />
+        <EmptyBlock title="Chưa có mũi tiêm nào"  />
       ) : (
         <Table>
           <thead>
@@ -95,26 +98,32 @@ function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect }: { d
               <Th>Vắc-xin · mũi</Th><Th>Liều</Th><Th>Ngưng thịt đến</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th>{canWrite && <Th>Thao tác</Th>}
             </tr>
           </thead>
-          <tbody>{rows.map((r) => <HistoryRow key={r.id} r={r} canWrite={canWrite} onCorrect={onCorrect} />)}</tbody>
+          <tbody>{rows.map((r) => <HistoryRow key={r.id} r={r} canWrite={canWrite} onCorrect={onCorrect} onDelete={onDelete} />)}</tbody>
         </Table>
       )}
     </Card>
   )
 }
 
-function HistoryRow({ r, canWrite, onCorrect }: { r: VaccinationRecord; canWrite: boolean; onCorrect: (id: number) => void }) {
-  const voided = r.status === 'VOIDED'
+function HistoryRow({ r, canWrite, onCorrect, onDelete }: { r: VaccinationRecord } & RowActions) {
   const unknown = r.source === 'HISTORICAL'
   return (
-    <tr className={voided ? 'text-faint' : undefined}>
+    <tr>
       <Td className="font-medium">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</Td>
-      <Td>{[r.vaccineLabel, r.doseText].filter(Boolean).join(' · ')}{voided && ' (đã hủy)'}{r.corrected && !voided && <Badge tone="info">Đã sửa</Badge>}</Td>
+      <Td>{[r.vaccineLabel, r.doseText].filter(Boolean).join(' · ')}{r.corrected && <Badge tone="info">Đã sửa</Badge>}</Td>
       <Td>{r.dose ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{r.withdrawalEndDate ? fmtDate(r.withdrawalEndDate) : '—'}</Td>
       <Td>{SOURCE_LABEL[r.source]}</Td>
       <Td>{r.vaccinator ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{r.reactionCaseCode ? <Link to={healthCasePath(r.reactionCaseCode)} className="font-semibold text-brand no-underline hover:underline">{r.reactionCaseCode}{r.reactionNote ? ` · ${r.reactionNote}` : ''}</Link> : '—'}</Td>
-      {canWrite && <Td>{voided ? '—' : <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa · Hủy</Button>}</Td>}
+      {canWrite && (
+        <Td>
+          <span className="inline-flex gap-3">
+            <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa</Button>
+            <Button variant="link" className="text-err-fg" onClick={() => onDelete(r.id)}>Xóa</Button>
+          </span>
+        </Td>
+      )}
     </tr>
   )
 }

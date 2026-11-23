@@ -79,7 +79,7 @@ class CatalogueConcurrencyPostgresIT extends DomainTestSupport {
     private void createReference(Fixture fixture, boolean record) {
         if (record) {
             vaccination.record(fixture.farmId(), key(), new CareDtos.RecordVaccinations(fixture.vaccineId(), "HISTORICAL", TODAY.minusDays(1), null, null, "2 ml", "SC", null, "Trại cũ",
-                List.of(new CareDtos.VaccinationAnimal(fixture.cattleId(), null, null, "VACCINATE", null, null))));
+                List.of(new CareDtos.VaccinationAnimal(fixture.cattleId(), null, null))));
         } else {
             vaccination.createSchedule(fixture.farmId(), key(), new CareDtos.CreateVaccinationSchedule("Lịch thử", fixture.vaccineId(), TODAY, 1, 21, null, List.of(fixture.cattleId())));
         }

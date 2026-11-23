@@ -2,7 +2,7 @@ import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { VaccinationDemoStore } from '../data/vaccinationDemoStore'
-import type { CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, HistoryFilters, RecordVaccinationsCommand, ScheduleCommand, ScheduleTarget, VoidRecordCommand } from '../types'
+import type { CorrectVaccinationCommand, DoseFilters, HistoryFilters, RecordVaccinationsCommand, ScheduleCommand, ScheduleTarget, VoidRecordCommand } from '../types'
 import { createVaccinationBackend } from './vaccinationBackend'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
@@ -23,7 +23,6 @@ export function createVaccinationApi({ mode, farmId, transport, store, clock }: 
     async stopSchedule(id: number, cmd: { reason: string; expectedVersion: number }) { return store.stopSchedule(id, cmd) },
     async recordContext(input: { doseIds?: number[]; cattleCodes?: string[] }) { return store.recordContext(input) },
     async recordVaccinations(cmd: RecordVaccinationsCommand) { return store.recordVaccinations(cmd) },
-    async deferDose(id: number, cmd: DeferDoseCommand) { return store.deferDose(id, cmd) },
     async listHistory(filters: HistoryFilters = {}) { return store.listHistory(filters) },
     async getCattleVaccination(code: string) { return store.getCattleVaccination(code) },
     async correctRecord(id: number, cmd: CorrectVaccinationCommand) { return store.correctRecord(id, cmd) },

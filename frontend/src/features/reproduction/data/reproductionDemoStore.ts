@@ -1,7 +1,7 @@
 import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import {
   ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
-  validateReproductionCommand,
+  reproductionIssues,
 } from '../domain/reproductionRules'
 import type {
   CalfOutcome,
@@ -225,8 +225,8 @@ export function createReproductionDemoStore(
       const moreAction = command.type === 'PREGNANCY_CHECK' && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
       if (!available.includes(actionFor(command)) && !moreAction) throw new Error('Hành động này không phù hợp với trạng thái sinh sản hiện tại.')
       const now = clock()
-      const errors = validateReproductionCommand(command, { today: now, profile })
-      if (errors.length) throw new Error(errors[0])
+      const issues = reproductionIssues(command, { today: now, profile })
+      if (issues.length) throw new ReproductionValidationError(issues)
 
       const id = makeId('repro', ++sequence)
       const base: ReproductionEvent = {

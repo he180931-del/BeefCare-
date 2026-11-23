@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { treatmentToast } from '../domain/healthMessages'
 import { fmtDate, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { lastDoseDate, MSG, withdrawalEnd } from '../domain/healthRules'
@@ -57,21 +57,21 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
           </Select>
         </Field>
         <Field label="Thời điểm bắt đầu *" id="tr-start" hint={hint(errors.treatmentTime)}><DateTimeInput id="tr-start" value={startAt} onChange={setStartAt} /></Field>
-        <Field label="Liệu trình (ngày)" id="tr-course" hint={hint(errors.courseDays, '1 – 30 · cùng thuốc, liều, đường dùng mỗi ngày')}>
+        <Field label="Liệu trình (ngày)" id="tr-course" hint={hint(errors.courseDays, '1 – 30 ngày')}>
           <input id="tr-course" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} />
         </Field>
         <Field label="Mũi cuối (tự tính)" id="tr-last"><ReadonlyBox id="tr-last" value={valid ? fmtDate(lastDoseDate(startAt, courseN!)) : '—'} /></Field>
-        <Field label="Ngưng sử dụng (ngày)" id="tr-wd" hint={hint(errors.withdrawalDays, 'Lấy từ danh mục, có thể sửa')}>
+        <Field label="Ngưng sử dụng (ngày)" id="tr-wd" hint={hint(errors.withdrawalDays)}>
           <input id="tr-wd" inputMode="numeric" maxLength={3} value={wd} onChange={(e) => setWd(e.target.value)} className={inputCls} />
         </Field>
         <Field label="Hết ngưng" id="tr-end"><ReadonlyBox id="tr-end" value={valid ? fmtDate(withdrawalEnd(startAt, courseN!, wdN!)) : '—'} /></Field>
       </div>
-      <Field label="Người thực hiện" id="tr-performer" hint={hint(errors.performer, 'Hoặc nhập tên bác sĩ thú y bên ngoài')}>
+      <Field label="Người thực hiện" id="tr-performer" hint={hint(errors.performer, 'Hoặc nhập tên người ngoài')}>
         <input id="tr-performer" list="tr-performer-list" maxLength={100} value={performer} onChange={(e) => setPerformer(e.target.value)} className={inputCls} />
         <datalist id="tr-performer-list">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
       </Field>
       <Field label="Lời khuyên thú y" id="tr-advice" hint={hint(errors.veterinaryAdvice, 'Tối đa 500 ký tự')}><Textarea id="tr-advice" rows={2} maxLength={500} value={advice} onChange={(e) => setAdvice(e.target.value)} /></Field>
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={form.saving}>Lưu điều trị</ModalButton>

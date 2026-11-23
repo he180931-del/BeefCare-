@@ -95,7 +95,21 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     await user.click(within(dialog).getByLabelText('Thước dây'))
     await user.type(within(dialog).getByLabelText('Vòng ngực (cm)'), '158')
     await user.type(within(dialog).getByLabelText('Dài thân chéo (cm)'), '132')
-    expect(within(dialog).getByLabelText('Cân nặng')).toHaveValue(291.3)
+    expect(within(dialog).getByLabelText('Cân nặng')).toHaveValue('291.3')
+  })
+
+  it('D51: gõ chữ vào ô cân nặng thì báo dưới ô, không âm thầm chỉ lưu BCS', async () => {
+    const user = userEvent.setup()
+    const record = vi.spyOn(growthApi, 'record')
+    renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+    await screen.findByLabelText('Cân nặng')
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Cân nặng'), 'ba trăm')
+    await user.click(within(dialog).getByRole('button', { name: '3,0' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu đánh giá' }))
+    expect(await within(dialog).findByText('Cân nặng phải là số, ví dụ 325 hoặc 325,5.')).toBeInTheDocument()
+    await expect(record.mock.results[0].value).rejects.toBeInstanceOf(Error)
+    record.mockRestore()
   })
 
   it('D43: popup Sửa chỉ để sửa, ghi chú không bắt buộc và điền sẵn ghi chú của lần sửa gần nhất', async () => {

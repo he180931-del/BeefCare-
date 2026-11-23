@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        D46 (FE-09): bỏ chức năng hoãn mũi tiêm.
+        Mũi đang hoãn (DEFERRED) chuyển về chờ tiêm (PLANNED). Mũi có ngày dự kiến mới thì lấy ngày đó làm hạn,
+        để mũi vẫn được nhắc đúng ngày người dùng đã hẹn. Lý do hoãn cũ giữ nguyên trong cột deferral_reason
+        (không còn hiển thị); cột new_expected_date được xóa giá trị vì đã chuyển sang due_date.
+        Tăng version để màn hình đang mở với version cũ phải tải lại trước khi thao tác.
+    -->
+    <changeSet id="20261123000100-vaccination-remove-deferral" author="beefcare">
+        <update tableName="scheduled_dose">
+            <column name="due_date" valueComputed="COALESCE(new_expected_date, due_date)"/>
+            <column name="status" value="PLANNED"/>
+            <column name="new_expected_date" valueComputed="NULL"/>
+            <column name="version" valueComputed="version + 1"/>
+            <where>upper(status) = 'DEFERRED'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

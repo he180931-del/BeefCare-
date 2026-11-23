@@ -182,7 +182,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 [&>*]:col-span-full [&>*]:min-w-0">
       {notice && <Note tone="ok">{notice}</Note>}
       {error && <Note tone="err">{error}</Note>}
-      {!canManage && <Note tone="info">Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.</Note>}
+      {!canManage && <Note tone="info">Chế độ chỉ xem.</Note>}
       {profile.herdStatus !== 'ACTIVE' && <Note tone="warn">Bò đã rời đàn hoặc đang chờ xác nhận xuất; hồ sơ sinh sản chỉ xem.</Note>}
 
       {!profile.applicable ? (
@@ -204,7 +204,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       <ReproductionTimeline profile={profile} canManage={canManage && profile.herdStatus === 'ACTIVE'} onRevise={revise} />
 
       {profile.revisions.length > 0 && (
-        <Panel title="Lịch sử chỉnh sửa" sub="Giá trị cũ được giữ lại trong lịch sử.">
+        <Panel title="Lịch sử chỉnh sửa">
           <div className="flex flex-col gap-2">{profile.revisions.map((revision) => <div key={revision.id} className="rounded-lg border border-field p-3 text-xs"><b>{revision.changedBy}</b> · {revision.changedAt.slice(0, 16).replace('T', ' ')} · {revision.reason}</div>)}</div>
         </Panel>
       )}

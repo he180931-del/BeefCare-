@@ -4,7 +4,9 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { useSession } from '../../../app/session/sessionContext'
+import { PaymentSuccessOnArrival } from '../../subscription'
 import { useFarmDashboardUseCases } from '../hooks/useFarmOverviewUseCases'
 import DashboardFilterBar from '../components/DashboardFilterBar'
 import { AttentionCard, GettingStartedCard, HerdStructureCard, QuickRecordCard } from '../components/DashboardCards'
@@ -16,7 +18,8 @@ import type { DashboardFilters, Scenario } from '../types'
 const TITLE = 'Tổng quan trang trại'
 
 export default function FarmDashboardPage() {
-  const role = viewerRole(useSession()?.role)
+  const session = useSession()
+  const role = viewerRole(session?.role)
   const navigate = useNavigate()
   const scenario: Scenario = useDemoState() === 'new-farm' ? 'new-farm' : 'default'
   const viewer = useMemo(() => ({ role, scenario }), [role, scenario])
@@ -31,8 +34,9 @@ export default function FarmDashboardPage() {
     try { await run(); started.refetch() } catch (e) { setActionError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.')) } finally { setBusy(false) }
   }
 
-  if (overviewDash.loading && !overviewDash.data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (overviewDash.error || !overviewDash.data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(overviewDash.error, 'Không tính được số liệu.')} onRetry={overviewDash.refetch} /></Layout>
+  const confirmation = <PaymentSuccessOnArrival farmId={session?.role === 'OWNER' ? activeFarmId : null} />
+  if (overviewDash.loading && !overviewDash.data) return <Layout title={TITLE}>{confirmation}<LoadingBlock /></Layout>
+  if (overviewDash.error || !overviewDash.data) return <Layout title={TITLE}>{confirmation}<ErrorBlock message={userFacingError(overviewDash.error, 'Không tính được số liệu.')} onRetry={overviewDash.refetch} /></Layout>
 
   const overview = overviewDash.data
   const metricsQuery = filtersApplied ? filteredDash : overviewDash
@@ -46,6 +50,7 @@ export default function FarmDashboardPage() {
 
   return (
     <Layout title={TITLE}>
+      {confirmation}
       <div className="@container">
         <div className="grid grid-cols-4 gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 [&>*]:min-w-0">
           <div className="col-span-full">
