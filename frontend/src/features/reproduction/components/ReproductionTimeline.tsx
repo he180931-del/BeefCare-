@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Badge, Card, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Badge, Icon, inputCls, Panel, Select, Table, Td, Th } from '../../../shared/ui'
 import { formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionEventType, ReproductionFemale } from '../types'
 import { SOURCE_LABEL, nowLocal } from './reproductionFields'
@@ -52,9 +51,9 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
   }
 
   return (
-    <Card
+    <Panel
       title={source ? 'Bản ghi sinh sản' : 'Dòng thời gian sinh sản'}
-      sub={'Dòng đã sửa có nhãn "Đã sửa"; dòng đã hủy in xám'}
+
       actions={!source && (
         <div className="relative flex flex-wrap items-center gap-2.5">
           <Select aria-label="Loại sự kiện" className="w-[150px]" value={type} onChange={(event) => setType(event.target.value as ReproductionEventType | '')}>
@@ -104,6 +103,6 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
           {!rows.length && <tr><Td colSpan={6} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản trong khoảng đã chọn.</Td></tr>}
         </tbody>
       </Table>
-    </Card>
+    </Panel>
   )
 }

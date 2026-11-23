@@ -1,16 +1,16 @@
-import { businessDate } from '../../../api/farmTimeZone'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, FilterSelect, Foot, Note, PageHeader, Segmented, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, FilterSelect, Foot, Icon, inputCls, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { herdEntryApi, listPendingEntryCalves } from '../api/index'
-import { useQuery } from '../../../hooks/useApi'
-import { SOURCE_FILTERS } from '../data/importsData'
-import { dmy, dm, kg, money } from '../../../data/format'
-import type { HerdEntry } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
+import DiscardEntryDraftDialog from '../components/DiscardEntryDraftDialog'
+import { dm, dmy, kg, money } from '../../../shared/lib/format'
+import { discardHerdEntryDraft } from '../api'
+import { herdEntryError } from '../api/herdEntryError'
+import { useEntryList } from '../hooks/useEntryList'
+import type { HerdEntry } from '../types'
+import { previousQuarterStart } from '../domain/entryDateFilters'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -18,7 +18,7 @@ const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 // fixed 2026-10-22 end date made a newly posted voucher disappear from the
 // list when the entry date was today (and made it look as if saving failed).
 const DEFAULT_TO = businessDate()
-const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
+const DEFAULT_FROM = previousQuarterStart(DEFAULT_TO)
 
 export default function ImportList() {
   const [tab, setTab] = useState('Tất cả')
@@ -26,33 +26,21 @@ export default function ImportList() {
   const [source, setSource] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
-  const { data, loading, error } = useQuery(() => herdEntryApi.listView({
-    ...(type ? { type: type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE' } : {}),
-    from,
-    to,
-  }), [type, from, to])
-  const { data: pending } = useQuery(() => listPendingEntryCalves(), [])
-  const view = data
-  const imports = view?.rows ?? []
-  const tiles = view?.tiles ?? {}
-  const counts = view?.counts ?? {}
-  const ready = Boolean(view)
+  const { rows, loading, error, refetch, summary, pendingCalves: pending, sellers } = useEntryList({ tab, type, source: source ? { id: source, name: '' } : undefined, from, to })
+  const tiles = summary.tiles
+  const counts = summary.counts
+  const ready = summary.ready
   const shown = (v: string | number) => (ready ? v : '—')
   const nav = useNavigate()
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
+  const [draftToDiscard, setDraftToDiscard] = useState<HerdEntry | null>(null)
+  const [discarding, setDiscarding] = useState(false)
+  const [discardError, setDiscardError] = useState<unknown>(null)
 
-  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? imports.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
-  const rows = imports.filter(
-    (r) =>
-      (tab === 'Tất cả' || r.status === tab) &&
-      (!type || r.type === type) &&
-      (!source || (r.source ?? '').includes(source)) &&
-      (r.date ?? '') >= from &&
-      (r.date ?? '') <= to,
-  )
-  const totalRows = imports.length
+  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? rows.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
+  const totalRows = summary.totalRows
 
   const applyDate = () => {
     setFrom(draftFrom)
@@ -63,7 +51,7 @@ export default function ImportList() {
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
-        {Boolean(error) && <Note tone="err">{userFacingError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
+        {Boolean(error) && <Note tone="err">{herdEntryError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
         <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được cấp mã bò và thẻ QR khi lưu.">
             <Button onClick={() => nav('/herd-entry/new?kind=calf', { state: { from: '/herd-entry' } })}>Bê chờ xác nhận ({pending?.length ?? 0})</Button>
             <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}><Icon name="circle-plus" />Tạo phiếu nhập</Button>
@@ -106,30 +94,41 @@ export default function ImportList() {
           </FilterSelect>
           <FilterSelect className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
             <option value="">Nguồn: Tất cả</option>
-            {SOURCE_FILTERS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {(sellers ?? []).map((seller) => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
           </FilterSelect>
         </div>
 
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-          <Tile
+        {/* Bento (Figma Tab 16 ②b): khối nổi bật là số phiếu đã nhập; số con xanh nhạt, công nợ vàng khi còn nợ. */}
+        <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric
+            surface="panel"
+            tone="emphasis"
             label={`Phiếu đã nhập (từ ${dm(from)})`}
             value={shown(Number(tiles.postedVouchers ?? 0))}
             note={`${Number(tiles.draftVouchers ?? 0)} phiếu nháp chưa lưu`}
           />
-          <Tile
+          <Metric
+            compact
+            surface="panel"
+            tone={Number(tiles.cattleEntered ?? 0) > 0 ? 'ok' : 'default'}
             label="Số con đã nhập"
             value={shown(Number(tiles.cattleEntered ?? 0))}
             note={`Mua ngoài ${Number(tiles.cattlePurchased ?? 0)} · Bê sinh tại trại ${Number(tiles.cattleFarmBorn ?? 0)}`}
           />
-          <Tile label="Tiền mua bò" value={shown(`${money(Number(tiles.purchaseAmount ?? 0))} đ`)} note="Gồm phí vận chuyển" />
-          <Tile
+          <Metric compact surface="panel" label="Tiền mua bò" value={shown(`${money(Number(tiles.purchaseAmount ?? 0))} đ`)} note="Gồm phí vận chuyển" />
+          <Metric
+            compact
+            surface="panel"
+            tone={Number(tiles.owedToSellers ?? 0) > 0 ? 'warn' : 'default'}
             label="Còn nợ nguồn bán"
             value={shown(`${money(Number(tiles.owedToSellers ?? 0))} đ`)}
             note={Number(tiles.owedToSellers ?? 0) > 0 ? 'Theo dữ liệu backend' : 'Không còn nợ'}
           />
         </div>
+        </div>
 
-        <div className="rounded-md border border-edge bg-white p-2">
+        <div className="min-w-0 rounded-2xl border border-field bg-white p-2">
           <Table scroll>
             <thead>
               <tr>
@@ -158,9 +157,16 @@ export default function ImportList() {
                   <Td className={`${TH} whitespace-nowrap`}>{r.debt == null ? '—' : money(r.debt)}</Td>
                   <Td className={TH}><EntryStatusBadge status={r.status} /></Td>
                   <Td className={TH}>
-                    <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
-                      {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
+                        {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
+                      </Button>
+                      {r.status === 'Nháp' && (
+                        <Button variant="link" small className="text-err-fg" onClick={() => { setDiscardError(null); setDraftToDiscard(r) }}>
+                          Xóa
+                        </Button>
+                      )}
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -179,10 +185,36 @@ export default function ImportList() {
         </div>
 
         <Foot>
-          Phiếu NHÁP chưa tạo hồ sơ bò, chưa đổi chuồng và công nợ. Phiếu ĐÃ NHẬP: sửa từng con tại Hồ sơ bò › Sửa bản ghi nhập đàn;
+          Phiếu NHÁP chưa tạo hồ sơ bò, chưa đổi chuồng và công nợ. Phiếu ĐÃ NHẬP: mở chi tiết phiếu và dùng Sửa / Hủy ở từng dòng;
           chỉ hủy cả phiếu khi chưa con nào có sự kiện khác (GBR-33).
         </Foot>
       </div>
+      {draftToDiscard && (
+        <DiscardEntryDraftDialog
+          draft={draftToDiscard}
+          saving={discarding}
+          error={discardError}
+          onConfirm={async (snapshot) => {
+            setDiscarding(true)
+            setDiscardError(null)
+            try {
+              await discardHerdEntryDraft(snapshot.id, snapshot.version, snapshot.backendId)
+              await refetch()
+              setDraftToDiscard(null)
+            } catch (commandError) {
+              setDiscardError(commandError)
+            } finally {
+              setDiscarding(false)
+            }
+          }}
+          onReload={async () => {
+            await refetch()
+            setDraftToDiscard(null)
+            setDiscardError(null)
+          }}
+          onClose={() => { if (!discarding) setDraftToDiscard(null) }}
+        />
+      )}
     </Layout>
   )
 }

@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
-import { BackendError } from '../../api/backendClient'
-import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../api/sessionLifecycle'
-import { userFacingError } from '../../api/userFacingError'
+import { BackendError } from '../../shared/api/backendClient'
+import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../app/session/sessionLifecycle'
+import { userFacingError } from '../../shared/api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
 import { takeInvitationLink } from './invitationReturn'
-import { clearSelectedFarmOnDevice } from '../farm-workspace/selectedFarm'
+import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
-import { AUTH_PATH } from './domain/authErrors'
+import { AUTH_PATH } from './domain/authPaths'
+import { useAuthenticationUseCase } from './hooks/useAuthenticationUseCase'
 
 export type { AuthClient } from './types'
 
@@ -30,11 +31,12 @@ function loginErrorMessage(error: unknown): string {
 }
 
 export function AuthProvider({ client = defaultAuthClient, children }: { client?: AuthClient; children: ReactNode }) {
+  const auth = useAuthenticationUseCase(client)
   const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated' | 'suspended'>('checking')
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
   const expireSession = useCallback(() => {
-    clearSelectedFarmOnDevice()
+    clearCurrentFarmId()
     setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
     setStatus('anonymous')
   }, [])
@@ -43,7 +45,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     let active = true
     setStatus('checking')
     setError(null)
-    client.isAuthenticated().then((ok) => {
+    auth.isAuthenticated().then((ok) => {
       if (active) setStatus(ok ? 'authenticated' : 'anonymous')
     }).catch((reason: unknown) => {
       if (active) {
@@ -56,7 +58,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       }
     })
     return () => { active = false }
-  }, [client])
+  }, [auth])
 
   const value = useMemo<AuthContextValue>(() => ({
     authenticated: status === 'authenticated',
@@ -64,18 +66,18 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     logout: async () => {
       let logoutFailed = false
       try {
-        await client.logout()
+        await auth.logout()
       } catch {
         logoutFailed = true
       }
-      clearSelectedFarmOnDevice()
+      clearCurrentFarmId()
       setError(logoutFailed
-        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
+        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã hết; bạn có thể đăng nhập lại.'
         : null)
       notifySessionSignedOut()
       setStatus('anonymous')
     },
-  }), [client, status])
+  }), [auth, client, status])
 
   if (status === 'checking') return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang kiểm tra phiên đăng nhập…</div>
   return (

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { farmOverviewApi } from '../../../src/features/farm-overview/api/farmOverviewApi'
 import { farmOverviewDemoStore } from '../../../src/features/farm-overview/data/farmOverviewDemoStore'
 import { announcementsDemoStore } from '../../../src/features/farm-announcements/data/announcementsDemoStore'
@@ -28,7 +28,7 @@ beforeEach(async () => {
 })
 
 describe('farm dashboard', () => {
-  it('shows the indicators and attention list and narrows them with the pen filter', async () => {
+  it('shows the filters before the indicators and filters metrics while keeping the whole-farm tables', async () => {
     const user = userEvent.setup()
     renderAt('/tong-quan', <FarmDashboardPage />)
     expect(await screen.findByRole('heading', { name: 'Trại bò Yên Bài – Ba Vì' })).toBeInTheDocument()
@@ -36,25 +36,34 @@ describe('farm dashboard', () => {
     expect(screen.getByText('Mũi LMLM lần 2 – quá hạn 2 ngày')).toBeInTheDocument()
     expect(screen.getByText('0,62 kg/ngày')).toBeInTheDocument()
     expect(screen.getByText('248 / 300')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Mở hồ sơ BC-000024' })).toHaveAttribute('href', '/cattle/BC-000024?tab=vaccine')
+    expect(screen.getByRole('link', { name: /Mở hồ sơ BC-000024/ })).toHaveAttribute('href', '/cattle/BC-000024?tab=vaccine')
+    const penFilter = screen.getByRole('combobox', { name: 'Chuồng' })
+    const primaryMetrics = screen.getByRole('region', { name: 'Chỉ số chính' })
+    const quickRecordHeading = screen.getByRole('heading', { name: 'Ghi chép nhanh' })
+    const attention = within(screen.getByRole('region', { name: 'Cần chú ý hôm nay' })).getByRole('table')
+    const herdStructure = within(screen.getByRole('region', { name: 'Cơ cấu đàn' })).getByRole('table')
+    const secondaryMetrics = screen.getByRole('region', { name: 'Chỉ số bổ sung' })
+    expect(Array.from(attention.querySelectorAll('th'), (cell) => cell.textContent)).toEqual(['Bò', 'Chuồng', 'Vấn đề', 'Trạng thái'])
+    expect(penFilter.compareDocumentPosition(primaryMetrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(primaryMetrics.compareDocumentPosition(quickRecordHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(quickRecordHeading.compareDocumentPosition(attention) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(attention.compareDocumentPosition(herdStructure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(herdStructure.compareDocumentPosition(secondaryMetrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-    await user.click(screen.getByText('Xem bộ lọc và thống kê chi tiết'))
-    await user.selectOptions(screen.getByLabelText('Chuồng'), 'D1')
+    await user.selectOptions(penFilter, 'D1')
     expect(await screen.findByText('40 / 40')).toBeInTheDocument()
-    expect(screen.getByText('Mũi LMLM lần 2 – quá hạn 2 ngày')).toBeInTheDocument()
-    expect(screen.getByText('Đạt khối lượng xuất chuồng · 452 kg')).toBeInTheDocument()
+    expect(within(attention).getByText('Mũi LMLM lần 2 – quá hạn 2 ngày')).toBeInTheDocument()
+    expect(within(attention).getByText('Đạt khối lượng xuất chuồng · 452 kg')).toBeInTheDocument()
+    expect(Array.from(herdStructure.querySelectorAll('th'), (cell) => cell.textContent)).toEqual(['Nhóm đàn', 'Số con', 'Mang thai'])
+    expect(within(herdStructure).getByRole('row', { name: /Tổng/ })).toHaveTextContent('Tổng24841')
   })
 
-  it('puts real reminders before statistics and links the overdue count to its filtered list', async () => {
+  it('keeps quick recording and the reminders link without repeating the reminders as a second list (Figma Tab 15)', async () => {
     renderAt('/tong-quan', <FarmDashboardPage />)
-    const heading = await screen.findByRole('heading', { name: 'Việc cần làm' })
-    expect(heading).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Xem 2 việc quá hạn' })).toHaveAttribute('href', '/nhac-viec?muc-do=OVERDUE')
-    expect(screen.getAllByRole('link', { name: 'Cập nhật hồ sơ' }).map((link) => link.getAttribute('href'))).toContain('/cattle/BC-000021?tab=vaccine')
-    expect(screen.getByRole('heading', { name: 'Ghi chép nhanh' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Ghi chép nhanh' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Việc cần làm' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Chọn bò để ghi chép' })).toHaveAttribute('href', '/cattle')
-    expect(screen.getByText('Cảnh báo tổng quan')).toBeInTheDocument()
-    expect(heading.compareDocumentPosition(screen.getByText('Cảnh báo tổng quan')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('link', { name: /xem tất cả nhắc việc/i })).toHaveAttribute('href', '/nhac-viec')
   })
 
   it('explains why ADG is missing for a 7 day period', async () => {
@@ -66,7 +75,6 @@ describe('farm dashboard', () => {
 
   it('shows the getting started steps for a new farm, lets the user mark one and hide the panel', async () => {
     const user = userEvent.setup()
-    const reminderSpy = vi.spyOn(farmOverviewApi, 'listReminders').mockResolvedValue({ today: '2026-10-20', timeZone: 'Asia/Ho_Chi_Minh', items: [] })
     renderAt('/tong-quan?demo=new-farm', <FarmDashboardPage />)
     expect(await screen.findByText('Bắt đầu sử dụng')).toBeInTheDocument()
     expect(screen.getByText('0 con đang nuôi', { exact: false })).toBeInTheDocument()
@@ -74,28 +82,16 @@ describe('farm dashboard', () => {
     await user.click(screen.getAllByRole('button', { name: 'Đánh dấu đã xong' })[0])
     await waitFor(() => expect(screen.getAllByText('Đã xong')).toHaveLength(3))
     await user.click(screen.getByRole('button', { name: 'Ẩn hướng dẫn' }))
-    expect(await screen.findByRole('heading', { name: 'Việc cần làm' })).toBeInTheDocument()
-    expect(screen.getByText('Không có nhắc việc cần làm.')).toBeInTheDocument()
-    reminderSpy.mockRestore()
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Bắt đầu sử dụng' })).not.toBeInTheDocument())
+    expect(screen.getByRole('region', { name: 'Cần chú ý hôm nay' })).toHaveTextContent('Không có cảnh báo cần chú ý.')
   })
 
   it('does not link the pending exit voucher for a Manager', async () => {
     renderAt('/tong-quan', <FarmDashboardPage />, MANAGER)
-    const warningCard = await screen.findByText('Cảnh báo tổng quan')
-    const row = within(warningCard.closest('section') as HTMLElement).getByText(/BC-000061/).closest('li') as HTMLElement
+    const warningCard = await screen.findByRole('region', { name: 'Cần chú ý hôm nay' })
+    const row = within(warningCard).getByRole('row', { name: /BC-000061/ })
     expect(within(row).getByRole('link')).toHaveAttribute('href', '/nhac-viec')
-    expect(within(row).getByRole('link')).toHaveTextContent('Mở danh sách nhắc việc')
-  })
-
-  it('opens a reminder list by type when its synthetic reminder id has no safe detail target', async () => {
-    const list = await farmOverviewDemoStore.listReminders('OWNER')
-    const item = { ...list.items[0], id: 'REM-10:computed:changes-each-fetch', to: null, openLabel: null, profileTo: null, type: 'health' as const }
-    const spy = vi.spyOn(farmOverviewApi, 'listReminders').mockResolvedValue({ ...list, items: [item] })
-    renderAt('/tong-quan', <FarmDashboardPage />)
-    const action = await screen.findByRole('link', { name: 'Xem nhắc việc · Sức khỏe' })
-    expect(action).toHaveAttribute('href', '/nhac-viec?loai=health')
-    expect(action.getAttribute('href')).not.toContain('m=chi-tiet')
-    spy.mockRestore()
+    expect(within(row).getByRole('link')).toHaveAccessibleName(/Mở danh sách nhắc việc/)
   })
 
   it('shows an error block with retry when the figures cannot be calculated', async () => {
@@ -234,7 +230,17 @@ describe('technician home', () => {
     expect(screen.getByRole('button', { name: /Quét thẻ tai QR/ })).toBeInTheDocument()
     const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'))
     expect(hrefs).toEqual(expect.arrayContaining(['/kt/thong-bao', '/kt/nhac-viec', '/kt/thuc-an']))
-    expect(screen.getByText('Cữ chiều 16:30 · 2 / 5 chuồng chưa ghi')).toBeInTheDocument()
+    expect(screen.getByText('2 bữa ăn chưa ghi')).toBeInTheDocument()
+    expect(screen.getByText(/^Trại bò Yên Bài – Ba Vì · /)).toBeInTheDocument()
     expect(screen.getByText('Nhắc việc hôm nay (6)')).toBeInTheDocument()
+  })
+
+  it('says so when no reminder is due and every feeding session is recorded', async () => {
+    const spy = vi.spyOn(farmOverviewApi, 'getTechnicianHome').mockResolvedValue({ today: '2026-11-15', reminders: [], unrecordedFeedings: 0 })
+    renderAt('/kt', <TechnicianHomePage />, TECH)
+    expect(await screen.findByText('Không có bữa ăn chưa ghi.')).toBeInTheDocument()
+    expect(screen.getByText('Nhắc việc hôm nay (0)')).toBeInTheDocument()
+    expect(screen.getByText('Hôm nay chưa có nhắc việc.')).toBeInTheDocument()
+    spy.mockRestore()
   })
 })

@@ -1,8 +1,7 @@
-import { Button, Foot, Table } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Button, Foot, Icon, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
-import type { Tone } from '../../../types'
+import type { CattleViewModel as CowSeed } from '../types'
+import type { Tone } from '../types'
 import QrTagLabel from './QrTagLabel'
 
 const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }
@@ -12,6 +11,7 @@ export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; ca
   return (
     <>
       <Panel
+        tone="ok"
         title="Thẻ hiện hành"
         gap="gap-4"
         action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />{active ? 'Thay thẻ' : 'Cấp thẻ'}</Button>}

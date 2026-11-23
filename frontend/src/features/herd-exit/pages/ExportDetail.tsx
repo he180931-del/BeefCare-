@@ -1,26 +1,32 @@
-import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, Docs, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
-import { dmy, kg, money } from '../../../data/format'
-import { cattle, downloadExitAttachment, herdExitApi } from '../api/index'
-import { useQuery } from '../../../hooks/useApi'
-import { Icon } from '../../../components/Icon'
+import { useState } from 'react'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { AttachmentList, Badge, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { dmy, kg, money } from '../../../shared/lib/format'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
-import type { HerdExit, ExitDetail, Cattle } from '../../../types'
+import { PaymentTable } from '../components/PaymentTable'
+import type { ExitDetail, ExitPayment } from '../types'
+import { useExitDetail } from '../hooks/useExitDetail'
+import { exitCattleStatus } from '../domain/exitCattleStatus'
+import { exitPaymentTotals } from '../domain/exitPaymentTotals'
+import { exitPaymentVoidEnabled, voidExitPayment } from '../api'
+import { VoidVoucherPaymentModal } from '../../../shared/ui/VoidVoucherPaymentModal'
 
 export default function ExportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
-  const { data: r, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
-  const { data: cattleRows } = useQuery<Cattle[]>(() => cattle.list(), [])
   const [m, openModal, closeModal] = useModalParam()
-  const [documentError, setDocumentError] = useState('')
   const isOwner = useIsOwner()
+  const { record: r, loading, refetch, reload, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
+  const [reloadRevision, setReloadRevision] = useState(0)
+  const [paymentToVoid, setPaymentToVoid] = useState<ExitPayment | null>(null)
+  const [paymentNotice, setPaymentNotice] = useState('')
+  const closePaymentVoid = () => { setPaymentToVoid(null); closeModal() }
+  const reloadRecord = async () => { await reload(); closeModal(); setReloadRevision((value) => value + 1) }
 
   if (!r) {
     return (
@@ -31,30 +37,12 @@ export default function ExportDetail() {
       </Layout>
     )
   }
-  if (r.detail?.death) return <DeathView row={r} />
+  if (r.detail?.death) return <DeathView key={`${r.id}-${reloadRevision}`} row={r} onReload={reloadRecord} />
 
   const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
-  const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
-  const owed = r.due ?? 0
+  const { collected, outstanding: owed } = exitPaymentTotals(r)
   const isSold = r.status === 'Đã xuất'
-  const canCancel = isSold && Boolean(d.cows?.length) && Boolean(cattleRows) && (d.cows ?? []).every((row) => (cattleRows ?? []).some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
-  const viewDocument = async (index: number) => {
-    const document = d.docs?.[index]
-    if (!document) return
-    try {
-      let url = typeof document.url === 'string' ? document.url : ''
-      if (typeof document.id === 'number' && document.id > 0) {
-        const blob = await downloadExitAttachment(recordId, document.id)
-        url = URL.createObjectURL(blob)
-      }
-      if (!url) return
-      window.open(url, '_blank', 'noopener,noreferrer')
-      if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      setDocumentError('')
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-    }
-  }
+  const paymentActions = exitPaymentVoidEnabled && isOwner && isSold
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -70,7 +58,8 @@ export default function ExportDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
+      {paymentNotice && <Note tone="ok">{paymentNotice}</Note>}
+      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="Thông tin phiếu" gap="gap-[14px]">
             <Info
@@ -97,15 +86,18 @@ export default function ExportDetail() {
                 </tr>
               </thead>
               <tbody>
-                {(d.cows ?? []).map((c) => (
-                  <tr key={c.code}>
-                    <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
-                    <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
-                    <Td className={`${TH} !py-3`}>{c.barn}</Td>
-                    <Td className={`${TH} !py-3`}><ExitStatusBadge status="Đã xuất" /></Td>
-                    <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
-                  </tr>
-                ))}
+                {(d.cows ?? []).map((c) => {
+                  const cattleStatus = exitCattleStatus(c.current, r.status)
+                  return (
+                    <tr key={c.code}>
+                      <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
+                      <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
+                      <Td className={`${TH} !py-3`}>{c.barn}</Td>
+                      <Td className={`${TH} !py-3`}>{cattleStatus === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : cattleStatus === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
+                      <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
+                    </tr>
+                  )
+                })}
                 {!(d.cows ?? []).length && (
                   <tr><Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td></tr>
                 )}
@@ -121,7 +113,7 @@ export default function ExportDetail() {
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
             {documentError && <Note tone="err">{documentError}</Note>}
-            {(d.docs ?? []).length ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+            {(d.docs ?? []).length ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
           </Box>
         </div>
 
@@ -138,7 +130,7 @@ export default function ExportDetail() {
                   ['Còn phải thu', `${money(owed)} đ`, owed > 0],
                 ]}
               />
-              {d && <PaymentTable payments={d.payments ?? []} />}
+              <PaymentTable payments={d.payments ?? []} onVoid={paymentActions ? payment => { setPaymentToVoid(payment); openModal('void-payment') } : undefined} />
               {isOwner && isSold && owed > 0 && <Button block onClick={() => openModal('collect')}><Icon name="cash" />Ghi nhận thu tiền</Button>}
             </Box>
           )}
@@ -152,8 +144,9 @@ export default function ExportDetail() {
 
       <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
 
-      {m === 'cancel' && canCancel && <CancelModal row={r} onClose={closeModal} onCancelled={() => { refetch(); closeModal() }} />}
-      {m === 'collect' && <CollectModal row={r} onClose={closeModal} onSaved={refetch} />}
+      {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={() => { void refetch(); closeModal() }} />}
+      {m === 'collect' && isOwner && isSold && owed > 0 && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={refetch} />}
+      {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidExitPayment} onClose={closePaymentVoid} onReload={async () => { await reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await refetch() }} />}
     </Layout>
   )
 }

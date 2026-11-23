@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { plainStatus, REASON_MAX, validateReason, latestResolution } from '../domain/ticketRules'
+import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
+import { plainStatus, latestResolution } from '../domain/ticketRules'
+import { REASON_MAX, validateReason } from '../validation/ticketValidation'
 import type { ResolutionView, Ticket } from '../types'
 import { FieldError } from './FieldError'
-import type { ActionResult } from './useTicketActions'
+import type { ActionResult } from '../hooks/useTicketActions'
 
 const ReadOnly = ({ id, label, value }: { id: string; label: string; value: string }) => (
   <Field label={label} id={id}>
@@ -27,7 +26,7 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
     if (!result.ok) setError(result.message)
   }
   return (
-    <Modal title={`Mở lại yêu cầu ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={640} onClose={onClose}>
+    <Modal title={`Mở lại yêu cầu ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={560} onClose={onClose}>
       <div className="flex flex-col gap-3.5">
         <ReadOnly id="reopen-current" label="Yêu cầu / kết quả hiện tại" value={`${ticket.code} · ${plainStatus(ticket).label} · kết quả v${resolution.version}`} />
         <Field label="Lý do mở lại *" id="reopen-reason" hint={`Tối đa ${REASON_MAX.toLocaleString('vi-VN')} ký tự`}>

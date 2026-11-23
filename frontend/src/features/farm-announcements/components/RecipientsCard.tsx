@@ -1,4 +1,4 @@
-import { Badge, Card, Checkbox, Field, Select } from '../../../components/ui'
+import { Badge, Card, Checkbox, Field, Select } from '../../../shared/ui'
 import { ROLE_LABEL } from '../domain/format'
 import type { AudienceSelection, Member, MemberOptions, Viewer } from '../types'
 
@@ -16,7 +16,7 @@ export default function RecipientsCard({ viewer, options, audience, resolved, er
   const named = audience.memberIds.length > 0 || audience.namedOpen
   const available = options.members.filter((m) => !audience.memberIds.includes(m.id))
   return (
-    <Card title="Người nhận">
+    <Card variant="panel" title="Người nhận">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2.5">
           <Checkbox checked={audience.allManagers} disabled={!owner} onChange={(e) => onChange({ ...audience, allManagers: e.target.checked })}>
@@ -43,7 +43,7 @@ export default function RecipientsCard({ viewer, options, audience, resolved, er
                   const member = options.members.find((option) => option.id === id)
                   const label = member ? `${member.name} · ${ROLE_LABEL[member.role]}` : `Thành viên #${id} không còn hoạt động hoặc không hợp lệ`
                   return (
-                    <div key={id} className="flex items-center justify-between gap-2 rounded-md border border-edge px-3 py-2">
+                    <div key={id} className="flex items-center justify-between gap-2 rounded-xl border border-field px-3 py-2">
                       <span className={`text-[12px] ${member ? 'text-[#212121]' : 'text-muted'}`}>{label}</span>
                       <button type="button" aria-label={`Bỏ lựa chọn riêng: ${member?.name ?? `thành viên ${id}`}`} onClick={() => onChange({ ...audience, memberIds: audience.memberIds.filter((value) => value !== id) })} className="cursor-pointer border-0 bg-transparent p-1 text-xs text-muted hover:text-err-fg">Bỏ</button>
                     </div>
@@ -58,7 +58,7 @@ export default function RecipientsCard({ viewer, options, audience, resolved, er
           <h3 className="m-0 text-[13px] font-semibold text-[#212121]">{`Người nhận đã xác định (${resolved.length})`}</h3>
           {resolved.length === 0 && <p className="m-0 text-xs text-muted">Chưa có người nhận. Hãy chọn nhóm hoặc từng thành viên.</p>}
           {resolved.map((m) => (
-            <div key={m.id} className="flex items-center justify-between gap-2 rounded-md border border-edge px-3 py-2">
+            <div key={m.id} className="flex items-center justify-between gap-2 rounded-xl border border-field px-3 py-2">
               <div>
                 <div className="text-[13px] font-semibold text-[#212121]">{m.name}</div>
                 <div className="text-[11px] text-muted">{ROLE_LABEL[m.role]}</div>

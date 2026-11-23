@@ -7,7 +7,7 @@ import ReproductionProfileTab from '../../../src/features/reproduction/component
 import ReproductionTechnicianTab from '../../../src/features/reproduction/components/ReproductionTechnicianTab'
 import CalvingPage from '../../../src/features/reproduction/pages/CalvingPage'
 import TechnicianProfile from '../../../src/features/cattle/components/TechnicianProfile'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 
 const technician = { role: 'TECHNICIAN' as const, fullName: 'Lê Thị Mai', email: 'mai@x.vn', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => undefined }
 const profileAt = (code: string, role: 'MANAGER' | 'OWNER' | 'TECHNICIAN' = 'MANAGER') =>
@@ -113,15 +113,17 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
     await user.click(within(group).getByRole('radio', { name: 'Đăng ký ngay' }))
     const tag = within(group).getByRole('textbox', { name: 'Mã thẻ tai / QR' })
     await user.type(tag, 'QR-6701-0001')
-    fireEvent.change(within(group).getByRole('spinbutton', { name: 'Cân sơ sinh' }), { target: { value: '24' } })
+    fireEvent.change(within(group).getByRole('textbox', { name: 'Cân sơ sinh' }), { target: { value: '24' } })
     await user.click(within(group).getByRole('radio', { name: 'Cân thực tế' }))
     await user.click(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }))
 
-    expect(await screen.findByText('Chưa lưu được: mã thẻ tai của Bê số 1 đã được dùng. Sửa ô được đánh dấu đỏ rồi lưu lại.')).toBeInTheDocument()
+    // D51: lỗi trùng mã là lỗi nhập liệu nên chỉ hiện đỏ dưới ô, không mở popup.
+    expect(await within(group).findByText('Mã QR-6701-0001 đã dùng cho bò BC-000112')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Chưa ghi được sự kiện đẻ' })).not.toBeInTheDocument()
     expect(tag).toHaveAttribute('aria-invalid', 'true')
     expect(tag).toHaveValue('QR-6701-0001')
     expect(within(group).getByText('Mã QR-6701-0001 đã dùng cho bò BC-000112')).toHaveClass('text-err-fg')
-    expect(within(group).getByRole('spinbutton', { name: 'Cân sơ sinh' })).toHaveValue(24)
+    expect(within(group).getByRole('textbox', { name: 'Cân sơ sinh' })).toHaveValue('24')
     expect((await reproductionApi.getProfile('BC-000087')).status).toBe('PREGNANT')
 
     await user.clear(tag)
@@ -156,7 +158,7 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
     const user = userEvent.setup()
     calvingAt()
     const first = await screen.findByRole('group', { name: 'Bê số 1' })
-    fireEvent.change(within(first).getByRole('spinbutton', { name: 'Cân sơ sinh' }), { target: { value: '26.5' } })
+    fireEvent.change(within(first).getByRole('textbox', { name: 'Cân sơ sinh' }), { target: { value: '26.5' } })
     await user.click(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }))
     expect(await within(first).findByText('Bê số 1: chọn cơ sở cân.')).toBeInTheDocument()
 
@@ -165,6 +167,18 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
     expect(screen.getByRole('button', { name: 'Thêm bê' })).toBeDisabled()
     await user.click(within(screen.getByRole('group', { name: 'Bê số 4' })).getByRole('button', { name: 'Xóa bê' }))
     expect(screen.getAllByRole('group', { name: /^Bê số / })).toHaveLength(3)
+  })
+
+  it('D51: cân sơ sinh gõ chữ báo đỏ dưới ô, giữ nguyên chữ đã gõ, không lưu', async () => {
+    const user = userEvent.setup()
+    calvingAt()
+    const first = await screen.findByRole('group', { name: 'Bê số 1' })
+    fireEvent.change(within(first).getByRole('textbox', { name: 'Cân sơ sinh' }), { target: { value: 'hai mươi' } })
+    await user.click(within(first).getByRole('radio', { name: 'Cân thực tế' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }))
+    expect(await within(first).findByText('Bê số 1: cân nặng phải từ 1 đến 80 kg.')).toBeInTheDocument()
+    expect(within(first).getByRole('textbox', { name: 'Cân sơ sinh' })).toHaveValue('hai mươi')
+    expect((await reproductionApi.getProfile('BC-000087')).status).toBe('PREGNANT')
   })
 
   it('lets the owner record like a manager (D41)', async () => {
@@ -177,7 +191,7 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
   it('stays read-only for the technician', async () => {
     calvingAt('TECHNICIAN')
     await screen.findByRole('heading', { name: 'Ghi sự kiện đẻ' })
-    expect(screen.getByText('Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
+    expect(screen.getByText('Chế độ chỉ xem.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' })).toBeDisabled()
   })
 })

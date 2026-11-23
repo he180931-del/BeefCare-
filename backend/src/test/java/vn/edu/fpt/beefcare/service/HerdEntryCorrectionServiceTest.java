@@ -337,7 +337,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     }
 
     @Test
-    void sexChangeIsBlockedWithReproductiveEventsOrDeclaredReproduction() {
+    void sexChangeIsBlockedByReproductiveEventsAndClearsEntryDeclarationsOtherwise() {
         var repro = new EntryLineRequest.ReproductionDeclaration(DeclarationStatus.KNOWN, 1, YesNoUnknown.NO, null, null);
         EntryDtos.PostResult posted = createAndPost(
             List.of(withReproduction(line("S1", Sex.FEMALE, fattening, penA, "300", 1), repro), line("S2", Sex.FEMALE, fattening, penA, "300", 1), line("S3", Sex.FEMALE, fattening, penA, "300", 1)),
@@ -345,8 +345,10 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
             0L
         );
         var toMale = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, Sex.MALE, null, null, null, null, null, null);
-        // declared reproduction history on a female cannot stay on a male
-        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale))).getCode()).isEqualTo(MessageCodes.COM_10);
+        // R-06-13 / PR-H: a declaration alone is removable; it is not a reproductive event.
+        correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale));
+        assertThat(em.find(Cattle.class, cattleId(posted, 0)).getSex()).isEqualTo(Sex.MALE);
+        assertThat(em.find(Cattle.class, cattleId(posted, 0)).getDeclaredParity()).isZero();
         // a reproductive event blocks the change
         ReproductionEvent ev = new ReproductionEvent();
         ev.setCattle(em.find(Cattle.class, cattleId(posted, 1)));

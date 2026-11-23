@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { mapTimeline, timelineMeta, TIMELINE_FILTERS } from '../../../src/api/cattleTimeline'
-import { backendTransport } from '../../../src/api/backendTransport'
+import { mapTimeline, timelineMeta, TIMELINE_FILTERS } from '../../../src/features/cattle/api/cattleTimeline'
+import { backendTransport } from '../../../src/shared/api/backendTransport'
 import TimelineTab, { timelineGroups } from '../../../src/features/cattle/components/TimelineTab'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
-import { initialCows } from '../../../src/data/cowsData'
-import type { CowSeed } from '../../../src/data/cowsData'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
+import { initialCows } from '../../../src/demo/data/cowsData'
+import type { CattleViewModel as CowSeed } from '../../../src/features/cattle/types'
 import { reproductionApi, resetReproductionDemo } from '../../../src/features/reproduction/api/reproductionApi'
 import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
 import HealthTechnicianTab from '../../../src/features/health/components/HealthTechnicianTab'
@@ -269,7 +269,7 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
     owner.unmount()
     at('TECHNICIAN')
-    expect(await screen.findByText('Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.')).toBeInTheDocument()
+    expect(await screen.findByText('Chế độ chỉ xem.')).toBeInTheDocument()
     expect(screen.queryByText('Sửa bản ghi')).not.toBeInTheDocument()
   })
 })

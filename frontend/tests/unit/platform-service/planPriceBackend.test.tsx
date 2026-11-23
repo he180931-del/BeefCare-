@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import PlanPriceRoutes from '../../../src/features/platform-service/pages/PlanPriceRoutes'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn() }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
 const session: Session = { role: 'PM', fullName: 'PM UC7', email: 'pm-uc7@example.test', farmId: null, farmName: null, logout: async () => {} }
 const row = (id = 701, extra: Record<string, unknown> = {}) => ({ id, revision: 0, price1y: 1234567, price2y: 2345678, price3y: 3456789,
   terms: 'Không tự gia hạn', effectiveAt: '2026-10-28T00:00:00Z', status: 'EFFECTIVE', publishedById: 7, publishedBy: 'PM công bố',
@@ -142,11 +143,38 @@ describe('UC7 backend SCR-63', () => {
     http.get.mockResolvedValueOnce([{ id: 1 }]); page(); expect(await screen.findByRole('alert')).toHaveTextContent('không hợp lệ')
     http.get.mockResolvedValue(pageOf()); fireEvent.click(screen.getByRole('button', { name: /Thử lại/ })); await screen.findByText('Bảng giá hiện hành · v701')
   })
-  it('confirms before discarding edited input and retains it when cancellation is declined', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false); page(); await screen.findByText('Bảng giá hiện hành · v701')
+  it('asks MSG-COM-14 in the page before discarding edited input and keeps it when the PM keeps editing', async () => {
+    const confirm = vi.spyOn(window, 'confirm'); page(); await screen.findByText('Bảng giá hiện hành · v701')
     change(/Giá 1 năm/, '1.500.000'); fireEvent.click(screen.getByRole('button', { name: 'Hủy chỉnh sửa' }))
-    expect(confirm).toHaveBeenCalled(); expect(screen.getByRole('textbox', { name: /Giá 1 năm/ })).toHaveValue('1.500.000')
-    confirm.mockReturnValue(true); fireEvent.click(screen.getByRole('button', { name: 'Hủy chỉnh sửa' })); expect(screen.getByRole('textbox', { name: /Giá 1 năm/ })).toHaveValue('1.234.567')
+    expect(screen.getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục nhập' })); expect(screen.getByRole('textbox', { name: /Giá 1 năm/ })).toHaveValue('1.500.000')
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy chỉnh sửa' })); fireEvent.click(screen.getByRole('button', { name: 'Bỏ' }))
+    expect(screen.getByRole('textbox', { name: /Giá 1 năm/ })).toHaveValue('1.234.567')
+    expect(confirm).not.toHaveBeenCalled() // no native browser dialog (UI review B6)
+  })
+  it('asks before closing the withdrawal dialog with a typed reason', async () => {
+    const confirm = vi.spyOn(window, 'confirm'); page(); await screen.findByText('Bảng giá hiện hành · v701')
+    fireEvent.click(screen.getByRole('button', { name: 'Rút v702' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Rút lại bảng giá v702' }))
+    change('Lý do *', 'Sai bảng giá'); fireEvent.click(dialog.getByRole('button', { name: 'Hủy' }))
+    expect(dialog.getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
+    fireEvent.click(dialog.getByRole('button', { name: 'Tiếp tục nhập' })); expect(screen.getByLabelText('Lý do *')).toHaveValue('Sai bảng giá')
+    fireEvent.click(dialog.getByRole('button', { name: 'Hủy' })); fireEvent.click(dialog.getByRole('button', { name: 'Bỏ' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(confirm).not.toHaveBeenCalled()
+  })
+  it('asks in the page before a link leaves edited prices, then follows the link on Bỏ', async () => {
+    const confirm = vi.spyOn(window, 'confirm')
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/nen-tang/bang-gia']}><Routes>
+      <Route path="/nen-tang/bang-gia" element={<><PlanPriceRoutes /><Link to="/nen-tang/thanh-toan">Thanh toán</Link></>} />
+      <Route path="/nen-tang/thanh-toan" element={<p>Trang thanh toán</p>} />
+    </Routes></MemoryRouter></SessionContext.Provider>)
+    await screen.findByText('Bảng giá hiện hành · v701'); change(/Giá 1 năm/, '1.500.000')
+    fireEvent.click(screen.getByRole('link', { name: 'Thanh toán' }))
+    const prompt = within(await screen.findByRole('dialog', { name: 'Bỏ thông tin đã nhập?' }))
+    fireEvent.click(prompt.getByRole('button', { name: 'Tiếp tục nhập' })); expect(screen.getByRole('textbox', { name: /Giá 1 năm/ })).toHaveValue('1.500.000')
+    fireEvent.click(screen.getByRole('link', { name: 'Thanh toán' }))
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Bỏ thông tin đã nhập?' })).getByRole('button', { name: 'Bỏ' }))
+    expect(await screen.findByText('Trang thanh toán')).toBeInTheDocument(); expect(confirm).not.toHaveBeenCalled()
   })
   it('refreshes once at the effective boundary using server time and never polls on an idle page', async () => {
     page(); await screen.findByText('Bảng giá hiện hành · v701')

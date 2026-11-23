@@ -1,12 +1,17 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, nullableNumber, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
   Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, MemberAction, MemberList, Membership, MemberStatus,
   MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
-import { compactPhone } from '../validation'
-import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
+import { compactPhone } from '../validation/workspaceValidation'
+import type { FarmUpdateInput, FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const oneOf = <T extends string>(value: unknown, values: readonly T[], fallback: T): T =>
   typeof value === 'string' && values.includes(value as T) ? value as T : fallback
@@ -154,8 +159,8 @@ function invitationPage(value: unknown): InvitationPage {
 
 export type FarmWorkspaceApi = Omit<FarmWorkspaceDemoStore, 'listFarms'> & { listFarms(): Promise<FarmSummary[]> }
 
-export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorkspaceDemoStore }: {
-  mode: BackendMode; farmId: string | number; transport: BackendTransport; demoStore?: FarmWorkspaceDemoStore
+export function createFarmWorkspaceApi({ mode, transport, demoStore = lazyObject(() => demo.farmWorkspace.farmWorkspaceDemoStore) }: {
+  mode: BackendMode; farmId: string | number | null; transport: BackendTransport; demoStore?: FarmWorkspaceDemoStore
 }): FarmWorkspaceApi {
   const path = (id: number, suffix: string) => transport.farmPath(id, suffix)
   const command = (url: string, body: unknown, method: string) => transport.command(url, body, { method })
@@ -262,4 +267,4 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
   }
 }
 
-export const farmWorkspaceApi = createFarmWorkspaceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+export const farmWorkspaceApi = createFarmWorkspaceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })

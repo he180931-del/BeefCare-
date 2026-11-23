@@ -1,7 +1,6 @@
-import { Card, Pagination, Table, Td, Th } from '../../../components/ui'
+import { activateTableRow, activateTableRowByKey, Card, interactiveRowClass, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { formatMoney, formatVnd } from '../domain/financeRules'
 import type { CashReport, ScopeTotals } from '../types'
-import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 export const REPORT_SCOPE_PAGE_SIZE = 5
 export const REPORT_DETAIL_PAGE_SIZE = 5

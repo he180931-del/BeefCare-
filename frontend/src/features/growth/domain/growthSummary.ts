@@ -98,9 +98,11 @@ export function buildProfile(cattle: GrowthCattle, records: GrowthRecord[], now:
     latest: latest && { kg: latest.kg, basis: latest.basis, at: latest.at },
     adg90: adgForWindow(weights, 90, now),
     latestBcs: latestBcs(sorted),
-    count: sorted.length,
+    // Lần đo đã xóa (EXCLUDED) không còn hiện trong lịch sử nên không đếm (D43).
+    count: sorted.filter((r) => r.status === 'VALID').length,
     correctedCount: sorted.filter((r) => r.corrected).length,
     nextWeighingDate: latest ? addDays(latest.at, WEIGHING_INTERVAL_DAYS) : undefined,
+    today: now.slice(0, 10),
     projection: cattle.herdGroup === 'FATTENING' ? finishingProjection(weights, cattle.targetWeightKg, now) : undefined,
     chart: weights.filter((w) => dayFloat(w.at) >= cutoff).map((w) => ({ at: w.at, kg: w.kg, basis: w.basis })),
   }

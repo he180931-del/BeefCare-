@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Button, Icon, type IconName } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import CowPhoto from './CowPhoto'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['', 'Tổng quan', 'id'],
@@ -59,7 +58,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   const action = canWrite && canRecord ? TAB_ACTIONS[tab] : undefined
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
+      <div className="flex flex-wrap items-center gap-[18px] rounded-2xl border border-field bg-white p-4">
         <div className="flex shrink-0 flex-col items-center gap-1">
           <CowPhoto key={cow.code} code={cow.code} photoUrl={cow.photoUrl} />
           {canWrite && (

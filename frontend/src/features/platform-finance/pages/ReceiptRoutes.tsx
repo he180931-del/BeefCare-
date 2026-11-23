@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, DateInput, FilterSelect, Info, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { financeApi } from '../api/financeApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { financeError } from '../api/financeError'
+import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
 import { formatDate, formatDateTime, formatShort, formatVnd } from '../domain/financeRules'
 import type { Receipt } from '../types'
-import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Biên nhận gói'
 const confirmText = (r: Receipt) => `${r.confirmedAt.slice(11, 16)} ${formatDate(r.confirmedAt.slice(0, 10))} · ${r.confirmedBy === 'SEPAY' ? 'SePay tự xác nhận' : 'chấp nhận thủ công'}`
@@ -21,15 +18,16 @@ export default function ReceiptRoutes() {
   const [m, open, close] = useModalParam()
   const [search, setSearch] = useState('')
   const [farmId, setFarmId] = useState<number | ''>('')
-  const initialRange = financeApi.defaultDateRange()
+  const useCases = usePlatformFinanceUseCases()
+  const initialRange = useCases.defaultDateRange()
   const [from, setFrom] = useState(initialRange.from)
   const [to, setTo] = useState(initialRange.to)
   const [page, setPage] = useState(1)
   const [picked, setPicked] = useState<Receipt | null>(null)
-  const farms = useQuery(() => financeApi.listFarms(), [])
-  const { data, loading, error, refetch } = useQuery(() => financeApi.listReceipts({ search, farmId, from, to, page }), [search, farmId, from, to, page])
+  const farms = useFinanceFarms()
+  const { data, loading, error, refetch } = useFinanceReceipts({ search, farmId, from, to, page })
   const selectedCode = picked?.code ?? data?.rows[0]?.code ?? null
-  const { data: selectedDetail } = useQuery(() => selectedCode ? financeApi.getReceipt(selectedCode) : Promise.resolve(null), [selectedCode])
+  const { data: selectedDetail } = useFinanceReceipt(selectedCode)
 
   useEffect(() => {
     if (!data) return
@@ -42,7 +40,7 @@ export default function ReceiptRoutes() {
   }, [data, page, picked])
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
+  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={financeError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
 
   const current = selectedDetail && data.rows.some((row) => row.code === selectedDetail.code)
     ? selectedDetail

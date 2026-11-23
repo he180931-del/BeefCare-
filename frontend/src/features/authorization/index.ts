@@ -1,5 +1,4 @@
 export { AuthGate } from './AuthGate'
-export { HomeRedirect, RoleGate } from './RoleGate'
-export { OWNER_REGISTRATION_COMPLETED_EVENT, SessionProvider, isStaleFarmSelection, sessionFromProfile } from './SessionProvider'
-export { markOwnerRegistrationCompleted } from './sessionContext'
-export { canRecordCare, homePathFor, isFarmRole, useCanRecordCare, useSession, type AppRole, type FarmRole, type PlatformRole, type Session, type SessionUser } from './sessionContext'
+export { AccountRouteRedirect, HomeRedirect, RoleGate } from './RoleGate'
+export { canRecordCare, homePathFor, isFarmRole, useCanRecordCare } from './roles'
+export type { AppRole, PlatformRole } from './roles'

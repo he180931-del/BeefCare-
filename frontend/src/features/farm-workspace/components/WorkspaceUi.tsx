@@ -1,10 +1,11 @@
-import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { ReactNode, SelectHTMLAttributes } from 'react'
-import { BackendError } from '../../../api/backendClient'
-import { Icon } from '../../../components/Icon'
+import { BackendError } from '../../../shared/api/backendClient'
+import { Icon } from '../../../shared/ui'
+import { serviceView } from '../domain/statusViews'
 
-/** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */
-export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted'
+/** Ô nhập thông tin trại theo Bento, với vùng chạm 44 px. */
+export const pageInputCls = 'h-11 w-full min-w-0 rounded-lg border border-field bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-chip disabled:text-muted aria-invalid:border-err-fg'
 
 export function PageSelect({ children, className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -41,9 +42,8 @@ export function roleLabel(role: string) {
   return ({ OWNER: 'Chủ trại', MANAGER: 'Quản lý', TECHNICIAN: 'Kỹ thuật viên' } as Record<string, string>)[role] ?? role
 }
 
-export function serviceLabel(status: string) {
-  return ({ ACTIVE: 'Đang hoạt động', PENDING_PAYMENT: 'Chờ thanh toán', EXPIRED: 'Đã hết hạn', SUSPENDED: 'Tạm ngưng' } as Record<string, string>)[status] ?? status
-}
+/** Same label as SCR-12/61 and SCR-57/58 (domain/statusViews). */
+export const serviceLabel = (status: string) => serviceView(status).label
 
 export function inviteStatusLabel(status: string) {
   return ({ PENDING: 'Đang chờ', ACCEPTED: 'Đã chấp nhận', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy' } as Record<string, string>)[status] ?? status
@@ -90,8 +90,9 @@ export function formatMonth(value?: string | null, _timeZone?: string) {
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join('').toUpperCase() || '?'
 
+/** Same colours as the avatar of the farm top bar (Layout): dark green on light green; white on #bdbdbd was 1.9:1. */
 export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-xs font-semibold text-white">{initialsOf(name)}</span>
+  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{initialsOf(name)}</span>
 }
 
 const fieldLabels: Record<string, string> = {
@@ -154,9 +155,13 @@ export function Banner({ children }: { children: ReactNode }) {
   return <div role="status" className="rounded-lg bg-[#e8f2fa] px-3 py-2 text-xs text-[#296194]">{children}</div>
 }
 
+/** MSG-FE02-03: the Owner works in a farm that is not ACTIVE. */
+export const inactiveFarmOwnerMessage = (farmName: string, status: string) =>
+  `${farmName} đang ở trạng thái ${serviceLabel(status)}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.`
+
 /** MSG-FE02-03: the Owner opened a farm that is not ACTIVE from Select Farm (UC-FE02-02 AF1 / AF2). */
 export function InactiveFarmBanner({ farmName, status }: { farmName: string; status: string }) {
-  return <Banner>{farmName} đang ở trạng thái {serviceLabel(status)}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.</Banner>
+  return <Banner>{inactiveFarmOwnerMessage(farmName, status)}</Banner>
 }
 
 /** True when the page was opened from a card of Select Farm (`from=chon-trai`) for a farm that is not ACTIVE. */

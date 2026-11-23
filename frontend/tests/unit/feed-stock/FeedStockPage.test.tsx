@@ -68,6 +68,27 @@ describe('SCR-77 Feed Stock page', () => {
     expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
   })
 
+  it('makes the low / out of stock tile the prominent first block, red only when a feed has run out', async () => {
+    const tileOf = async () => {
+      const tiles = within(await screen.findByRole('region', { name: 'Chỉ số tồn kho' }))
+      const low = tiles.getByText('Sắp hết / hết').closest('div.rounded-2xl') as HTMLElement
+      return { low, first: (await screen.findByRole('region', { name: 'Chỉ số tồn kho' })).firstElementChild }
+    }
+    const rows = FEED_STOCK_MOCK.map((row) => ({ ...row }))
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'OUT_OF_STOCK' as const : 'SUFFICIENT' as const })))
+    const { unmount } = renderPage()
+    let tile = await tileOf()
+    expect(tile.first).toBe(tile.low)
+    expect(tile.low.className).toContain('bg-err-bg')
+    unmount()
+
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'LOW' as const : 'SUFFICIENT' as const })))
+    renderPage()
+    tile = await tileOf()
+    expect(tile.low.className).toContain('bg-warn-bg')
+    expect(within(tile.low).getByText('1')).toBeInTheDocument()
+  })
+
   it('combines text, group, and status filters', async () => {
     const user = userEvent.setup()
     renderPage()

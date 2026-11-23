@@ -38,7 +38,15 @@ class AppUserCreatedAtMigrationPostgresIT {
         try (var source = getClass().getClassLoader().getResourceAsStream("config/liquibase/master.xml")) {
             String master = new String(java.util.Objects.requireNonNull(source).readAllBytes(), StandardCharsets.UTF_8);
             assertThat(master).contains(migration);
-            Files.writeString(before, master.lines().filter(line -> !line.contains(migration)).collect(Collectors.joining("\n")));
+            Files.writeString(
+                before,
+                master.lines()
+                    // The system test-account migration is newer than the upgrade under test and depends on created_at.
+                    // Keep it out of the synthetic pre-migration schema so this test isolates the created_at upgrade.
+                    .filter(line -> !line.contains(migration))
+                    .filter(line -> !line.contains("20261121000200_system_test_accounts.xml"))
+                    .collect(Collectors.joining("\n"))
+            );
         }
         String schema = "fe03_uc07_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         try (var c = DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());

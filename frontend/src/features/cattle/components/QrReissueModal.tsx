@@ -1,14 +1,12 @@
 import { useState } from 'react'
-import { Field, Note, Select, Textarea } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { MANAGER } from '../../../data/cowsData'
-import { reissueQr } from '../api/cattleApi'
-import { useMutation } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { REPLACEMENT_REASONS, validateTag, type TagErrors } from '../domain/profileRules'
+import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { demoRecorder } from '../api/cattleApi'
+import { useCattleQrCommand } from '../hooks/useCattleCommands'
+import { cattleError } from '../api/cattleError'
+import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
+import { validateTag } from '../validation/profileValidation'
 import { fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import QrTagLabel from './QrTagLabel'
 
 type ReissuePayload = { reason: string; note: string; by: string; tagCode?: string }
@@ -26,7 +24,7 @@ const ErrorText = ({ children }: { children?: string }) => (children ? <span cla
  */
 export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed; onClose: () => void; onSaved: (message?: string) => void }) {
   const backend = cow.backendId != null && cow.backendVersion != null
-  const reissue = useMutation((payload: ReissuePayload) => reissueQr(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion } : {}))
+  const reissue = useCattleQrCommand(cow, backend)
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE')
   const replacing = !!cur
   const [issued, setIssued] = useState('')
@@ -47,12 +45,12 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
     if (Object.keys(e).length) return
     try {
       const label = REPLACEMENT_REASONS.find(([code]) => code === reason)?.[1] ?? ''
-      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: MANAGER, tagCode: tagCode.trim() || undefined })
+      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: demoRecorder, tagCode: tagCode.trim() || undefined })
       const savedCode = tagCodeOf(result)
       if (!savedCode) return onSaved('Đã lưu thẻ. Mở tab Thẻ QR để xem mã hiện hành.')
       setIssued(savedCode)
     } catch (e) {
-      setError(userFacingError(e, 'Không cấp được thẻ mới. Vui lòng thử lại.'))
+      setError(cattleError(e, 'Không cấp được thẻ mới. Vui lòng thử lại.'))
     }
   }
 

@@ -1,22 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
-import SetupLayout from '../../farm-workspace/components/SetupLayout'
-import { InactiveFarmBanner, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace/components/WorkspaceUi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
+import { InactiveFarmBanner, SetupLayout, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
+import { Facts, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
-import { backendMode } from '../../../api/backendTransport'
-import { usePaymentRequest } from './usePaymentRequest'
+import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import type { Term } from '../types'
-import { useOverview } from './useOverview'
-
-const ONBOARDING_FARM_ID = 2 // Trại Tản Lĩnh: trại vừa đăng ký ở bước 2
+import { useOverview } from '../hooks/useOverview'
 
 function OnboardingShell({ children }: { children: ReactNode }) {
   return (
@@ -27,7 +22,7 @@ function OnboardingShell({ children }: { children: ReactNode }) {
 }
 
 export default function FirstSubscriptionPage() {
-  const { farmId, to } = useFarmScope(ONBOARDING_FARM_ID)
+  const { farmId, to } = useFarmScope()
   const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -51,7 +46,7 @@ export default function FirstSubscriptionPage() {
     try {
       const p = await createPayment(term, price.id)
       if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
-      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'onboarding' }))
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'onboarding' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)
@@ -65,15 +60,15 @@ export default function FirstSubscriptionPage() {
     <OnboardingShell>
       <Stepper current={3} />
       {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
-      <Card title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
+      <Card variant="panel" title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
         <div className="flex flex-col gap-4">
           <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có']]} />
           <TermCards prices={price} selected={term} onSelect={setTerm} />
-          <Card title="Điều khoản gói"><Facts items={[
+          <Card variant="panel" headingAs="h3" title="Điều khoản gói"><Facts items={[
             ['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'],
             ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ'],
           ]} /></Card>
-          <Card title="Xem lại trước khi tạo">
+          <Card variant="panel" headingAs="h3" title="Xem lại trước khi tạo">
             <Facts items={[
               ['Trang trại', data.farmName],
               ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],
@@ -83,9 +78,9 @@ export default function FirstSubscriptionPage() {
             ]} />
           </Card>
           {saveError && <Note tone="err">{saveError}</Note>}
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3 [&>button]:h-auto! [&>button]:min-h-11 [&>button]:max-w-full [&>button]:whitespace-normal! [&>button]:py-2">
             <Button size="lg" onClick={() => navigate('/chon-trai')}>Để sau</Button>
-            <Button size="lg" variant="primary" className={ICON_BTN} disabled={!term || !price || saving} onClick={submit}>
+            <Button size="lg" variant="primary" disabled={!term || !price || saving} onClick={submit}>
               <Icon name="circle-plus" size={16} /> {saving ? 'Đang tạo yêu cầu…' : 'Tạo yêu cầu thanh toán'}
             </Button>
           </div>

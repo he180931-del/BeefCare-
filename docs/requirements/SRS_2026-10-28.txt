@@ -25,6 +25,7 @@ Date | A*, M, D | In charge | Change Description
 27/10/2026 | M | G35 Team | Popups are no longer counted as screens: the 36 dialogs (change password, invite member, pen dialogs, update profile, QR tag, voucher line and Excel import, record payment, correction and void dialogs, recording dialogs for growth, vaccination, health, reproduction and feeding, close ticket) are described in Part III as "Popup:" sections without their own code, each with the screens it is opened from, and listed under their parent screen in Table 5.1-2. The remaining 86 screens renumbered SCR-01 to SCR-86 in the order of Table 5.1-2; all references, including the rows above, use the new numbers.
 27/10/2026 | A | G35 Team | Starter catalogue for a new farm (GBR-109, Table III-6): four production purposes, common Vietnamese breeds (main breeds chosen at registration are ACTIVE), vaccines by disease to be completed from labels and common feed items are created with the farm together with the default parameters (UC-FE02-01); reference medicines are left to the farm. "Getting started" panel added to the farm dashboard (SCR-48); vaccine badge "Complete from label"; Main breeds on SCR-10 became a multi-select.
 28/10/2026 | A | G35 Team | UC-FE10-05 Correct or Void Treatment or Follow-up added with its popup (III.10.7), "Edit · Void" actions on SCR-37, lifecycle of Treatment and Health Observation, GBR-46 and messages MSG-FE10-11 to 13; "Zebu đỏ" added to the starter breeds (Table III-6); MSG-FE05-12 reworded to name the purpose to choose; figures of the correct/void herd entry and vaccination popups point to the Layout (Figma 16, 17).
+19/11/2026 | M | G35 Team | Aligned with the implementation decisions log: SCR-61 searches by farm name or payment code (no subscription code); Table III-2 lets the Technician view all catalogues and parameters; popup "Update / Close Health Case" gets the Progress field; UC-FE03-01 E6 (MSG-FE03-21) and UC-FE03-09 E8 (MSG-FE03-22) added; UC-FE02-02 opens SCR-58 for payment and shows non-ACTIVE farms to Manager and Technician as disabled cards; UC-FE12-02 and UC-FE12-03 return the female to AWAITING_BREEDING (Table 3.4-3).
 [/TABLE]
 [P24 ] *A - Added M - Modified D - Deleted
 [P25 2] Definition and Acronyms
@@ -1089,7 +1090,7 @@ ID | Use Case | Feature | Use Case Description
 UC-FE01-01 | Register Farm Owner Account | FE-01 | A Guest creates an account with Google, or with an email and password verified through an emailed link, and completes the Owner profile so the account can register farms.
 UC-FE01-02 | Sign In | FE-01 | A Guest signs in with Google or with a verified email and password and reaches only the farms and platform areas currently authorized.
 UC-FE01-03 | Sign Out | FE-01 | A signed-in user ends the BeefCare session and clears the selected farm on the device.
-UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user views own profile, sign-in methods, roles and permissions in the current farm, and updates full name and contact phone.
+UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user opens the shared account screen, views and updates full name and contact phone, views sign-in methods, and may consult the fixed permission matrix of each farm role independently of the current farm.
 UC-FE01-05 | Reset Forgotten Password | FE-01 | A Guest receives a single-use reset link by email and sets a new password.
 UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or adds a first password to an account that uses only Google.
 [/TABLE]
@@ -1097,7 +1098,7 @@ UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or
 [TABLE block 362]
 ID | Use Case | Feature | Use Case Description
 UC-FE02-01 | Register Farm Workspace | 2.1 Owner Farm Workspace | A Farm Owner registers a first or additional farm; the farm starts in PENDING_PAYMENT and the Owner continues to plan selection.
-UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm.
+UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm, either on SCR-09 or from the quick farm switcher in the top bar.
 UC-FE02-03 | Update Farm Information | 2.1 Owner Farm Workspace | The Farm Owner updates registration, contact and operating information of an owned farm.
 UC-FE02-04 | View Platform Farm Service Overview | 2.2 Platform Farm Service | The Platform Manager views, searches and filters all farms with Owner, service status and coverage, without farm operational data.
 UC-FE02-05 | Suspend or Restore Farm Service | 2.2 Platform Farm Service | The Platform Manager suspends a farm's service with a reason, or restores it so that its status follows the subscription again.
@@ -1477,7 +1478,7 @@ Public landing page | View | Full | Full | Full | Full | Full | Full | Full
 [P498 ] Table 5.1-1 Navigation menu by role
 [TABLE block 499]
 Role | Menu group | Menu items → screen
-All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; farm switcher → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; profile → SCR-08; sign out
+All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; quick farm switcher changes an ACTIVE farm directly and "Manage farms" → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; shared user menu (avatar and name) → SCR-08 or sign out
 Farm Owner | Overview | Farm Dashboard SCR-48; Farm Reminders SCR-44; Farm Announcements SCR-26
 Farm Owner | Herd | Cattle SCR-18; Herd Entry Vouchers SCR-23; Pens SCR-17; Herd Exit Vouchers SCR-41
 Farm Owner | Care | Growth & BCS SCR-29; Vaccination SCR-31; Health & Treatment SCR-36; Reproduction SCR-38; Feed SCR-77 (tabs Stock SCR-77, Feed Receipts SCR-78, Stock Count SCR-80, Rations SCR-81, Feeding Log SCR-83, Catalogue SCR-84, Report SCR-85); recording buttons are shown on the care, reproduction and feeding log screens
@@ -1506,7 +1507,7 @@ SCR-04 | Verify Email (Xác minh email) | FE-01 | Informs the Guest that a verif
 SCR-05 | Forgot Password (Quên mật khẩu) | FE-01 | Allows a Guest to request a password-reset link; shows the same confirmation whether or not the email exists.
 SCR-06 | Set New Password (Đặt mật khẩu mới) | FE-01 | Allows a Guest who opened a valid reset link to set a new password; shows "link no longer valid" for an expired or used link.
 SCR-07 | Complete Owner Profile (Hoàn tất hồ sơ chủ trại) | FE-01 | Allows a newly authenticated user to complete the Owner profile (step 1 of onboarding).
-SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Allows a signed-in user to view and update own profile, sign-in methods and the fixed permissions of their role in the current farm. Popups: Change Password.
+SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Shared account screen for every signed-in role. The Profile tab updates own name and contact phone; the Permissions by Role tab shows the fixed Table III-2 matrix for Owner, Manager or Technician independently of the selected farm. Popups: Change Password.
 SCR-09 | Select Farm (Chọn trang trại) | FE-02 | Allows a user to see their farms with role and service status, register a new farm (Owner) and enter a farm.
 SCR-10 | Register Farm (Đăng ký trang trại) | FE-02 | Allows the Owner to register a farm (step 2 of onboarding).
 SCR-11 | Farm Information (Thông tin trại) | FE-02 | Allows the Owner to view and update registration, contact and operating information and see the service summary.
@@ -1733,8 +1734,8 @@ Trigger | The user signs in with more than one farm, or opens the farm switcher.
 Description | As a farm member, I want to see my farms with my role and their service status and choose one, so that I work only with that farm's data.
 Preconditions | PRE-1: The user is signed in and the account is ACTIVE.
 Postconditions | POST-1: The selected farm is the current context with the user's role in that farm. / POST-2: No farm, membership or subscription is changed.
-Normal Flow | 1. User opens Select Farm (SCR-09). / 2. System lists every farm where the user has an ACTIVE membership as a card: farm name, location, service status, user's role, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED. / 3. User selects "Enter farm" on an ACTIVE farm. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
-Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Farm Subscription (SCR-57) with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician card of a farm that is not ACTIVE: the card is disabled with MSG-FE02-04. / AF4 – Only one available farm: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm".
+Normal Flow | 1. User opens Select Farm (SCR-09), or opens the quick farm switcher from the current farm name in the top bar. / 2. System lists every farm where the user has an ACTIVE membership with its name, service status and the user's role; SCR-09 additionally shows location, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED; a Manager or Technician sees a farm that is not ACTIVE as unavailable (AF3). / 3. User selects "Enter farm" on SCR-09 or selects an ACTIVE farm in the quick switcher. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
+Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Select Term and Review (SCR-58) for the first purchase or the renewal with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician farm that is not ACTIVE: SCR-09 shows a disabled card with MSG-FE02-04; selecting it from the quick switcher opens SCR-09 and never opens farm operations. / AF4 – Only one available farm immediately after sign-in: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm". / AF6 – User selects "Manage farms" in the quick switcher: SCR-09 opens.
 Exceptions | E1: Membership deactivated or role changed after the list was shown: MSG-COM-01 and the list is refreshed. / E2: Loading failure: MSG-COM-03.
 Priority | High
 Frequency of Use | At every sign-in; several times a day for multi-farm users.
@@ -1772,7 +1773,7 @@ Preconditions | PRE-1: The Owner is signed in and owns the current farm. / PRE-2
 Postconditions | POST-1: One PENDING invitation bound to the farm, the email and the role exists with its expiry time. / POST-2: The invitation email with a single-use link has been sent. / POST-3: No membership is created before acceptance.
 Normal Flow | 1. System shows popup "Invite Member" with the farm name. / 2. Owner enters the recipient email, selects the role Farm Manager or Farm Technician and the validity (3, 7 or 14 days; default 7). The System shows the fixed permissions of the selected role (GBR-06). / 3. Owner selects "Send invitation". / 4. System rechecks ownership and farm service, validates the email and checks that the email is not an ACTIVE member and has no PENDING invitation for this farm. / 5. System creates the PENDING invitation with expiry time and a link token stored as a hash, and the audit entry. / 6. System sends the invitation email (API-04) and shows MSG-FE03-01.
 Alternative Flows | AF1 – A PENDING invitation for the email exists (step 4): MSG-FE03-03 offers Resend (UC-FE03-03); no second invitation. / AF2 – The email belongs to an INACTIVE member (step 4): the System proposes Reactivate in UC-FE03-06 instead. / AF3 – Cancel: nothing is created. / AF4 – Email delivery fails (step 6): the invitation stays PENDING; delivery is retried and the Owner may resend.
-Exceptions | E1: Not the Owner of the farm: MSG-COM-01. / E2: Farm not ACTIVE: MSG-FE03-04. / E3: Email empty or invalid: MSG-COM-06 / MSG-COM-10. / E4: Email is already an ACTIVE member: MSG-FE03-02. / E5: Save failure: MSG-COM-02.
+Exceptions | E1: Not the Owner of the farm: MSG-COM-01. / E2: Farm not ACTIVE: MSG-FE03-04. / E3: Email empty or invalid: MSG-COM-06 / MSG-COM-10. / E4: Email is already an ACTIVE member: MSG-FE03-02. / E5: Save failure: MSG-COM-02. / E6: Email belongs to an INACTIVE member of the farm: MSG-FE03-21; no invitation is created and the Owner may reactivate the member instead (UC-FE03-06, current role kept).
 Priority | High
 Frequency of Use | Occasionally, when the farm adds staff.
 Business Rules | GBR-06, GBR-14, GBR-16; BR-D05.
@@ -1862,7 +1863,7 @@ Preconditions | PRE-1: The SA is signed in with ACTIVE SA access. / PRE-2: The t
 Postconditions | POST-1: The account has at most one ACTIVE platform role, saved with reason, history and audit. / POST-2: Farm memberships are unchanged; the new access applies at the person's next request. / POST-3: At least one ACTIVE SA remains.
 Normal Flow | 1. System shows popup "Platform Staff Access" with the account, current platform role and status and the role history. / 2. SA chooses Grant, Change role, Revoke or Restore, selects the role (CS, PM or SA) when required and enters the reason. / 3. SA confirms. / 4. System rechecks SA access, the target account, current access, version, the one-ACTIVE-role rule and the last-SA rule. / 5. System saves the access change with history and audit in one transaction. / 6. System shows MSG-FE03-19. Tickets assigned to a CS who loses CS access return to the queue; OPEN internal requests of a removed PM or SA are flagged for reassignment.
 Alternative Flows | AF1 – Cancel: nothing changes.
-Exceptions | E1: No ACTIVE SA access: MSG-COM-01. / E2: No account for the email: MSG-FE03-18; no invitation is sent. / E3: The change would leave no ACTIVE SA: MSG-FE03-17. / E4: Same role already ACTIVE: MSG-FE03-20. / E5: Empty reason: MSG-COM-06. / E6: Changed in another session: MSG-COM-05. / E7: Save failure: MSG-COM-02.
+Exceptions | E1: No ACTIVE SA access: MSG-COM-01. / E2: No account for the email: MSG-FE03-18; no invitation is sent. / E3: The change would leave no ACTIVE SA: MSG-FE03-17. / E4: Same role already ACTIVE: MSG-FE03-20. / E5: Empty reason: MSG-COM-06. / E6: Changed in another session: MSG-COM-05. / E7: Save failure: MSG-COM-02. / E8: Grant, change or restore for a SUSPENDED account: MSG-FE03-22; revoke is still allowed.
 Priority | High
 Frequency of Use | Rare.
 Business Rules | GBR-10, GBR-11, GBR-86; BR-D06.
@@ -2281,7 +2282,7 @@ Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record pregnancy check" (Ghi khám thai) on the Reproduction tab of a female in status BRED or PREGNANT, from "More actions" for any ACTIVE female at stage Young stock or Adult (GBR-54), or from reminder REM-03 / REM-04.
 Description | As a farm manager, I want to record the result of a pregnancy examination, so that pregnancy is confirmed only by an actual check and the calving date becomes reliable.
 Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female.
-Postconditions | POST-1: A VALID pregnancy check is saved. / POST-2: PREGNANT: a pregnancy episode is OPEN (or confirmed) with a CONFIRMED expected calving date and REM-05. NOT_PREGNANT: the female returns to OPEN and the tentative date is cancelled. INCONCLUSIVE: status unchanged and REM-04 is created. / POST-3: REM-03 is resolved.
+Postconditions | POST-1: A VALID pregnancy check is saved. / POST-2: PREGNANT: a pregnancy episode is OPEN (or confirmed) with a CONFIRMED expected calving date and REM-05. NOT_PREGNANT: the female returns to AWAITING_BREEDING and the tentative date is cancelled. INCONCLUSIVE: status unchanged and REM-04 is created. / POST-3: REM-03 is resolved.
 Normal Flow | 1. System shows popup "Record Pregnancy Check" with the female (read-only) and the latest breeding proposed as link. / 2. Manager enters checked time, result (pregnant, not pregnant, inconclusive), method (ultrasound, rectal, other), estimated months pregnant (optional), examiner and optional note; the data source is Direct observation unless changed; for PREGNANT the System shows the expected calving date from the linked breeding or from the estimated months (GBR-53). / 3. Manager selects "Save check result". / 4. System validates the fields, chronology (not before the linked breeding) and the female's state; it serializes changes for the female (GBR-52). / 5. System saves the check and applies the result (GBR-51, GBR-53) in one transaction, updates reminders (JOB-01) and shows MSG-FE12-01.
 Alternative Flows | AF1 – No linked breeding: a PREGNANT result opens an episode with an ESTIMATED expected date from the estimated months, or without expected date when no months are entered (MSG-FE12-11). / AF2 – PREGNANT while an episode is already OPEN: the check confirms the existing episode. / AF3 – Cancel: nothing is saved.
 Exceptions | E1: Missing required field: MSG-COM-06. / E2: Conflict with an existing check or newer episode: MSG-FE12-02. / E3: Time invalid: MSG-COM-07 / MSG-FE11-10. / E4: Cattle EXITED: MSG-COM-13. / E5: Save failure: MSG-COM-02.
@@ -2299,7 +2300,7 @@ Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record pregnancy update" (Ghi diễn biến thai) on the Reproduction tab of a PREGNANT female.
 Description | As a farm manager, I want to record observations, complications or a loss during pregnancy, so that the pregnancy history is complete and a loss closes the pregnancy.
 Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The female has an OPEN pregnancy episode.
-Postconditions | POST-1: A VALID pregnancy update is saved against the episode. / POST-2: LOSS: the episode is LOST, REM-05 is cancelled and the female returns to OPEN.
+Postconditions | POST-1: A VALID pregnancy update is saved against the episode. / POST-2: LOSS: the episode is LOST, REM-05 is cancelled and the female returns to AWAITING_BREEDING.
 Normal Flow | 1. System shows popup "Record Pregnancy Update" with the episode (pregnancy number, expected date). / 2. Manager selects the update type (observation, complication, loss), enters the time, data source and details and, for a complication, optionally links an existing health case of the female. / 3. Manager selects "Save update". / 4. System validates the fields, chronology (after the confirming check) and episode state. / 5. System saves the update in one transaction and shows MSG-FE12-03.
 Alternative Flows | AF1 – Loss (step 5): the System closes the episode as LOST, cancels REM-05, updates status and shows MSG-FE12-04 (GBR-56). / AF2 – Complication needing treatment: the Manager opens or updates the case in FE-10 (UC-FE10-02). / AF3 – Cancel: nothing is saved.
 Exceptions | E1: Missing required field: MSG-COM-06. / E2: Episode no longer OPEN: MSG-FE12-12. / E3: Time invalid: MSG-COM-07. / E4: Save failure: MSG-COM-02.
@@ -2799,7 +2800,8 @@ Dialog behaviour | Cancel or ✕ closes without saving; when data was entered, M
 Home screen by role | After sign-in, after entering a farm and from the logo: Farm Owner and Farm Manager → Farm Dashboard (SCR-48); Farm Technician → Technician Home (SCR-74); Customer Support → Ticket Queue (SCR-67); Platform Manager → Farm Service Overview (SCR-12); System Admin → User Accounts (SCR-16).
 Links from email | The verification link opens SCR-07 (or SCR-02 when Owner registration is not pending); the password-reset link opens SCR-06; the invitation link opens SCR-15 after sign-in or registration with the invited email.
 Read-only records | An EXITED cattle shows MSG-COM-13 and a VOIDED cattle MSG-COM-18, with no recording buttons; a cattle on a PENDING death voucher shows MSG-COM-17 and only correction and void actions (GBR-26). A farm that is not ACTIVE shows MSG-COM-12 on farm operation screens (GBR-14).
-Sign out | Available from the user menu in the top bar of every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
+User menu | The same avatar-and-name menu is used on farm, farm-selection and account screens. It contains exactly "My profile" (SCR-08) and "Sign out".
+Sign out | Available from the shared user menu on every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
 Farm scope and versions | Every list, count and detail shows only data of the current farm (BR-D01); every update carries the record version (BR-D31, GBR-89).
 Phone screens | The same screens adapt to phone width: tables become cards, the sidebar becomes the bottom navigation and dialogs become full-screen sheets (NFR-I02).
 [/TABLE]
@@ -2905,20 +2907,21 @@ Complete and register farm | Button. Saves Owner registration and opens SCR-10.
 [TABLE block 776]
 [Figure to be inserted] Mockup – Figma 02 › "Hồ sơ & quyền của tôi"
 [/TABLE]
-[P778 ] This screen allows any signed-in user to view and update their own profile (UC-FE01-04) and to see the fixed permissions of their role in the current farm (GBR-06). Platform staff see their platform role instead of farm permissions.
+[P778 ] This shared account screen is available at one account destination for every signed-in role and does not depend on the selected farm. It has two tabs: Profile, for viewing and updating the user's own account data (UC-FE01-04), and Permissions by Role, for consulting the fixed Table III-2 matrix for Farm Owner, Farm Manager or Farm Technician (GBR-06). Platform staff may consult the same reference matrix; it does not grant permissions.
 [P779 ] Field Description
 [TABLE block 780]
 Field Name | Description
-Header | Full name and "role at farm name" (or platform role).
+Account navigation | Tabs Profile and Permissions by Role.
+Header | "My profile" on the Profile tab.
 Sign-in email | Read-only, with verification state.
 Sign-in methods | Read-only: Google and/or Email & password.
 Full name * | Text, 2–100 characters.
 Contact phone | Optional, Vietnamese phone format.
 Change password / Add password | Button. Opens popup "Change Password" (UC-FE01-06). "Add password" is shown when the account has no password.
-Save profile | Button. Saves name and phone; MSG-FE01-13.
-My permissions in this farm | 
-Role | Read-only: Farm Owner, Farm Manager or Farm Technician.
-Permission table | Read-only list of permission areas with the value for the user's role, as in Table III-2.
+Save profile | Button. Saves name and phone without password re-authentication; MSG-FE01-13. Email and sign-in methods do not change.
+Permissions by Role |
+Role selector | Farm Owner, Farm Manager or Farm Technician; one role at a time.
+Function table | Read-only Table III-2 reference for the selected role. Areas with no access are omitted; concise labels describe View, Manage, Record or Correct access. It does not depend on the user's membership or selected farm.
 [/TABLE]
 [P782 4] 1.8 Popup: Change Password
 [TABLE block 783]
@@ -2945,7 +2948,7 @@ Cancel / Save | Buttons. On success MSG-FE01-07; other sessions are ended.
 [P796 ] Field Description
 [TABLE block 797]
 Field Name | Description
-User | Read-only full name and email; sign-out link.
+User menu | Avatar initials and full name; exactly "My profile" (SCR-08) and "Sign out".
 Register new farm | Button. Opens SCR-10 (SCR-07 first when Owner registration is incomplete).
 Farm card (one per farm) | 
 Farm name, address | Read-only; commune and province.
@@ -2954,6 +2957,7 @@ Your role | Read-only: Farm Owner, Farm Manager or Farm Technician.
 Herd size | Number of ACTIVE cattle.
 Service | "Until dd/mm/yyyy", "No service period yet" or "Suspended".
 Card action | ACTIVE: "Enter farm" opens the farm home screen: SCR-48 for the Owner and a Manager, SCR-74 for a Technician. Owner + PENDING_PAYMENT: "Pay to activate" (SCR-58). Owner + EXPIRED: "Renew" (SCR-58). Owner + SUSPENDED: "Send support ticket" (SCR-65). Manager or Technician of a farm that is not ACTIVE: disabled card with "The Owner manages the subscription" (MSG-FE02-04).
+Quick farm switcher | On farm screens, the current farm name opens a menu of the user's farms. The current item is marked "Selected". Selecting an ACTIVE farm rechecks access, clears the previous farm's data and opens the new farm home; selecting a non-ACTIVE farm opens SCR-09. "Manage farms" opens SCR-09.
 [/TABLE]
 [P799 5] 2.1.2 SCR-10 Register Farm
 [TABLE block 800]
@@ -3061,7 +3065,7 @@ Joined | mm/yyyy.
 Actions | Owner only: "Change role · Deactivate" for ACTIVE members, "Reactivate" for INACTIVE members (popup "Change Role / Deactivate Member"). None on the Owner row.
 Permissions by role | Read-only Table III-2.
 [/TABLE]
-[P838 ] Table III-2 Permissions by farm role (shown on SCR-08 and SCR-13)
+[P838 ] Table III-2 Permissions by farm role (shown as a role-reference tab on SCR-08 and as the membership permission reference on SCR-13)
 [TABLE block 839]
 Permission area | Farm Owner | Farm Manager | Farm Technician
 Cattle profile and QR tag | Manage (incl. purpose) | Manage (except purpose) | View
@@ -3071,7 +3075,7 @@ Growth and BCS | Record and correct | Record and correct | View
 Vaccination | Plan, record and correct | Plan, record and correct | View
 Health and treatment | Record and correct | Record and correct | View
 Reproduction | Record and correct | Record and correct | View
-Catalogues and parameters | Manage all | Manage all | View breeds, vaccines, medicines
+Catalogues and parameters | Manage all | Manage all | View all
 Farm announcements | Write to Managers and Technicians | Write to Technicians | Read received
 Reminders | View all | View all | View (except draft calves and low feed stock)
 Dashboard and reports | View | View | —
@@ -4068,6 +4072,7 @@ Cancel / Save treatment | Buttons; success MSG-FE10-03.
 Field Name | Description
 Case | Read-only code, cattle, opening date, current status (OPEN or CHRONIC).
 Latest progress | Long text, max 1,000; saved as a follow-up observation.
+Progress | Improved / Unchanged / Worsened, no default; required when the dialog saves a follow-up observation (Keep OPEN / Keep CHRONIC, or Latest progress entered) (MSG-COM-06).
 Suspected diagnosis, Contagious | Editable as in popup "Open Health Case".
 Case status * | For an OPEN case: Keep OPEN (default) / Move to chronic monitoring / Close case. For a CHRONIC case: Keep CHRONIC (default) / Return to OPEN / Close case.
 Outcome * | Recovered / Died / Missing; shown and required only when closing. Died or Missing shows MSG-FE10-05 before saving; the PENDING death voucher is then completed by the Owner in SCR-43, reached from REM-12 or the exit voucher list (SCR-41).
@@ -4928,14 +4933,14 @@ Empty state | "No payment yet" with "View farm subscription".
 [P1493 ] Field Description
 [TABLE block 1494]
 Field Name | Description
-Search | Farm name or subscription code.
+Search | Farm name or payment code of a purchased period.
 Coverage | All, Current, Future only, None.
 Service / suspension | Service status filter.
 Coverage end from / to | Date range.
 Subscription list | 
 Farm, Owner, Service, Current period, Confirmed until | Read-only (sortable by confirmed until).
 Subscription detail | 
-Subscription code, Service and suspension, Current period, Renewal opens, Latest purchase (term, payment code) | Read-only.
+Farm, Service and suspension, Current period, Renewal opens, Latest purchase (term, payment code) | Read-only.
 Purchased periods | Period, term, confirmed at, source payment link ("View source payment" opens SCR-62).
 Farm without subscription | "No subscription yet: no period or end date."
 [/TABLE]
@@ -5989,6 +5994,8 @@ GBR-109 | A new farm is created with its default farm parameter version and the 
 61 | MSG-FE03-18 | Inline (dialog) | No account exists for the email | No BeefCare account exists for this email. The person must sign in once before access can be granted.
 62 | MSG-FE03-19 | Toast (success) | Platform access changed | {role} access of {email} has been {action}.
 63 | MSG-FE03-20 | Inline (dialog) | The requested role or status is already in effect | No change: {target} already has this {value}.
+63a | MSG-FE03-21 | Dialog | The invited email belongs to an INACTIVE member of the farm | {email} is a deactivated member of this farm. Reactivate this member instead? [Reactivate] [Back]
+63b | MSG-FE03-22 | Inline (dialog) | Platform access is granted, changed or restored for a SUSPENDED account | The account {email} is suspended. Restore the account before granting, changing or restoring access.
 64 | MSG-FE04-01 | Toast (success) | Pen created or updated | Pen {pen_code} has been saved.
 65 | MSG-FE04-02 | Inline (under field) | Pen code already used in the farm | Pen code {pen_code} already exists in this farm.
 66 | MSG-FE04-03 | Inline (under field) | Capacity invalid or below the headcount | Capacity must be a whole number of at least {min_capacity}.

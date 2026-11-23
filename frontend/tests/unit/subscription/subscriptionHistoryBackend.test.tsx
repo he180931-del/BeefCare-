@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import SubscriptionRoutes from '../../../src/features/subscription/pages/SubscriptionRoutes'
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const pending: Payment = { id: 501, quoteRef: 'BC-HISTORY', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
   requestedAt: '2026-11-08T03:00:01Z', expiresAt: new Date(Date.now() + 86_400_000).toISOString(), priceVersionId: 7,

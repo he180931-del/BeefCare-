@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFeedConsumptionReport,
   filterFeedConsumptionReport,
+  mapBackendConsumptionRows,
   summarizeFeedConsumptionReport,
-} from '../../../src/features/feed-stock/data/feedConsumptionReport'
+} from '../../../src/features/feed-stock/domain/feedConsumptionReport'
 import type { FeedFeedingRecord } from '../../../src/features/feed-stock/types/feedFeeding'
 import type { FeedRation } from '../../../src/features/feed-stock/types/feedRation'
 
@@ -50,6 +51,18 @@ function feeding(overrides: Partial<FeedFeedingRecord> = {}): FeedFeedingRecord 
 }
 
 describe('SCR-85 consumption report projections', () => {
+  it('renders grouped server rows and feed labels without rebuilding raw rows', () => {
+    const rows = mapBackendConsumptionRows({
+      from: '2026-06-01', to: '2026-06-30', groupBy: 'FEED',
+      tiles: { kg: 20, cost: 400, averageKgPerHeadDay: 2, averageCostPerHeadDay: 40, days: 10, headDays: 10, receivedKg: 0, receiptCount: 0, receivedAmount: 0 },
+      rows: [{ group: 'TA-01', avgHead: 5, kg: 20, kgPerHeadDay: 2, cost: 400, costPerHeadDay: 40, variancePct: -0.1, notes: [] }],
+      total: { kg: 20, cost: 400, kgPerHeadDay: 2, costPerHeadDay: 40, days: 10, headDays: 10 },
+      costByFeed: [{ feedCode: 'TA-01', feedName: 'Cỏ khô', kg: 20, cost: 400 }],
+      adjustmentLosses: { kg: 0, value: 0 }, rawRows: [], adjustmentLossKg: 0, adjustmentLossValue: 0, generatedAt: null,
+    })
+    expect(rows).toEqual([{ key: 'FEED:TA-01', label: 'Cỏ khô', herdGroup: null, averageHead: 5, actualKg: 20, averageKgPerHeadDay: 2, totalCost: 400, averageCostPerHeadDay: 40, varianceRatio: -0.1 }])
+  })
+
   it('aggregates valid sessions and counts head-days once per pen and date', () => {
     const data = buildFeedConsumptionReport({
       from: '2026-06-01',

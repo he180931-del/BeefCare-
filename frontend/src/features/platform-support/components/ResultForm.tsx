@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
-import { useQuery } from '../../../hooks/useApi'
-import { Button, Field, Note, Radio, Select, Textarea } from '../../../components/ui'
-import { supportApi } from '../api/supportApi'
+import { Button, Field, Icon, Note, Radio, Select, Textarea } from '../../../shared/ui'
 import { OUTCOME_LABEL } from '../domain/supportRules'
 import type { Actor, CompleteCommand, InternalOutcome, InternalView } from '../types'
 import { FieldError, useSubmit } from './common'
 import { SupportError } from '../domain/supportRules'
+import { useSupportCommands, useSupportDomainResults } from '../hooks/usePlatformSupportUseCase'
 
 const OUTCOMES: InternalOutcome[] = ['PERFORMED', 'UNABLE', 'OUTSIDE_DOMAIN']
 
@@ -23,7 +21,8 @@ export function ResultForm({ ir, me, simulateFailure, initialOutcome, onlyReason
   onSaveFailed: (cmd: CompleteCommand) => void
 }) {
   const navigate = useNavigate()
-  const { data: refs } = useQuery(() => supportApi.listDomainResults(me, ir.code), [ir.code, me])
+  const { data: refs } = useSupportDomainResults(me, ir.code)
+  const { completeInternal } = useSupportCommands()
   const [outcome, setOutcome] = useState<InternalOutcome | ''>(initialOutcome ?? '')
   const [result, setResult] = useState('')
   const [ref, setRef] = useState('')
@@ -41,7 +40,7 @@ export function ResultForm({ ir, me, simulateFailure, initialOutcome, onlyReason
     const cmd: CompleteCommand = { outcome, result: result.trim(), domainResultAuditId: performed ? Number(ref) : undefined, expectedVersion: ir.version }
     void run(async () => {
       try {
-        onDone(await supportApi.completeInternal(me, ir.code, { ...cmd, simulateSaveFailure: simulateFailure }))
+        onDone(await completeInternal(me, ir.code, { ...cmd, simulateSaveFailure: simulateFailure }))
       } catch (e) {
         if (e instanceof SupportError && e.code === 'SAVE_FAILED_AFTER_DOMAIN') return onSaveFailed(cmd)
         throw e

@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { initialCows } from '../../../src/data/cowsData'
-import { purposeFitsSex, validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/domain/profileRules'
+import { initialCows } from '../../../src/demo/data/cowsData'
+import { purposeFitsSex } from '../../../src/features/cattle/domain/profileRules'
+import { validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/validation/profileValidation'
 
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
@@ -43,11 +44,12 @@ describe('FE-05 backend flows', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
   })
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('opens a visible photo picker, saves and enlarges the photo, then removes it', async () => {

@@ -22,7 +22,7 @@ test('herd entry and exit own their pages, data, and API modules', () => {
     'features/herd-exit/api/index.ts',
     'features/herd-exit/data/exportsData.ts',
     'features/herd-exit/data/exitData.ts',
-    'data/cattleData.ts',
+    'demo/data/cattleData.ts',
     'features/herd-exit/pages/ExportList.tsx',
     'features/herd-exit/pages/ExportNew.tsx',
     'features/herd-exit/pages/ExportDetail.tsx',
@@ -46,21 +46,27 @@ test('herd entry and exit own their pages, data, and API modules', () => {
 test('list pages normalize the initial null query data before filtering', () => {
   const entryList = readFileSync(resolve(root, 'features/herd-entry/pages/ImportList.tsx'), 'utf8')
   const exitList = readFileSync(resolve(root, 'features/herd-exit/pages/ExportList.tsx'), 'utf8')
+  const entryHook = readFileSync(resolve(root, 'features/herd-entry/hooks/useEntryList.ts'), 'utf8')
+  const exitHook = readFileSync(resolve(root, 'features/herd-exit/hooks/useExitList.ts'), 'utf8')
 
-  assert.match(entryList, /const \{ data, loading, error \} = useQuery/)
-  assert.match(entryList, /const imports = view\?\.rows \?\? \[\]/)
-  assert.match(exitList, /const \{ data, loading, error \} = useQuery/)
-  assert.match(exitList, /const exports = data \?\? \[\]/)
+  assert.match(entryList, /useEntryList\(/)
+  assert.doesNotMatch(entryList, /useQuery\(/)
+  assert.match(entryHook, /const imports = view\?\.rows \?\? \[\]/)
+  assert.match(entryHook, /pendingCalves|listPendingEntryCalves/)
+  assert.match(exitList, /useExitList\(/)
+  assert.match(exitHook, /const rows = data \?\? \[\]/)
 })
 
 test('draft actions preserve the selected voucher id and new pages only restore explicit drafts', () => {
   const entryList = readFileSync(resolve(root, 'features/herd-entry/pages/ImportList.tsx'), 'utf8')
   const entryNew = readFileSync(resolve(root, 'features/herd-entry/pages/ImportNew.tsx'), 'utf8')
   const exitList = readFileSync(resolve(root, 'features/herd-exit/pages/ExportList.tsx'), 'utf8')
+  const exitHook = readFileSync(resolve(root, 'features/herd-exit/hooks/useExitList.ts'), 'utf8')
   const exitNew = readFileSync(resolve(root, 'features/herd-exit/pages/ExportNew.tsx'), 'utf8')
 
   assert.match(entryList, /herd-entry\/new\?id=\$\{encodeURIComponent\(r\.id\)\}/)
-  assert.match(exitList, /herd-exit\/new\?id=\$\{encodeURIComponent\(r\.id\)\}/)
+  assert.match(exitList, /useExitList\(/)
+  assert.match(exitHook, /herd-exit\/new\?id=\$\{encodeURIComponent\(row\.id\)\}/)
   assert.match(entryNew, /useSearchParams\(\)/)
   assert.match(entryNew, /getEntryDraftState\(imports, draftId\)/)
   assert.match(exitNew, /useSearchParams\(\)/)
@@ -88,12 +94,15 @@ test('rich lifecycle pages use feature API mutations instead of the legacy store
   const entryDetail = readFileSync(resolve(root, 'features/herd-entry/pages/ImportDetail.tsx'), 'utf8')
   const exitNew = readFileSync(resolve(root, 'features/herd-exit/pages/ExportNew.tsx'), 'utf8')
   const exitDetail = readFileSync(resolve(root, 'features/herd-exit/pages/ExportDetail.tsx'), 'utf8')
+  const exitWorkflow = readFileSync(resolve(root, 'features/herd-exit/hooks/useExitWorkflow.ts'), 'utf8')
   for (const source of [entryNew, entryDetail, exitNew, exitDetail]) {
     assert.doesNotMatch(source, /useStore|addImport|addExport|updateImport|updateExport/)
   }
-  assert.match(entryNew, /useMutation\(saveHerdEntry\)/)
-  assert.match(exitNew, /useMutation\(saveHerdExit\)/)
-  assert.match(entryDetail, /voidHerdEntry/)
+  assert.match(entryNew, /useEntryDraftWorkflow\(/)
+  assert.match(entryNew, /saveDraft|postEntry/)
+  assert.match(exitNew, /useExitWorkflow\(/)
+  assert.match(exitWorkflow, /useMutation\(saveHerdExit\)/)
+  assert.match(entryDetail, /cancelRecord/)
   assert.match(exitDetail, /cancelHerdExit|CollectModal/)
 })
 
@@ -101,22 +110,28 @@ test('entry editor receives canonical pen rows instead of the legacy static barn
   const entryNew = readFileSync(resolve(root, 'features/herd-entry/pages/ImportNew.tsx'), 'utf8')
   const rowEdit = readFileSync(resolve(root, 'features/herd-entry/components/RowEditModal.tsx'), 'utf8')
   const entryApi = readFileSync(resolve(root, 'features/herd-entry/api/herdEntryApi.ts'), 'utf8')
-  assert.match(entryNew, /useQuery\(\(\) => listEntryPens\(\), \[\]\)/)
+  assert.match(entryNew, /useEntryNewQueries\(/)
+  assert.match(entryNew, /canonicalPens/)
   assert.match(entryNew, /canonicalPens/)
   assert.match(entryNew, /pens=\{importBarns\}/)
   assert.doesNotMatch(rowEdit, /IMPORT_BARNS\.map/)
-  assert.match(entryApi, /export const listEntryPens = \(\) => usingBackend \? backendApi\.listPens\(\) : pens\.list\(\)/)
+  assert.match(entryApi, /export const listEntryPens = \(\) => usingBackend \? backendApi\.listPens\(\) : demo\.entryLocal\.pens\.list\(\)/)
 })
 
 test('exit cancellation copy is derived from canonical pens', () => {
   const cancelModal = readFileSync(resolve(root, 'features/herd-exit/components/CancelModal.tsx'), 'utf8')
-  assert.match(cancelModal, /useQuery\(\(\) => pens\.list\(\)/)
+  const voidHook = readFileSync(resolve(root, 'features/herd-exit/hooks/useExitVoid.ts'), 'utf8')
+  assert.match(cancelModal, /useExitVoid\(/)
+  assert.match(voidHook, /Promise\.all\(\[exitVoidCheck\(row\.id, row\.backendId\), listExitCancelPens\(\)\]\)/)
+  // PR-D needs real pen occupancy for overrides; demo pens stay behind the local API branch.
+  const exitApi = readFileSync(resolve(root, 'features/herd-exit/api/herdExitApi.ts'), 'utf8')
+  assert.match(exitApi, /export const listExitCancelPens = \(\): Promise<Pen\[\] \| null> => \(usingBackend \? backendApi\.listPens\(\) : demo\.exitLocal\.pens\.list\(\)\)/)
   assert.match(cancelModal, /occupancyText/)
   assert.doesNotMatch(cancelModal, /43\/50|47\/50/)
 })
 
 test('exit occupancy normalizes compact and legacy barn labels to one pen code', async () => {
-  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/data/occupancy.ts?occupancy=${Date.now()}`)
+  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/domain/occupancy.ts?occupancy=${Date.now()}`)
   assert.equal(penCode('B1'), 'B1')
   assert.equal(penCode('B1 – Vỗ béo'), 'B1')
   assert.equal(penCode('B1 Vỗ béo'), 'B1')

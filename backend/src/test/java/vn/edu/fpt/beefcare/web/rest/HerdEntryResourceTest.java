@@ -48,6 +48,19 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
         return "/api/farms/" + farm.getId();
     }
 
+    @Test
+    void retiredParentageCommandReturnsStandard405WithoutRequiringAnOldPayload() throws Exception {
+        mvc.perform(post(base() + "/pending-calves/12345/parentage").with(as(owner.getEmail()))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.code").value("MSG-COM-05"))
+            .andExpect(jsonPath("$.params.action").value("PENDING_CALF_PARENTAGE_RETIRED"))
+            .andExpect(jsonPath("$.message").isString());
+        mvc.perform(post(base() + "/pending-calves/12345/parentage").with(as(technician.getEmail()))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isForbidden());
+    }
+
     private String lineJson(String tag, long penId, String kg) {
         return (
             "{\"earTagNumber\":\"" + tag + "\",\"breedId\":" + breed.getId() + ",\"sex\":\"MALE\",\"ageMonths\":18,\"lifeStage\":\"YOUNG_STOCK\",\"purposeId\":" + fattening.getId() +

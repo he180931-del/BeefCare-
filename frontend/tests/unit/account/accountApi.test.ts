@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAccountApi } from '../../../src/features/account/api/accountApi'
 import { createAccountDemoStore } from '../../../src/features/account/data/accountDemoStore'
-import { validatePasswordChange, validateProfile } from '../../../src/features/account/domain/profileRules'
+import { validatePasswordChange, validateProfile } from '../../../src/features/account/validation/profileValidation'
 import type { AccountIdentity } from '../../../src/features/account/types'
 
 const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
 const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null, farmId: null }
-const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
+const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn((farmId: string | number | null, suffix = '') => `/api/farms/${farmId}${suffix}`) })
 const localApi = (now?: () => number) => createAccountApi({ mode: 'local', farmId: 1, transport: transport(), store: createAccountDemoStore({ now }) })
 
 describe('profile and password rules', () => {
@@ -83,12 +83,13 @@ describe('account API (backend mode)', () => {
     expect((await api.getProfile(manager)).id).toBe(7)
     await expect(api.getFarmPermissions(manager, 1)).resolves.toEqual({ role: 'MANAGER', permissions: [{ area: 'GROWTH_BCS', value: 'FULL' }] })
     await api.updateProfile(manager, { fullName: 'An B', phone: '' })
-    await api.reauthenticateWithGoogle(manager, '/ho-so')
+    const googleReauthentication = await api.reauthenticateWithGoogle(manager, '/ho-so')
     await api.changePassword(manager, { currentPassword: 'a', newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })
     expect(http.get).toHaveBeenCalledWith('/api/account/profile')
     expect(http.get).toHaveBeenCalledWith('/api/farms/1/my-permissions')
     expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', contactPhone: '' }, { method: 'POST' })
     expect(http.command).toHaveBeenCalledWith('/api/account/google-reauthentication', { returnTo: '/ho-so' }, { method: 'POST' })
+    expect(googleReauthentication.redirectTo).toBe('http://localhost:8080/oauth2/authorization/google')
     expect(http.command).toHaveBeenCalledWith('/api/account/change-password', expect.objectContaining({ newPassword: 'NewPassw0rd' }), { method: 'POST' })
     expect(spy).not.toHaveBeenCalled()
   })

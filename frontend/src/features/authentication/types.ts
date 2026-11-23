@@ -12,6 +12,7 @@ export type ResendResult = { nextAllowedAt: string }
 /** Implementations must be selected explicitly; a failed backend request is never a reason to switch modes. */
 export type AuthClient = {
   mode?: 'backend' | 'mock'
+
   isAuthenticated: () => Promise<boolean>
   login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>

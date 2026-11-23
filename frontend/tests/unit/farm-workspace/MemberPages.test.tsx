@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import InvitationsPage from '../../../src/features/farm-workspace/pages/InvitationsPage'
 import MembersPage from '../../../src/features/farm-workspace/pages/MembersPage'
 
@@ -85,7 +85,7 @@ describe('Farm Invitations', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Mời thành viên' })
     expect(within(dialog).getByText('Chọn vai trò để xem các quyền cố định.')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Gửi lời mời' })).toBeEnabled()
-    await user.type(within(dialog).getByLabelText('Thư điện tử người nhận *'), 'phamtuan.kt@gmail.com')
+    await user.type(within(dialog).getByLabelText('Email người nhận *'), 'phamtuan.kt@gmail.com')
     await user.click(within(dialog).getByRole('button', { name: 'Kỹ thuật viên' }))
     expect(within(dialog).getByLabelText(/Tiêm phòng/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Gửi lời mời' }))
@@ -97,7 +97,7 @@ describe('Farm Invitations', () => {
     const user = userEvent.setup()
     renderAs(owner, '/loi-moi?m=invite')
     const dialog = await screen.findByRole('dialog', { name: 'Mời thành viên' })
-    await user.type(within(dialog).getByLabelText('Thư điện tử người nhận *'), 'quang.manager@gmail.com')
+    await user.type(within(dialog).getByLabelText('Email người nhận *'), 'quang.manager@gmail.com')
     await user.click(within(dialog).getByRole('button', { name: 'Quản lý' }))
     await user.click(within(dialog).getByRole('button', { name: 'Gửi lời mời' }))
     expect(await within(dialog).findByText('Đã có lời mời đang chờ cho email này.')).toBeInTheDocument()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, type ReactNode } from 'react'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { parseRichText, type Inline } from '../domain/richText'
 import type { Viewer } from '../types'
 

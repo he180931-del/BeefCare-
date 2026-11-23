@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import { financeApi } from '../../../src/features/platform-finance/api/financeApi'
 import RecordFormPage from '../../../src/features/platform-finance/pages/RecordFormPage'
 
@@ -24,7 +24,7 @@ describe('SCR-72 phân trang lịch sử thao tác', () => {
     vi.spyOn(financeApi, 'listCategories').mockResolvedValue({ income: ['CAT-INCOME'], expense: ['CAT-EXPENSE'] })
     vi.spyOn(financeApi, 'listBankTransactions').mockResolvedValue([])
     vi.spyOn(financeApi, 'getRecord').mockResolvedValue({
-      record: { recordCode: 'FR-0001', type: 'EXPENSE', category: 'CAT-EXPENSE', amountVnd: 100, occurredOn: '2026-11-01', scope: 'GENERAL', farmId: null, farmName: '', documentNumber: '', description: 'Khoản test', sourceType: 'MANUAL', sourceReference: '', sourceEvidenceId: null, state: 'DRAFT', version: 1, createdAt: '2026-11-01T10:00:00+07:00', createdBy: 'PM', history },
+      record: { recordCode: 'FR-0001', type: 'EXPENSE', category: 'CAT-EXPENSE', amountVnd: 100, occurredOn: '2026-10-01', scope: 'GENERAL', farmId: null, farmName: '', documentNumber: '', description: 'Khoản test', sourceType: 'MANUAL', sourceReference: '', sourceEvidenceId: null, state: 'DRAFT', version: 1, createdAt: '2026-10-01T10:00:00+07:00', createdBy: 'PM', history },
       history,
     } as never)
   })
@@ -54,7 +54,7 @@ describe('SCR-72 phân trang lịch sử thao tác', () => {
     expect((await screen.findAllByText(/^Thao tác 11 ·/)).length).toBeGreaterThan(0)
 
     getRecord.mockResolvedValueOnce({
-      record: { recordCode: 'FR-0001', type: 'EXPENSE', category: 'CAT-EXPENSE', amountVnd: 100, occurredOn: '2026-11-01', scope: 'GENERAL', farmId: null, farmName: '', documentNumber: '', description: 'Khoản test', sourceType: 'MANUAL', sourceReference: '', sourceEvidenceId: null, state: 'DRAFT', version: 2, createdAt: '2026-11-01T10:00:00+07:00', createdBy: 'PM', history: history.slice(0, 3) },
+      record: { recordCode: 'FR-0001', type: 'EXPENSE', category: 'CAT-EXPENSE', amountVnd: 100, occurredOn: '2026-10-01', scope: 'GENERAL', farmId: null, farmName: '', documentNumber: '', description: 'Khoản test', sourceType: 'MANUAL', sourceReference: '', sourceEvidenceId: null, state: 'DRAFT', version: 2, createdAt: '2026-10-01T10:00:00+07:00', createdBy: 'PM', history: history.slice(0, 3) },
       history: history.slice(0, 3),
     } as never)
     vi.spyOn(financeApi, 'saveDraft').mockResolvedValue({ recordCode: 'FR-0001' } as never)

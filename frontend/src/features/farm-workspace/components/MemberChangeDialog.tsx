@@ -1,14 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { BackendError } from '../../../api/backendClient'
-import Modal, { ModalFooter } from '../../../components/Modal'
-import { Button, DateInput, Field, inputCls, Note, Segmented } from '../../../components/ui'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
+import { BackendError } from '../../../shared/api/backendClient'
+import { Button, DateInput, DISCARD_PROMPT, Field, inputCls, Modal, ModalFooter, Note, Segmented } from '../../../shared/ui'
+import { useFarmWorkspaceUseCase } from '../hooks/useFarmWorkspaceUseCase'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { ChangeMemberInput, MemberAction, Membership } from '../types'
-import { farmToday, MEMBER_REASON_RULE, validateMemberChange, type FormErrors } from '../validation'
+import { farmToday, MEMBER_REASON_RULE, validateMemberChange, type FormErrors } from '../validation/workspaceValidation'
 import { farmWorkspaceError, FieldError, roleLabel } from './WorkspaceUi'
 
-const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
+const fullWidth = '[&>div]:w-full [&_button]:min-h-11 [&_button]:flex-1 [&_button]:whitespace-normal'
 // UC-FE03-06 E2/E3/E5 or a member that left this farm: the row on screen is outdated, so the list is read again (D30).
 const STALE = ['MSG-FE03-04', 'MSG-FE03-20', 'MSG-COM-05', 'MSG-COM-08']
 const FIELD_MESSAGES: Record<string, Partial<Record<keyof ChangeMemberInput, string>>> = {
@@ -28,6 +27,7 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
   farmId: number; farmName: string; timeZone: string; member: Membership; initialAction?: MemberAction; active: boolean
   onClose: () => void; onDone: (message: string) => void; onStale: (message: string) => void
 }) {
+  const { changeMember } = useFarmWorkspaceUseCase()
   const inactive = member.status === 'INACTIVE'
   const today = farmToday()
   const startAction: MemberAction = inactive ? 'REACTIVATE' : initialAction === 'DEACTIVATE' ? 'DEACTIVATE' : 'CHANGE_ROLE'
@@ -65,7 +65,7 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
     if (saving) return
     setSaving(true); setError(null)
     try {
-      await farmWorkspaceApi.changeMember(farmId, member.id, payload, { expectedVersion: member.version, idempotencyKey: requestKey.keyFor({ ...payload, version: member.version }) })
+      await changeMember(farmId, member.id, payload, { expectedVersion: member.version, idempotencyKey: requestKey.keyFor({ ...payload, version: member.version }) })
       requestKey.clear(); onDone(`Đã cập nhật thành viên ${name}.`) // MSG-FE03-13
     } catch (reasonError) {
       const message = farmWorkspaceError(reasonError, 'Không thể cập nhật thành viên.')
@@ -95,7 +95,13 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
       <form onSubmit={review} className="flex flex-col gap-4" noValidate>
         {error && <Note tone="err">{error}</Note>}
         {needsActiveFarm && <Note tone="warn">Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>}
-        <Field label="Thành viên" id="member-info"><input id="member-info" readOnly value={`${name} · ${member.email} · ${roleLabel(member.role)} · ${inactive ? 'Đã ngưng' : 'Đang hoạt động'}`} className={`${inputCls} text-subtle`} /></Field>
+        {/* Read-only text that wraps: a one-line input cut the role and status off on phones. */}
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span id="member-info-label" className="text-xs font-medium text-ink">Thành viên</span>
+          <p aria-labelledby="member-info-label" className="m-0 rounded-xl bg-page px-2.5 py-3 text-sm text-subtle [overflow-wrap:anywhere]">
+            {`${name} · ${member.email} · ${roleLabel(member.role)} · ${inactive ? 'Đã ngưng' : 'Đang hoạt động'}`}
+          </p>
+        </div>
         <Field label="Hành động *">
           <div className={fullWidth}><Segmented value={action} onChange={(value) => { if (editing) setAction(value as MemberAction) }} options={inactive
             ? [{ value: 'REACTIVATE', label: 'Kích hoạt lại', disabled: !editing }]
@@ -108,17 +114,17 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
             <FieldError>{errors.role}</FieldError>
           </Field>
         )}
-        <Field label="Ngày hiệu lực *" id="member-date"><DateInput id="member-date" value={effectiveDate} readOnly={!editing} onChange={setEffectiveDate} /><FieldError>{errors.effectiveDate}</FieldError></Field>
+        <Field label="Ngày hiệu lực *" id="member-date"><DateInput id="member-date" className="rounded-xl focus-within:ring-2 focus-within:ring-brand" value={effectiveDate} readOnly={!editing} onChange={setEffectiveDate} /><FieldError>{errors.effectiveDate}</FieldError></Field>
         <Field label="Lý do * (5–500 ký tự)" id="member-reason">
-          <textarea id="member-reason" rows={2} maxLength={500} value={reason} readOnly={!editing} onChange={(event) => setReason(event.target.value)} className={inputCls} placeholder="Phân công quản lý khu chuồng C" />
+          <textarea id="member-reason" rows={2} maxLength={500} value={reason} readOnly={!editing} onChange={(event) => setReason(event.target.value)} className={`${inputCls} resize-none`} placeholder="Phân công quản lý khu chuồng C" />
           <FieldError>{errors.reason}</FieldError>
         </Field>
         {step === 'confirm' && <Note tone="warn">{confirmText}</Note>}
-        {step === 'discard' && <Note tone="warn">Bỏ thông tin bạn đã nhập?</Note>}
-        <ModalFooter compact>
+        {step === 'discard' && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
+        <ModalFooter>
           {step === 'discard' ? <>
-            <Button size="lg" onClick={() => setStep('form')}>Tiếp tục nhập</Button>
-            <Button size="lg" variant="danger" onClick={discard}>Bỏ thông tin</Button>
+            <Button size="lg" onClick={() => setStep('form')}>{DISCARD_PROMPT.keep}</Button>
+            <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>
           </> : step === 'confirm' ? <>
             <Button size="lg" disabled={saving} onClick={() => { setStep('form'); setError(null) }}>Quay lại</Button>
             <Button size="lg" variant="primary" disabled={saving} onClick={save}>{saving ? 'Đang lưu…' : 'Xác nhận'}</Button>

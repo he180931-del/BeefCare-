@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 
 const api = vi.hoisted(() => ({ previewInvitation: vi.fn(), acceptInvitation: vi.fn(), selectFarm: vi.fn() }))
@@ -44,8 +44,8 @@ describe('UC-FE03-04 / SCR-15', () => {
     expect(screen.getByText('Nguyễn Văn Hùng')).toBeInTheDocument()
     expect(screen.getByText('14/11/2026 09:00')).toBeInTheDocument()
     expect(screen.getByText('21/11/2026 09:00')).toBeInTheDocument()
-    expect(screen.getByText('Thư điện tử được mời').nextSibling).toHaveTextContent('moi@example.test')
-    expect(screen.getByText('Thư điện tử đang đăng nhập').nextSibling).toHaveTextContent('moi@example.test')
+    expect(screen.getByText('Email được mời').nextSibling).toHaveTextContent('moi@example.test')
+    expect(screen.getByText('Email đang đăng nhập').nextSibling).toHaveTextContent('moi@example.test')
     expect(screen.getByText('Quyền của vai trò')).toBeInTheDocument()
   })
 

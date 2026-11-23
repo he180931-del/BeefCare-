@@ -1,9 +1,11 @@
 package vn.edu.fpt.beefcare.service;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.Medicine;
@@ -17,9 +19,10 @@ public class CareCatalogueCommandService {
     private final FarmAccessService access;
     private final IdempotencyCommandService idempotency;
     private final AuditService audit;
+    private final CatalogueReferenceService references;
 
-    public CareCatalogueCommandService(FarmAccessService access, IdempotencyCommandService idempotency, AuditService audit) {
-        this.access = access; this.idempotency = idempotency; this.audit = audit;
+    public CareCatalogueCommandService(FarmAccessService access, IdempotencyCommandService idempotency, AuditService audit, CatalogueReferenceService references) {
+        this.access = access; this.idempotency = idempotency; this.audit = audit; this.references = references;
     }
 
     @Transactional(readOnly = true)
@@ -49,7 +52,7 @@ public class CareCatalogueCommandService {
         Vaccine vaccine = id == null ? new Vaccine() : vaccineForFarm(farmId, id);
         if (id != null) VersionGuard.requireExpected(vaccine.getVersion(), req.expectedVersion());
         String code = catalogueCode(req.code(), id == null ? null : vaccine.getCode()); String name = requireText(req.name(), "name", 150);
-        if (id != null && !code.equals(vaccine.getCode()) && vaccineReferenced(id)) throw DomainException.invalid("code");
+        if (id != null && !code.equals(vaccine.getCode()) && vaccineReferenced(farmId, id)) throw DomainException.invalid("code");
         String disease = requireText(req.diseasePrevented(), "diseasePrevented", 150);
         ensureCodeAvailable(farmId, code, id, true);
         // §3.2: withdrawal 0–365 (default 0), booster interval 0–730 days.
@@ -78,7 +81,7 @@ public class CareCatalogueCommandService {
         Medicine medicine = id == null ? new Medicine() : medicineForFarm(farmId, id);
         if (id != null) VersionGuard.requireExpected(medicine.getVersion(), req.expectedVersion());
         String code = catalogueCode(req.code(), id == null ? null : medicine.getCode()); String name = requireText(req.name(), "name", 150);
-        if (id != null && !code.equals(medicine.getCode()) && treatments(id) > 0) throw DomainException.invalid("code");
+        if (id != null && !code.equals(medicine.getCode()) && treatments(farmId, id) > 0) throw DomainException.invalid("code");
         ensureCodeAvailable(farmId, code, id, false);
         // §3.3: withdrawal required 0–365; reference dose (≤ 100), route and notes (≤ 500) optional.
         if (req.withdrawalDays() == null) throw DomainException.required("withdrawalDays");
@@ -102,43 +105,40 @@ public class CareCatalogueCommandService {
     Boolean deleteUnusedVaccineInCommand(Long farmId, Long id, Integer expectedVersion) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_CARE_CATALOGUES);
         Vaccine vaccine = vaccineForFarm(farmId, id); VersionGuard.requireExpected(vaccine.getVersion(), expectedVersion);
-        if (vaccineReferenced(id)) throw DomainException.unprocessable(MessageCodes.FE18_04, "item", vaccine.getName());
+        if (vaccineReferenced(farmId, id)) throw DomainException.unprocessable(MessageCodes.FE18_04, "item", vaccine.getName());
         em.remove(vaccine); em.flush(); audit.log(ctx, "VACCINE_DELETE", "Vaccine", id, Map.of("code", vaccine.getCode())); return Boolean.TRUE;
     }
 
-    public Boolean deleteUnusedMedicine(Long farmId, Long id, String key, Integer expectedVersion) {
-        return idempotency.execute(farmId, FarmAction.MANAGE_CARE_CATALOGUES, "MEDICINE_DELETE", key,
-            Map.of("id", id, "expectedVersion", expectedVersion == null ? -1 : expectedVersion), Boolean.class,
-            () -> deleteUnusedMedicineInCommand(farmId, id, expectedVersion));
+    private long vaccinationSchedules(Long farmId, Long vaccineId) {
+        var ids = new HashSet<>(em.createQuery("select s.id from VaccinationSchedule s where s.vaccine.id=:id", Long.class).setParameter("id", vaccineId).getResultList());
+        ids.addAll(references.auditedSchedules(farmId, vaccineId));
+        return ids.size();
     }
-
-    /** Q4 (decided 09/11): a medicine never used by a treatment may be deleted; otherwise it is only stopped. */
-    @Transactional
-    Boolean deleteUnusedMedicineInCommand(Long farmId, Long id, Integer expectedVersion) {
-        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_CARE_CATALOGUES);
-        Medicine medicine = medicineForFarm(farmId, id); VersionGuard.requireExpected(medicine.getVersion(), expectedVersion);
-        if (treatments(id) > 0) throw DomainException.unprocessable(MessageCodes.FE18_04, "item", medicine.getName());
-        em.remove(medicine); em.flush(); audit.log(ctx, "MEDICINE_DELETE", "Medicine", id, Map.of("code", medicine.getCode())); return Boolean.TRUE;
+    private long vaccinationRecords(Long farmId, Long vaccineId) {
+        var ids = new HashSet<>(em.createQuery("select v.id from Vaccination v where v.vaccine.id=:id", Long.class).setParameter("id", vaccineId).getResultList());
+        ids.addAll(references.revisedSources(farmId, "Vaccination", "vaccineId", vaccineId));
+        return ids.size();
     }
-
-    private long count(String jpql, Long id) { return em.createQuery(jpql, Long.class).setParameter("id", id).getSingleResult(); }
-    private long vaccinationSchedules(Long vaccineId) {
-        return count("select count(s) from VaccinationSchedule s where s.vaccine.id=:id", vaccineId);
+    private long vaccineReferences(Long farmId, Long vaccineId) {
+        return vaccinationSchedules(farmId, vaccineId) + vaccinationRecords(farmId, vaccineId)
+            + references.entryDeclarations(farmId, "vaccineId", vaccineId)
+            + references.revisedSources(farmId, "HerdEntry", "vaccineId", vaccineId).size();
     }
-    private long vaccinationRecords(Long vaccineId) {
-        return count("select count(v) from Vaccination v where v.vaccine.id=:id", vaccineId);
+    private boolean vaccineReferenced(Long farmId, Long vaccineId) { return vaccineReferences(farmId, vaccineId) > 0; }
+    private long treatments(Long farmId, Long medicineId) {
+        var ids = new HashSet<>(em.createQuery("select t.id from Treatment t where t.medicine.id=:id", Long.class).setParameter("id", medicineId).getResultList());
+        ids.addAll(references.revisedSources(farmId, "Treatment", "medicineId", medicineId));
+        return ids.size();
     }
-    private boolean vaccineReferenced(Long vaccineId) {
-        return vaccinationSchedules(vaccineId) > 0 || vaccinationRecords(vaccineId) > 0;
-    }
-    private long treatments(Long medicineId) { return count("select count(t) from Treatment t where t.medicine.id=:id", medicineId); }
 
     private Vaccine vaccineForFarm(Long farmId, Long id) {
         return em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class).setParameter("id", id).setParameter("farm", farmId)
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .getResultStream().findFirst().orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", id));
     }
     private Medicine medicineForFarm(Long farmId, Long id) {
         return em.createQuery("select m from Medicine m where m.id=:id and m.farm.id=:farm", Medicine.class).setParameter("id", id).setParameter("farm", farmId)
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .getResultStream().findFirst().orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "medicineId", id));
     }
     private void ensureCodeAvailable(Long farmId, String code, Long excludedId, boolean vaccine) {
@@ -150,14 +150,14 @@ public class CareCatalogueCommandService {
     }
     private CareDtos.CatalogueItem view(Vaccine v) {
         int days = 0; try { days = Integer.parseInt(v.getWithdrawalInfo()); } catch (Exception ignored) {}
-        long schedules = vaccinationSchedules(v.getId());
-        long records = vaccinationRecords(v.getId());
+        long schedules = vaccinationSchedules(v.getFarm().getId(), v.getId());
+        long records = vaccinationRecords(v.getFarm().getId(), v.getId());
         boolean incomplete = v.getDose() == null || v.getDose().isBlank() || v.getRoute() == null || v.getRoute().isBlank();
         return new CareDtos.CatalogueItem(v.getId(), v.getCode(), v.getName(), null, v.getDiseasePrevented(), v.getManufacturer(), v.getDose(), v.getRoute(), days, v.getBoosterInterval(), v.getAvailable(), v.getVersion(),
-            schedules, records, schedules + records, incomplete);
+            schedules, records, vaccineReferences(v.getFarm().getId(), v.getId()), incomplete);
     }
     private CareDtos.CatalogueItem view(Medicine m) {
-        long records = treatments(m.getId());
+        long records = treatments(m.getFarm().getId(), m.getId());
         return new CareDtos.CatalogueItem(m.getId(), m.getCode(), m.getName(), m.getDescription(), null, null, m.getDose(), m.getRoute(), m.getWithdrawalDays(), null, m.getAvailable(), m.getVersion(),
             0L, records, records, false);
     }

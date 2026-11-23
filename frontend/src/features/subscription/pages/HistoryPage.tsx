@@ -1,18 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization/sessionContext'
-import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, PaymentBadge, useIsPhone } from '../components/shared'
-import { useFarmScope } from '../components/useFarmScope'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, PANEL_SURFACE, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useSession } from '../../../app/session/sessionContext'
+import { Facts, PaymentBadge, paymentLabel, useIsPhone } from '../components/shared'
+import { useFarmScope } from '../hooks/useFarmScope'
+import { useSubscriptionUseCase } from '../hooks/useSubscriptionUseCase'
 import { fmtDateTime, fmtDateTimeSec, fmtPeriod, fmtVnd, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Payment, PaymentFilters, PaymentState } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Lịch sử thanh toán'
 type SortKey = NonNullable<PaymentFilters['sort']>
@@ -20,8 +17,6 @@ const DEFAULT_FILTERS: Required<PaymentFilters> = { q: '', state: '', from: '', 
 /** One request after the Owner pauses typing instead of one per keystroke. */
 const SEARCH_DELAY_MS = 300
 const invalidRange = (filters: PaymentFilters) => !!(filters.from && filters.to && filters.from > filters.to)
-const paymentRouteId = (payment: Payment) => backendMode === 'backend' ? String(payment.id) : payment.quoteRef
-
 function savedFilters(key: string): Required<PaymentFilters> {
   try {
     const value = JSON.parse(sessionStorage.getItem(key) ?? 'null')
@@ -39,7 +34,7 @@ function savedFilters(key: string): Required<PaymentFilters> {
 
 function SortHead({ label, active, dir, onClick }: { label: string; active: boolean; dir: 'asc' | 'desc'; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
+    <button type="button" onClick={onClick} className="inline-flex min-h-6 cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
       {label}
       {active && <Icon name="chevron-down" size={12} className={dir === 'asc' ? 'rotate-180' : ''} />}
     </button>
@@ -56,10 +51,10 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
     heading.current?.focus({ preventScroll: true })
   }, [payment.id])
   return (
-    <section ref={panel} aria-label="Chi tiết thanh toán" className="rounded-md border border-edge bg-white p-5">
+    <section ref={panel} aria-label="Chi tiết thanh toán" className={`w-full max-w-[720px] self-center ${PANEL_SURFACE.default}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 ref={heading} tabIndex={-1} className="m-0 text-base font-semibold outline-none">Chi tiết thanh toán</h2><span className="inline-flex items-center gap-2">{payment.quoteRef} <PaymentBadge state={payment.state} /></span></div>
-        <Button onClick={onClose}>Đóng</Button>
+        <Button size="bento" onClick={onClose}>Đóng</Button>
       </div>
       <Facts items={[
         ['Trang trại', farmName],
@@ -80,7 +75,7 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
 export default function HistoryPage() {
   const { farmId, to } = useFarmScope()
   const session = useSession()
-  const storageKey = `beefcare:subscription-history:${backendMode}:${session?.email ?? ''}:${farmId}`
+  const storageKey = `beefcare:subscription-history:${session?.email ?? ''}:${farmId}`
   return <FarmHistory key={storageKey} farmId={farmId} to={to} storageKey={storageKey} />
 }
 
@@ -114,10 +109,8 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
     setFilters((previous) => ({ ...previous, page: value }))
     setApplied((previous) => ({ ...previous, page: value }))
   }
-  const list = useQuery(() => subscriptionApi.listPayments(farmId, query),
-    [farmId, query.q, query.state, query.from, query.to, query.sort, query.dir, query.page])
+  const { list, detail, paymentRouteId } = useSubscriptionUseCase({ farmId, paymentId: id, query })
   const overview = useOverview(farmId)
-  const detail = useQuery(() => (id ? subscriptionApi.getPayment(farmId, id) : Promise.resolve(null)), [farmId, id])
   const open = detail.data && paymentRouteId(detail.data) === id ? detail.data : null
   const backToList = () => navigate(to('/goi-dich-vu/lich-su'))
   const farmName = overview.data?.farmId === farmId ? overview.data.farmName : ''
@@ -134,33 +127,35 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
-        <PageHeader title={TITLE} sub={farmName}><Button disabled={list.loading} onClick={() => { list.refetch(); if (id) detail.refetch(); overview.refetch() }}>Làm mới</Button></PageHeader>
-        <div className={`flex flex-wrap items-center gap-2.5${rangeError ? ' pb-5' : ''}`}>
-          <div className="w-full sm:w-[220px]"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" maxLength={100} value={q} onChange={(e) => change({ q: e.target.value })} /></div>
-          <div className="w-full sm:w-[170px]">
-            <FilterSelect aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
+        <PageHeader title={TITLE} sub={farmName}><Button size="bento" disabled={list.loading} onClick={() => { list.refetch(); if (id) detail.refetch(); overview.refetch() }}>Làm mới</Button></PageHeader>
+        <div className="grid min-w-0 gap-3 @min-[640px]:grid-cols-2 @min-[880px]:grid-cols-4">
+          <div className="min-w-0"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" maxLength={100} value={q} onChange={(e) => change({ q: e.target.value })} /></div>
+          <div className="min-w-0">
+            <FilterSelect size="lg" className="w-full min-w-0" aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
               <option value="">Trạng thái: Tất cả</option>
-              <option value="PENDING">Đang chờ</option>
-              <option value="PAID">Đã thanh toán</option>
-              <option value="EXPIRED">Đã hết hạn</option>
-              <option value="CANCELLED">Đã hủy</option>
+              {(['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'] as const).map((s) => <option key={s} value={s}>{paymentLabel(s)}</option>)}
             </FilterSelect>
           </div>
-          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[150px]"><DateInput id="from" value={from} onChange={(value) => change({ from: value })} /></div></div>
-          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo đến <div className="relative w-[150px]"><DateInput id="until" value={until} onChange={(value) => change({ to: value })} />
-            {rangeError && <p role="alert" className="absolute left-0 top-full m-0 mt-1 w-max text-[12px] text-err-fg">Ngày bắt đầu không được sau ngày kết thúc.</p>}
-          </div></div>
+          <div className="flex min-w-0 items-center gap-2 text-[13px] text-label">
+            <label htmlFor="from" className="shrink-0">Tạo từ</label>
+            <DateInput id="from" className="min-w-0 flex-1 rounded-xl focus-within:ring-2 focus-within:ring-brand" value={from} onChange={(value) => change({ from: value })} />
+          </div>
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-[13px] text-label">
+            <label htmlFor="until" className="self-center">Tạo đến</label>
+            <DateInput id="until" className="min-w-0 rounded-xl focus-within:ring-2 focus-within:ring-brand" value={until} onChange={(value) => change({ to: value })} />
+            {rangeError && <p role="alert" className="col-span-full m-0 text-xs text-err-fg">Ngày bắt đầu không được sau ngày kết thúc.</p>}
+          </div>
         </div>
-        {!!overview.error && <ErrorBlock message={userFacingError(overview.error, 'Không tải được thông tin trại.')} onRetry={overview.refetch} />}
-        {id && detail.loading && !open && <LoadingBlock />}
-        {id && !!detail.error && <ErrorBlock message={userFacingError(detail.error, 'Không tìm thấy thanh toán.')} onRetry={detail.refetch} />}
+        {!!overview.error && <ErrorBlock variant="panel" message={userFacingError(overview.error, 'Không tải được thông tin trại.')} onRetry={overview.refetch} />}
+        {id && detail.loading && !open && <LoadingBlock variant="panel" />}
+        {id && !!detail.error && <ErrorBlock variant="panel" message={userFacingError(detail.error, 'Không tìm thấy thanh toán.')} onRetry={detail.refetch} />}
         {list.loading && !shown ? (
-          <LoadingBlock />
+          <LoadingBlock variant="panel" />
         ) : list.error ? (
-          <ErrorBlock message={userFacingError(list.error, 'Không tải được lịch sử thanh toán.')} onRetry={list.refetch} />
+          <ErrorBlock variant="panel" message={userFacingError(list.error, 'Không tải được lịch sử thanh toán.')} onRetry={list.refetch} />
         ) : (
           <div aria-busy={list.loading} className="flex flex-col gap-4">
-            <Table wide stack={phone} scroll={!phone}>
+            <Table variant="panel" wide stack={phone} scroll={!phone}>
               <thead>
                 <tr>
                   <Th className="whitespace-nowrap">Mã</Th><Th className="whitespace-nowrap">Thời hạn</Th><Th className="whitespace-nowrap">Số tiền</Th>
@@ -175,14 +170,15 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
                     <Td className="whitespace-nowrap font-medium">{p.quoteRef}</Td>
                     <Td className="whitespace-nowrap">{termLabel(p.durationYears)}</Td>
                     <Td className="whitespace-nowrap">{fmtVnd(p.amountVnd)}</Td>
-                    <Td className="whitespace-nowrap">{fmtDateTime(p.requestedAt)}</Td>
-                    <Td className="whitespace-nowrap">{fmtDateTime(p.expiresAt)}</Td>
+                    {/* Date and time may wrap onto two lines when the table is tight (laptop 1024), instead of scrolling. */}
+                    <Td>{fmtDateTime(p.requestedAt)}</Td>
+                    <Td>{fmtDateTime(p.expiresAt)}</Td>
                     <Td className="whitespace-nowrap"><PaymentBadge state={p.state} /></Td>
                     <Td>{p.confirmedAt && p.purchasedStart && p.purchasedEnd ? `${fmtDateTime(p.confirmedAt)} · ${fmtPeriod(p.purchasedStart, p.purchasedEnd)}` : '—'}</Td>
                     <Td>
                       {p.state === 'PENDING'
-                        ? <Button variant="link" size="sm" onClick={() => navigate(to(`/goi-dich-vu/chuyen-khoan/${paymentRouteId(p)}`, { from: 'lich-su' }))}>Mở lại</Button>
-                        : <Button variant="link" size="sm" aria-label={`Xem ${p.quoteRef}`} onClick={() => navigate(to(`/goi-dich-vu/lich-su/${paymentRouteId(p)}`))}>Xem</Button>}
+                        ? <Button variant="link" size="sm" className="min-h-11 @min-[640px]:min-h-8" onClick={() => navigate(to(`/goi-dich-vu/chuyen-khoan/${paymentRouteId(p)}`, { from: 'lich-su' }))}>Mở lại</Button>
+                        : <Button variant="link" size="sm" className="min-h-11 @min-[640px]:min-h-8" aria-label={`Xem ${p.quoteRef}`} onClick={() => navigate(to(`/goi-dich-vu/lich-su/${paymentRouteId(p)}`))}>Xem</Button>}
                     </Td>
                   </tr>
                 ))}
@@ -193,8 +189,8 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
               summary={`Hiển thị ${shown.number * 20 + 1}–${shown.number * 20 + rows.length} trong ${shown.totalElements} thanh toán`} />}
             {rows.length === 0 && (
               filtered
-                ? <EmptyBlock title="Không có thanh toán phù hợp" sub="Thử đổi từ khóa, trạng thái hoặc khoảng ngày." action={<Button onClick={clear}>Xóa bộ lọc</Button>} />
-                : <EmptyBlock title="Chưa có thanh toán nào" action={<Button onClick={() => navigate(to('/goi-dich-vu'))}>Xem gói của trại</Button>} />
+                ? <EmptyBlock variant="panel" title="Không có thanh toán phù hợp" sub="Thử đổi từ khóa, trạng thái hoặc khoảng ngày." action={<Button size="bento" onClick={clear}>Xóa bộ lọc</Button>} />
+                : <EmptyBlock variant="panel" title="Chưa có thanh toán nào" action={<Button size="bento" onClick={() => navigate(to('/goi-dich-vu'))}>Xem gói của trại</Button>} />
             )}
           </div>
         )}

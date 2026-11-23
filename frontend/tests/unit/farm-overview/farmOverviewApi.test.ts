@@ -213,6 +213,22 @@ describe('backend mode', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
+  it('maps attention rows that the backend sends without a type (draft calf A02, pending death exit A03, finishing reached A04)', async () => {
+    // Đúng hình dạng FarmDashboardService trả về: ba loại dòng này không có trường "type".
+    const attention = [
+      { calfOutcomeId: 3802, damId: 2719, damCode: 'BC-000019', birthTime: '2026-11-01T21:10:00Z', highlighted: true },
+      { voucherId: 3951, code: 'PX-2026-0001', exitDate: '2026-11-19', highlighted: false },
+      { cattleId: 5, displayCode: 'BC-000005', pen: 'A1', latestWeightKg: 455, targetKg: 450 },
+    ]
+    const { api } = backend({ '/context': contextBody, '/pens': penBody, '/dashboard?': { ...dashboardBody, attention } })
+    const view = await api.getDashboard({ period: '30' }, owner)
+    expect(view.attention.map((a) => [a.kind, a.code, a.issue])).toEqual([
+      ['A02', 'BC-000019', 'Bê nháp chờ xác nhận'],
+      ['A03', 'PX-2026-0001', 'Phiếu chết chờ duyệt'],
+      ['A04', 'BC-000005', 'Đạt cân xuất chuồng · 455 / 450 kg'],
+    ])
+  })
+
   it('marks a filtered zero-result dashboard empty without replacing the farm-wide header count', async () => {
     const noMatches = {
       ...dashboardBody,
@@ -320,6 +336,32 @@ describe('backend mode', () => {
     expect(technicianList.items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15&readOnly=1')
     // D41: REM-11 goes to the Owner too, who records feeding like a Manager.
     expect((await api.listReminders('OWNER')).items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15')
+  })
+
+  it('builds the Technician home (SCR-74) from the reminder list: six reminders, REM-11 counted as unrecorded meals', async () => {
+    const row = (id: number, ruleType: string, urgency: string, dueTime: string) =>
+      ({ id, ruleType, sourceRecord: `R:${id}`, dueTime, lifecycleStatus: 'ACTIVE', urgency, highlighted: false })
+    const store = createFarmOverviewDemoStore()
+    const demoHome = vi.spyOn(store, 'getTechnicianHome')
+    const get = vi.fn(async (path: string) => path.endsWith('/reminders') ? [
+      row(1, 'REM-01', 'UPCOMING', '2026-11-18T01:00:00Z'),
+      row(2, 'REM-11', 'TODAY', '2026-11-15T03:00:00Z'),
+      row(3, 'REM-06', 'OVERDUE', '2026-11-13T01:00:00Z'),
+      row(4, 'REM-11', 'OVERDUE', '2026-11-14T10:00:00Z'),
+      row(5, 'REM-03', 'TODAY', '2026-11-15T01:00:00Z'),
+      row(6, 'REM-05', 'UPCOMING', '2026-11-20T01:00:00Z'),
+      row(7, 'REM-02', 'UPCOMING', '2026-11-16T01:00:00Z'),
+      row(8, 'REM-11', 'UPCOMING', '2026-11-19T01:00:00Z'),
+    ] : contextBody)
+    const api = createFarmOverviewApi({ mode: 'backend', farmId: 1, transport: { get, command: vi.fn(), farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}` }, store })
+
+    const home = await api.getTechnicianHome()
+
+    expect(home.today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(home.reminders.map((item) => item.id)).toEqual([3, 4, 5, 2, 7, 1])
+    expect(home.unrecordedFeedings).toBe(3)
+    expect(get.mock.calls.map(([path]) => path).filter((path) => !path.endsWith('/context'))).toEqual(['/api/farms/1/reminders'])
+    expect(demoHome).not.toHaveBeenCalled()
   })
 
   it('keeps source links closed when target details or the source identity do not match', async () => {
@@ -437,10 +479,36 @@ describe('backend mode', () => {
     })
   })
 
+  it('names entry sources and exit types instead of showing backend enum codes (RPT-01)', async () => {
+    const report = {
+      reportType: 'RPT-01', from: '2026-10-22', to: '2026-11-20', generatedAt: '2026-11-20T13:17:00Z',
+      summary: { headAtEnd: 2, entriesBySource: { EXTERNAL: 1, FARM_BORN: 2 }, exitsByType: { SALE: 1, CULL: 1, DEATH: 1, OTHER: 1 } },
+      rows: [{ dimension: 'entrySource', value: 'EXTERNAL', count: 1 }], totalRow: null, chart: null, unavailableData: [],
+      sections: [{
+        key: 'entrySource', title: 'Nhập đàn theo nguồn', rowHeading: 'Nguồn nhập',
+        rows: [{ label: 'EXTERNAL', count: 1 }, { label: 'FARM_BORN', count: 2 }],
+        totalRow: { label: 'Tổng (lượt)', cells: { count: 3 } },
+      }],
+    }
+    const { api } = backend(
+      { '/context': contextBody, '/pens': penBody, '/catalogues/breeds': [] },
+      { '/dashboard/reports': report },
+    )
+
+    const view = await api.runReport({ ...rpt05, reportType: 'RPT-01' }, 'OWNER')
+
+    expect(view.tiles.map((tile) => tile.label)).toEqual([
+      'Số bò cuối kỳ', 'Nhập đàn theo nguồn · Mua ngoài', 'Nhập đàn theo nguồn · Bê sinh tại trại',
+      'Xuất đàn theo loại · Bán', 'Xuất đàn theo loại · Loại thải', 'Xuất đàn theo loại · Chết / mất', 'Xuất đàn theo loại · Khác',
+    ])
+    expect(view.sections?.[0].rows.map((row) => row.label)).toEqual(['Mua ngoài', 'Bê sinh tại trại'])
+    expect(view.rows[0].label).toBe('Nguồn nhập đàn: Mua ngoài')
+  })
+
   it('maps the RPT-05 tracked female status tile and breakdown section', async () => {
     const report = {
       reportType: 'RPT-05', from: '2026-10-01', to: '2026-10-28', generatedAt: '2026-11-16T04:00:00Z',
-      summary: { trackedFemales: 3 }, rows: [], totalRow: null, chart: null, unavailableData: [],
+      summary: { trackedFemales: 3, overdueFemales: { count: 0, items: [] } }, rows: [], totalRow: null, chart: null, unavailableData: [],
       sections: [{
         key: 'trackedFemalesByStatus', title: 'Bò cái theo dõi theo trạng thái sinh sản', rowHeading: 'Trạng thái sinh sản',
         rows: [
@@ -458,6 +526,8 @@ describe('backend mode', () => {
     const view = await api.runReport(rpt05, 'OWNER')
 
     expect(view.tiles).toContainEqual({ label: 'Bò cái theo dõi', value: '3', note: '' })
+    // The overdue list itself is detail, not an indicator: only its count becomes a tile.
+    expect(view.tiles.map((tile) => tile.label)).toEqual(['Bò cái theo dõi', 'Cái quá hạn thụ thai · Số con'])
     expect(view.sections?.[0]).toMatchObject({
       key: 'trackedFemalesByStatus', rowHeading: 'Trạng thái sinh sản',
       columns: [{ key: 'count', label: 'Số con' }],

@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import MembersPage from '../../../src/features/farm-workspace/pages/MembersPage'
 import InvitationsPage from '../../../src/features/farm-workspace/pages/InvitationsPage'
 
@@ -27,7 +27,7 @@ const open = (path = '/loi-moi') => render(
 async function fill(email: string) {
   const user = userEvent.setup()
   const dialog = await screen.findByRole('dialog', { name: 'Mời thành viên' })
-  await user.type(within(dialog).getByLabelText('Thư điện tử người nhận *'), email)
+  await user.type(within(dialog).getByLabelText('Email người nhận *'), email)
   await user.click(within(dialog).getByRole('button', { name: 'Kỹ thuật viên' }))
   await user.click(within(dialog).getByRole('button', { name: 'Gửi lời mời' }))
   return { user, dialog }
@@ -84,7 +84,7 @@ describe('UC-FE03-01 / D25', () => {
     await user.click(await within(dialog).findByRole('button', { name: 'Kích hoạt lại' }))
     const reactivate = await screen.findByRole('dialog', { name: 'Kích hoạt lại thành viên' })
     expect(api.changeMember).not.toHaveBeenCalled()
-    expect(within(reactivate).getByLabelText('Thành viên')).toHaveValue('Thành viên đã ngưng · inactive@example.test · Quản lý · Đã ngưng')
+    expect(within(reactivate).getByLabelText('Thành viên')).toHaveTextContent('Thành viên đã ngưng · inactive@example.test · Quản lý · Đã ngưng')
     await user.click(within(reactivate).getByRole('button', { name: 'Lưu thay đổi' }))
     expect(await within(reactivate).findByText('Lý do là bắt buộc.')).toBeInTheDocument()
     await user.type(within(reactivate).getByLabelText('Lý do * (5–500 ký tự)'), 'Tiếp tục công việc')
@@ -103,8 +103,9 @@ describe('UC-FE03-01 / D25', () => {
     const send = within(dialog).getByRole('button', { name: 'Gửi lời mời' })
     expect(send).toBeEnabled()
     await user.click(send)
-    const email = within(dialog).getByLabelText('Thư điện tử người nhận *')
-    expect(email.parentElement).toContainElement(within(dialog).getByText('Thư điện tử người nhận là bắt buộc.'))
+    const email = within(dialog).getByLabelText('Email người nhận *')
+    expect(email.parentElement).toContainElement(within(dialog).getByText('Email người nhận là bắt buộc.'))
+    expect(email).toHaveAttribute('aria-invalid', 'true')
     expect(within(dialog).getByText('Vai trò là bắt buộc.')).toBeInTheDocument()
     await user.type(email, 'abc')
     await user.click(within(dialog).getByRole('button', { name: 'Quản lý' }))
@@ -119,8 +120,8 @@ describe('UC-FE03-01 / D25', () => {
     open()
     const { dialog } = await fill('active@example.test')
     const error = await within(dialog).findByText('Email này đã là thành viên đang hoạt động.')
-    expect(within(dialog).getByLabelText('Thư điện tử người nhận *').parentElement).toContainElement(error)
-    expect(within(dialog).getByLabelText('Thư điện tử người nhận *')).toHaveValue('active@example.test')
+    expect(within(dialog).getByLabelText('Email người nhận *').parentElement).toContainElement(error)
+    expect(within(dialog).getByLabelText('Email người nhận *')).toHaveValue('active@example.test')
   })
 
   it('reuses the intent key after a failed request and changes it when the input changes', async () => {
@@ -139,12 +140,13 @@ describe('UC-FE03-01 / D25', () => {
     open()
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog', { name: 'Mời thành viên' })
-    await user.type(within(dialog).getByLabelText('Thư điện tử người nhận *'), 'new@example.test')
+    await user.type(within(dialog).getByLabelText('Email người nhận *'), 'new@example.test')
     await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
+    expect(within(dialog).getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument() // MSG-COM-14
     await user.click(await within(dialog).findByRole('button', { name: 'Tiếp tục nhập' }))
-    expect(within(dialog).getByLabelText('Thư điện tử người nhận *')).toHaveValue('new@example.test')
+    expect(within(dialog).getByLabelText('Email người nhận *')).toHaveValue('new@example.test')
     await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
-    await user.click(await within(dialog).findByRole('button', { name: 'Hủy thay đổi' }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Bỏ' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(api.inviteMember).not.toHaveBeenCalled()
   })

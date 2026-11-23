@@ -1,13 +1,14 @@
 package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +17,15 @@ import vn.edu.fpt.beefcare.domain.CalfOutcome;
 import vn.edu.fpt.beefcare.domain.CalvingEvent;
 import vn.edu.fpt.beefcare.domain.Cattle;
 import vn.edu.fpt.beefcare.domain.CattleQrTag;
+import vn.edu.fpt.beefcare.domain.ProductionPurpose;
 import vn.edu.fpt.beefcare.domain.Reminder;
+import vn.edu.fpt.beefcare.domain.PregnancyEpisode;
+import vn.edu.fpt.beefcare.domain.ReproductionEvent;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryType;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryVoucherStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.HerdStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
+import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
 import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 import vn.edu.fpt.beefcare.service.dto.EntryActionRequests;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
@@ -79,6 +84,15 @@ class FarmBornEntryTest extends HerdEntryTestBase {
             null, null, null, null, null, null, null, null, null, null, purposeId, null, null, penId, null,
             null, null, null, null, null, calf.getId(), damId, sireId, null
         );
+    }
+
+    private ProductionPurpose purposeFor(PurposeType type) {
+        return switch (type) {
+            case SIRE -> sire;
+            case BREEDING -> breeding;
+            case FATTENING -> fattening;
+            case UNDECIDED -> undecided;
+        };
     }
 
     private static DomainException thrown(Runnable r) {
@@ -152,22 +166,59 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(count("Cattle")).isEqualTo(2);
     }
 
-    @Test
-    void postingFarmBornVoucherPersistsSelectedDamAndSireOnTheCreatedCattle() {
-        Cattle selectedDam = dam;
-        Cattle selectedSire = cattle(farm, breed, breeding, Sex.MALE, LifeStage.ADULT);
+    // D55 retires parent selection; both legacy assignments and request overrides must lose to the source.
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "INTERNAL", "AI", "NONE" })
+    void pendingAndPostedCalfUseCalvingParentageDespiteLegacyAssignmentsAndPayload(String source) {
+        Cattle wrongDam = cattle(farm, breed, breeding, Sex.FEMALE, LifeStage.ADULT);
+        Cattle wrongSire = cattle(farm, breed, sire, Sex.MALE, LifeStage.ADULT);
+        Cattle sourceSire = cattle(farm, breed, sire, Sex.MALE, LifeStage.ADULT);
         CalfOutcome calf = calf("LIVE", "FEMALE", "QR-CALF-PARENTS");
+        if (!"NONE".equals(source)) {
+            ReproductionEvent event = new ReproductionEvent();
+            event.setCattle(dam); event.setType("BREEDING"); event.setResult("RECORDED");
+            event.setEventTime(TODAY.minusDays(280).atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());
+            event.setUpdatedAt(event.getEventTime()); event.setSireSource(source);
+            event.setSire("INTERNAL".equals(source) ? sourceSire : null);
+            event.setSemenBatch("AI".equals(source) ? "SOURCE-SEMEN" : null);
+            save(event);
+            PregnancyEpisode episode = new PregnancyEpisode();
+            episode.setCattle(dam); episode.setParity(1); episode.setStatus("CALVED"); episode.setLinkedBreeding(event); save(episode);
+            calf.getCalving().setEpisode(episode); save(calf.getCalving());
+        }
+        calf.setAssignedDam(wrongDam); calf.setAssignedSire(wrongSire);
+        calf.setAssignedSireSource("AI"); calf.setAssignedExternalSireCode("RETIRED-SEMEN"); save(calf);
+        EntryDtos.PendingCalf pending = calves.pending(farm.getId()).get(0);
+        assertThat(pending.damId()).isEqualTo(dam.getId());
+        assertThat(pending.sireId()).isEqualTo("INTERNAL".equals(source) ? sourceSire.getId() : null);
+        assertThat(pending.sireCode()).isEqualTo("INTERNAL".equals(source) ? sourceSire.getDisplayCode() : "AI".equals(source) ? "SOURCE-SEMEN" : "Không rõ");
 
-        EntryDtos.Voucher draft = vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), null, selectedDam.getId(), selectedSire.getId())));
+        EntryLineRequest attemptedOverride = new EntryLineRequest(null, null, null, null, null, Sex.MALE, TODAY, null, null, null,
+            null, new BigDecimal("70"), null, penA.getId(), null, null, null, null, null, null,
+            calf.getId(), wrongDam.getId(), wrongSire.getId(), "PAYLOAD-SEMEN");
+        EntryDtos.Voucher draft = vouchers.create(farm.getId(), farmBorn(attemptedOverride));
         EntryDtos.PostResult result = postDraft(farm.getId(), draft.id());
-
+        em.flush(); em.clear();
         Cattle created = em.find(Cattle.class, result.voucher().lines().get(0).cattleId());
-        assertThat(created.getDam()).isNotNull();
-        assertThat(created.getDam().getId()).isEqualTo(selectedDam.getId());
-        assertThat(created.getSire()).isNotNull();
-        assertThat(created.getSire().getId()).isEqualTo(selectedSire.getId());
-        assertThat(result.voucher().lines().get(0).damId()).isEqualTo(selectedDam.getId());
-        assertThat(result.voucher().lines().get(0).sireId()).isEqualTo(selectedSire.getId());
+        assertThat(created.getDam().getId()).isEqualTo(dam.getId());
+        assertThat(created.getSire() == null ? null : created.getSire().getId()).isEqualTo("INTERNAL".equals(source) ? sourceSire.getId() : null);
+        assertThat(created.getExternalSireCode()).isEqualTo("AI".equals(source) ? "SOURCE-SEMEN" : null);
+        assertThat(created.getSex()).isEqualTo(Sex.FEMALE);
+        assertThat(created.getBirthDate()).isEqualTo(TODAY.minusDays(2));
+        assertThat(result.voucher().lines().get(0).entryWeightKg()).isEqualByComparingTo("32.50");
+        assertThat(em.find(CalfOutcome.class, calf.getId()).getAssignedDam().getId()).isEqualTo(wrongDam.getId());
+        assertThat(em.find(CalfOutcome.class, calf.getId()).getAssignedExternalSireCode()).isEqualTo("RETIRED-SEMEN");
+    }
+
+    @Test
+    void farmBornRequiresACalvingOutcomeEvenWhenAllIdentityFactsAreSupplied() {
+        EntryLineRequest direct = new EntryLineRequest(null, null, null, null, breed.getId(), Sex.FEMALE, TODAY,
+            null, null, LifeStage.UNWEANED_CALF, undecided.getId(), new BigDecimal("30"), null, penA.getId(), null,
+            null, null, null, null, null, null, dam.getId(), null, null);
+        DomainException error = thrown(() -> vouchers.create(farm.getId(), farmBorn(direct)));
+        assertThat(error.getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(error.getParams()).containsEntry("field", "calfOutcomeId");
+        assertThat(count("Cattle")).isEqualTo(1);
     }
 
     @Test
@@ -185,12 +236,49 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(em.find(CalfOutcome.class, live.getId()).getRegistrationState()).isEqualTo("PENDING_CONFIRMATION");
     }
 
-    @Test
-    void purposeIsIndependentFromTheCalfsSex() {
-        CalfOutcome heifer = calf("LIVE", "FEMALE", null);
-        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).doesNotThrowAnyException();
-        CalfOutcome bull = calf("LIVE", "MALE", null);
-        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).doesNotThrowAnyException();
+    /** GBR-25 / R-05-04 also apply when a farm-born calf is registered (SCR-25 #9). */
+    @ParameterizedTest(name = "{0} calf can be registered with {1}")
+    @CsvSource({
+        "FEMALE, BREEDING",
+        "MALE, SIRE",
+        "FEMALE, FATTENING",
+        "MALE, FATTENING",
+        "FEMALE, UNDECIDED",
+        "MALE, UNDECIDED",
+    })
+    void postingFarmBornVoucherPersistsAPurposeCompatibleWithTheCalfsSex(Sex sex, PurposeType purposeType) {
+        CalfOutcome calf = calf("LIVE", sex.name(), null);
+        ProductionPurpose purpose = purposeFor(purposeType);
+        EntryDtos.Voucher draft = vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), purpose.getId())));
+
+        EntryDtos.PostResult posted = postDraft(farm.getId(), draft.id());
+        Long cattleId = posted.voucher().lines().get(0).cattleId();
+        em.flush();
+        em.clear();
+
+        Cattle created = em.find(Cattle.class, cattleId);
+        assertThat(created.getSex()).isEqualTo(sex);
+        assertThat(created.getPurpose().getId()).isEqualTo(purpose.getId());
+        assertThat(created.getPurpose().getPurposeType()).isEqualTo(purposeType);
+        CalfOutcome registered = em.find(CalfOutcome.class, calf.getId());
+        assertThat(registered.getRegistrationState()).isEqualTo("REGISTERED");
+        assertThat(registered.getRegisteredCattle().getId()).isEqualTo(cattleId);
+    }
+
+    @ParameterizedTest(name = "{0} calf rejects {1}")
+    @CsvSource({ "FEMALE, SIRE", "MALE, BREEDING" })
+    void farmBornVoucherRejectsAPurposeIncompatibleWithTheCalfsSex(Sex sex, PurposeType purposeType) {
+        CalfOutcome calf = calf("LIVE", sex.name(), null);
+        ProductionPurpose purpose = purposeFor(purposeType);
+
+        DomainException error = thrown(() -> vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), purpose.getId()))));
+
+        assertThat(error.getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThat(error.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(error.getParams()).containsEntry("purpose_type", purposeType).containsEntry("sex", sex);
+        assertThat(em.find(CalfOutcome.class, calf.getId()).getRegistrationState()).isEqualTo("PENDING_CONFIRMATION");
+        assertThat(count("Cattle")).isEqualTo(1); // only the dam; the rejected calf is not registered
+        assertThat(countOpenAssignments(penA)).isZero();
     }
 
     @Test
@@ -222,6 +310,9 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(thrown(() -> calves.diedBeforeRegistration(farm.getId(), calf.getId(), " ")).getCode()).isEqualTo(MessageCodes.COM_06);
         EntryDtos.PendingCalf result = calves.diedBeforeRegistration(farm.getId(), calf.getId(), "Died the next morning");
         assertThat(result.registrationState()).isEqualTo("DIED_BEFORE_REGISTRATION");
+        assertThat(em.find(CalfOutcome.class, calf.getId()).getOutcome()).isEqualTo("LIVE");
+        assertThat(count("Cattle")).isEqualTo(1);
+        assertThat(count("HerdExitVoucher")).isZero();
         assertThat(em.find(CalfOutcome.class, calf.getId()).getDiedReason()).isEqualTo("Died the next morning");
         assertThat(em.createQuery("select r from Reminder r where r.ruleType = 'REM-09'", Reminder.class).getSingleResult().getStatus()).isEqualTo("RESOLVED");
         assertThat(calves.pending(farm.getId())).isEmpty();

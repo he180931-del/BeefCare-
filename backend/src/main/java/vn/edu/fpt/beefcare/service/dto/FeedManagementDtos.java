@@ -105,9 +105,20 @@ public final class FeedManagementDtos {
         java.time.Instant dueTime,String status) {}
     public record ConsumptionRow(Long penId,String penCode,String herdGroup,Long feedItemId,String feedCode,
         BigDecimal plannedKg,BigDecimal actualKg,BigDecimal varianceRatio,Long totalCost) {}
-    public record ConsumptionReport(LocalDate from,LocalDate to,List<ConsumptionRow> rows,BigDecimal adjustmentLossKg,
+    public record ConsumptionReportTile(BigDecimal kg,Long cost,BigDecimal averageKgPerHeadDay,Long averageCostPerHeadDay,
+        BigDecimal days,BigDecimal headDays,BigDecimal receivedKg,Long receiptCount,Long receivedAmount) {}
+    public record ConsumptionReportGroupedRow(String group,BigDecimal avgHead,BigDecimal kg,BigDecimal kgPerHeadDay,
+        Long cost,Long costPerHeadDay,BigDecimal variancePct,List<String> notes) {}
+    public record ConsumptionReportTotal(BigDecimal kg,Long cost,BigDecimal kgPerHeadDay,Long costPerHeadDay,
+        BigDecimal days,BigDecimal headDays) {}
+    public record ConsumptionReportCostByFeed(String feedCode,String feedName,BigDecimal kg,Long cost) {}
+    public record ConsumptionReportAdjustmentLosses(BigDecimal kg,Long value) {}
+    public record ConsumptionReport(LocalDate from,LocalDate to,String groupBy,ConsumptionReportTile tiles,
+        List<ConsumptionReportGroupedRow> rows,ConsumptionReportTotal total,List<ConsumptionReportCostByFeed> costByFeed,
+        ConsumptionReportAdjustmentLosses adjustmentLosses,List<ConsumptionRow> rawRows,BigDecimal adjustmentLossKg,
         Long adjustmentLossValue,java.time.Instant generatedAt) {}
-    public record ConsumptionReportRequest(@NotNull LocalDate from,@NotNull LocalDate to) {}
+    public record ConsumptionReportRequest(@NotNull LocalDate from,@NotNull LocalDate to,
+        @NotBlank @Pattern(regexp="HERD_GROUP|PEN|FEED") String groupBy) {}
     public record FeedItemRequest(@NotBlank @Size(max=50) @Pattern(regexp="TA-[0-9]{2,}") String code,@NotBlank @Size(max=150) String name,
         @NotBlank @Pattern(regexp="GREEN_ROUGHAGE|DRY_ROUGHAGE|CONCENTRATE|TMR|MINERAL_ADDITIVE|CALF_FEED") String feedGroup,@Size(max=30) String purchaseUnit,
         @DecimalMin(value="0.001") BigDecimal kgPerPurchaseUnit,@DecimalMin("0.0") BigDecimal minimumStockKg,

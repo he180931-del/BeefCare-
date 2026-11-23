@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card, DateInput, Note, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Button, Card, DateInput, inputCls, Note, Table, Td, Th } from '../../../shared/ui'
 import { LOOKUP_MAX_DAYS, platformReconciliationApi as api, reconciliationError, type LookupPage } from '../api/platformReconciliationApi'
 import { addDays, fmtSeconds, fmtVnd } from '../domain/dates'
 

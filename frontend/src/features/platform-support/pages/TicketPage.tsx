@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, inputCls, smInputCls } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { supportApi } from '../api/supportApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, inputCls, LoadingBlock, Note, PageHeader, Pagination, Segmented, smInputCls } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Avatar, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
 import { ClosedDialog, CloseDialog, CreateInternalDialog, HandOverDialog, ReassignDialog } from '../components/TicketDialogs'
 import { CATEGORY_LABEL, PRIORITY_LABEL, STATUS_LABEL, SupportError, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
 import type { InternalView, Ticket, TicketCategory, TicketMessage, TicketPriority } from '../types'
+import { useSupportCommands, useSupportTicket } from '../hooks/usePlatformSupportUseCase'
 
 type ConvTab = 'public' | 'internal' | 'history'
 const HISTORY_PAGE_SIZE = 50
@@ -29,7 +27,8 @@ export default function TicketPage() {
   const [replyError, setReplyError] = useState<string | null>(null)
   const [replySending, setReplySending] = useState(false)
   const replySendingRef = useRef(false)
-  const { data: t, loading, error, refetch, setData: setTicket } = useQuery(() => supportApi.getTicket(me, id), [id, me])
+  const { data: t, loading, error, refetch, setData: setTicket } = useSupportTicket(me, id)
+  const { claim: claimCommand, classify: classifyCommand, reply: replyCommand, getMessages } = useSupportCommands()
   const [loadedMessages, setLoadedMessages] = useState<TicketMessage[]>([])
   const [messagesBeforeId, setMessagesBeforeId] = useState<number | null>(null)
   const [messagesHasMore, setMessagesHasMore] = useState(false)
@@ -93,10 +92,10 @@ export default function TicketPage() {
   }
   const claim = async () => {
     if (unavailableOwner) return go('nhan-lai')
-    try { await supportApi.claim(me, t.code, { expectedVersion: t.version }); await refetch(); showFlash(`Bạn đang phụ trách ${t.code}.`) } catch (e) { showFlash(errText(e), 'err'); void refetch() }
+    try { await claimCommand(me, t.code, { expectedVersion: t.version }); await refetch(); showFlash(`Bạn đang phụ trách ${t.code}.`) } catch (e) { showFlash(errText(e), 'err'); void refetch() }
   }
   const classify = async (patch: { category?: TicketCategory; priority?: TicketPriority }) => {
-    try { await supportApi.classify(me, t.code, { ...patch, expectedVersion: t.version }); await refetch(); showFlash('Đã lưu thay đổi.') } catch (e) { showFlash(errText(e), 'err') }
+    try { await classifyCommand(me, t.code, { ...patch, expectedVersion: t.version }); await refetch(); showFlash('Đã lưu thay đổi.') } catch (e) { showFlash(errText(e), 'err') }
   }
   const sendReply = async () => {
     if (replySendingRef.current) return
@@ -105,14 +104,14 @@ export default function TicketPage() {
     replySendingRef.current = true
     setReplySending(true)
     try {
-      const updated = await supportApi.reply(me, t.code, { text: reply, expectedVersion: t.version })
+      const updated = await replyCommand(me, t.code, { text: reply, expectedVersion: t.version })
       setTicket(updated)
       setReply('')
       showFlash('Đã gửi trả lời.')
     } catch (e) {
       setReplyError(errText(e))
       if (e instanceof SupportError && e.code === 'CONFLICT') {
-        try { await refetch() } catch { /* Giữ lỗi gửi hiện tại; ErrorBlock sẽ hiển thị nếu tải lại cũng thất bại. */ }
+        await refetch() // Giữ lỗi gửi hiện tại; ErrorBlock hiển thị nếu tải lại cũng thất bại.
       }
     } finally {
       replySendingRef.current = false
@@ -137,7 +136,7 @@ export default function TicketPage() {
     setMessagesError('')
     const previousHeight = messagesViewport.current?.scrollHeight ?? 0
     try {
-      const page = await supportApi.getMessages(me, t.code, messagesBeforeId)
+      const page = await getMessages(me, t.code, messagesBeforeId)
       setLoadedMessages((current) => {
         const existing = new Set(current.map((message) => message.id))
         return [...page.items.filter((message) => !existing.has(message.id)), ...current]
@@ -280,31 +279,32 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
   onViewExisting: () => void
 }) {
   const v = t.version
+  const commands = useSupportCommands()
   const lastNote = [...t.messages].reverse().find((x) => x.visibility === 'INTERNAL')
   switch (modal) {
     case 'chuyen-giao':
-      return <HandOverDialog onClose={closeModal} onSubmit={(to, reason) => act(() => supportApi.handOver(me, t.code, { toCsId: to, reason, expectedVersion: v }), `${t.code} đã được chuyển giao.`)} />
+      return <HandOverDialog onClose={closeModal} onSubmit={(to, reason) => act(() => commands.handOver(me, t.code, { toCsId: to, reason, expectedVersion: v }), `${t.code} đã được chuyển giao.`)} />
     case 'yeu-cau-bo-sung':
       return <ReasonDialog title="Yêu cầu khách bổ sung thông tin" label="Nội dung gửi công khai *" max={3000} placeholder="Anh vui lòng gửi mã giao dịch và thời điểm ngân hàng ghi nhận." submitLabel="Gửi và chờ khách" submitIcon="send" note="Yêu cầu chuyển Đang xử lý → Chờ khách phản hồi và lưu câu hỏi công khai. Chủ trại phản hồi thì chuyển lại Đang xử lý." onClose={closeModal}
-        onSubmit={(question) => act(() => supportApi.askCustomer(me, t.code, { question, expectedVersion: v }), `Yêu cầu ${t.code} hiện ở trạng thái Chờ khách phản hồi.`)} />
+        onSubmit={(question) => act(() => commands.askCustomer(me, t.code, { question, expectedVersion: v }), `Yêu cầu ${t.code} hiện ở trạng thái Chờ khách phản hồi.`)} />
     case 'tra-ve':
       return <ReasonDialog title="Trả yêu cầu về hàng đợi" label="Lý do *" placeholder="Chưa có đủ thông tin chuyên môn, cần nhân viên hỗ trợ phù hợp nhận lại" submitLabel="Trả về hàng đợi" note="Yêu cầu được bỏ người phụ trách, giữ nguyên trạng thái và lịch sử. Các yêu cầu nội bộ giữ nguyên trạng thái/người nhận." onClose={closeModal}
-        onSubmit={(reason) => act(() => supportApi.returnToQueue(me, t.code, { reason, expectedVersion: v }), `Yêu cầu ${t.code} đã trả về hàng đợi.`)} />
+        onSubmit={(reason) => act(() => commands.returnToQueue(me, t.code, { reason, expectedVersion: v }), `Yêu cầu ${t.code} đã trả về hàng đợi.`)} />
     case 'ghi-chu':
       return <ReasonDialog title="Ghi chú nội bộ của nhân viên hỗ trợ" label="Ghi chú mới *" max={3000} placeholder="Cần xác minh mã chính xác; không xác nhận thanh toán từ lời khách." submitLabel="Lưu ghi chú (chỉ nhân viên hỗ trợ thấy)" onClose={closeModal} secondary={{ label: 'Trao đổi công khai', onClick: onPublic }}
         note={<>{lastNote && <span className="mb-1 block">Lịch sử (chỉ nhân viên hỗ trợ thấy): {lastNote.author} · {formatStamp(lastNote.at)}.</span>}Chỉ nhân viên hỗ trợ được phép xem; ghi chú này không xuất hiện ở hội thoại Chủ trại hoặc phần nhận của quản lý/quản trị hệ thống.</>}
-        onSubmit={(text) => act(() => supportApi.addNote(me, t.code, { text, expectedVersion: v }), 'Đã thêm ghi chú nội bộ (chỉ nhân viên hỗ trợ thấy).')} />
+        onSubmit={(text) => act(() => commands.addNote(me, t.code, { text, expectedVersion: v }), 'Đã thêm ghi chú nội bộ (chỉ nhân viên hỗ trợ thấy).')} />
     case 'tao-yeu-cau':
     case 'tao-yeu-cau-sa':
       return <CreateInternalDialog ticket={t} initialRole={modal === 'tao-yeu-cau-sa' ? 'SA' : 'PM'} onClose={closeModal} onViewExisting={onViewExisting}
-        onSubmit={(cmd) => act(() => supportApi.createInternal(me, t.code, cmd), `Đã gửi yêu cầu nội bộ cho ${cmd.targetRole}.`)} />
+        onSubmit={(cmd) => act(() => commands.createInternal(me, t.code, cmd), `Đã gửi yêu cầu nội bộ cho ${cmd.targetRole}.`)} />
     case 'doi-nguoi-nhan':
-      return targetIr ? <ReassignDialog ir={targetIr} onClose={closeModal} onSubmit={(rid, reason) => act(() => supportApi.manageInternal(me, t.code, targetIr.code, { action: 'REASSIGN', recipientId: rid, reason }), `Yêu cầu ${targetIr.code} đã được chuyển người nhận.`)} /> : null
+      return targetIr ? <ReassignDialog ir={targetIr} onClose={closeModal} onSubmit={(rid, reason) => act(() => commands.manageInternal(me, t.code, targetIr.code, { action: 'REASSIGN', recipientId: rid, reason }), `Yêu cầu ${targetIr.code} đã được chuyển người nhận.`)} /> : null
     case 'huy-yeu-cau':
       return targetIr ? (
         <ReasonDialog title={`Hủy yêu cầu nội bộ ${targetIr.code}`} label="Lý do hủy *" placeholder="Yêu cầu sai phạm vi; sẽ gửi lại đúng vai trò" submitLabel="Xác nhận hủy IR" onClose={closeModal}
           note="Chỉ nhân viên hỗ trợ hiện phụ trách được hủy yêu cầu nội bộ đang mở. Yêu cầu chuyển Đã hủy, giữ kết quả miền đã làm nếu có và toàn bộ lịch sử."
-          onSubmit={(reason) => act(() => supportApi.manageInternal(me, t.code, targetIr.code, { action: 'CANCEL', reason }), `Yêu cầu ${targetIr.code} đã được hủy.`)} />
+          onSubmit={(reason) => act(() => commands.manageInternal(me, t.code, targetIr.code, { action: 'CANCEL', reason }), `Yêu cầu ${targetIr.code} đã được hủy.`)} />
       ) : null
     case 'ghi-ket-qua': {
       const open = openIrOf(t)
@@ -313,12 +313,12 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
           readOnly={{ label: 'Yêu cầu / điều kiện', value: `${t.code} · ${STATUS_LABEL[t.status]} · ${open ? `Còn ${open.code} Đang mở` : 'Không còn yêu cầu nội bộ đang mở'}` }}
           blocked={!!open} warn={open ? `Yêu cầu nội bộ ${open.code} vẫn đang mở. Yêu cầu chưa thể ghi kết quả hoặc đóng.` : undefined}
           note="Chỉ nhân viên hỗ trợ được giao mới ghi kết quả. Tạo kết quả mới, chuyển Đã giải quyết và chờ Chủ trại xác nhận; không tự đóng yêu cầu."
-          onSubmit={(content) => act(() => supportApi.resolve(me, t.code, { content, expectedVersion: v }), `Đã ghi kết quả phiên bản ${t.resolutions.length + 1}. Chủ trại đã được thông báo.`)} />
+          onSubmit={(content) => act(() => commands.resolve(me, t.code, { content, expectedVersion: v }), `Đã ghi kết quả phiên bản ${t.resolutions.length + 1}. Chủ trại đã được thông báo.`)} />
       )
     }
     case 'dong-ticket':
       return <CloseDialog ticket={t} onClose={closeModal} onReload={reload}
-        onSubmit={(reviewed, note) => act(() => supportApi.close(me, t.code, { reviewed, note, expectedVersion: v }), `Yêu cầu ${t.code} đã được đóng.`, 'da-dong')} />
+        onSubmit={(reviewed, note) => act(() => commands.close(me, t.code, { reviewed, note, expectedVersion: v }), `Yêu cầu ${t.code} đã được đóng.`, 'da-dong')} />
     case 'da-dong':
       return t.status === 'CLOSED' ? <ClosedDialog ticket={t} onClose={closeModal} /> : null
     case 'nhan-lai':
@@ -326,7 +326,7 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
         <ReasonDialog title="Nhận yêu cầu chưa có nhân viên hỗ trợ khả dụng" label="Lý do nhận *" placeholder="Tiếp nhận lại để xem xác nhận mới nhất của Chủ trại" submitLabel="Xác nhận nhận yêu cầu" onClose={closeModal}
           readOnly={{ label: 'Yêu cầu / trạng thái hiện tại', value: `${t.code} · ${STATUS_LABEL[t.status]} · người phụ trách cũ không khả dụng` }}
           note="Nhận chỉ thay người phụ trách, giữ nguyên trạng thái hiện tại. Không ghi đè một nhân viên hỗ trợ vẫn đang phụ trách hợp lệ."
-          onSubmit={(reason) => act(() => supportApi.claim(me, t.code, { reason, expectedVersion: v }), `Bạn đang phụ trách ${t.code}.`)} />
+          onSubmit={(reason) => act(() => commands.claim(me, t.code, { reason, expectedVersion: v }), `Bạn đang phụ trách ${t.code}.`)} />
       )
     default:
       return null

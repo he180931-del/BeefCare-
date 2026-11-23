@@ -1,5 +1,5 @@
-import { BackendError } from '../../../api/backendClient'
-import { userFacingError } from '../../../api/userFacingError'
+import { BackendError } from '../../../shared/api/backendClient'
+import { userFacingError } from '../../../shared/api/userFacingError'
 
 type DomainError = { code?: unknown; params?: Record<string, unknown> }
 

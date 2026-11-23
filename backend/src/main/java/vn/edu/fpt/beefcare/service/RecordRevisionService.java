@@ -15,6 +15,9 @@ public class RecordRevisionService {
 
     public static final String CORRECT = "CORRECT";
     public static final String VOID = "VOID";
+    /** D62: mở lại ca sức khỏe đã đóng. */
+    public static final String REOPEN = "REOPEN";
+    private static final int MAX_REASON_LENGTH = 500;
 
     private final RecordRevisionRepository repository;
     private final FarmClock clock;
@@ -34,7 +37,28 @@ public class RecordRevisionService {
         if (reason == null || reason.isBlank()) {
             throw DomainException.required("reason");
         }
-        if (reason.length() > 500) {
+        return save(ctx, sourceType, sourceId, action, reason, before, after);
+    }
+
+    /**
+     * Giống {@link #record} nhưng lý do là <b>ghi chú tùy chọn</b> (FE-08: sửa / xóa bản ghi cân không bắt buộc lý do).
+     * Vẫn lưu đủ giá trị trước / sau, người và thời điểm; ghi chú trống được lưu là {@code null}.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public RecordRevision recordWithOptionalNote(
+        FarmContext ctx,
+        String sourceType,
+        Long sourceId,
+        String action,
+        String note,
+        Object before,
+        Object after
+    ) {
+        return save(ctx, sourceType, sourceId, action, note, before, after);
+    }
+
+    private RecordRevision save(FarmContext ctx, String sourceType, Long sourceId, String action, String reason, Object before, Object after) {
+        if (reason != null && reason.length() > MAX_REASON_LENGTH) {
             throw DomainException.invalid("reason");
         }
         RecordRevision revision = new RecordRevision();
@@ -43,7 +67,7 @@ public class RecordRevisionService {
         revision.setSourceType(sourceType);
         revision.setSourceId(sourceId);
         revision.setAction(action);
-        revision.setReason(reason.trim());
+        revision.setReason(reason == null || reason.isBlank() ? null : reason.trim());
         revision.setBeforeSnapshot(JsonSupport.toJson(before));
         revision.setAfterSnapshot(JsonSupport.toJson(after));
         revision.setChangedAt(clock.now());

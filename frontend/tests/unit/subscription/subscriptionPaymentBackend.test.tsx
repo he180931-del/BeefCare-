@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { createDevTransferApi } from '../../../src/features/subscription/api/devTransferApi'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
@@ -12,8 +12,12 @@ import SubscriptionRoutes from '../../../src/features/subscription/pages/Subscri
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const NOW = Date.parse('2026-11-09T03:00:00Z')
 const pending: Payment = { id: 501, quoteRef: 'BC-UC02', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
@@ -25,6 +29,7 @@ const overview: SubscriptionOverview = { farmId: 42, farmName: 'Trại thật 42
   entitlementStatus: 'NONE', currentPrices: { id: 7, price1y: 1_200_000, price2y: 2_160_000, price3y: 3_060_000, effectiveAt: '2026-01-01T00:00:00Z' },
   pendingPayment: null, renewalOpensAt: null, suspended: false, suspendedSince: null, currentPeriod: null,
   daysRemaining: null, futurePeriods: [], periods: [], eligibility: { ok: true } }
+const activeContext = { id: 42, name: overview.farmName, role: 'OWNER', serviceStatus: 'ACTIVE', version: 1 }
 const session: Session = { role: 'OWNER', fullName: 'Test Owner', email: 'owner@example.test', farmId: 42, farmName: overview.farmName, logout: vi.fn() }
 function Where() { const l = useLocation(); return <output data-testid="where">{l.pathname}{l.search}</output> }
 function page(path = '/goi-dich-vu/chuyen-khoan/501?farm=42') {
@@ -151,16 +156,43 @@ describe('UC2 backend contract and forms', () => {
   })
 })
 
+describe('SCR-59 on phones (UI review B5)', () => {
+  const phone = () => Object.defineProperty(window, 'matchMedia', { configurable: true, value: (query: string) => ({
+    matches: query.includes('max-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
+  let media: PropertyDescriptor | undefined
+  beforeEach(() => { media = Object.getOwnPropertyDescriptor(window, 'matchMedia'); phone() })
+  afterEach(() => { if (media) Object.defineProperty(window, 'matchMedia', media); else Reflect.deleteProperty(window, 'matchMedia') })
+
+  it('names a first purchase "Đăng ký gói" and points below to the transfer details when the QR image fails', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW + 60_000) // the request is still open, so its QR is shown
+    try {
+      page()
+      expect(await screen.findByText('Đăng ký gói · Trại thật 42')).toBeInTheDocument()
+      fireEvent.error(await screen.findByAltText('Mã VietQR thanh toán'))
+      expect(screen.getByText('Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản bên dưới.')).toBeInTheDocument()
+    } finally { clock.mockRestore() }
+  })
+
+  it('names a request of a farm that already bought a period "Gia hạn gói"', async () => {
+    const renewing: SubscriptionOverview = { ...overview, serviceStatus: 'ACTIVE', latestEnd: '2027-11-09T03:00:00Z',
+      periods: [{ start: '2026-11-09T03:00:00Z', end: '2027-11-09T03:00:00Z', paymentCode: 'BC-EARLIER', durationYears: 1, amountVnd: 1_200_000, status: 'CURRENT' }] }
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? renewing : pending)
+    page()
+    expect(await screen.findByText('Gia hạn gói · Trại thật 42')).toBeInTheDocument()
+  })
+})
+
 describe('five-second automatic payment status updates', () => {
   async function open(changes: Partial<Payment> = {}) {
     vi.useFakeTimers(); vi.setSystemTime(NOW)
     let value = { ...pending, ...changes }
-    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.get.mockImplementation(async (path: string) => path.endsWith('/context') ? activeContext : path.endsWith('/subscription') ? overview : value)
     let view: ReturnType<typeof page>
     await act(async () => { view = page() })
     return { view: view!, set: (next: Partial<Payment>) => { value = { ...value, ...next } } }
   }
   it('refreshes every five seconds and stops after PAID without needing a button click', async () => {
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     const state = await open()
     expect(http.get).toHaveBeenCalledTimes(2)
     await act(async () => { await vi.advanceTimersByTimeAsync(4999) })
@@ -168,8 +200,8 @@ describe('five-second automatic payment status updates', () => {
     state.set({ state: 'PAID', confirmedAt: new Date(NOW + 5000).toISOString(), purchasedStart: pending.requestedAt,
       purchasedEnd: '2027-11-09T03:00:00Z' })
     await act(async () => { await vi.advanceTimersByTimeAsync(1) })
-    expect(screen.getByText(/đã được xác nhận/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Vào trại' })).toBeInTheDocument()
+    expect(replace.mock.calls).toEqual([['/tong-quan']])
+    expect(screen.queryByRole('button', { name: 'Kiểm tra lại' })).not.toBeInTheDocument()
     const calls = http.get.mock.calls.length
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
     expect(http.get).toHaveBeenCalledTimes(calls)
@@ -237,8 +269,9 @@ describe('local transfer simulator on SCR-59 (dev only)', () => {
 
   it('prefills the requested amount, refreshes after sending and disappears once the request is paid', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     let value: Payment = pending
-    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.get.mockImplementation(async (path: string) => path.endsWith('/context') ? activeContext : path.endsWith('/subscription') ? overview : value)
     http.command.mockImplementation(async () => {
       value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(), purchasedStart: pending.requestedAt,
         purchasedEnd: '2027-11-09T03:00:00Z', receiptCode: 'RC-1' }
@@ -248,7 +281,7 @@ describe('local transfer simulator on SCR-59 (dev only)', () => {
     const amount = await screen.findByLabelText('Số tiền giả lập (VND)')
     expect(amount).toHaveValue('1200000')
     fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
-    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
     expect(http.command).toHaveBeenCalledWith('/api/dev/sepay/farms/42/payments/501/transfer', { amountVnd: 1_200_000 }, { method: 'POST' })
     expect(screen.queryByRole('region', { name: 'Giả lập chuyển khoản' })).not.toBeInTheDocument()
   })
@@ -351,10 +384,11 @@ describe('D38: the Owner cancels a payment request on SCR-59', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument())
   })
 
-  it('TC-19-108: a stale request (MSG-COM-05) closes the dialog, reloads and explains why', async () => {
+  it('TC-19-108: a stale cancel closes the dialog and enters the farm when the status read confirms payment', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     let value: Payment = pending
-    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.get.mockImplementation(async (path: string) => path.endsWith('/context') ? activeContext : path.endsWith('/subscription') ? overview : value)
     http.command.mockImplementation(async () => {
       value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW).toISOString(), purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
       throw new BackendError(409, { code: 'MSG-COM-05' })
@@ -362,21 +396,20 @@ describe('D38: the Owner cancels a payment request on SCR-59', () => {
     page()
     fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy yêu cầu' }))
-    expect(await screen.findByText(/Yêu cầu đã thay đổi trạng thái/)).toBeInTheDocument()
-    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
 
-describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => {
-  // Farm 77 differs from the per-load fallback farm (backendFarmId '42') and from session.farmId (42): entering either of
-  // those instead of the paid farm is exactly the original bug (a fresh tab falls back to VITE_BEEFCARE_FARM_ID).
+describe('SCR-59 automatic farm entry after a confirmed payment (UC-FE02-02)', () => {
+  // Farm 77 differs from the per-load fallback farm (activeFarmId 42) and from session.farmId (42): entering either of
+  // those instead of the paid farm is exactly the original bug (a fresh tab used to fall back to a configured farm).
   const FARM = 77
   const guide = `/goi-dich-vu/chuyen-khoan/501?farm=${FARM}`
   const paid: Payment = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(),
     purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
   const farmOverview = { ...overview, farmId: FARM, farmName: 'Trại mới 77' }
-  const context = { id: FARM, name: 'Trại mới 77', role: 'OWNER', serviceStatus: 'ACTIVE', version: 3 }
+  const context = { ...activeContext, id: FARM, name: farmOverview.farmName, version: 3 }
   const contextOf = (path: string) => path === `/api/farms/${FARM}/context`
   const answer = (onContext: (path: string) => Promise<unknown>) => http.get.mockImplementation((path: string) => contextOf(path)
     ? onContext(path)
@@ -385,17 +418,14 @@ describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => 
   beforeEach(() => { clearCurrentFarmId(); vi.spyOn(Date, 'now').mockReturnValue(NOW) })
   afterEach(() => clearCurrentFarmId())
 
-  it('enters the paid farm through the farm check, keeps it for this tab and reloads, once even when pressed twice', async () => {
+  it('automatically checks the paid farm once, keeps it for this tab and replaces the guide', async () => {
     let resolveContext!: (value: unknown) => void
     answer(() => new Promise((resolve) => { resolveContext = resolve }))
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     page(guide)
-    const enter = await screen.findByRole('button', { name: 'Vào trại' })
-    fireEvent.click(enter)
-    fireEvent.click(enter)
-    expect(enter).toBeDisabled()
+    expect(await screen.findByText('Đang vào trại…')).toBeInTheDocument()
     await act(async () => { resolveContext(context) })
-    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
     expect(http.get.mock.calls.filter(([path]) => String(path).endsWith('/context'))).toEqual([[`/api/farms/${FARM}/context`]])
     expect(readCurrentFarmId()).toBe(FARM)
     // Not a bare route change: that kept every farm API on the configured fallback farm (403 on the new farm's pages).
@@ -404,37 +434,79 @@ describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => 
 
   it('stays on the guide and explains why when the farm cannot be entered', async () => {
     answer(() => Promise.reject(new BackendError(403, { code: 'MSG-FE02-03' })))
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     page(guide)
-    const enter = await screen.findByRole('button', { name: 'Vào trại' })
-    fireEvent.click(enter)
-    expect(await screen.findByText('Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.')).toBeInTheDocument()
-    expect(load).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: 'Thanh toán thành công' })
+    const receipt = within(dialog)
+    expect(receipt.getByText('Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.')).toBeInTheDocument()
+    expect(receipt.getByText('1.200.000 đ')).toBeInTheDocument()
+    expect(receipt.getByText('Trại mới 77')).toBeInTheDocument()
+    expect(receipt.getByText('BeefCare xác nhận lúc')).toBeInTheDocument()
+    expect(receipt.getByText('09/11/2026 10:00')).toBeInTheDocument()
+    expect(receipt.queryByText('Ngân hàng ghi nhận')).not.toBeInTheDocument()
+    expect(receipt.queryByText('Mã biên lai')).not.toBeInTheDocument()
+    expect(receipt.queryByRole('link', { name: 'Xem chi tiết giao dịch' })).not.toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
     expect(readCurrentFarmId()).toBeNull()
-    expect(enter).toBeEnabled()
+    answer(() => Promise.resolve(context))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Thử vào trại lại' }))
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
   })
 
   it('says the browser blocks site data instead of leaving the button disabled when the farm cannot be kept', async () => {
     answer(() => Promise.resolve(context))
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
-    page(guide)
-    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
-    fireEvent.click(enter)
+    page(guide)
     expect(await screen.findByText(/Trình duyệt đang chặn lưu dữ liệu/)).toBeInTheDocument()
-    expect(load).not.toHaveBeenCalled()
-    expect(enter).toBeEnabled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Thử vào trại lại' })).toBeEnabled()
+  })
+
+  it('still enters the farm when only the optional confirmation cannot be kept', async () => {
+    answer(() => Promise.resolve(context))
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    const setItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'beefcare.subscription.paymentSuccess') throw new Error('quota')
+      setItem.call(this, key, value)
+    })
+    page(guide)
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
+    expect(readCurrentFarmId()).toBe(FARM)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows the Vietnamese connection message, not the raw browser error, when the farm check cannot reach the server', async () => {
     answer(() => Promise.reject(new TypeError('Failed to fetch')))
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     page(guide)
-    const enter = await screen.findByRole('button', { name: 'Vào trại' })
-    fireEvent.click(enter)
     expect(await screen.findByText(/Không thể kết nối máy chủ/)).toBeInTheDocument()
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
-    expect(load).not.toHaveBeenCalled()
-    expect(enter).toBeEnabled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Thử vào trại lại' })).toBeEnabled()
+  })
+
+  it('keeps a paid but suspended farm out of the dashboard', async () => {
+    answer(() => Promise.resolve({ ...context, serviceStatus: 'SUSPENDED' }))
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    page(guide)
+    const dialog = await screen.findByRole('dialog', { name: 'Thanh toán thành công' })
+    expect(within(dialog).getByText(/đang ở trạng thái Tạm ngưng\. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ\./i)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/liên hệ Chủ trại/)).not.toBeInTheDocument()
+    expect(readCurrentFarmId()).toBeNull()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('ignores the farm check when the guide is left before it finishes', async () => {
+    let resolveContext!: (value: unknown) => void
+    answer(() => new Promise((resolve) => { resolveContext = resolve }))
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    const view = page(guide)
+    expect(await screen.findByText('Đang vào trại…')).toBeInTheDocument()
+    view.unmount()
+    await act(async () => { resolveContext(context) })
+    expect(readCurrentFarmId()).toBeNull()
+    expect(replace).not.toHaveBeenCalled()
   })
 })

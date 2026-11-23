@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Button, Card, Field, Info, Note, Textarea } from '../../../components/ui'
+import { Button, Card, Field, Icon, Info, Note, Textarea } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import {
-  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, validateReason, verificationText,
+  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, verificationText,
 } from '../domain/platformRules'
+import { validateReason } from '../validation/accountStatusValidation'
 import type { AccountDetail } from '../types'
 import AccessDialog from './AccessDialog'
 import AccountStatusDialog from './AccountStatusDialog'

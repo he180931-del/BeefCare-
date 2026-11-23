@@ -6,8 +6,9 @@ import DisableModal from '../../../src/features/pen-management/components/Disabl
 import BarnPanel from '../../../src/features/pen-management/components/BarnPanel'
 import MoveDialog from '../../../src/features/pen-management/components/MoveDialog'
 import { penApi } from '../../../src/features/pen-management/api/penApi'
-import { headerSummary, validateAvailability, validatePenForm } from '../../../src/features/pen-management/domain/penRules'
-import type { Pen } from '../../../src/types'
+import { headerSummary } from '../../../src/features/pen-management/domain/penRules'
+import { validateAvailability, validatePenForm } from '../../../src/features/pen-management/validation/penValidation'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const TODAY = '2026-11-07'
 

@@ -1,14 +1,14 @@
-import { Button, Foot, Table } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Button, Foot, Icon, Table } from '../../../shared/ui'
 import { Panel, Td, Th } from './parts'
-import type { Pen } from '../../../types'
-import type { CowSeed } from '../../../data/cowsData'
+import type { Pen } from '../../pen-management'
+import type { CattleViewModel as CowSeed } from '../types'
 
 export default function BarnsTab({ cow, barns, canWrite, onOpenModal }: { cow: CowSeed; barns: Record<string, Pen>; canWrite: boolean; onOpenModal: (name: string) => void }) {
   const cur = barns[cow.barn]
   return (
     <>
       <Panel
+        tone="ok"
         title="Chuồng hiện tại"
         gap="gap-3"
         action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('move')}><Icon name="arrows-exchange" />Chuyển chuồng</Button>}

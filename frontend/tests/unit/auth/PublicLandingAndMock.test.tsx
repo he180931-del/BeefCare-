@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
-import { createMockAuthClient } from '../../../src/features/authentication/client'
-import { DEFAULT_FAQ, DEFAULT_FEATURES, STEPS } from '../../../src/features/authentication/data/landingContent'
+import { AuthProvider } from '../../../src/features/authentication'
+import type { AuthClient } from '../../../src/features/authentication/AuthContext'
+import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
+import { DEFAULT_FAQ, DEFAULT_FEATURES, STEPS } from '../../../src/features/authentication/constants/landingContent'
 
 const renderGuest = (client: AuthClient, path: string) => render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><div>Private content</div></AuthProvider></MemoryRouter>)
 
@@ -38,6 +39,23 @@ describe('mock auth client', () => {
 })
 
 describe('public landing page', () => {
+  it('shows the published features in order, including when fewer than six are published', async () => {
+    const features = [
+      { title: 'Hồ sơ cá thể', description: 'Xem lịch sử của từng con.' },
+      { title: 'Theo dõi chuồng nhận', description: 'Xem sức chứa trong trại.' },
+      { title: 'Việc đến hạn', description: 'Mở danh sách việc cần xử lý.' },
+    ]
+    const client: AuthClient = { ...createMockAuthClient(), getPublicLanding: async () => ({ features }) }
+    renderGuest(client, '/')
+    const featureArea = within(await screen.findByRole('region', { name: 'Mọi thông tin quan trọng, cùng một chỗ' }))
+    await featureArea.findByRole('heading', { name: features[1].title })
+    expect(featureArea.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(features.map(({ title }) => title))
+    expect(featureArea.getByText('Dữ liệu minh họa')).toBeInTheDocument()
+    // Ảnh sản phẩm là màn hình thật, không gắn vào thẻ tính năng đứng đầu (Admin đổi thứ tự không làm lệch ảnh).
+    expect(featureArea.getByRole('img', { name: /Tab Tăng trưởng & BCS/ })).toBeInTheDocument()
+    expect(featureArea.getAllByRole('listitem')).toHaveLength(features.length)
+  })
+
   it('shows the three prices from the effective version and derived notes', async () => {
     renderGuest(createMockAuthClient(), '/')
     expect(await screen.findByText('1.200.000 đ')).toBeInTheDocument()
@@ -50,7 +68,7 @@ describe('public landing page', () => {
     expect(screen.getByRole('link', { name: 'Khám phá tính năng' })).toHaveAttribute('href', '#features')
     expect(screen.queryByRole('link', { name: 'Tiếp tục với Google' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Xem bảng giá' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Đăng nhập' })[0]).toHaveAttribute('href', '/sign-in')
+    expect(screen.getAllByRole('link', { name: 'Đăng nhập' })[0]).toHaveAttribute('href', '/dang-nhap')
   })
 
   it('opens the first FAQ item by default and toggles other answers', async () => {
@@ -135,7 +153,7 @@ describe('mock sign-in failure frames', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Email hoặc mật khẩu chưa chính xác.')
     expect(screen.getByText('Sau 5 lần sai liên tiếp, đăng nhập bị khóa 15 phút.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Thử đăng nhập lại' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Đăng ký chủ trại' })).toHaveAttribute('href', '/dang-ky')
+    expect(screen.getByRole('link', { name: 'Đăng ký ngay' })).toHaveAttribute('href', '/dang-ky')
   })
 
   it('opens the suspended-account state for the reserved suspended email', async () => {
@@ -148,10 +166,11 @@ describe('mock sign-in failure frames', () => {
     expect(screen.getByText('tam-ngung@beefcare.local')).toBeInTheDocument()
   })
 
-  it('still signs in with the role buttons of the mock sign-in page', async () => {
+  it('still signs in with a mock account from the shared sign-in form', async () => {
     const user = userEvent.setup()
     renderGuest(createMockAuthClient(), '/sign-in')
-    await user.click(await screen.findByRole('button', { name: 'Quản lý' }))
+    await user.type(await screen.findByLabelText('Email'), 'manager@beefcare.local')
+    await user.type(screen.getByLabelText('Mật khẩu'), 'mock-demo')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByText('Private content')).toBeInTheDocument()
   })

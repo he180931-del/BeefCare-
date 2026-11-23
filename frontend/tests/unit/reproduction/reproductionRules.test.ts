@@ -2,23 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   actionsForStatus,
   filterWorklist,
+  reproductionIssues,
   validateCalving,
   validateReproductionCommand,
 } from '../../../src/features/reproduction/domain/reproductionRules'
-import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
+import { REPRODUCTION_DEMO, REPRODUCTION_DEMO_NOW } from '../../../src/features/reproduction/data/reproductionMock'
 
 describe('reproduction rules', () => {
   it('filters the worklist by status, text, pen, breed and advisory eligibility', () => {
-    const all = filterWorklist(REPRODUCTION_DEMO, {})
+    const all = filterWorklist(REPRODUCTION_DEMO, {}, REPRODUCTION_DEMO_NOW)
     expect(all.length).toBeGreaterThan(4)
 
-    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'IN_ESTRUS' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'IN_ESTRUS' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toContain('BC-000142')
-    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'BRED', query: 'Nâu' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'BRED', query: 'Nâu' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toEqual(['BC-000061'])
-    expect(filterWorklist(REPRODUCTION_DEMO, { penCode: 'C1', breed: 'Zebu đỏ' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { penCode: 'C1', breed: 'Zebu đỏ' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toContain('BC-000142')
-    expect(filterWorklist(REPRODUCTION_DEMO, { eligibility: 'NOT_MET' }).every((row) => row.eligibility?.status === 'NOT_MET'))
+    expect(filterWorklist(REPRODUCTION_DEMO, { eligibility: 'NOT_MET' }, REPRODUCTION_DEMO_NOW).every((row) => row.eligibility?.status === 'NOT_MET'))
       .toBe(true)
   })
 
@@ -46,7 +47,7 @@ describe('reproduction rules', () => {
       result: 'PREGNANT',
       method: 'ULTRASOUND',
       estimatedMonths: 0,
-    }, { today: '2026-11-01T12:00', profile: cow })).toContain('Số tháng mang thai phải từ 1 đến 9.')
+    }, { today: '2026-11-01T12:00', profile: cow })).toContain('Số tháng mang thai phải là số nguyên từ 1 đến 9.')
 
     expect(validateReproductionCommand({
       type: 'PREGNANCY_CHECK',
@@ -54,6 +55,18 @@ describe('reproduction rules', () => {
       result: 'NOT_PREGNANT',
       estimatedMonths: 3,
     }, { today: '2026-11-01T12:00', profile: cow })).toContain('Chỉ nhập số tháng khi kết quả là Có thai.')
+  })
+
+  it('D51: gắn lỗi nhập liệu vào ô, lỗi điều kiện không có ô; số tháng gõ sai (NaN) không bị coi là chưa nhập', () => {
+    const cow = REPRODUCTION_DEMO.find((row) => row.cattleCode === 'BC-000061')!
+    expect(reproductionIssues({
+      type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: Number.NaN,
+    }, { today: '2026-11-01T12:00', profile: cow })).toEqual([{ field: 'estimatedMonths', message: 'Số tháng mang thai phải là số nguyên từ 1 đến 9.' }])
+
+    const exited: typeof cow = { ...cow, herdStatus: 'EXITED' }
+    expect(reproductionIssues({
+      type: 'PREGNANCY_CHECK', occurredAt: '2026-11-01T09:00', result: 'PREGNANT', method: 'ULTRASOUND', estimatedMonths: 3,
+    }, { today: '2026-11-01T12:00', profile: exited })).toEqual([{ message: 'Chỉ ghi sự kiện cho bò đang nuôi.' }])
   })
 
   it('validates estrus timestamps and external sire requirements without blocking advisory eligibility', () => {

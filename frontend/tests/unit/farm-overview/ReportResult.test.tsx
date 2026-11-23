@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import ReportResult from '../../../src/features/farm-overview/components/ReportResult'
 import type { ReportView } from '../../../src/features/farm-overview/types'
 
@@ -52,5 +52,41 @@ describe('report sections and charts', () => {
     expect(screen.getByRole('columnheader', { name: 'Thức ăn tính tỷ lệ (bò đủ cân, kg)' })).toBeInTheDocument()
     expect(screen.getAllByText('40')).toHaveLength(2)
     expect(screen.getAllByText('20')).toHaveLength(2)
+  })
+})
+
+const bentoView = (tiles: ReportView['tiles']): ReportView => ({
+  reportType: 'RPT-05', title: 'Báo cáo', from: '2026-10-22', to: '2026-11-20', generatedAt: '2026-11-20T13:00:00Z', timeZone: 'Asia/Ho_Chi_Minh',
+  scope: 'Toàn trại', tiles, columns: [], rows: [], totalRow: null, chart: null, unavailableData: [],
+})
+const tilesOf = (count: number) => Array.from({ length: count }, (_, index) => ({ label: `Chỉ số ${index + 1}`, value: String(index), note: '' }))
+const heroCell = () => screen.getByRole('region', { name: 'Chỉ số báo cáo' }).firstElementChild as HTMLElement
+
+describe('report tiles (Bento)', () => {
+  it.each([
+    [6, '@min-[1024px]:col-span-3'],
+    [8, '@min-[1024px]:col-span-1'],
+    [12, '@min-[1024px]:col-span-1'],
+    [17, '@min-[1024px]:col-span-4'],
+  ])('with %i tiles the first tile spans so that no tile is left alone on the last row of four (%s)', (count, span) => {
+    render(<ReportResult report={bentoView(tilesOf(count))} />)
+    expect(heroCell().className).toContain(span)
+  })
+
+  it('lets the first of an odd number of tiles take the whole row of the two-column grid', () => {
+    render(<ReportResult report={bentoView(tilesOf(5))} />)
+    expect(heroCell().className).toContain('@min-[640px]:col-span-2')
+  })
+
+  it('says there is nothing to chart instead of drawing an empty chart', () => {
+    render(<ReportResult report={{ ...bentoView(tilesOf(1)), charts: [{ title: 'Lần phối theo phương pháp', sub: 'Mỗi lần phối được tính một lần.', unit: 'lần', bars: [] }] }} />)
+    expect(screen.getByText('Không có dữ liệu trong kỳ để vẽ biểu đồ.')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('does not repeat "Chưa có dữ liệu" under a tile whose value already says so', () => {
+    render(<ReportResult report={bentoView([{ label: 'Số bò cuối kỳ', value: '2', note: '' }, { label: 'Xuất đàn theo loại', value: 'Chưa có dữ liệu', note: 'Chưa có dữ liệu' }])} />)
+    const tile = screen.getByText('Xuất đàn theo loại').parentElement as HTMLElement
+    expect(within(tile).getAllByText('Chưa có dữ liệu')).toHaveLength(1)
   })
 })

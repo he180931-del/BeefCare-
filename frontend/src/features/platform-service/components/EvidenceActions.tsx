@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, DateInput, Field, Info, Note, Radio, Textarea, inputCls } from '../../../components/ui'
+import { Button, Card, DateInput, Field, Info, inputCls, Note, Radio, Textarea } from '../../../shared/ui'
 import {
   BLOCK_TEXT, DECISION_TEXT, REASON_MAX, isStale, platformReconciliationApi as api, reconciliationError,
   type CommandResult, type Decision,

@@ -67,14 +67,23 @@ public class CareReadService {
             filtered.add(h);
         }
         java.util.function.Predicate<HealthCase> inPeriod=h->!h.getOpenedDate().isBefore(start)&&!h.getOpenedDate().isAfter(end);
+        // D66: ca đang mở và theo dõi dài hạn luôn hiện đủ; kỳ chỉ lọc ca đã đóng.
+        java.util.function.Predicate<HealthCase> active=h->List.of("OPEN","CHRONIC").contains(upper(h.getStatus()));
+        java.util.function.Predicate<HealthCase> shown=h->active.test(h)||inPeriod.test(h);
         Map<String,Long> counts=new java.util.LinkedHashMap<>();
         counts.put("open",filtered.stream().filter(h->"OPEN".equals(upper(h.getStatus()))).count());
-        counts.put("chronic",filtered.stream().filter(h->"CHRONIC".equals(upper(h.getStatus()))&&inPeriod.test(h)).count());
+        counts.put("chronic",filtered.stream().filter(h->"CHRONIC".equals(upper(h.getStatus()))).count());
         counts.put("closed",filtered.stream().filter(h->"CLOSED".equals(upper(h.getStatus()))&&inPeriod.test(h)).count());
-        counts.put("all",filtered.stream().filter(inPeriod).count());
+        counts.put("all",filtered.stream().filter(shown).count());
+        // D66: chỉ số của các ca chưa đóng cho các ô đầu màn danh sách.
+        counts.put("treating",filtered.stream().filter(h->"OPEN".equals(upper(h.getStatus()))&&treatmentCounts.getOrDefault(h.getId(),0L)>0).count());
+        counts.put("severe",filtered.stream().filter(h->active.test(h)&&"SEVERE".equals(upper(h.getSeverity()))).count());
+        counts.put("contagious",filtered.stream().filter(h->active.test(h)&&Boolean.TRUE.equals(h.getIsSuspectedContagious())).count());
+        counts.put("moderate",filtered.stream().filter(h->active.test(h)&&"MODERATE".equals(upper(h.getSeverity()))).count());
+        counts.put("mild",filtered.stream().filter(h->active.test(h)&&"MILD".equals(upper(h.getSeverity()))).count());
         List<HealthCase> selectedRows=filtered.stream()
             .filter(h->"ALL".equals(selected)||selected.equals(upper(h.getStatus())))
-            .filter(h->"OPEN".equals(selected)||inPeriod.test(h)).toList();
+            .filter(shown).toList();
         Comparator<HealthCase> order="caseCode".equals(sortKey)
             ?Comparator.comparing(HealthCase::getCaseCode,Comparator.nullsLast(Comparator.naturalOrder()))
             :Comparator.comparing((HealthCase h)->openedAt(h,opening)).thenComparing(HealthCase::getId);
@@ -148,7 +157,7 @@ public class CareReadService {
 
     private static CareDtos.PreviousHealthCase previousCase(HealthCase h,String signs,List<CareDtos.HealthTimelineRow> timeline){
         return new CareDtos.PreviousHealthCase(h.getId(),h.getCaseCode(),signs,h.getSuspectedDiagnosis(),h.getSeverity(),h.getOpenedDate(),h.getOutcome(),h.getClosedDate(),
-            h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName(),timeline);
+            h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName(),timeline,h.getVersion());
     }
 
     /** Opening observation per case: [observedTime, signs]. */
@@ -168,12 +177,16 @@ public class CareReadService {
     }
 
     @Transactional(readOnly=true)
+    /**
+     * Lịch sử tiêm (A8) của trại hoặc một con bò. Bản ghi đã xóa ({@code VOIDED}) không trả về (D53): dữ liệu gốc và
+     * Record Revision vẫn được giữ trong DB để truy vết, dòng thời gian của bò vẫn thấy với nhãn đã xóa.
+     */
     public List<CareDtos.VaccinationHistoryRow> vaccinationHistory(Long farmId,String search,Long vaccineId,String source,LocalDate from,LocalDate to,Long cattleId) {
         access.require(farmId,FarmAction.VIEW_HEALTH);
         LocalDate today=clock.today();LocalDate start=from==null?today.minusMonths(3):from;LocalDate end=to==null?today:to;
         if(start.isAfter(end))throw DomainException.invalid("period");
         String src=source==null||source.isBlank()?null:upper(source);if(src!=null&&!List.of("ON_FARM","HISTORICAL").contains(src))throw DomainException.invalid("source");
-        List<Vaccination> vaccinations=em.createQuery("select v from Vaccination v join fetch v.cattle c join fetch c.breed left join fetch v.vaccine where c.farm.id=:farm and v.vaccinationDate between :from and :to order by v.administeredAt desc,v.vaccinationDate desc,v.id desc",Vaccination.class)
+        List<Vaccination> vaccinations=em.createQuery("select v from Vaccination v join fetch v.cattle c join fetch c.breed left join fetch v.vaccine where c.farm.id=:farm and v.vaccinationDate between :from and :to and upper(v.status)<>'VOIDED' order by v.administeredAt desc,v.vaccinationDate desc,v.id desc",Vaccination.class)
             .setParameter("farm",farmId).setParameter("from",start).setParameter("to",end).getResultList();
         Map<Long,PenAssignment> pens=currentPens(farmId,today);String query=search==null?"":search.trim().toLowerCase(Locale.ROOT);
         List<Vaccination> selected=new ArrayList<>();

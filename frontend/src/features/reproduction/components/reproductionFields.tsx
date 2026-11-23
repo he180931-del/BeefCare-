@@ -1,8 +1,7 @@
 import { useRef, type ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Field, Radio, Select, inputCls } from '../../../components/ui'
+import { Field, Icon, inputCls, Radio, Select } from '../../../shared/ui'
 import type { DataSource } from '../types'
-import { reproductionNow } from '../domain/reproductionClock'
+import { reproductionApi } from '../api/reproductionApi'
 import { useReproductionOptions } from './reproductionOptions'
 
 export const SOURCE_OPTIONS: Array<[DataSource, string]> = [
@@ -17,7 +16,7 @@ export const COURSE_OPTIONS: Array<[string, string]> = [['NORMAL', 'Bình thư�
 export const DAM_CONDITION_OPTIONS: Array<[string, string]> = [['GOOD', 'Tốt'], ['MONITORING', 'Cần theo dõi'], ['CRITICAL', 'Nguy kịch']]
 export const SIGNS = ['Đứng yên cho nhảy', 'Chảy dịch nhờn trong', 'Nhảy lên con khác', 'Kêu rống', 'Âm hộ sưng đỏ']
 
-export const nowLocal = reproductionNow
+export const nowLocal = (): string => reproductionApi.now()
 
 /** Label without the required marker, used as the control's accessible name. */
 export const plain = (label: string): string => label.replace(/ \*$/, '')
@@ -52,10 +51,29 @@ export function DateTimeInput({ label, value, onChange, max = nowLocal(), disabl
   )
 }
 
-export function DateTimeField({ label, value, onChange, hint, max }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string }) {
+/** Lỗi nhập liệu hiện ngay dưới ô (D51). */
+export const FieldMessage = ({ children }: { children?: ReactNode }) =>
+  children ? <span role="alert" className="text-[11px] text-err-fg">{children}</span> : null
+
+/** Ô số nguyên đọc nghiêm: trống → null, "5" → 5, gõ sai (chữ, số thập phân) → NaN để báo dưới ô (D51). */
+export const parseIntegerText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
+/** Ô số thập phân đọc nghiêm: "21", "21,5", "21.5" → số; gõ sai → NaN (không bị JSON đổi thành null âm thầm) (D51). */
+export const parseDecimalText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+([.,]\d+)?$/.test(t) ? Number(t.replace(',', '.')) : Number.NaN
+}
+
+export function DateTimeField({ label, value, onChange, hint, max, error }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string; error?: string }) {
   return (
     <Field label={label} id={`dt-${plain(label)}`} hint={hint}>
       <DateTimeInput id={`dt-${plain(label)}`} label={plain(label)} value={value} onChange={onChange} max={max} />
+      <FieldMessage>{error}</FieldMessage>
     </Field>
   )
 }

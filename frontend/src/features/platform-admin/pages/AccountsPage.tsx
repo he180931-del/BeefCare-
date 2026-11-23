@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { useSession } from '../../authorization'
-import { platformAdminApi } from '../api/platformAdminApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import { useAccounts } from '../hooks/useAccounts'
 import AccountDetailPanel from '../components/AccountDetailPanel'
-import { AccountStatusBadge, PersonCell, SaPage, Toast, restPathId, searchWithoutModal } from '../components/common'
+import { AccountStatusBadge, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
 import { farmsJoinedText, platformRoleText, revokedRoleNote } from '../domain/platformRules'
 import type { AccountFilters, AccountListItem, SortDir } from '../types'
 
-const PAGE_SIZE = 20
 const TITLE = 'Tài khoản người dùng'
+const PAGE_SIZE = 20
 
 type Filters = { q: string; status: NonNullable<AccountFilters['status']>; role: '' | 'NONE' | 'CS' | 'PM' | 'SA'; dir: SortDir }
 const DEFAULTS: Filters = { q: '', status: '', role: '', dir: 'asc' }
@@ -37,7 +35,6 @@ const displayName = (a: AccountListItem) => a.fullName.trim() || 'Chưa có tên
  * 20 dòng từ A9. Khung phải đọc chi tiết bằng A10 theo id trên URL (mở link thẳng hoặc tải lại vẫn đúng tài khoản).
  */
 function AccountsContent() {
-  const demo = useDemoState()
   const navigate = useNavigate()
   const session = useSession()
   const [params, setParams] = useSearchParams()
@@ -54,25 +51,24 @@ function AccountsContent() {
     try { sessionStorage.setItem(storageKey, JSON.stringify(filters)) } catch { /* Bộ lọc chỉ là tiện ích khi trình duyệt không cho lưu. */ }
   }, [storageKey, filters])
 
-  const list = useQuery(
-    () => (demo === 'load-error'
-      ? Promise.reject(new Error('Không tải được danh sách tài khoản.'))
-      : platformAdminApi.listAccounts({ q: filters.q, status: filters.status, platformRole: filters.role, dir: filters.dir, page, size: PAGE_SIZE })),
-    [filters.q, filters.status, filters.role, filters.dir, page, demo],
-  )
-  const rows = useMemo(() => list.data?.content ?? [], [list.data])
-  // Không có id trên URL: chọn dòng đầu của trang như Figma.
-  const detailId = selectedId ?? rows[0]?.id ?? null
-  const detail = useQuery(() => (detailId ? platformAdminApi.getAccount(detailId) : Promise.resolve(null)), [detailId])
+  // Query orchestration belongs to the feature hook; this page only owns URL/filter presentation state.
+  const { list, rows, detail, detailId, refresh } = useAccounts({ filters: { q: filters.q, status: filters.status, platformRole: filters.role, dir: filters.dir }, page, selectedId })
   // Không bao giờ hiện chi tiết của tài khoản khác trong lúc tài khoản mới đang tải.
   const account = detail.data && detail.data.id === detailId ? detail.data : null
+  // Dưới xl khung chi tiết nằm dưới danh sách: khi SA chọn một dòng và tài khoản đã tải xong thì cuộn tới (như SCR-51).
+  const detailBox = useRef<HTMLDivElement>(null)
+  const revealed = useRef<number | null>(null)
+  useEffect(() => {
+    if (selectedId == null || account?.id !== selectedId || revealed.current === selectedId) return
+    revealed.current = selectedId
+    if (!wideScreen()) detailBox.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }, [selectedId, account?.id])
 
   const choose = (next: Partial<Filters>) => { setFilters((current) => ({ ...current, ...next })); setPage(1) }
   const clearFilters = () => {
     choose(DEFAULTS)
     if (params.has('q')) { const next = new URLSearchParams(params); next.delete('q'); setParams(next, { replace: true }) }
   }
-  const refresh = () => { list.refetch(); if (detailId) detail.refetch() }
   const select = (a: AccountListItem) => navigate({ pathname: `/nen-tang/tai-khoan/${a.id}`, search: searchWithoutModal(params) })
 
   return (
@@ -84,12 +80,12 @@ function AccountsContent() {
         <div className="w-[300px] max-w-full">
           <SearchInput value={filters.q} maxLength={100} placeholder="Tên, email…" aria-label="Tìm tài khoản theo tên hoặc email" onChange={(e) => choose({ q: e.target.value })} />
         </div>
-        <FilterSelect className="w-[210px] max-w-full" aria-label="Lọc theo trạng thái" value={filters.status} onChange={(e) => choose({ status: e.target.value as Filters['status'] })}>
+        <FilterSelect size="lg" className="w-[210px] max-w-full" aria-label="Lọc theo trạng thái" value={filters.status} onChange={(e) => choose({ status: e.target.value as Filters['status'] })}>
           <option value="">Trạng thái: Tất cả</option>
           <option value="ACTIVE">Trạng thái: Đang hoạt động</option>
           <option value="SUSPENDED">Trạng thái: Tạm ngưng</option>
         </FilterSelect>
-        <FilterSelect className="w-[230px] max-w-full" aria-label="Lọc theo vai trò nền tảng" value={filters.role} onChange={(e) => choose({ role: e.target.value as Filters['role'] })}>
+        <FilterSelect size="lg" className="w-[230px] max-w-full" aria-label="Lọc theo vai trò nền tảng" value={filters.role} onChange={(e) => choose({ role: e.target.value as Filters['role'] })}>
           <option value="">Vai trò nền tảng: Tất cả</option>
           <option value="NONE">Vai trò nền tảng: Không có</option>
           <option value="CS">Vai trò nền tảng: Nhân viên hỗ trợ (CS)</option>
@@ -110,7 +106,7 @@ function AccountsContent() {
               <thead>
                 <tr>
                   <Th aria-sort={filters.dir === 'asc' ? 'ascending' : 'descending'}>
-                    <button type="button" className="inline-flex cursor-pointer items-center gap-1" onClick={() => choose({ dir: filters.dir === 'asc' ? 'desc' : 'asc' })}>
+                    <button type="button" className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={() => choose({ dir: filters.dir === 'asc' ? 'desc' : 'asc' })}>
                       Người dùng <span aria-hidden="true">{filters.dir === 'asc' ? '↑' : '↓'}</span>
                     </button>
                   </Th>
@@ -139,9 +135,9 @@ function AccountsContent() {
                 })}
               </tbody>
             </Table>
-            <Pagination page={page} pageCount={list.data.totalPages} onChange={setPage} summary={`Hiển thị ${rows.length} / ${list.data.totalElements} tài khoản`} />
+            <Pagination page={page} pageCount={list.data.totalPages} onChange={setPage} summary={`Hiển thị ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} trong ${list.data.totalElements} tài khoản`} />
           </Card>
-          <div className="min-w-0">
+          <div ref={detailBox} className="min-w-0 scroll-mt-4">
             {account ? (
               <AccountDetailPanel
                 key={account.id}
@@ -155,7 +151,7 @@ function AccountsContent() {
           </div>
         </div>
       )}
-      <Foot>Tài khoản người dùng (quản trị hệ thống). Chọn một dòng để xem chi tiết ở khung phải; tạm ngưng hoặc khôi phục bắt buộc nhập lý do và được ghi vào lịch sử kiểm toán. Tạm ngưng tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
+      <Foot>Tài khoản người dùng (quản trị hệ thống). Chọn một dòng để xem chi tiết tài khoản; tạm ngưng hoặc khôi phục bắt buộc nhập lý do và được ghi vào lịch sử kiểm toán. Tạm ngưng tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

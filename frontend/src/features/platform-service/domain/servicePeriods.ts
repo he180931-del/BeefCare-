@@ -1,5 +1,7 @@
+// Deep import on purpose: the farm-workspace index also exports its screens (see domain/reconciliation.ts).
 import type { PeriodState, PurchasedPeriod, ServiceStatus, TermYears } from '../types'
 import { addDays, addYears } from './dates'
+import { SERVICE_STATUS_VIEW } from './statusViews'
 
 /** GBR-73: kỳ mới bắt đầu tại max(thời điểm xác nhận, ngày kế tiếp kỳ đã xác nhận cuối). */
 export function nextPeriod(confirmedDate: string, latestEnd: string | null, termYears: TermYears) {
@@ -27,18 +29,12 @@ export function deriveStatus(periods: PurchasedPeriod[], suspended: boolean, tod
 /** GBR-71 / SCR-57: gia hạn mở trước ngày hết hạn đã xác nhận 90 ngày. */
 export const renewalOpens = (confirmedEnd: string) => addDays(confirmedEnd, -90)
 
-export function validateReason(reason: string, label = 'Lý do', max = 500) {
-  const t = reason.trim()
-  if (!t) return `${label} là bắt buộc.`
-  if (t.length > max) return `${label} tối đa ${max} ký tự.`
-  return null
-}
-
+/** Platform Service's own service-state presentation for SCR-57/58. */
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
-  ACTIVE: 'Đang hoạt động',
-  PENDING_PAYMENT: 'Chờ thanh toán',
-  EXPIRED: 'Hết hạn',
-  SUSPENDED: 'Tạm ngưng',
+  ACTIVE: SERVICE_STATUS_VIEW.ACTIVE.label,
+  PENDING_PAYMENT: SERVICE_STATUS_VIEW.PENDING_PAYMENT.label,
+  EXPIRED: SERVICE_STATUS_VIEW.EXPIRED.label,
+  SUSPENDED: SERVICE_STATUS_VIEW.SUSPENDED.label,
 }
 export const PERIOD_STATE_LABEL: Record<PeriodState, string> = { CURRENT: 'Hiện tại', FUTURE: 'Tương lai', PAST: 'Đã qua' }
 export const shortFarmName = (name: string) => (name.replace(/^Trại( bò)?\s+/, '').split(' – ')[0] ?? name)

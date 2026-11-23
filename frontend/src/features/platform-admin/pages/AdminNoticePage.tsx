@@ -1,11 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { platformAdminApi } from '../api/platformAdminApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
+import { useAdminNotices } from '../hooks/useAdminNotices'
 import { ICON_BUTTON, SaPage, Toast, errorMessage } from '../components/common'
 import { formatNoticeTime, noticeActionLabel } from '../domain/platformRules'
 import type { NotificationView } from '../types'
@@ -13,15 +10,11 @@ import type { NotificationView } from '../types'
 const TITLE = 'Thông báo'
 
 function NoticeContent() {
-  const demo = useDemoState()
   const navigate = useNavigate()
   const [tab, setTab] = useState<'all' | 'unread'>('all')
   const [toast, setToast] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
-  const { data, loading, error, refetch } = useQuery(
-    () => (demo === 'load-error' ? Promise.reject(new Error('Không tải được thông báo.')) : platformAdminApi.listNotifications()),
-    [demo],
-  )
+  const { data, loading, error, refetch, openNotification, markAllRead } = useAdminNotices()
 
   const unread = data?.filter((n) => !n.readTime).length ?? 0
   const shown = data ? (tab === 'unread' ? data.filter((n) => !n.readTime) : data) : []
@@ -30,7 +23,7 @@ function NoticeContent() {
   const open = async (n: NotificationView) => {
     setBanner(null)
     try {
-      const target = await platformAdminApi.openNotification(n.id)
+      const target = await openNotification(n.id)
       navigate(target.path)
     } catch (e) {
       setBanner(errorMessage(e, 'Không mở được thông báo.'))
@@ -39,7 +32,7 @@ function NoticeContent() {
   }
   const markAll = async () => {
     try {
-      await platformAdminApi.markAllNotificationsRead()
+      await markAllRead()
       setToast('Tất cả thông báo đã được đánh dấu là đã đọc.')
       refetch()
     } catch (e) {

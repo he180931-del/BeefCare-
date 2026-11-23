@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader, Pagination, Segmented, inputCls } from '../../../components/ui'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { useQuery } from '../../../hooks/useApi'
-import { supportApi } from '../api/supportApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useDemoState } from '../../../demo/demoModules'
 import { errText, useActor, useFlash } from '../components/common'
 import { ResultForm } from '../components/ResultForm'
-import { IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, SupportError, formatStamp } from '../domain/supportRules'
+import { IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, formatStamp } from '../domain/supportRules'
 import type { CompleteCommand, InternalStatus, InternalView } from '../types'
+import { useSupportAssigned, useSupportCommands } from '../hooks/usePlatformSupportUseCase'
 
 const TITLE = 'Yêu cầu nội bộ được giao'
 const BASE = '/nen-tang/yeu-cau'
@@ -27,11 +25,10 @@ export default function InternalRequestsPage() {
   const [tabState, setTab] = useState<InternalStatus>('OPEN')
   const [listPage, setListPage] = useState(1)
   const [pending, setPending] = useState<CompleteCommand | null>(null)
-  const { data: all, loading, error, refetch } = useQuery(() => supportApi.listAssigned(me), [me])
-  const { data: access } = useQuery(async () => {
-    if (!code) return 'none'
-    try { await supportApi.getAssigned(me, code); return 'ok' } catch (e) { return e instanceof SupportError ? e.code : 'ERROR' }
-  }, [code, me, all])
+  const { requests, access: accessQuery } = useSupportAssigned(me, code)
+  const { data: all, loading, error, refetch } = requests
+  const { data: access } = accessQuery
+  const { completeInternal } = useSupportCommands()
 
   if (loading && !all) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !all) return <Layout title={TITLE}><ErrorBlock message={errText(error, 'Không tải được danh sách yêu cầu.')} onRetry={refetch} /></Layout>
@@ -57,7 +54,7 @@ export default function InternalRequestsPage() {
   const saveFailed = (cmd: CompleteCommand) => { setPending(cmd); openModal('thu-lai') }
   const retry = async () => {
     if (!selected || !pending) return
-    done(await supportApi.completeInternal(me, selected.code, { ...pending, simulateSaveFailure: false }))
+    done(await completeInternal(me, selected.code, { ...pending, simulateSaveFailure: false }))
   }
 
   return (
@@ -96,7 +93,7 @@ export default function InternalRequestsPage() {
       {code && access === 'FORBIDDEN' && (
         <Modal title="Yêu cầu không còn được giao cho bạn" width={640} onClose={back}>
           <Note tone="warn">Người nhận hoặc quyền truy cập đã thay đổi. Không thể xem chi tiết hay gửi kết quả cho yêu cầu này.</Note>
-          <ModalFooter className="!px-0 !pb-0"><ModalButton variant="primary" onClick={back}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
+          <ModalFooter><ModalButton variant="primary" onClick={back}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
         </Modal>
       )}
       {selected && (m === 'hoan-thanh' || m === 'ket-thuc') && <SummaryDialog ir={selected} finished={m === 'ket-thuc'} onClose={back} />}
@@ -109,7 +106,7 @@ export default function InternalRequestsPage() {
         <Modal title="Kết quả miền đã lưu, chưa lưu Hoàn thành" width={640} onClose={closeModal}>
           <Field label="IR hiện tại" id="rt-ir"><input id="rt-ir" readOnly className={inputCls} value={`${selected.code} · ${IR_STATUS_LABEL[selected.status]} · người nhận ${selected.recipient}`} /></Field>
           <Note tone="info">Chỉ thử lại bước lưu kết quả IR với tham chiếu cũ. Không thực hiện Chấp nhận, gia hạn hoặc thao tác tài khoản lần nữa.</Note>
-          <ModalFooter className="!px-0 !pb-0">
+          <ModalFooter>
             <ModalButton onClick={closeModal}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
             <ModalButton variant="primary" disabled={!pending} onClick={() => void retry()}><Icon name="refresh" size={16} /> Thử lại lưu Hoàn thành</ModalButton>
           </ModalFooter>
@@ -170,7 +167,7 @@ function SummaryDialog({ ir, finished, onClose }: { ir: InternalView; finished: 
       </div>
       <Field label="Kết quả đã lưu" id="sm-r"><input id="sm-r" readOnly className={inputCls} value={ir.result ?? '—'} /></Field>
       <Note tone="info">Yêu cầu chỉ đọc. Nhân viên hỗ trợ dùng kết quả đã làm sạch để trả lời Chủ trại; yêu cầu vẫn giữ nguyên trạng thái.</Note>
-      <ModalFooter className="!px-0 !pb-0"><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
     </Modal>
   )
 }

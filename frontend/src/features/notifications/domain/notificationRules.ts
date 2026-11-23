@@ -1,4 +1,4 @@
-import { addCalendarDays, businessDate, businessDateTime, parseBusinessTime } from '../../../api/farmTimeZone'
+import { addCalendarDays, businessDate, businessDateTime, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { NotificationTab, NotificationView } from '../types'
 
 export const NOTIFICATION_TABS: ReadonlyArray<{ value: NotificationTab; label: string }> = [
@@ -19,9 +19,13 @@ export const filterByTab = (list: NotificationView[], tab: NotificationTab) => (
 
 export const newestFirst = (list: NotificationView[]) => [...list].sort((a, b) => (a.createdTime < b.createdTime ? 1 : a.createdTime > b.createdTime ? -1 : 0))
 
-/** Đích mở của thông báo (SCR-57/59/60 do tính năng gói dịch vụ phụ trách, SCR-66 là chi tiết ticket). */
+/**
+ * Đích mở của thông báo: ticket → SCR-66; gói hoặc dịch vụ của một trại (targetId là mã trại) → SCR-57 của đúng trại đó;
+ * yêu cầu thanh toán (targetId là mã thanh toán, máy chủ chưa gửi mã trại) → SCR-57 của trại đang chọn.
+ */
 export function notificationTarget(n: Pick<NotificationView, 'targetType' | 'targetId'>): string {
-  return n.targetType === 'TICKET' ? `/ho-tro/${n.targetId}` : '/goi-dich-vu'
+  if (n.targetType === 'TICKET') return `/ho-tro/${n.targetId}`
+  return n.targetType === 'SUBSCRIPTION' || n.targetType === 'FARM_SERVICE' ? `/goi-dich-vu?farm=${n.targetId}` : '/goi-dich-vu'
 }
 
 /** 5 phút trước / Hôm nay 06:10 / Hôm qua 16:05 / 03/10 21:10 / 15/11/2025 10:05 */

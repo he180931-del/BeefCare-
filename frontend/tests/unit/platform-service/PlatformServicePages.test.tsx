@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import { platformServiceDemoStore } from '../../../src/features/platform-service/data/platformServiceDemoStore'
 import FarmServiceRoutes from '../../../src/features/platform-service/pages/FarmServiceRoutes'
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
@@ -27,7 +27,7 @@ describe('SCR-12 dịch vụ trang trại', () => {
   it('restores a suspended farm with a required reason, showing who suspended it, why, and the status after restore', async () => {
     const user = userEvent.setup()
     renderAt(<FarmServiceRoutes />, '/nen-tang/dich-vu')
-    expect(await screen.findByText('Hiển thị 6 / 6 trại')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–6 trong 6 trại')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Khôi phục/ }))
     expect(await screen.findByText('Khôi phục dịch vụ – Trại Suối Hai')).toBeInTheDocument()
     expect(await screen.findByText('28/09/2026 · bởi Đỗ Minh Quân')).toBeInTheDocument()
@@ -53,17 +53,32 @@ describe('SCR-12 dịch vụ trang trại', () => {
     expect(await screen.findByText('Dịch vụ của Trại Tản Lĩnh hiện là tạm ngưng. Đã thông báo cho Chủ trại.')).toBeInTheDocument()
   })
 
+  it('asks MSG-COM-14 before closing the suspend popup with a typed reason (UI review B6)', async () => {
+    const user = userEvent.setup()
+    renderAt(<FarmServiceRoutes />, '/nen-tang/dich-vu')
+    const row = (await screen.findByText('Trại Tản Lĩnh')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Tạm ngưng' }))
+    await user.type(await screen.findByRole('textbox', { name: /Lý do tạm ngưng/ }), 'Đang nhập dở')
+    await user.click(screen.getByRole('button', { name: 'Hủy' }))
+    expect(screen.getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Tiếp tục nhập' }))
+    expect(screen.getByRole('textbox', { name: /Lý do tạm ngưng/ })).toHaveValue('Đang nhập dở')
+    await user.click(screen.getByRole('button', { name: 'Hủy' }))
+    await user.click(screen.getByRole('button', { name: 'Bỏ' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('shows five tiles; a tile filters the list and the column headers sort it', async () => {
     const user = userEvent.setup()
     renderAt(<FarmServiceRoutes />, '/nen-tang/dich-vu')
-    await screen.findByText('Hiển thị 6 / 6 trại')
+    await screen.findByText('Hiển thị 1–6 trong 6 trại')
     for (const tile of ['Tổng số trại', 'Đang hoạt động', 'Chờ thanh toán', 'Hết hạn', 'Tạm ngưng']) expect(screen.getByRole('button', { name: new RegExp(`^${tile} \\(`) })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Đang hoạt động \(/ })).toHaveTextContent('81%')
     await user.click(screen.getByRole('button', { name: /^Tạm ngưng \(/ }))
-    expect(await screen.findByText('Hiển thị 1 / 1 trại')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–1 trong 1 trại')).toBeInTheDocument()
     expect(rowNames()).toEqual(['Trại Suối Hai'])
     await user.click(screen.getByRole('button', { name: /^Tổng số trại \(/ }))
-    await screen.findByText('Hiển thị 6 / 6 trại')
+    await screen.findByText('Hiển thị 1–6 trong 6 trại')
     await user.click(screen.getByRole('button', { name: 'Hết kỳ' }))
     await waitFor(() => expect(rowNames()[0]).toBe('Trại Tòng Bạt'))
     await user.click(screen.getByRole('button', { name: 'Hết kỳ' }))
@@ -73,7 +88,7 @@ describe('SCR-12 dịch vụ trang trại', () => {
   it('shows an empty state for a search with no result and is read-only for other roles', async () => {
     const user = userEvent.setup()
     renderAt(<FarmServiceRoutes />, '/nen-tang/dich-vu', 'SA')
-    await screen.findByText('Hiển thị 6 / 6 trại')
+    await screen.findByText('Hiển thị 1–6 trong 6 trại')
     for (const b of screen.getAllByRole('button', { name: 'Tạm ngưng' })) expect(b).toBeDisabled()
     await user.type(screen.getByLabelText('Tìm trại'), 'khongco')
     expect(await screen.findByText('Không có trại phù hợp')).toBeInTheDocument()

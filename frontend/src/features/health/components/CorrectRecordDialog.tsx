@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
-import { healthApi } from '../api/healthApi'
+import { DateTimeInput, DoseInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { latestWithdrawalEnd, MSG, parseTemperature } from '../domain/healthRules'
+import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
+import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
-import { DateTimeInput, hint, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
+import { joinDose, splitDose, type DoseUnit } from '../../../shared/lib/dose'
+import { hint, MemberSelect, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave, useTemperatureCheck } from './healthUi'
 
 function Row({ label, current, error, children }: { label: string; current: ReactNode; error?: string; children: ReactNode }) {
   return (
@@ -24,17 +25,25 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
   const [action, setAction] = useState<'correct' | 'void'>('correct')
   const [time, setTime] = useState(row.occurredAt)
   const [medicineId, setMedicineId] = useState(String(row.medicineId ?? ''))
-  const [dose, setDose] = useState(row.dose ?? '')
+  // D65: liều số + đơn vị; liều cũ không theo chuẩn thì để trống ô số, hiện nguyên văn ở cột "Hiện tại".
+  const initialDose = splitDose(row.dose)
+  const [amount, setAmount] = useState(initialDose.amount)
+  const [unit, setUnit] = useState<DoseUnit>(initialDose.unit)
+  const dose = joinDose(amount, unit)
   const [route, setRoute] = useState<TreatmentRoute | ''>(row.route ?? '')
   const [course, setCourse] = useState(String(row.courseDays ?? 1))
   const [wd, setWd] = useState(String(row.withdrawalDays ?? 0))
   const [who, setWho] = useState(row.recordedBy)
+  // Người quan sát chọn theo id; người cũ không còn trong trại thì để "Giữ nguyên" (không gửi observerId).
+  const [observerId, setObserverId] = useState<number | null>(options.members.some((m) => m.id === row.observerId) ? row.observerId ?? null : null)
   const [temp, setTemp] = useState(row.temperatureC !== null ? fmtTemp(row.temperatureC) : '')
   const [progress, setProgress] = useState<Progress | ''>(row.progress ?? '')
   const [description, setDescription] = useState(row.description ?? '')
   const [reason, setReason] = useState('')
+  const { correctEntry, voidEntry } = useHealthCaseCommands()
   const form = useDialogSave()
   const { errors } = form
+  const tempCheck = useTemperatureCheck()
   const voiding = action === 'void'
   const blocked = voiding && opening
   const medicines = options.medicines.filter((m) => m.active || m.id === row.medicineId)
@@ -50,14 +59,15 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
     }))
   }, [profile.timeline, row.id, voiding, treatment, course, wd, time])
 
-  const save = () => form.run(async () => {
+  const submit = () => form.run(async () => {
     const result = voiding
-      ? await healthApi.voidEntry(row.id, { expectedVersion: row.version, reason })
-      : await healthApi.correctEntry(row.id, treatment
-        ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
-        : { expectedVersion: row.version, reason, observedAt: time, temperatureC: parseTemperature(temp), progress: row.type === 'FOLLOW_UP' ? progress : undefined, description, observer: who })
+      ? await voidEntry(row.id, { expectedVersion: row.version, reason })
+      : await correctEntry(row.id, treatment
+        ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose: dose === (row.dose ?? '') || (!amount && initialDose.legacy) ? undefined : dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
+        : { expectedVersion: row.version, reason, observedAt: time, temperatureC: parseTemperature(temp), progress: row.type === 'FOLLOW_UP' ? progress : undefined, description, observerId })
     onSaved(recordToast(result))
   })
+  const save = () => tempCheck.guard(voiding || treatment ? null : parseTemperature(temp), submit)
 
   const kind = treatment ? 'điều trị' : 'theo dõi'
   return (
@@ -68,7 +78,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       </Field>
       {blocked && <Note tone="err">{MSG.voidOpening}</Note>}
       {!voiding && (
-        <Table>
+        <Table variant="panel">
           <thead><tr><Th className="w-[140px]">Trường thông tin</Th><Th className="w-[160px]">Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
           <tbody>
             {treatment ? (
@@ -76,9 +86,9 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
                 <Row label="Thuốc" current={row.medicineName} error={errors.medicineId}>
                   <Select aria-label="Thuốc" value={medicineId} onChange={(e) => setMedicineId(e.target.value)}>{medicines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>
                 </Row>
-                <Row label="Liệu trình (ngày)" current={row.courseDays} error={errors.courseDays}><input aria-label="Liệu trình (ngày)" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
+                <Row label="Số ngày dùng" current={row.courseDays} error={errors.courseDays}><input aria-label="Số ngày dùng" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
                 <Row label="Thời điểm bắt đầu" current={fmtDateTime(row.occurredAt)} error={errors.treatmentTime}><DateTimeInput value={time} onChange={setTime} /></Row>
-                <Row label="Liều" current={row.dose} error={errors.dose}><input aria-label="Liều" maxLength={50} value={dose} onChange={(e) => setDose(e.target.value)} className={inputCls} /></Row>
+                <Row label="Liều mỗi lần" current={row.dose} error={errors.dose}><DoseInput label="Liều mỗi lần" amount={amount} unit={unit} invalid={!!errors.dose} onAmount={setAmount} onUnit={setUnit} /></Row>
                 <Row label="Đường dùng" current={row.route ? ROUTE_LABEL[row.route] : ''} error={errors.route}>
                   <Select aria-label="Đường dùng" value={route} onChange={(e) => setRoute(e.target.value as TreatmentRoute)}>{ROUTES.map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select>
                 </Row>
@@ -88,24 +98,25 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
             ) : (
               <>
                 <Row label="Thời điểm quan sát" current={fmtDateTime(row.occurredAt)} error={errors.observedAt}><DateTimeInput value={time} onChange={setTime} /></Row>
-                <Row label="Thân nhiệt (°C)" current={row.temperatureC !== null ? fmtTemp(row.temperatureC) : '—'} error={errors.temperatureC}><input aria-label="Thân nhiệt (°C)" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => setTemp(e.target.value)} className={inputCls} /></Row>
+                <Row label="Thân nhiệt (°C)" current={row.temperatureC !== null ? fmtTemp(row.temperatureC) : '—'} error={errors.temperatureC}><input aria-label="Thân nhiệt (°C)" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => { setTemp(e.target.value); form.clearError('temperatureC') }} className={inputCls} /></Row>
                 {row.type === 'FOLLOW_UP' && (
                   <Row label="Diễn biến" current={row.progress ? PROGRESS_LABEL[row.progress] : ''} error={errors.progress}>
                     <Select aria-label="Diễn biến" value={progress} onChange={(e) => setProgress(e.target.value as Progress)}>{PROGRESSES.map((p) => <option key={p} value={p}>{PROGRESS_LABEL[p]}</option>)}</Select>
                   </Row>
                 )}
                 <Row label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} current={row.description} error={errors.description}><Textarea aria-label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} rows={2} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></Row>
-                <Row label="Người quan sát" current={row.recordedBy}><input aria-label="Người quan sát" list="cr-who" maxLength={100} value={who} onChange={(e) => setWho(e.target.value)} className={inputCls} /></Row>
+                <Row label="Người quan sát" current={row.recordedBy}><MemberSelect id="cr-observer" value={observerId} members={options.members} onChange={setObserverId} label="Người quan sát" keepLabel={`Giữ nguyên (${row.recordedBy || '—'})`} /></Row>
               </>
             )}
           </tbody>
         </Table>
       )}
-      <datalist id="cr-who">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
+      <datalist id="cr-who">{options.members.map((m) => <option key={m.id} value={m.name} />)}</datalist>
       {voiding && !blocked && <Note tone="warn">Bản ghi sẽ chuyển sang trạng thái Đã hủy: mờ đi trong lịch sử và không còn được tính vào ngưng sử dụng thịt hay trạng thái sức khỏe.</Note>}
-      {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
       <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-      {form.formError && <Note tone="err">{form.formError}</Note>}
+      {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
+      {tempCheck.dialog}
+      {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving || blocked}>{voiding ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>

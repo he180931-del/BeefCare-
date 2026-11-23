@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
+import { PaymentSuccessOnArrival } from '../../../src/features/subscription'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
 import SubscriptionRoutes from '../../../src/features/subscription/pages/SubscriptionRoutes'
 
@@ -37,8 +38,8 @@ describe('Gói dịch vụ của trại', () => {
     expect(screen.getByText('27 ngày')).toBeInTheDocument()
     expect(screen.getByText('Đang hoạt động')).toBeInTheDocument()
     expect(screen.getByText('3.060.000 đ')).toBeInTheDocument()
-    const periods = screen.getByText('Các kỳ đã mua').closest('section, div') as HTMLElement
-    expect(within(periods.parentElement as HTMLElement).getByText('BCA9X2M1')).toBeInTheDocument()
+    const periods = screen.getByRole('region', { name: 'Các kỳ đã mua' })
+    expect(within(periods).getByText('BCA9X2M1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gia hạn gói' })).toBeEnabled()
   })
 
@@ -107,13 +108,16 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
 
   it('đăng ký gói lần đầu của trại mới dẫn tới hướng dẫn chuyển khoản', async () => {
     const user = userEvent.setup()
-    renderAt('/dang-ky-goi', 'OWNER')
+    renderAt('/dang-ky-goi?farm=2', 'OWNER') // the farm just registered (SCR-15 → SCR-58)
     expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
-    expect(screen.getByText('Đang chờ thanh toán')).toBeInTheDocument()
+    expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: /1 năm/ }))
     await user.click(screen.getByRole('button', { name: /Tạo yêu cầu thanh toán/ }))
     expect(await screen.findByText(/Yêu cầu BCK4M7R2 · 1 năm · Trại Tản Lĩnh/)).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('from=onboarding')
+    // SCR-59 stays in the onboarding shell like SCR-58: no sidebar or farm switcher of the farm this tab was in.
+    expect(screen.getByRole('list', { name: 'Các bước đăng ký' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Tổng quan' })).not.toBeInTheDocument()
   })
 })
 
@@ -142,32 +146,52 @@ describe('Hướng dẫn chuyển khoản', () => {
     renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')
     expect(await screen.findByText('Thông tin chuyển khoản')).toBeInTheDocument()
     expect(screen.getByText(/^23:\d\d:\d\d$/)).toBeInTheDocument()
-    expect(screen.getByText('08:42 19/10/2026')).toBeInTheDocument()
+    // dd/mm/yyyy HH:mm as in SCR-59 #5, Table III-1 and the other screens (UI review E2).
+    expect(screen.getByText('19/10/2026 08:42')).toBeInTheDocument()
     expect(screen.getByText('MB Bank (Ngân hàng Quân đội)')).toBeInTheDocument()
     expect(screen.getByText('Ngân hàng ghi nhận giao dịch').closest('tr')).toHaveTextContent('Đang chờ')
     expect(screen.getAllByRole('button', { name: /^Sao chép/ })).toHaveLength(5)
   })
 
-  it('kiểm tra lại khi giao dịch về: yêu cầu thành PAID và mở kỳ mới', async () => {
+  it('thanh toán gia hạn đưa thẳng vào trại và hiện xác nhận một lần', async () => {
     const user = userEvent.setup()
-    renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9?demo=bank-paid', 'OWNER')
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    const transfer = renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9?demo=bank-paid', 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
-    expect(await screen.findByText(/đã được xác nhận\. Kỳ dịch vụ 15\/11\/2026 → 14\/11\/2027/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Về gói dịch vụ' })).toBeInTheDocument()
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
+    transfer.unmount()
+
+    const dashboard = render(<MemoryRouter><PaymentSuccessOnArrival farmId={1} farmName="Trại bò Yên Bài – Ba Vì" /></MemoryRouter>)
+    const dialog = await screen.findByRole('dialog', { name: 'Thanh toán thành công' })
+    const receipt = within(dialog)
+    expect(receipt.getByText('1.200.000 đ')).toBeInTheDocument()
+    expect(receipt.getByText('Trại bò Yên Bài – Ba Vì')).toBeInTheDocument()
+    expect(receipt.getByText('1 năm · 15/11/2026 → 14/11/2027')).toBeInTheDocument()
+    expect(receipt.getByText('Ngân hàng ghi nhận')).toBeInTheDocument()
+    expect(receipt.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument()
+    expect(receipt.getByText('BL-BCF7K2Q9')).toBeInTheDocument()
+    expect(receipt.getByRole('link', { name: 'Xem chi tiết giao dịch' })).toHaveAttribute('href', '/goi-dich-vu/lich-su/BCF7K2Q9?farm=1')
+    await user.click(receipt.getByRole('button', { name: 'Sao chép mã thanh toán' }))
+    expect(await navigator.clipboard.readText()).toBe('BCF7K2Q9')
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    dashboard.unmount()
+
+    render(<PaymentSuccessOnArrival farmId={1} />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('lần mua đầu ở dữ liệu mẫu: "Vào trại" chỉ chuyển trang, không lưu trại cho tab (hai kho mẫu không chung trại)', async () => {
+  it('lần mua đầu lưu trại cho tab rồi tự mở trang Tổng quan', async () => {
     const user = userEvent.setup()
     clearCurrentFarmId()
-    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     const overview = await subscriptionDemoStore.getOverview(2)
     const payment = await subscriptionDemoStore.createPayment(2, { durationYears: 1, expectedPriceVersionId: overview.currentPrices!.id })
     renderAt(`/goi-dich-vu/chuyen-khoan/${payment.quoteRef}?farm=2&demo=bank-paid`, 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
-    await user.click(await screen.findByRole('button', { name: 'Vào trại' }))
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/tong-quan'))
-    expect(load).not.toHaveBeenCalled()
-    expect(readCurrentFarmId()).toBeNull()
+    // Farm screens need the farm of the tab (RequireFarm); a plain route change would land on Select Farm.
+    await waitFor(() => expect(replace.mock.calls).toEqual([['/tong-quan']]))
+    expect(readCurrentFarmId()).toBe(2)
   })
 
   it('không lấy được kết quả: giữ nguyên yêu cầu và cho thử lại', async () => {
@@ -177,6 +201,21 @@ describe('Hướng dẫn chuyển khoản', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Chưa lấy được kết quả thanh toán' })
     expect(within(dialog).getByText('BCF7K2Q9 · 1 năm')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
+  })
+
+  it('hủy yêu cầu: đã nhập lý do thì đóng hộp thoại phải hỏi lại (MSG-COM-14, UI review B6)', async () => {
+    const user = userEvent.setup()
+    renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')
+    await user.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Hủy yêu cầu thanh toán' })
+    await user.type(within(dialog).getByLabelText('Lý do (không bắt buộc)'), 'Chọn nhầm kỳ hạn')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    expect(within(dialog).getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục nhập' }))
+    expect(within(dialog).getByLabelText('Lý do (không bắt buộc)')).toHaveValue('Chọn nhầm kỳ hạn')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Bỏ' }))
+    expect(screen.queryByRole('dialog', { name: 'Hủy yêu cầu thanh toán' })).not.toBeInTheDocument()
   })
 
   it('yêu cầu đã hết hạn: ẩn mã QR và mời tạo yêu cầu mới', async () => {

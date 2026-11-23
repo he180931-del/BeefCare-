@@ -16,8 +16,30 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.GoogleIdentityService;
 import vn.edu.fpt.beefcare.service.MessageCodes;
+import vn.edu.fpt.beefcare.domain.User;
 
 class GoogleOidcSuccessHandlerTest {
+
+    @Test
+    void redirectsAnUnconsentedGoogleAccountToTermsBeforeOwnerRegistration() throws Exception {
+        GoogleIdentityService identities = mock(GoogleIdentityService.class);
+        UserDetailsService userDetails = mock(UserDetailsService.class);
+        SessionRegistry sessions = mock(SessionRegistry.class);
+        GoogleOidcSuccessHandler handler = new GoogleOidcSuccessHandler(identities, userDetails, sessions, "https://app.beefcare.test/");
+        OidcUser google = mock(OidcUser.class);
+        User identity = new User();
+        identity.setEmail("new-google@example.test");
+        when(identities.provisionOrLink(google)).thenReturn(new GoogleIdentityService.Result(identity, false, false));
+        when(userDetails.loadUserByUsername(identity.getEmail())).thenReturn(
+            org.springframework.security.core.userdetails.User.withUsername(identity.getEmail()).password("unused").authorities("ROLE_USER").build()
+        );
+        OAuth2AuthenticationToken source = new OAuth2AuthenticationToken(google, List.of(new SimpleGrantedAuthority("ROLE_USER")), "google");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, source);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("https://app.beefcare.test/chap-nhan-dieu-khoan");
+    }
 
     @Test
     void redirectsASuspendedGoogleAccountToTheSuspendedState() throws Exception {

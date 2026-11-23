@@ -1,14 +1,7 @@
-import { DEFAULT_FARM_TIME_ZONE } from '../../../api/farmTimeZone'
-import { BackendError } from '../../../api/backendClient'
-import { userFacingError } from '../../../api/userFacingError'
+import { DEFAULT_FARM_TIME_ZONE } from '../../../shared/lib/date/farmTime'
+import { BackendError } from '../../../shared/api/backendClient'
+import { userFacingError } from '../../../shared/api/userFacingError'
 
-export const AUTH_PATH = {
-  home: '/', signIn: '/sign-in', register: '/dang-ky', verification: '/xac-minh-email',
-  forgot: '/quen-mat-khau', resetSent: '/kiem-tra-email', reset: '/resetpassword',
-  invalid: '/lien-ket-khong-con-hieu-luc', suspended: '/tai-khoan-tam-ngung', loginFailed: '/dang-nhap-that-bai',
-} as const
-
-export const AUTH_PATHS = new Set<string>(Object.values(AUTH_PATH).filter((path) => path !== AUTH_PATH.home))
 
 export const emailFromState = (state: unknown): string => {
   if (typeof state !== 'object' || state === null || !('email' in state)) return ''

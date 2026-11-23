@@ -1,5 +1,6 @@
 import type { CorrectGrowthCommand, GrowthCattle, GrowthFilters, GrowthFormOptions, GrowthRecord, RecordGrowthCommand } from '../types'
-import { GrowthLargeChangeError, GrowthValidationError, basisOf, largeChangeAgainst, tapeWeightKg, validWeights, validateMeasurement, validateReason } from '../domain/growthRules'
+import { GrowthLargeChangeError, GrowthValidationError, basisOf, largeChangeAgainst, tapeWeightKg, validWeights } from '../domain/growthRules'
+import { validateCorrectionNote, validateMeasurement } from '../validation/growthValidation'
 import { buildHerdPage, buildProfile } from '../domain/growthSummary'
 import { GROWTH_DEMO, GROWTH_FILTER_OPTIONS, GROWTH_MEMBERS, GROWTH_NOW } from './growthMock'
 
@@ -84,7 +85,7 @@ export function createGrowthDemoStore(seed = GROWTH_DEMO, now: () => string = ()
       const row = records.find((r) => r.id === recordId && r.cattleCode === code)
       if (!row) throw new Error('Không tìm thấy bản ghi cân.')
       if (row.version !== command.expectedVersion || row.status !== 'VALID') throw new Error('Bản ghi đã thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.')
-      const reasonErrors = validateReason(command.reason)
+      const reasonErrors = validateCorrectionNote(command.reason)
       if (Object.keys(reasonErrors).length) throw new GrowthValidationError(reasonErrors)
 
       const before = { measuredAt: row.measuredAt, method: row.method, weightKg: row.weightKg, bcs: row.bcs }
@@ -106,7 +107,7 @@ export function createGrowthDemoStore(seed = GROWTH_DEMO, now: () => string = ()
         next.status = 'EXCLUDED'
       }
       next.version = row.version + 1
-      next.revisions = [...row.revisions, { at: now(), by: 'Quản lý trại', action: command.action, reason: command.reason.trim(), before }]
+      next.revisions = [...row.revisions, { at: now(), by: 'Quản lý trại', action: command.action, reason: command.reason?.trim() ?? '', before }]
       records = records.map((r) => (r.id === row.id ? next : r))
       return structuredClone(next)
     },

@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CURRENT_FARM_KEY, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
-import { initialCows } from '../../../src/data/cowsData'
+import { CURRENT_FARM_KEY, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { initialCows } from '../../../src/demo/data/cowsData'
 import * as scan from '../../../src/features/cattle/api/scanApi'
 import ScanQrPage from '../../../src/features/cattle/pages/ScanQrPage'
 import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
@@ -26,7 +26,7 @@ describe('FE-05 QR scan', () => {
     await user.click(screen.getByRole('button', { name: 'Tra cứu' }))
     const switchButton = await screen.findByRole('button', { name: 'Chuyển trại và mở hồ sơ' })
     expect(select).not.toHaveBeenCalled()
-    expect(readCurrentFarmId()).toBeNull()
+    expect(readCurrentFarmId()).toBe(1) // still the farm this tab works in
     await user.click(switchButton)
     await waitFor(() => expect(load).toHaveBeenCalledWith('/kt/quet-qr?code=QR-TRAI-12'))
     expect(select).toHaveBeenCalledWith(12)

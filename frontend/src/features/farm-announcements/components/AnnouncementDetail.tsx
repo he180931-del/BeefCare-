@@ -1,7 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Button, Card, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Card, Icon, Modal, ModalButton, ModalFooter, Table, Td, Th } from '../../../shared/ui'
 import { formatFull, formatTime, ROLE_LABEL } from '../domain/format'
 import type { AnnouncementView, VersionView } from '../types'
 import { RichText } from './shared'
@@ -13,7 +11,7 @@ export function AnnouncementDetail({ a, version = a.versions[0], onHistory }: { 
   const title = version?.title ?? a.title
   const body = version?.body ?? a.body
   return (
-    <Card>
+    <Card variant="panel">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

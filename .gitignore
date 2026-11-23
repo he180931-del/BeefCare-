@@ -16,6 +16,7 @@ playwright-report/
 test-results/
 *.auth-state.json
 storage-state-*.json
+.DS_Store
 .env.local
 .env.*.local
 .agents/
@@ -24,3 +25,4 @@ storage-state-*.json
 # Local code-reading map for the FE-01 registration work.
 REGISTRATION_RELATED_FILES.md
 REGISTRATION_CODE_GUIDE/
+.gitnexus

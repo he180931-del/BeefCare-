@@ -1,5 +1,5 @@
-import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
-import { createCollection, createCollectionSchema, type CollectionRow } from '../../../api/client'
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
+import { createCollection, createCollectionSchema, type CollectionRow } from '../../../demo/api/client'
 import { FEED_STOCK_MOCK } from './feedStockMock'
 import { FEED_RECEIPT_DEMO_EXTRAS, FEED_RECEIPT_MOCK } from './feedReceiptMock'
 import { FEED_CATALOGUE_MOCK } from './feedCatalogueMock'

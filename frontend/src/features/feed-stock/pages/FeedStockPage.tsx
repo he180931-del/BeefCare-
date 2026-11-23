@@ -1,23 +1,16 @@
-import { businessDate } from '../../../api/farmTimeZone'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, Foot, Note, PageHeader, Select, inputCls } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { getFeedStockUpdatedAt } from '../api/feedMovementApi'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
-import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { listFeedStock } from '../api/feedStockApi'
-import { filterFeedStock } from '../data/feedStock'
-import { summarizeTodaySessions } from '../data/feedTodayRations'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { filterFeedStock } from '../domain/feedStockList'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow, FeedStockStatus } from '../types'
 import { FeedStockSummary } from '../components/FeedStockSummary'
 import FeedStockTable from '../components/FeedStockTable'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import FeedMovementsDialog from '../components/FeedMovementsDialog'
+import { useFeedStockOverview } from '../hooks/useFeedStockQueries'
 
 const STATUS_LABELS: Record<FeedStockStatus, string> = {
   SUFFICIENT: 'Đủ dùng',
@@ -33,8 +26,8 @@ function updatedText(iso: string | null | undefined) {
 
 function QuickAction({ to, icon, title, sub }: { to: string; icon: IconName; title: string; sub: string }) {
   return (
-    <Link to={to} className="flex min-w-0 items-center gap-3 rounded-md border border-edge bg-white px-[18px] py-4 text-ink no-underline hover:bg-page">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#cde9d8] text-brand"><Icon name={icon} size={20} /></span>
+    <Link to={to} className="flex min-w-0 items-center gap-3 rounded-2xl border border-field bg-white p-4 text-ink no-underline hover:bg-ok-bg/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ok-bg text-brand"><Icon name={icon} size={20} /></span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold">{title}</span>
         <span className="block text-xs text-muted">{sub}</span>
@@ -50,14 +43,10 @@ export default function FeedStockPage() {
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedStockMessage' in location.state
     ? String((location.state as { feedStockMessage?: unknown }).feedStockMessage ?? '')
     : ''
-  const stockQuery = useQuery(() => listFeedStock(), [])
-  const updatedQuery = useQuery(() => getFeedStockUpdatedAt().catch(() => null), [])
-  // Side data for the quick-action hint and the per-head tile; the page works without it.
-  const sideQuery = useQuery(async () => {
-    const date = businessDate()
-    const [pens, rations, records] = await Promise.all([listFeedRationPens(), listFeedRations(), listFeedFeedingRecords({ from: date, to: date })])
-    return { pens, headCount: pens.filter((pen) => pen.status === 'ACTIVE').reduce((sum, pen) => sum + pen.headcount, 0), sessions: summarizeTodaySessions({ pens, rations, records, stock: [], date }) }
-  }, []).data
+  const overview = useFeedStockOverview()
+  const stockQuery = overview.stock
+  const updatedQuery = overview.updated
+  const sideQuery = overview.side.data
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<FeedGroup | 'ALL'>('ALL')
   const [status, setStatus] = useState<FeedStockStatus | 'ALL'>('ALL')
@@ -106,84 +95,88 @@ export default function FeedStockPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <QuickAction to="/thuc-an/phieu-nhap/moi" icon="file-import" title="Nhập kho" sub="Phiếu nhập từ nhà cung cấp" />
-        <QuickAction to="/thuc-an/nhat-ky?m=ghi" icon="grain" title="Ghi cữ cho ăn" sub={feedingHint} />
-        <QuickAction to="/thuc-an/kiem-ke/moi" icon="clipboard-list" title="Kiểm kê" sub="Đếm tồn, điều chỉnh" />
-        <QuickAction to="/thuc-an/bao-cao" icon="report-analytics" title="Chi phí thức ăn" sub="Tiêu thụ theo kỳ" />
+      <div className="@container flex min-w-0 flex-col gap-5">
+        <nav aria-label="Thao tác tồn kho" className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-4">
+          <QuickAction to="/thuc-an/phieu-nhap/moi" icon="file-import" title="Nhập kho" sub="Phiếu nhập từ nhà cung cấp" />
+          <QuickAction to="/thuc-an/nhat-ky?m=ghi" icon="grain" title="Ghi cữ cho ăn" sub={feedingHint} />
+          <QuickAction to="/thuc-an/kiem-ke/moi" icon="clipboard-list" title="Kiểm kê" sub="Đếm tồn, điều chỉnh" />
+          <QuickAction to="/thuc-an/bao-cao" icon="report-analytics" title="Chi phí thức ăn" sub="Tiêu thụ theo kỳ" />
+        </nav>
+
+        <FeedManagementTabs />
+        {routeMessage && <Note tone="ok">{routeMessage}</Note>}
+
+        <section role="tabpanel" aria-label="Tồn kho thức ăn" className="flex flex-col gap-4">
+          <FeedStockSummary rows={stockQuery.data} headCount={sideQuery?.headCount} />
+
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+            <label className="sr-only" htmlFor="feed-stock-search">Tìm mã, tên thức ăn</label>
+            <input
+              id="feed-stock-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm mã, tên thức ăn…"
+              className={`${inputCls} sm:w-[280px]`}
+            />
+            <label className="sr-only" htmlFor="feed-stock-group">Nhóm thức ăn</label>
+            <Select
+              id="feed-stock-group"
+              aria-label="Nhóm thức ăn"
+              value={group}
+              onChange={(event) => setGroup(event.target.value as FeedGroup | 'ALL')}
+              className="sm:w-[170px]"
+            >
+              <option value="ALL">Nhóm: Tất cả</option>
+              {groups.map((item) => (
+                <option key={item} value={item}>{feedGroupLabel(item)}</option>
+              ))}
+            </Select>
+            <label className="sr-only" htmlFor="feed-stock-status">Trạng thái tồn kho</label>
+            <Select
+              id="feed-stock-status"
+              aria-label="Trạng thái tồn kho"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as FeedStockStatus | 'ALL')}
+              className="sm:w-[170px]"
+            >
+              <option value="ALL">Trạng thái: Tất cả</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </Select>
+          </div>
+
+          {stockQuery.loading && !stockQuery.data && (
+            <div role="status" aria-live="polite" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">
+              Đang tải tồn kho…
+            </div>
+          )}
+
+          {errorMessage && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
+              <span>{errorMessage}</span>
+              <Button size="sm" disabled={stockQuery.loading} onClick={() => stockQuery.refetch()}>
+                {stockQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}
+              </Button>
+            </div>
+          )}
+
+          {!stockQuery.loading && !errorMessage && allRows.length === 0 && (
+            <Note tone="info">Chưa có dữ liệu tồn kho.</Note>
+          )}
+
+          {!stockQuery.loading && !errorMessage && allRows.length > 0 && visibleRows.length === 0 && (
+            <Note tone="info">Không tìm thấy thức ăn phù hợp với bộ lọc.</Note>
+          )}
+
+          {!stockQuery.loading && !errorMessage && visibleRows.length > 0 && (
+            <Panel className="overflow-hidden p-0!">
+              <FeedStockTable rows={visibleRows} onView={openMovements} />
+            </Panel>
+          )}
+        </section>
       </div>
-
-      <FeedManagementTabs />
-      {routeMessage && <Note tone="ok">{routeMessage}</Note>}
-
-      <section role="tabpanel" aria-label="Tồn kho thức ăn" className="flex flex-col gap-4">
-        <FeedStockSummary rows={stockQuery.data} headCount={sideQuery?.headCount} />
-
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-          <label className="sr-only" htmlFor="feed-stock-search">Tìm mã, tên thức ăn</label>
-          <input
-            id="feed-stock-search"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tìm mã, tên thức ăn…"
-            className={`${inputCls} sm:w-[280px]`}
-          />
-          <label className="sr-only" htmlFor="feed-stock-group">Nhóm thức ăn</label>
-          <Select
-            id="feed-stock-group"
-            aria-label="Nhóm thức ăn"
-            value={group}
-            onChange={(event) => setGroup(event.target.value as FeedGroup | 'ALL')}
-            className="sm:w-[170px]"
-          >
-            <option value="ALL">Nhóm: Tất cả</option>
-            {groups.map((item) => (
-              <option key={item} value={item}>{feedGroupLabel(item)}</option>
-            ))}
-          </Select>
-          <label className="sr-only" htmlFor="feed-stock-status">Trạng thái tồn kho</label>
-          <Select
-            id="feed-stock-status"
-            aria-label="Trạng thái tồn kho"
-            value={status}
-            onChange={(event) => setStatus(event.target.value as FeedStockStatus | 'ALL')}
-            className="sm:w-[170px]"
-          >
-            <option value="ALL">Trạng thái: Tất cả</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </Select>
-        </div>
-
-        {stockQuery.loading && !stockQuery.data && (
-          <div role="status" aria-live="polite" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">
-            Đang tải tồn kho…
-          </div>
-        )}
-
-        {errorMessage && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
-            <span>{errorMessage}</span>
-            <Button size="sm" disabled={stockQuery.loading} onClick={() => stockQuery.refetch()}>
-              {stockQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}
-            </Button>
-          </div>
-        )}
-
-        {!stockQuery.loading && !errorMessage && allRows.length === 0 && (
-          <Note tone="info">Chưa có dữ liệu tồn kho.</Note>
-        )}
-
-        {!stockQuery.loading && !errorMessage && allRows.length > 0 && visibleRows.length === 0 && (
-          <Note tone="info">Không tìm thấy thức ăn phù hợp với bộ lọc.</Note>
-        )}
-
-        {!stockQuery.loading && !errorMessage && visibleRows.length > 0 && (
-          <FeedStockTable rows={visibleRows} onView={openMovements} />
-        )}
-      </section>
 
       <Foot>Tồn kho thức ăn. Mức tối thiểu đặt trong Danh mục; khi tồn ≤ mức tối thiểu, hệ thống nhắc “Sắp hết thức ăn” cho Chủ trại và Quản lý. Đủ dùng = tồn ÷ tiêu thụ bình quân 7 ngày. Tồn kho không bao giờ âm.</Foot>
       {viewing && <FeedMovementsDialog feed={viewing} onClose={closeMovements} />}

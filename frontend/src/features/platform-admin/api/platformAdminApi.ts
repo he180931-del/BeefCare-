@@ -1,11 +1,15 @@
-import { asRecord, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
-import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
+import { asRecord } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import type { PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
 import { AUDIT_TARGET_TYPE_VALUES, MSG, PlatformAdminError, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
 import type {
   AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditActionOption, AuditActor, AuditDetail, NotificationOpenResult, NotificationView,
   AuditFilters, AuditRow, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const ACCOUNTS_PATH = '/api/platform/accounts'
 const AUDIT_PATH = '/api/platform/audit'
@@ -249,10 +253,9 @@ export function accountsPath({ q = '', status = '', platformRole = '', dir = 'as
   return `${ACCOUNTS_PATH}?${query.toString()}`
 }
 
-export function createPlatformAdminApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformAdminDemoStore }) {
+export function createPlatformAdminApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: PlatformAdminDemoStore }) {
   // Platform screens are not farm-scoped; backend mode must never read the mock.
   void farmId
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('quản trị nền tảng') }
   return {
     // A9 GET /api/platform/accounts ?q,status,platformRole,page,size,sort,dir (UC-FE03-07, D31)
     async listAccounts(filters: AccountFilters = {}): Promise<PageResult<AccountListItem>> {
@@ -343,4 +346,4 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type PlatformAdminApi = ReturnType<typeof createPlatformAdminApi>
-export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: platformAdminDemoStore })
+export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformAdmin.platformAdminDemoStore) })

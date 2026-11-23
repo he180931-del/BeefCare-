@@ -1,4 +1,5 @@
 import type { GrowthCattle, GrowthFilterOptions, GrowthMember, GrowthMethod, GrowthRecord } from '../types'
+import { GROWTH_HERD_GROUPS, GROWTH_LIFE_STAGES } from '../constants/growthOptions'
 import { addDays } from '../domain/growthFormat'
 import { basisOf } from '../domain/growthRules'
 
@@ -114,20 +115,8 @@ export const GROWTH_RECORDS: GrowthRecord[] = [
 
 export const GROWTH_FILTER_OPTIONS: GrowthFilterOptions = {
   pens: Object.entries(PENS).map(([code, label]) => ({ code, label })),
-  herdGroups: [
-    { value: 'CALVES', label: 'Bê' },
-    { value: 'FATTENING', label: 'Vỗ béo' },
-    { value: 'BREEDING_BULLS', label: 'Đực giống' },
-    { value: 'BREEDING_FEMALES', label: 'Cái sinh sản' },
-    { value: 'YOUNG_STOCK', label: 'Bò tơ' },
-    { value: 'OTHER', label: 'Khác' },
-  ],
-  lifeStages: [
-    { value: 'UNWEANED_CALF', label: 'Bê chưa cai sữa' },
-    { value: 'WEANED_CALF', label: 'Bê cai sữa' },
-    { value: 'YOUNG_STOCK', label: 'Bò tơ' },
-    { value: 'ADULT', label: 'Trưởng thành' },
-  ],
+  herdGroups: GROWTH_HERD_GROUPS,
+  lifeStages: GROWTH_LIFE_STAGES,
 }
 
 export const GROWTH_DEMO = { cattle: GROWTH_CATTLE, records: GROWTH_RECORDS, nextId: seq + 1 }

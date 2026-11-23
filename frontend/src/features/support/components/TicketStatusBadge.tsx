@@ -1,4 +1,4 @@
-import { Badge } from '../../../components/ui'
+import { Badge } from '../../../shared/ui'
 import { listStatus, plainStatus } from '../domain/ticketRules'
 import type { Ticket } from '../types'
 

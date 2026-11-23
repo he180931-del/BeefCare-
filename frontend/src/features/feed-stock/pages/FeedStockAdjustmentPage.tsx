@@ -1,9 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { listFeedStockAdjustments } from '../api/feedStockAdjustmentApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useFeedStockAdjustmentList } from '../hooks/useFeedStockAdjustmentList'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 
 const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
@@ -19,11 +18,11 @@ const STATUS_LABELS: Record<string, string> = { DRAFT: 'Nháp', POSTED: 'Đã gh
 export default function FeedStockAdjustmentPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const query = useQuery(() => listFeedStockAdjustments(), [])
+  const query = useFeedStockAdjustmentList()
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'adjustmentMessage' in location.state
     ? String((location.state as { adjustmentMessage?: unknown }).adjustmentMessage ?? '')
     : ''
-  const rows = query.data ?? []
+  const rows = query.adjustments
   const error = query.error
     ? userFacingError(query.error, 'Không thể tải phiếu kiểm kê. Vui lòng thử lại.')
     : null
@@ -39,9 +38,9 @@ export default function FeedStockAdjustmentPage() {
       {routeMessage && <Note tone="ok">{routeMessage}</Note>}
 
       <section role="tabpanel" aria-label="Danh sách phiếu kiểm kê" className="flex flex-col gap-4">
-        {query.loading && !query.data && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tải phiếu kiểm kê…</div>}
+        {query.loading && !query.data && <div role="status" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">Đang tải phiếu kiểm kê…</div>}
         {error && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
             <span>{error}</span>
             <Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải lại…' : 'Thử tải lại'}</Button>
           </div>
@@ -50,9 +49,8 @@ export default function FeedStockAdjustmentPage() {
           <Note tone="info">Chưa có phiếu kiểm kê. Tạo phiếu mới để so sánh lượng đếm với tồn hiện tại.</Note>
         )}
         {!query.loading && !error && rows.length > 0 && (
-          <>
-            <p className="m-0 text-xs text-muted">{rows.length} phiếu kiểm kê</p>
-            <Table scroll>
+          <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-field bg-white">
+            <Table scroll bordered={false}>
               <thead><tr>
                 <Th>Số phiếu</Th><Th>Ngày kiểm kê</Th><Th>Loại</Th><Th>Mặt hàng</Th><Th>Chênh lệch (kg)</Th><Th>Giá trị (đ)</Th><Th>Trạng thái</Th><Th>Thao tác</Th>
               </tr></thead>
@@ -75,7 +73,8 @@ export default function FeedStockAdjustmentPage() {
                 ))}
               </tbody>
             </Table>
-          </>
+            <p className="m-0 border-t border-rule px-4 py-3 text-xs text-muted">{rows.length} phiếu kiểm kê</p>
+          </div>
         )}
         <Note>Ghi nhận kiểm kê không thay đổi các phiếu nhập hoặc nhật ký cho ăn trước đó.</Note>
       </section>

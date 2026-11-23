@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { pageLoader } from '../../../src/api/currentFarm'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
 import FarmRegistrationPage from '../../../src/features/farm-workspace/pages/FarmRegistrationPage'
 import FarmSelectPage from '../../../src/features/farm-workspace/pages/FarmSelectPage'
+import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
 
 const farm = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
+function Where() {
+  const location = useLocation()
+  return <output data-testid="where">{location.pathname + location.search}</output>
+}
 const sessions: Record<string, Session> = {
   owner: { role: 'OWNER', fullName: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local', ...farm, logout: vi.fn() },
   manager: { role: 'MANAGER', fullName: 'Trần Quốc Long', email: 'manager@beefcare.local', ...farm, logout: vi.fn() },
@@ -22,10 +27,66 @@ const renderAt = (who: string, path: string, route: string, element: JSX.Element
 )
 
 describe('Select Farm', () => {
+  const openWithState = (state: unknown) => render(
+    <SessionContext.Provider value={sessions.owner}>
+      <MemoryRouter initialEntries={[{ pathname: '/chon-trai', state }]}><Routes><Route path="/chon-trai" element={<FarmSelectPage />} /></Routes></MemoryRouter>
+    </SessionContext.Provider>,
+  )
+
+  it('comes back to the farm screen that asked for a farm once one is entered (deep link in a new tab)', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    openWithState({ returnTo: '/cattle/BC-000142?tab=vaccine' })
+    await user.click((await screen.findAllByRole('button', { name: 'Vào trại' }))[0])
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/cattle/BC-000142?tab=vaccine'))
+    load.mockRestore()
+  })
+
+  it('opens the only ACTIVE farm directly (AF4) and returns to the requested screen', async () => {
+    const active = (await farmWorkspaceApi.listFarms()).find((farm) => farm.serviceStatus === 'ACTIVE')!
+    const list = vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([active])
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
+    openWithState({ fromSignIn: true, returnTo: '/pens' })
+    // Select Farm leaves the history: Back must not reopen it and enter the farm again.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/pens'))
+    expect(load).not.toHaveBeenCalled()
+    load.mockRestore()
+    replace.mockRestore()
+    list.mockRestore()
+  })
+
+  it('opens the payment page of a farm that cannot be entered yet, keeping the farm of the tab and ignoring returnTo', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    render(
+      <SessionContext.Provider value={sessions.owner}>
+        <MemoryRouter initialEntries={[{ pathname: '/chon-trai', state: { returnTo: '/cattle' } }]}><Routes>
+          <Route path="/chon-trai" element={<FarmSelectPage />} />
+          <Route path="/dang-ky-goi" element={<Where />} />
+        </Routes></MemoryRouter>
+      </SessionContext.Provider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Thanh toán để kích hoạt' }))
+    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/dang-ky-goi\?farm=\d+&from=chon-trai$/)
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBe(1)
+    load.mockRestore()
+  })
+
+  it('ignores a return address outside the app and opens the farm home instead', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    openWithState({ returnTo: '//evil.example/steal' })
+    await user.click((await screen.findAllByRole('button', { name: 'Vào trại' }))[0])
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    load.mockRestore()
+  })
+
   it('shows each farm with its role, size and the action its service state allows', async () => {
     renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
     expect(await screen.findByText('Trại Tản Lĩnh')).toBeInTheDocument()
-    expect(screen.getByText('4 trang trại bạn có quyền truy cập')).toBeInTheDocument()
+    expect(screen.getByText('Số lượng trang trại: 4 trang trại')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Vào trại' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Thanh toán để kích hoạt' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Gửi phiếu hỗ trợ' })).toBeEnabled()
@@ -44,11 +105,24 @@ describe('Select Farm', () => {
 })
 
 describe('Register Farm', () => {
+  it('"Quay lại" on a page opened straight from a link goes to Select Farm instead of leaving the app (SCR-10 #11)', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={sessions.owner}><MemoryRouter initialEntries={['/dang-ky-trai']}><Routes>
+      <Route path="/dang-ky-trai" element={<FarmRegistrationPage />} /><Route path="/chon-trai" element={<p>Trang chọn trại</p>} />
+    </Routes></MemoryRouter></SessionContext.Provider>)
+    await user.click(await screen.findByRole('button', { name: /Quay lại/ }))
+    expect(await screen.findByText('Trang chọn trại')).toBeInTheDocument()
+  })
+
   it('validates the required fields, then creates the farm and opens plan selection', async () => {
     const user = userEvent.setup()
     renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
     await user.click(await screen.findByRole('button', { name: /Tạo trại và tiếp tục/ }))
-    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
+    expect(await screen.findByText('Tên trại là bắt buộc.')).toBeInTheDocument() // MSG-COM-06
+    // The invalid fields are marked for assistive technology (and drawn with a red border), as on SCR-51.
+    expect(screen.getByLabelText('Tên trại *')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Tỉnh/Thành *')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Người liên hệ')).not.toHaveAttribute('aria-invalid')
 
     await user.type(screen.getByLabelText('Tên trại *'), 'Trại Thung Mây')
     await user.selectOptions(screen.getByLabelText('Tỉnh/Thành *'), 'Phú Thọ')
@@ -101,7 +175,8 @@ describe('Farm Information', () => {
     expect(await screen.findByText('owner@beefcare.local')).toBeInTheDocument()
     await user.clear(name)
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
+    expect(await screen.findByText('Tên trại là bắt buộc.')).toBeInTheDocument() // MSG-COM-06
+    expect(name).toHaveAttribute('aria-invalid', 'true')
     await user.type(name, 'Trại bò Yên Bài – Ba Vì')
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
     expect(await screen.findByText('Đã cập nhật thông tin trại.')).toBeInTheDocument()

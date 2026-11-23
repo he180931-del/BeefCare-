@@ -41,7 +41,7 @@ describe('farm-born entry draft in backend mode', () => {
     pendingResponse = pendingCalf
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
     localStorage.setItem('beefcare:latency', '0')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url, 'http://backend.test')
@@ -116,6 +116,7 @@ describe('farm-born entry draft in backend mode', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('reopens a backend FARM_BORN draft with the pending calf selected and no seller/payment fields', async () => {
@@ -186,18 +187,29 @@ describe('farm-born entry draft in backend mode', () => {
     expect(requests.find((request) => request.method === 'POST' && request.path.endsWith('/entry-vouchers/41/post'))?.body).toEqual({ expectedVersion: 5, printQr: true })
   })
 
-  it('marks a pending calf dead before registration through the backend command without creating a voucher', async () => {
+  it('confirms a pending calf death through the backend command without creating a voucher', async () => {
     const user = userEvent.setup()
     pendingResponse = { ...pendingCalf, draftVoucherId: null }
-    vi.spyOn(window, 'prompt').mockReturnValue('Bê chết sau khi sinh')
     const { default: ImportNew } = await import('../../../src/features/herd-entry/pages/ImportNew')
     render(<MemoryRouter initialEntries={['/herd-entry/new?kind=calf']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
 
     await screen.findByDisplayValue('Bê sinh tại trại')
     await user.click(screen.getByRole('button', { name: 'Đánh dấu chết trước đăng ký' }))
-    await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/pending-calves/501/died-before-registration'))).toBe(true))
+    const firstDialog = within(screen.getByRole('dialog', { name: 'Đánh dấu bê chết trước khi đăng ký' }))
+    expect(firstDialog.getByRole('button', { name: 'Xác nhận' })).toBeDisabled()
+    expect(requests.some(request => request.method === 'POST')).toBe(false)
+    await user.click(firstDialog.getByRole('button', { name: 'Hủy' }))
+    expect(screen.getByRole('checkbox', { name: 'Chọn VN-ENTRY-1' })).toBeInTheDocument()
+    expect(requests.some(request => request.method === 'POST')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Đánh dấu chết trước đăng ký' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Đánh dấu bê chết trước khi đăng ký' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Bê chết sau khi sinh')
+    await user.click(dialog.getByRole('button', { name: 'Xác nhận' }))
+    await waitFor(() => expect(requests.filter(request => request.method === 'POST' && request.path.endsWith('/pending-calves/501/died-before-registration'))).toHaveLength(1))
     expect(requests.find((request) => request.path.endsWith('/pending-calves/501/died-before-registration'))?.body).toEqual({ reason: 'Bê chết sau khi sinh' })
     expect(requests.some((request) => request.path.includes('/entry-vouchers') && request.method !== 'GET')).toBe(false)
-    expect(screen.queryByText('VN-ENTRY-1')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('VN-ENTRY-1')).not.toBeInTheDocument())
+    expect(screen.getByText('Đã đánh dấu bê chết trước khi đăng ký.')).toBeInTheDocument()
   })
 })

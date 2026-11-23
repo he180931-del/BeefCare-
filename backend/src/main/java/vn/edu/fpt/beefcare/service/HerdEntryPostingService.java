@@ -52,6 +52,8 @@ import vn.edu.fpt.beefcare.service.dto.EntryLineRequest;
  */
 @Service
 public class HerdEntryPostingService {
+    static final String PRE_ENTRY_VACCINATOR = "Pre-entry declaration";
+    static final String UNKNOWN_VACCINATION_DATE = "date unknown (entry date used)";
 
     @PersistenceContext
     private EntityManager em;
@@ -267,10 +269,15 @@ public class HerdEntryPostingService {
 
     /** Declarations per category (GBR-30); known vaccinations also become HISTORICAL vaccination records without doses. */
     void createDeclarations(FarmContext ctx, HerdEntry line, Cattle cattle, Resolved r) {
+        createDeclarations(ctx, line, cattle, r, true);
+    }
+
+    /** Corrections can replace declaration data without recreating unchanged care records. */
+    void createDeclarations(FarmContext ctx, HerdEntry line, Cattle cattle, Resolved r, boolean recordVaccinations) {
         EntryLineRequest d = r.data();
         EntryLineRequest.VaccinationDeclaration vacc = d.vaccination();
         saveDeclaration(ctx, line, DeclarationCategory.VACCINATION, vacc.status(), vacc.status() == DeclarationStatus.KNOWN ? JsonSupport.toJson(vacc.items()) : null, vacc.informationSource(), null, null, null);
-        if (vacc.status() == DeclarationStatus.KNOWN && vacc.items() != null) {
+        if (recordVaccinations && vacc.status() == DeclarationStatus.KNOWN && vacc.items() != null) {
             for (EntryLineRequest.VaccinationItem item : vacc.items()) {
                 recordHistoricalVaccination(cattle, item, vacc.informationSource(), r.entryDate());
             }
@@ -334,9 +341,9 @@ public class HerdEntryPostingService {
         vac.setEntryTime(clock.now());
         vac.setDose(vaccine.getDose());
         vac.setSource("HISTORICAL");
-        vac.setVaccinator("Pre-entry declaration");
+        vac.setVaccinator(PRE_ENTRY_VACCINATOR);
         String info = item.informationSource() != null ? item.informationSource() : declarationSource;
-        vac.setInformationSource(item.date() == null ? (info == null ? "" : info + "; ") + "date unknown (entry date used)" : info);
+        vac.setInformationSource(item.date() == null ? (info == null ? "" : info + "; ") + UNKNOWN_VACCINATION_DATE : info);
         vaccinationRepository.save(vac);
     }
 

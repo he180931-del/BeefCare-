@@ -1,8 +1,6 @@
-import { Badge, KV, Table, Td, Th, inputCls, type BadgeTone } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { useSession } from '../../authorization'
-import type { ReactNode, ChangeEvent } from 'react'
-import { money } from '../../../data/format'
+import { Badge, type BadgeTone, Icon, type IconName, KV, Table, Td, Th } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import type { ReactNode } from 'react'
 
 export const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 // Khoảng cách giữa các cột 8px như Figma (ghi đè px của Th/Td trong ui.tsx).
@@ -10,7 +8,7 @@ export const TH = '!px-1 first:!pl-3 last:!pr-3'
 
 /** Thẻ Figma: viền #bdbdbd, bo 6, padding 16. */
 export const Box = ({ title, sub, actions, gap = 'gap-[10px]', className, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; gap?: string; className?: string; children: ReactNode }) => (
-  <section className={cx('flex flex-col rounded-md border border-edge bg-white p-4', gap, className)}>
+  <section className={cx('flex min-w-0 flex-col rounded-2xl border border-field bg-white p-4', gap, className)}>
     {(title || actions) && (
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">
@@ -53,7 +51,7 @@ export const SummaryCard = ({ badge, rows, children }: { badge?: ReactNode; rows
 
 /** Bảng "Kiểm tra trước khi xác nhận": rows = [[mục, kết quả, lỗi?]]. */
 export const CheckList = ({ rows }: { rows: Array<[string, ReactNode, boolean?]> }) => (
-  <Table stack={false}>
+  <Table variant="panel" stack={false}>
     <thead>
       <tr><Th className={cx(TH, 'w-[150px]')}>Mục</Th><Th className={TH}>Kết quả</Th></tr>
     </thead>
@@ -68,20 +66,7 @@ export const CheckList = ({ rows }: { rows: Array<[string, ReactNode, boolean?]>
   </Table>
 )
 
-export const parseMoney = (s: string) => Number(String(s).replace(/\D/g, '')) || 0
-
-/** Ô số tiền: hiển thị 60.000.000, gõ số là tự định dạng. suffix = hậu tố "đ". */
-export const MoneyInput = ({ value, onChange, suffix, className }: { value: number; onChange: (value: number) => void; suffix?: string; className?: string }) => (
-  <div className={cx('relative', className)}>
-    <input
-      inputMode="numeric"
-      value={money(value)}
-      onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(parseMoney(e.target.value))}
-      className={cx(inputCls, suffix && 'pr-8')}
-    />
-    {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{suffix}</span>}
-  </div>
-)
+export { MoneyInput, parseMoney } from '../../../shared/ui'
 
 const EXIT_STATUS: Record<string, { tone?: BadgeTone; icon?: IconName }> = {
   'Nháp': { icon: 'pencil' },

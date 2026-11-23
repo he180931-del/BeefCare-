@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, PageHeader, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { announcementsApi } from '../api/announcementsApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { AnnouncementDetail, HistoryModal } from '../components/AnnouncementDetail'
 import { messageOf, Toast, useViewer } from '../components/shared'
 import { canWrite } from '../domain/announcementRules'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 import type { AnnouncementSummary } from '../types'
 
 type Tab = 'received' | 'authored' | 'drafts'
@@ -31,8 +29,9 @@ export default function AnnouncementListPage() {
   const [tab, setTab] = useState<Tab>((params.get('tab') as Tab | null) ?? (writer ? 'authored' : 'received'))
   const [toast, setToast] = useState((location.state as { toast?: string } | null)?.toast ?? '')
   const [refresh, setRefresh] = useState(0)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const marked = useRef(new Set<string>())
-  const list = useQuery(() => announcementsApi.list(viewer), [viewer, refresh])
+  const { list, detail, markRead } = useAnnouncementUseCases({ viewer, loadList: true, detailId: selectedId, refreshKey: refresh })
 
   const groups = useMemo(() => {
     const all = list.data ?? []
@@ -49,8 +48,7 @@ export default function AnnouncementListPage() {
     : tab
   const items = groups[activeTab]
   const hasRequestedTarget = routeId !== undefined || params.has('id')
-  const selectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
-  const detail = useQuery(() => (selectedId ? announcementsApi.get(selectedId, viewer) : Promise.resolve(null)), [selectedId, viewer, refresh])
+  const computedSelectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
   const versionIdParam = params.get('versionId')
   const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
     ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
@@ -58,13 +56,17 @@ export default function AnnouncementListPage() {
   // Only acknowledge the newest visible delivery. A stale notification link to an older version
   // must not mark a later correction as read.
   useEffect(() => {
+    if (computedSelectedId !== selectedId) setSelectedId(computedSelectedId)
+  }, [computedSelectedId, selectedId])
+
+  useEffect(() => {
     const d = detail.data
     if (!d || !selectedVersion?.unread || selectedVersion.id !== d.versions[0]?.id) return
     const key = `${d.id}:${selectedVersion.id}`
     if (marked.current.has(key)) return
     marked.current.add(key)
-    announcementsApi.markRead(viewer, d.id).then(() => setRefresh((n) => n + 1), () => undefined)
-  }, [detail.data, selectedVersion, viewer])
+    markRead(d.id).then(() => setRefresh((n) => n + 1), () => undefined)
+  }, [detail.data, selectedVersion, markRead])
 
   const pickTab = (next: Tab) => {
     setTab(next)
@@ -99,8 +101,8 @@ export default function AnnouncementListPage() {
           {writer && <Button variant="primary" onClick={() => navigate('/thong-bao/moi')}>Soạn thông báo</Button>}
         </PageHeader>
         <Segmented options={tabs} value={activeTab} onChange={(v) => pickTab(v as Tab)} />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,400px)_minmax(0,1fr)]">
-          <Card>
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)] @min-[1024px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[1024px]:gap-6">
+          <Card variant="panel">
             {items.length === 0 ? <EmptyBlock title="Chưa có thông báo" sub="Thông báo trong mục này sẽ hiện ở đây." /> : (
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {items.map((a) => (
@@ -109,7 +111,7 @@ export default function AnnouncementListPage() {
                       type="button"
                       onClick={() => pick(a.id)}
                       aria-current={a.id === selectedId}
-                      className={`flex w-full cursor-pointer flex-col gap-1.5 rounded-md border px-3 py-2.5 text-left ${a.id === selectedId ? 'border-edge bg-chip' : 'border-transparent bg-white hover:bg-page'}`}
+                      className={`flex w-full cursor-pointer flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-brand ${a.id === selectedId ? 'border-ok-bg bg-ok-bg' : 'border-transparent bg-white hover:bg-page'}`}
                     >
                       <span className={`text-[13px] text-[#212121] ${a.unread ? 'font-bold' : 'font-semibold'}`}>{a.title}</span>
                       <span className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">

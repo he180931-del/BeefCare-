@@ -1,9 +1,14 @@
-import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
-import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStore'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { BackendError } from '../../../shared/api/backendClient'
+import type { SupportDemoStore } from '../data/supportDemoStore'
 import type { AcknowledgeCommand, CreateTicketCommand, ReopenCommand, ReplyCommand, TicketFilters } from '../types'
 import type { MessagePage, OwnedFarm, Ticket, TicketPage } from '../types'
 import { MESSAGES, SupportError } from '../domain/supportError'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
@@ -90,7 +95,7 @@ function createBackendApi(transport: BackendTransport) {
   }
 }
 
-export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SupportDemoStore }) {
+export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SupportDemoStore }) {
   void farmId
   const backend = createBackendApi(transport)
   return {
@@ -136,4 +141,4 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type SupportApi = ReturnType<typeof createSupportApi>
-export const supportApi = createSupportApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: supportDemoStore })
+export const supportApi = createSupportApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.support.supportDemoStore) })

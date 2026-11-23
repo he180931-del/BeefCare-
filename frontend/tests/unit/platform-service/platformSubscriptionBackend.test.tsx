@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { createPlatformServiceApi } from '../../../src/features/platform-service/api/platformServiceApi'
 import { platformServiceDemoStore } from '../../../src/features/platform-service/data/platformServiceDemoStore'
 import FarmServiceRoutes from '../../../src/features/platform-service/pages/FarmServiceRoutes'
@@ -9,8 +9,12 @@ import PlatformSubscriptionRoutes from '../../../src/features/platform-service/p
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const row = (id = 42) => ({ farmId: id, farmName: `Trại UC4 ${id}`, ownerName: 'Owner hiện tại', ownerEmail: 'owner@example.test',
   serviceStatus: 'SUSPENDED', currentStart: '2026-01-01T00:00:00Z', currentEnd: '2027-01-01T17:00:00Z',
@@ -66,6 +70,22 @@ describe('UC4 backend adapter and SCR-61', () => {
     expect(within(farm43).getByRole('link', { name: 'Xem gói' })).toHaveAttribute('href', '/nen-tang/goi-dang-ky?farmId=43')
   })
 
+  it('SCR-12 shows 20 farms a page with the shared pager and asks the server for the next page (UI review E6)', async () => {
+    const base = http.get.getMockImplementation()!
+    http.get.mockImplementation(async (path: string) => {
+      const url = new URL(path, 'http://test')
+      if (url.pathname !== '/api/platform/farms') return base(path)
+      const first = await base(path) as { items: unknown[] }
+      return { ...first, total: 45 }
+    })
+    page('/nen-tang/dich-vu')
+    expect(await screen.findByText('Hiển thị 1–2 trong 45 trại')).toBeInTheDocument()
+    const farmCalls = () => http.get.mock.calls.map(([p]) => new URL(String(p), 'http://test')).filter((u) => u.pathname === '/api/platform/farms')
+    expect(farmCalls().at(-1)!.searchParams.get('size')).toBe('20')
+    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }))
+    await waitFor(() => expect(farmCalls().at(-1)!.searchParams.get('page')).toBe('1'))
+  })
+
   it('opens the subscription page when clicking the non-control area of a farm service row', async () => {
     page('/nen-tang/dich-vu')
     const farm43 = (await screen.findByText('Trại UC4 43')).closest('tr') as HTMLElement
@@ -79,6 +99,21 @@ describe('UC4 backend adapter and SCR-61', () => {
     const farm43 = (await screen.findByText('Trại UC4 43')).closest('tr') as HTMLElement
     fireEvent.click(farm43)
     expect(screen.getByRole('button', { name: /Trại UC4 43/ })).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('scrolls to the detail under the list on screens narrower than 1280 px when the PM picks a farm (UI review B3)', async () => {
+    const scrolled: Element[] = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) { scrolled.push(this) }
+    try {
+      http.get.mockResolvedValueOnce(pageOf([row(), row(43)]))
+      page()
+      await screen.findByRole('region', { name: 'Gói của Trại UC4 42' })
+      fireEvent.click(screen.getByText('Trại UC4 43').closest('tr') as HTMLElement)
+      await waitFor(() => expect(scrolled.map((el) => el.getAttribute('aria-label'))).toContain('Gói của Trại UC4 43'))
+      // The farm selected automatically when the list first loads is not scrolled to.
+      expect(scrolled.map((el) => el.getAttribute('aria-label'))).not.toContain('Gói của Trại UC4 42')
+    } finally { Element.prototype.scrollIntoView = original }
   })
 
   it('sends all filters and real paging to the existing API, preserving instants and nullable confirmation', async () => {
@@ -123,7 +158,7 @@ describe('UC4 backend adapter and SCR-61', () => {
     expect(calls().map((path) => new URL(path, 'http://test').searchParams.get('page'))).toEqual(['3', '0'])
     expect(calls().at(-1)).toContain('coverage=CURRENT')
     expect(screen.queryByText('Không có trại phù hợp')).not.toBeInTheDocument()
-    expect(screen.getByText('Hiển thị 1–1 / 15 trại')).toBeInTheDocument()
+    expect(screen.getByText('Hiển thị 1–1 trong 15 trại')).toBeInTheDocument()
   })
 
   it('selects an actual returned farm, shows suspension and each source link without a made-up subscription code', async () => {

@@ -1,7 +1,7 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, EmptyBlock, inputCls } from '../../../components/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, EmptyBlock, inputCls } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
 import { fmtDayMonth } from '../domain/vaccinationFormat'
 import type { DoseRow, VaccinationSource, VaccineRoute } from '../types'
@@ -32,6 +32,16 @@ export function UnitInput({ unit, className = '', ...props }: { unit: string } &
   )
 }
 
+/**
+ * Đọc ô số nguyên một cách nghiêm (D50): để trống → undefined (không nhập); gõ đúng số nguyên không âm → số;
+ * gõ sai (chữ, số thập phân, số âm, ký tự lạ) → NaN để bước kiểm tra báo lỗi dưới ô thay vì âm thầm coi là trống.
+ */
+export const parseIntField = (s: string): number | undefined => {
+  const t = s.trim()
+  if (!t) return undefined
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
 export const parseNum = (s: string): number | undefined => {
   const t = s.trim()
   if (!t) return undefined
@@ -52,18 +62,21 @@ export function parseDoseAmount(text: string, unit: string): { amount?: string; 
 }
 export const DOSE_INVALID = 'Liều không hợp lệ.'
 
+/** Nhãn đường tiêm để hiển thị: với "Khác" thì hiện đúng mô tả người dùng đã nhập (D45). */
+export const routeLabelOf = (route: VaccineRoute | undefined, routeText?: string): string =>
+  !route ? '—' : route === 'OTHER' && routeText ? routeText : ROUTE_LABEL[route]
+
 /** Tách "2 ml" thành số và đơn vị. */
 export function splitDose(dose: string | undefined, fallbackUnit = 'ml'): { amount: string; unit: string } {
   const m = /^\s*([\d.,]+)\s*(.*)$/.exec(dose ?? '')
   return m ? { amount: m[1], unit: m[2] || fallbackUnit } : { amount: '', unit: fallbackUnit }
 }
 
-export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'effectiveDate' | 'newExpectedDate' | 'doneAt'> }) {
+export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'dueDate' | 'doneAt'> }) {
   switch (row.state) {
     case 'OVERDUE': return <Badge tone="err" icon="alert-triangle">Quá hạn {row.daysOverdue} ngày</Badge>
-    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.effectiveDate)}</Badge>
+    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.dueDate)}</Badge>
     case 'UPCOMING': return <Badge tone="outline" icon="clock">Sắp tới</Badge>
-    case 'DEFERRED': return <Badge tone="warn">{row.newExpectedDate ? `Hoãn đến ${fmtDayMonth(row.newExpectedDate)}` : 'Đã hoãn'}</Badge>
     default: return <Badge tone="ok" icon="circle-check">Đã tiêm{row.doneAt ? ` ${fmtDayMonth(row.doneAt)}` : ''}</Badge>
   }
 }
@@ -73,7 +86,7 @@ export function CareWriterOnly({ title, children }: { title: string; children: R
   if (useCanWrite()) return <>{children}</>
   return (
     <Layout title={title}>
-      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" sub="Kỹ thuật viên chỉ xem lịch và lịch sử tiêm." action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
+      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
     </Layout>
   )
 }

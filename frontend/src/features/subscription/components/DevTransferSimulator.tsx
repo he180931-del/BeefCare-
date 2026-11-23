@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { userFacingError } from '../../../api/userFacingError'
-import { Button, Card, Note, inputCls } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, inputCls, Note } from '../../../shared/ui'
 import { devTransferApi } from '../api/devTransferApi'
 import { fmtVnd } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
@@ -45,19 +45,18 @@ export default function DevTransferSimulator({ farmId, payment, onSent }: Props)
   }
 
   return (
-    <section aria-label="Giả lập chuyển khoản">
-      <Card title="Giả lập chuyển khoản" sub="Chỉ có khi chạy thử. Đóng vai ngân hàng và SePay báo đã nhận tiền cho yêu cầu này; không chuyển tiền thật.">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex w-[220px] max-w-full flex-col gap-1">
-            <label htmlFor="simulated-amount" className="text-xs text-muted">Số tiền giả lập (VND)</label>
-            <input id="simulated-amount" className={inputCls} inputMode="numeric" value={amount}
-              onChange={(e) => { setAmount(e.target.value); setResult(null) }} />
-          </div>
-          <Button variant="primary" disabled={busy} onClick={() => void send()}>Giả lập chuyển khoản</Button>
+    // The Bento card is itself the region "Giả lập chuyển khoản" (its section is labelled by the title).
+    <Card variant="panel" title="Giả lập chuyển khoản" sub="Chỉ có khi chạy thử. Đóng vai ngân hàng và SePay báo đã nhận tiền cho yêu cầu này; không chuyển tiền thật.">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex w-[220px] max-w-full flex-col gap-1">
+          <label htmlFor="simulated-amount" className="text-xs text-muted">Số tiền giả lập (VND)</label>
+          <input id="simulated-amount" className={inputCls} inputMode="numeric" value={amount}
+            onChange={(e) => { setAmount(e.target.value); setResult(null) }} />
         </div>
-        <p className="m-0 text-[11px] text-muted">Để nguyên {fmtVnd(payment.amountVnd)} để thanh toán thành công; nhập số khác để thử sai số tiền.</p>
-        {result && <Note tone={result.tone}>{result.text}</Note>}
-      </Card>
-    </section>
+        <Button variant="primary" size="bento" disabled={busy} onClick={() => void send()}>Giả lập chuyển khoản</Button>
+      </div>
+      <p className="m-0 text-[11px] text-muted">Để nguyên {fmtVnd(payment.amountVnd)} để thanh toán thành công; nhập số khác để thử sai số tiền.</p>
+      {result && <Note tone={result.tone}>{result.text}</Note>}
+    </Card>
   )
 }

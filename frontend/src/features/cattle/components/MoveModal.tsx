@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Button, Field, DateInput, Note, Select, Table } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { MANAGER, OWNER, TODAY } from '../../../data/cowsData'
-import { checkPenMove, moveBarn } from '../api/cattleApi'
-import { useMutation } from '../../../hooks/useApi'
-import { businessDate } from '../../../api/farmTimeZone'
-import { userFacingError } from '../../../api/userFacingError'
-import { BackendError } from '../../../api/backendClient'
+import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Table } from '../../../shared/ui'
+import { cattleToday, demoActors, demoCowPrefill, demoRecorder } from '../api/cattleApi'
+import { useCattleMoveCommand, useCattlePenMoveCheck } from '../hooks/useCattleCommands'
+import { cattleError as cattleErrorMessage } from '../api/cattleError'
+import { BackendError } from '../../../shared/api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
-import type { Pen } from '../../../types'
+import type { CattleViewModel as CowSeed } from '../types'
+import type { Pen } from '../../pen-management'
+import type { PenMoveCheck } from '../api/cattleBackendApi'
 
-type MovePayload = { to: string; date: string; reason: string; by: string }
-type CheckResult = Awaited<ReturnType<typeof checkPenMove>>
+type CheckResult = PenMoveCheck | null
 
 const CRITERION_TEXT: Record<string, string> = {
   PURPOSE_TYPE: 'Loại mục đích phù hợp',
@@ -26,38 +23,29 @@ type CheckRow = [string, boolean | null]
 export default function MoveModal({ cow, barns, onClose, onReload = onClose, onSaved }: { cow: CowSeed; barns: Record<string, Pen>; onClose: () => void; onReload?: () => void; onSaved: () => void }) {
   const backend = cow.backendId != null
   const from = barns[cow.barn]
-  const isDemo = !backend && cow.code === 'BC-000142'
+  const prefill = demoCowPrefill(cow)
   const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
   const [to, setTo] = useState(backend ? options[0]?.code ?? '' : options.find((b) => b.code === 'A1')?.code ?? options[0]?.code ?? '')
   const [enteredDate, setDate] = useState<string>()
-  const date = enteredDate ?? (backend ? businessDate() : TODAY)
-  const [by, setBy] = useState(MANAGER)
-  const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
+  const date = enteredDate ?? cattleToday()
+  const [by, setBy] = useState(demoRecorder)
+  const [reason, setReason] = useState(prefill?.moveReason ?? '')
   // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
   const [warningReason, setWarningReason] = useState('')
-  const [check, setCheck] = useState<CheckResult>(null)
   const [checkRun, setCheckRun] = useState(0)
   const [needsReload, setNeedsReload] = useState(false)
-  const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
 
   const dest = barns[to]
   const destId = typeof dest?.backendId === 'number' ? dest.backendId : undefined
-  const warningRequired = check?.cattle?.some((c) => c.warningReasonRequired) === true
-  const move = useMutation((payload: MovePayload) => moveBarn(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion, toPenId: destId, warningReason: warningRequired ? warningReason.trim() : undefined } : {}))
-
   // Backend kiểm tra tiếp nhận (chuồng đích ACTIVE, còn chỗ, tiêu chí) trước khi cho chuyển.
-  useEffect(() => {
-    if (!backend || destId == null || !date) { setCheck(null); setChecking(false); return }
-    let active = true
-    setChecking(true)
-    setError('')
-    checkPenMove(cow.code, { date, toPenId: destId }, { backendId: cow.backendId })
-      .then((result) => { if (active) setCheck(result) })
-      .catch((e: unknown) => { if (active) { setCheck(null); setError(userFacingError(e, 'Không kiểm tra được điều kiện tiếp nhận.')) } })
-      .finally(() => { if (active) setChecking(false) })
-    return () => { active = false }
-  }, [backend, destId, date, cow.code, cow.backendId, checkRun])
+  const checkQuery = useCattlePenMoveCheck({ cow, backend, destId, date, checkRun })
+  const check: CheckResult = checkQuery.data
+  const checking = checkQuery.loading
+  const checkFailure = checkQuery.error ? cattleErrorMessage(checkQuery.error, 'Không kiểm tra được điều kiện tiếp nhận.') : ''
+  const warningRequired = check?.cattle?.some((c) => c.warningReasonRequired) === true
+  const move = useCattleMoveCommand(cow, { backend, destId, warningReason: warningRequired ? warningReason.trim() : undefined })
+  useEffect(() => { setError('') }, [backend, destId, date, checkRun])
 
   const blockText = check?.blocked ? check.block?.text ?? check.block?.message ?? 'Chuồng đích không nhận được bò này.' : ''
   // Backend trả kết quả theo từng tiêu chí (MET / NOT_MET / NOT_APPLICABLE); null = Không áp dụng.
@@ -85,11 +73,10 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
       await move.mutate({ to, date, reason: reason.trim(), by })
       onSaved()
     } catch (e) {
-      setError(userFacingError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
+      setError(cattleErrorMessage(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
       if (e instanceof BackendError) {
         if (e.code === 'MSG-COM-05') setNeedsReload(true)
         if (e.code === 'MSG-FE04-05') {
-          setCheck(null)
           setCheckRun((run) => run + 1)
         }
       }
@@ -116,12 +103,13 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
         <Field label="Ngày chuyển *">
           <DateInput value={date} onChange={setDate} />
         </Field>
-        <Field label="Người thực hiện">
-          <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
-            <option value={MANAGER}>Quản lý</option>
-            <option value={OWNER}>Chủ trại</option>
-          </Select>
-        </Field>
+        {demoActors.length > 0 && (
+          <Field label="Người thực hiện">
+            <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
+              {demoActors.map((actor) => <option key={actor.value} value={actor.value}>{actor.label}</option>)}
+            </Select>
+          </Field>
+        )}
         <div className="sm:col-span-2">
           <Field label="Lý do *">
             <input className={fieldCls} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -131,8 +119,8 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
 
       <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
       {blockText && <Note tone="err">{blockText}</Note>}
-      {error && <Note tone="err">{error}</Note>}
-      {cattleError && <Note tone="err">{userFacingError(cattleError, 'Bò này không chuyển được chuồng.')}</Note>}
+      {(error || checkFailure) && <Note tone="err">{error || checkFailure}</Note>}
+      {cattleError && <Note tone="err">{cattleError.message ?? cattleError.text ?? 'Bò này không chuyển được chuồng.'}</Note>}
       <Table stack={false}>
         <thead>
           <tr>

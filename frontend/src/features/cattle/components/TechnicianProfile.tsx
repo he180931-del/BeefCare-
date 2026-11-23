@@ -1,16 +1,14 @@
 import { useParams, useSearchParams } from 'react-router-dom'
 import TimelineTab from './TimelineTab'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { ErrorBlock, Icon, type IconName, LoadingBlock } from '../../../shared/ui'
+import { useCattleProfileQuery } from '../hooks/useCattleQueries'
 import { GrowthTechnicianTab } from '../../growth'
 import { VaccinationTechnicianTab } from '../../vaccination'
 import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
 import { Chip, Fields, Panel, chipIcon } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import CowPhoto from './CowPhoto'
 
 const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
@@ -31,8 +29,9 @@ function Overview({ cow }: { cow: CowSeed }) {
       <Panel title="Thông tin cá thể" pad="p-4">
         <Fields cols="grid-cols-2" items={[['Giống', cow.breed], ['Tuổi', cow.ageLong.replace('tuổi', 'năm')], ['Mục đích', cow.purpose], ['Giai đoạn', cow.stage], ['Mẹ', cow.mother], ['Chuồng', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—']]} />
       </Panel>
-      <Panel title="Tóm tắt chăm sóc" pad="p-4">
+      <Panel title="Tóm tắt chăm sóc" pad="p-4" tone="emphasis">
         <Fields
+          dark
           cols="grid-cols-2"
           items={[
             ['Cân gần nhất', cow.care.last],
@@ -50,7 +49,7 @@ function Overview({ cow }: { cow: CowSeed }) {
 export default function TechnicianProfile() {
   const { code = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const { data, loading, error, refetch } = useQuery(() => loadProfile(code), [code])
+  const { data, loading, error, refetch } = useCattleProfileQuery(code)
   const cow = data?.cow
   const rawTab = params.get('tab') ?? ''
   const tab = TABS.some(([v]) => v === rawTab) ? rawTab : ''

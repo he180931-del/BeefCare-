@@ -5,7 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { catalogueApi } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { catalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
 import CatalogueRoutes from '../../../src/features/farm-catalogue/pages/CatalogueRoutes'
-import { SessionContext, type AppRole, type Session } from '../../../src/features/authorization/sessionContext'
+import { type AppRole } from '../../../src/features/authorization'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => undefined,
@@ -114,6 +115,7 @@ describe('vaccines, medicines and purposes', () => {
     renderAt('/danh-muc/muc-dich')
     await screen.findByText('Sửa mục đích: Sinh sản')
     expect(screen.getByLabelText('Loại mục đích *')).toBeDisabled()
+    await user.selectOptions(screen.getByLabelText('Lọc theo trạng thái'), 'INACTIVE')
     await user.click(screen.getByText('Nuôi bán giống'))
     expect(await screen.findByText('Sửa mục đích: Nuôi bán giống')).toBeInTheDocument()
     expect(screen.getByLabelText('Loại mục đích *')).toBeEnabled()

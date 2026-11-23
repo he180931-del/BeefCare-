@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { validateEntryForPost } from '../../../src/features/herd-entry/entryValidation'
+import { validateEntryForPost, validateEntryPayment } from '../../../src/features/herd-entry/validation/entryFormValidation'
 
 const cow = {
   tag: 'TEST-001', name: '', breed: 'Lai Sind', sex: 'Cái', dob: '', dobAccuracy: 'Không rõ',
@@ -20,9 +20,15 @@ describe('Entry post required fields', () => {
     }
   })
 
-  it('requires receiver when posting while notes remain optional', () => {
-    const base = { date: '2026-10-22', today: '2026-10-22', type: 'Mua ngoài' as const, sourceId: 'seller-1', cows: [cow], pricing: 'kg' as const }
-    expect(validateEntryForPost({ ...base, receiver: '' })).toBe('Vui lòng nhập người thực hiện nhập đàn.')
-    expect(validateEntryForPost({ ...base, receiver: 'Anh A' })).toBeNull()
+  it('allows posting without a manually supplied receiver and with no note', () => {
+    const input = { date: '2026-10-22', today: '2026-10-22', type: 'Mua ngoài' as const, sourceId: 'seller-1', cows: [cow], pricing: 'kg' as const, note: '' }
+    expect(validateEntryForPost(input)).toBeNull()
+  })
+
+  it('rejects a positive advance without a method and a due date before entry day', () => {
+    expect(validateEntryPayment({ paid: 1, total: 10, method: '', due: '2026-10-21', date: '2026-10-22' })).toEqual({
+      method: 'Vui lòng chọn phương thức thanh toán.',
+      due: 'Hạn trả phần nợ không được trước ngày nhập.',
+    })
   })
 })

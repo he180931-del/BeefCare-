@@ -6,7 +6,7 @@ import CowList from '../../../src/features/cattle/pages/CowList'
 import CowProfile from '../../../src/features/cattle/pages/CowProfile'
 import ScanQrPage from '../../../src/features/cattle/pages/ScanQrPage'
 import TechnicianCattleRoutes from '../../../src/features/cattle/pages/TechnicianCattleRoutes'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 
 const Where = () => <p data-testid="where">{useLocation().pathname + useLocation().search}</p>
 

@@ -84,7 +84,7 @@ public class GoogleIdentityService {
             if ((identity.getFirstName() == null || identity.getFirstName().isBlank()) && !displayName.isBlank()) identity.setFirstName(firstName(displayName));
         }
         identities.saveAndFlush(identity);
-        return new Result(identity, account.isOwnerRegistrationCompleted());
+        return new Result(identity, account.isOwnerRegistrationCompleted(), account.isTermsAccepted());
     }
 
     private String normalizeEmail(String raw) {
@@ -115,5 +115,5 @@ public class GoogleIdentityService {
         return new OAuth2AuthenticationException(new OAuth2Error("access_denied", null, reason));
     }
 
-    public record Result(User user, boolean ownerRegistrationCompleted) {}
+    public record Result(User user, boolean ownerRegistrationCompleted, boolean termsAccepted) {}
 }

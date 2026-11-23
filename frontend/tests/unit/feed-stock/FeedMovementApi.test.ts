@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BUSINESS_OFFSET, businessDate } from '../../../src/shared/lib/date/farmTime'
 import { createFeedMovementApi } from '../../../src/features/feed-stock/api/feedMovementApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { recordFeedSessionDemo } from '../../../src/features/feed-stock/api/feedFeedingApi'
 import { postFeedStockAdjustmentDemo, saveFeedStockAdjustmentDemoDraft } from '../../../src/features/feed-stock/api/feedStockAdjustmentApi'
 import { resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const makeTransport = (): BackendTransport => ({
   get: vi.fn(async () => []),
   command: vi.fn(),
   farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`),
 })
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const today = businessDate
 
 describe('SCR-77 stock movement history', () => {
   afterEach(() => vi.useRealTimers())
@@ -62,8 +63,7 @@ describe('SCR-77 stock movement history', () => {
     const api = createFeedMovementApi({ mode: 'local', farmId: 1, transport: makeTransport() })
     const before = (await api.list(101)).length
     // The fixture includes a 16:35 feeding today; make the test action later so newest-first ordering is stable.
-    const recordedAt = new Date()
-    recordedAt.setHours(18, 0, 0, 0)
+    const recordedAt = new Date(`${today()}T18:00:00${BUSINESS_OFFSET}`)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(recordedAt)
     await recordFeedSessionDemo({

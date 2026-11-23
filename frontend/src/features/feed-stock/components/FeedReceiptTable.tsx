@@ -1,4 +1,4 @@
-import { Badge, Button, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Table, Td, Th } from '../../../shared/ui'
 import { useNavigate } from 'react-router-dom'
 import { formatDate, formatKg, formatMoney } from '../domain/feedLabels'
 import type { FeedReceipt } from '../types/feedReceipt'
@@ -12,7 +12,7 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'info' | 'outline'; i
 export default function FeedReceiptTable({ rows }: { rows: readonly FeedReceipt[] }) {
   const navigate = useNavigate()
   return (
-    <Table scroll stack={false}>
+    <Table scroll stack={false} bordered={false}>
       <thead>
         <tr>
           <Th>Mã phiếu</Th>

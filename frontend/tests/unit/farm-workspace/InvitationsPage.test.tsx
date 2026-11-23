@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import InvitationsPage from '../../../src/features/farm-workspace/pages/InvitationsPage'
 
 const api = vi.hoisted(() => ({ getFarm: vi.fn(), listInvitations: vi.fn(), cancelInvitation: vi.fn(), resendInvitation: vi.fn() }))
@@ -98,6 +98,7 @@ describe('UC-FE03-02 / SCR-14', () => {
     api.listInvitations.mockRejectedValueOnce(new Error('backend unavailable')).mockResolvedValue(page([], { total: 0, counts: { PENDING: 0, ACCEPTED: 0, EXPIRED: 0, CANCELLED: 0 } }))
     open(); await user.click(await screen.findByRole('button', { name: /Thử lại/ }))
     expect(await screen.findByText(/Không có bản ghi phù hợp/)).toBeInTheDocument()
+    expect(screen.getByText(/Không có bản ghi phù hợp/).closest('table')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
     await waitFor(() => expect(api.listInvitations).toHaveBeenLastCalledWith(401, expect.objectContaining({ status: 'PENDING', page: 0, dir: 'desc' })))
   })

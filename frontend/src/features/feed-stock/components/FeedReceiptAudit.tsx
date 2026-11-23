@@ -1,5 +1,5 @@
-import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
-import { Card } from '../../../components/ui'
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
+import { Card } from '../../../shared/ui'
 import type { FeedReceipt } from '../types/feedReceipt'
 
 type AuditFields = Pick<FeedReceipt, 'createdByName' | 'createdAt' | 'postedByName' | 'postedAt' | 'voidedByName' | 'voidedAt' | 'voidReason'>
@@ -19,7 +19,7 @@ export function FeedReceiptAudit({ receipt }: { receipt: AuditFields }) {
   ].filter((row) => row.actor || row.at)
   if (!rows.length && !receipt.voidReason) return null
   return (
-    <Card title="Lịch sử phiếu" sub="Giờ Việt Nam (UTC+7)">
+    <Card variant="panel" title="Lịch sử phiếu" sub="Giờ Việt Nam (UTC+7)">
       <dl className="m-0 flex flex-col gap-2 text-xs">
         {rows.map((row) => (
           <div key={row.label} className="flex flex-wrap gap-x-2">

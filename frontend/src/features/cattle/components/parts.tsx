@@ -1,7 +1,6 @@
-import { Th as UiTh, Td as UiTd } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Icon, type IconName, Td as UiTd, Th as UiTh } from '../../../shared/ui'
 import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
-import type { Tone } from '../../../types'
+import type { Tone } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
@@ -50,13 +49,17 @@ export function Seg({ options, value, onChange }: { options: ReadonlyArray<reado
   )
 }
 
-/** Thẻ nội dung: viền xám, bo 6, tiêu đề 14px đậm. `gap` đổi theo thẻ theo Figma. */
-export function Panel({ title, action, gap = 'gap-3', pad = 'p-4', className, children }: { title?: ReactNode; action?: ReactNode; gap?: string; pad?: string; className?: string; children: ReactNode }) {
+/**
+ * Thẻ nội dung của hồ sơ bò theo Bento (docs/BeefCare-Bento-Grid.md §2–3, Figma Tab 16 ①b): bo 16 px, viền nhạt, tiêu đề
+ * 14px đậm. `tone="emphasis"`: khối nổi bật nền xanh đậm chữ trắng; `tone="ok"`: trạng thái hiện tại nền xanh nhạt.
+ * `gap` đổi theo thẻ theo Figma.
+ */
+export function Panel({ title, action, gap = 'gap-3', pad = 'p-4', tone = 'default', className, children }: { title?: ReactNode; action?: ReactNode; gap?: string; pad?: string; tone?: 'default' | 'emphasis' | 'ok'; className?: string; children: ReactNode }) {
   return (
-    <section className={cx('flex flex-col rounded-md border border-edge bg-white', pad, gap, className)}>
+    <section className={cx('flex min-w-0 flex-col rounded-2xl border', tone === 'emphasis' ? 'border-brand-dark bg-brand-dark text-white' : tone === 'ok' ? 'border-ok-bg bg-ok-bg' : 'border-field bg-white', pad, gap, className)}>
       {(title || action) && (
         <div className="flex flex-wrap items-center gap-3">
-          {title && <h3 className="m-0 text-sm font-semibold text-[#212121]">{title}</h3>}
+          {title && <h3 className={cx('m-0 text-sm font-semibold', tone === 'emphasis' ? 'text-white' : 'text-[#212121]')}>{title}</h3>}
           <div className="flex-1" />
           {action}
         </div>
@@ -66,14 +69,17 @@ export function Panel({ title, action, gap = 'gap-3', pad = 'p-4', className, ch
   )
 }
 
-/** Lưới nhãn/giá trị: nhãn 11px #8f8f8f, giá trị 13px medium. */
-export function Fields({ items, cols = 'grid-cols-2 sm:grid-cols-4', gap = 'gap-x-4 gap-y-3', className }: { items: Array<readonly [ReactNode, ReactNode, ReactNode?]>; cols?: string; gap?: string; className?: string }) {
+/**
+ * Lưới nhãn/giá trị: nhãn 11px #666 (5,7:1 trên nền trắng; #8f8f8f cũ chỉ 3,2:1), giá trị 13px medium. `dark`: trên khối
+ * xanh đậm, nhãn #d9e8df và giá trị trắng.
+ */
+export function Fields({ items, cols = 'grid-cols-2 sm:grid-cols-4', gap = 'gap-x-4 gap-y-3', dark, className }: { items: Array<readonly [ReactNode, ReactNode, ReactNode?]>; cols?: string; gap?: string; dark?: boolean; className?: string }) {
   return (
     <dl className={cx('m-0 grid', cols, gap, className)}>
       {items.map(([k, v, extra]) => (
         <div key={String(k)} className="min-w-0">
-          <dt className="mb-[3px] text-[11px] text-faint">{k}</dt>
-          <dd className="m-0 break-words text-[13px] font-medium text-[#212121]">
+          <dt className={cx('mb-[3px] text-[11px]', dark ? 'text-side-text' : 'text-muted')}>{k}</dt>
+          <dd className={cx('m-0 break-words text-[13px] font-medium', dark ? 'text-white' : 'text-[#212121]')}>
             {v || '—'}
             {extra}
           </dd>

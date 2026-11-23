@@ -12,12 +12,12 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
 }))
 
-vi.mock('../../../src/api/backendTransport', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/api/backendTransport')>('../../../src/api/backendTransport')
-  return { ...actual, backendMode: 'backend' }
-})
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
 vi.mock('../../../src/features/feed-stock/api/feedStockApi', () => ({ listFeedStock: mocks.listStock }))
 vi.mock('../../../src/features/feed-stock/api/feedStockAdjustmentApi', () => ({
+  feedStockAdjustmentServerBacked: true,
   listFeedStockAdjustments: mocks.listAdjustments,
   getFeedStockAdjustment: mocks.getAdjustment,
   listFeedStockAdjustmentAttachments: mocks.listAttachments,

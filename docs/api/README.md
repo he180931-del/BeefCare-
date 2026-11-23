@@ -4,6 +4,14 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
+## Current local export — 22 November 2026
+
+FE-18 D42 on `codex/fe18-catalogue-policy`, base `34a1e0da` plus uncommitted changes: **235 paths, 286 operations, 359 schemas**. DELETE for breeds, production purposes and medicines is retired (HTTP 405); DELETE for an unused vaccine remains. `OpenApiContractTest` passed with a command-only 60-second allowance for document generation (Springdoc's first generation took 22.5 seconds here); the shared 15-second JUnit configuration was not changed. `docs/api-handoff.html` was regenerated, preserving its review state. See [FE-18 evidence](../reviews/FE18_CATALOGUE_LIFECYCLE_REVIEW.md).
+
+The complete fresh export also reflects the existing FE-23 `ConsumptionReportRequest.groupBy` annotations (`@NotBlank` and `HERD_GROUP|PEN|FEED` pattern) and the plain-string response field. No FE-23 Java code or runtime rule changed in this package. JSON property ordering can differ between exports.
+
+## Earlier exports
+
 Integration refresh on 16 November 2026: **235 paths, 289 operations, 354 schemas**, generated from the combined local FE-07/14/15/23 changes and current `dev` after `OpenApiContractTest` passed on H2. All operations from both parent contracts are present. The export alone does not certify endpoint behavior, production readiness, or PostgreSQL upgrade compatibility.
 
 Local validation on 16 November 2026 (`dev` at `bd7d598` with local feature changes): **234 paths, 288 operations, 347 schemas**. Report results include `sections` and `charts`. The announcement response includes each visible `VersionView.id`, which the frontend uses for exact-version links. The feeding plan and ration cancel/stop operations are exported. See [the Tài acceptance scenarios](../testing/TAI_ACCEPTANCE.md) and the linked evidence before marking a flow ready on a shared branch.

@@ -1,19 +1,18 @@
-import { businessDate } from '../../../api/farmTimeZone'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useRef, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, DateInput, Dropzone, ErrorBlock, Field, LoadingBlock, Note, Select, Table, Td, Textarea, Th, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { backendMode } from '../../../api/backendTransport'
-import { useQuery } from '../../../hooks/useApi'
+import { Badge, Button, DateInput, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { FileDropzone } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { saveFeedSupplier } from '../api/feedCatalogueApi'
-import { checkFeedReceiptVoid, discardFeedReceiptDraft, recordFeedReceiptPayment, uploadFeedReceiptPaymentAttachment, voidFeedReceipt, voidFeedReceiptPayment } from '../api/feedReceiptApi'
+import { checkFeedReceiptVoid, discardFeedReceiptDraft, feedReceiptServerBacked, recordFeedReceiptPayment, uploadFeedReceiptPaymentAttachment, voidFeedReceipt, voidFeedReceiptPayment } from '../api/feedReceiptApi'
 import { formatDate, formatKg, formatMoney, formatVnd } from '../domain/feedLabels'
 import { feedReceiptError } from '../domain/feedReceiptErrors'
 import type { FeedSupplier } from '../types/feedCatalogue'
 import type { FeedReceipt, FeedReceiptPayment, FeedReceiptPaymentResult } from '../types/feedReceipt'
+import { newFeedCommandKey } from '../api/command'
 
-const newCommandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const newCommandKey = () => newFeedCommandKey('feed-receipt')
 
 export function FeedReceiptDiscardDialog({ record, onClose, onDone }: { record: FeedReceipt; onClose: () => void; onDone: () => void }) {
   const [error, setError] = useState('')
@@ -38,7 +37,7 @@ export function FeedReceiptDiscardDialog({ record, onClose, onDone }: { record: 
     <Modal title={`Bỏ nháp ${record.code}?`} sub="Tồn kho chưa thay đổi." width={520} onClose={onClose}>
       <p className="m-0 text-sm">Phiếu nháp và chứng từ đính kèm của phiếu sẽ bị xóa. Không thể khôi phục thao tác này.</p>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Giữ lại phiếu</ModalButton>
         <ModalButton variant="danger" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang bỏ nháp…' : 'Bỏ nháp phiếu'}</ModalButton>
       </ModalFooter>
@@ -117,7 +116,7 @@ export function FeedReceiptVoidDialog({ record, onClose, onDone }: { record: Fee
         <Textarea id="feed-receipt-void-reason" value={reason} maxLength={500} onChange={(event) => { setReason(event.target.value); setError(''); commandKey.current = '' }} placeholder="Ví dụ: Nhập trùng phiếu" />
       </Field>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={saving || blocked || check.loading} onClick={() => void submit()}>
           <span className="inline-flex items-center gap-2"><Icon name="circle-x" size={16} />{saving ? 'Đang hủy…' : 'Hủy phiếu nhập kho'}</span>
@@ -128,7 +127,7 @@ export function FeedReceiptVoidDialog({ record, onClose, onDone }: { record: Fee
 }
 
 /** Popup "Record Voucher Payment" (UC-FE23-02 AF2): amount must not exceed what is still owed (GBR-91). */
-export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachments = backendMode === 'backend' }: { record: FeedReceipt; onClose: () => void; onDone: (result: FeedReceiptPaymentResult) => void; allowAttachments?: boolean }) {
+export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachments = feedReceiptServerBacked }: { record: FeedReceipt; onClose: () => void; onDone: (result: FeedReceiptPaymentResult) => void; allowAttachments?: boolean }) {
   const outstanding = record.outstanding ?? record.totalPayable - (record.amountPaid ?? 0)
   const [amount, setAmount] = useState(String(outstanding))
   const [method, setMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH')
@@ -230,10 +229,10 @@ export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachm
       <Field label="Ghi chú" id="feed-payment-note">
         <Textarea id="feed-payment-note" maxLength={500} value={note} onChange={(event) => { setNote(event.target.value); setError(''); commandKey.current = '' }} />
       </Field>
-      {allowAttachments && !savedPayment.current && <Dropzone hint="Biên lai chuyển khoản / phiếu thu · PDF hoặc JPG · tối đa 10 MB" multiple={false} onFiles={chooseAttachment} />}
+      {allowAttachments && !savedPayment.current && <FileDropzone label="Chọn chứng từ đính kèm" hint="Biên lai chuyển khoản / phiếu thu · PDF hoặc JPG · tối đa 10 MB" multiple={false} onFiles={chooseAttachment} />}
       {attachment && <div className="flex items-center gap-2 text-xs"><Badge>{attachment.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{attachment.name} · {(attachment.size / 1024).toFixed(0)} KB</span>{!savedPayment.current && <Button variant="link" size="sm" onClick={() => { setAttachment(null); attachmentKey.current = '' }}>Bỏ tệp</Button>}</div>}
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         {savedPayment.current && attachment
           ? <ModalButton onClick={() => finish(savedPayment.current!)}>Hoàn tất không kèm chứng từ</ModalButton>
           : <ModalButton onClick={close}>Đóng</ModalButton>}
@@ -275,7 +274,7 @@ export function FeedReceiptPaymentVoidDialog({ receiptId, payment, onClose, onDo
         <Textarea id="feed-payment-void-reason" maxLength={500} value={reason} onChange={(event) => { setReason(event.target.value); setError(''); commandKey.current = '' }} />
       </Field>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang hủy…' : 'Hủy khoản trả'}</ModalButton>
       </ModalFooter>
@@ -308,7 +307,7 @@ export function FeedSupplierQuickDialog({ onClose, onAdded }: { onClose: () => v
       <Field label="Tên nhà cung cấp *" id="feed-supplier-name"><input id="feed-supplier-name" maxLength={150} value={name} onChange={(event) => { setName(event.target.value); setError('') }} className={inputCls} /></Field>
       <Field label="Điện thoại" id="feed-supplier-phone"><input id="feed-supplier-phone" maxLength={50} value={phone} onChange={(event) => setPhone(event.target.value)} className={inputCls} /></Field>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Lưu nhà cung cấp'}</ModalButton>
       </ModalFooter>

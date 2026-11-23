@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient } from '../../../src/api/backendClient'
+import { createBackendClient } from '../../../src/shared/api/backendClient'
 import { createHerdEntryBackendApi } from '../../../src/features/herd-entry/api/herdEntryBackendApi'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -21,6 +21,7 @@ test('entry adapter restores a draft and its private attachment metadata through
     if (url.endsWith('/api/farms/9/entry-vouchers/41/attachments')) return json([
       { id: 71, originalFilename: 'kiem-dich.pdf', contentType: 'application/pdf', fileSize: 12 },
     ])
+    if (url.endsWith('/api/farms/9/catalogues/breeds')) return json([])
     throw new Error(`Unexpected request ${url}`)
   }
   const transport = createBackendClient({ baseUrl: 'https://beefcare.test', fetchImpl })

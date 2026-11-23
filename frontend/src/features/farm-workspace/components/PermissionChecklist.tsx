@@ -1,5 +1,5 @@
-import { Table, Td, Th } from '../../../components/ui'
-import { PERMISSION_AREAS, ROLE_SUMMARY } from '../domain/rolePermissions'
+import { Table, Td, Th } from '../../../shared/ui'
+import { PERMISSION_AREAS, ROLE_SUMMARY } from '../../../shared/domain/farmRolePermissions'
 import type { FarmRole } from '../types'
 import { roleLabel } from './WorkspaceUi'
 
@@ -34,10 +34,10 @@ export function PermissionChecklist({ role }: { role: FarmRole }) {
 
 const ROLES: FarmRole[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 
-/** SCR-13 "Quyền theo vai trò" (D29): toàn bộ Table III-2, chỉ đọc, ba vai trò cạnh nhau; điện thoại hiện dạng thẻ. */
+/** SCR-13 "Quyền theo vai trò" (D29): toàn bộ Table III-2, chỉ đọc, ba vai trò cạnh nhau. */
 export function PermissionTable() {
   return (
-    <Table>
+    <Table variant="panel" stack={false}>
       <thead><tr><Th>Nhóm quyền</Th>{ROLES.map((role) => <Th key={role}>{roleLabel(role)}</Th>)}</tr></thead>
       <tbody>
         {PERMISSION_AREAS.map((area) => (
@@ -59,4 +59,3 @@ export function RoleSummary({ role }: { role: Exclude<FarmRole, 'OWNER'> }) {
     </ul>
   )
 }
-

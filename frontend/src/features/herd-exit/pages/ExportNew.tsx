@@ -1,20 +1,24 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { MoneyInput } from '../../../shared/ui'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Checkbox, DateInput, Docs, Dropzone, Field, Foot, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
-import { BARNS, PAY_METHODS } from '../data/exitData'
-import { todayIso } from '../data/exportsData'
-import { dm, money } from '../../../data/format'
-import { backendMode } from '../../../api/backendTransport'
-import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, pens, listExitBuyers, listSelectableExitCattle } from '../api/index'
-import { useMutation, useQuery } from '../../../hooks/useApi'
-import { Icon } from '../../../components/Icon'
-import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, FileDropzone } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { PAY_METHODS } from '../constants/exitOptions'
+import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
+import { dm, money } from '../../../shared/lib/format'
+import { getExitDraftState, herdExitApi, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
-import type { ExitChecks } from '../api/herdExitBackendApi'
+import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
+import { useExitEditor } from '../hooks/useExitEditor'
+import { useExitWorkflow } from '../hooks/useExitWorkflow'
+import { useExitDocuments } from '../hooks/useExitDocuments'
+import { useExitComposition } from '../hooks/useExitComposition'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = userFacingError
@@ -46,6 +50,8 @@ export default function ExportNew() {
   const isOwner = useIsOwner()
   const [params] = useSearchParams()
   const draftId = params.get('id')
+  const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdExit } | null>(null)
+  const [reloadRevision, setReloadRevision] = useState(0)
   const { data: exports } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
   const { data: hydratedDraft } = useQuery<HerdExit | null>(() => draftId ? herdExitApi.get(draftId) : Promise.resolve(null), [draftId])
   const { data: selectableCattle } = useQuery(() => listSelectableExitCattle(), [])
@@ -64,14 +70,18 @@ export default function ExportNew() {
       </Layout>
     )
   }
-  const rows = draftId && hydratedDraft ? exports.map((row) => row.id === draftId ? hydratedDraft : row) : exports
-  return <ExportForm key={draftId ?? 'new'} draftId={draftId} exports={rows} selectableCattle={selectableCattle} buyers={buyers} />
+  const activeDraft = reloadedDraft?.routeId === draftId ? reloadedDraft.row : hydratedDraft
+  const reloadDraft = async (id: string) => {
+    const latest = await herdExitApi.get(id)
+    setReloadedDraft({ routeId: draftId, row: latest })
+    setReloadRevision((value) => value + 1)
+  }
+  if (activeDraft && activeDraft.status !== 'Nháp') return <Layout title="Phiếu xuất"><Note>Phiếu {activeDraft.id} hiện ở trạng thái {activeDraft.status}. Vui lòng mở lại từ danh sách phiếu xuất.</Note></Layout>
+  const rows = activeDraft ? [...exports.filter((row) => row.id !== activeDraft.id), activeDraft] : exports
+  return <ExportForm key={`${draftId ?? 'new'}-${reloadRevision}`} onReload={reloadDraft} draftId={activeDraft?.id ?? draftId} exports={rows} selectableCattle={selectableCattle} buyers={buyers} />
 }
 
-function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
-  const { mutate: persistExit, error: saveError, loading: saving } = useMutation(saveHerdExit)
-  const savingRef = useRef(false)
-  const formRevision = useRef(0)
+function ExportForm({ onReload, exports, draftId, selectableCattle, buyers }: { onReload: (id: string) => Promise<void>; exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
@@ -79,36 +89,21 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const draftState = draftId ? getExitDraftState(exports, draftId) : { type: 'Bán' as const, row: undefined }
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const d = draftState
-  const [savedId, setSavedId] = useState(draftId ?? '')
-  const isBackend = backendMode === 'backend'
-  const nextId = isBackend ? '' : `PX-2026-${String(Math.max(0, ...exports.map((r) => Number(r.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
-  const id = draftRow?.id ?? (isBackend && !draftId ? 'Tự động khi lưu' : nextId)
-  const saveId = savedId || draftRow?.id || draftId || (isBackend ? undefined : id)
+  const nextId = newExitVoucherId(exports)
+  const id = draftRow?.id ?? nextId ?? (draftId ? '' : 'Tự động khi lưu')
 
-  const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
-  const [date, setDate] = useState(d?.date ?? todayIso())
-  const [pricing, setPricing] = useState<'kg' | 'con'>(d?.pricing ?? 'kg')
-  const [buyerId, setBuyerId] = useState(d?.buyerId ?? buyers[0]?.id ?? '')
-  const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
-  const [plate, setPlate] = useState(d?.plate ?? '')
-  const [note, setNote] = useState(d?.note ?? '')
   const candidateByCode = new Map(selectableCattle.map((cow) => [cow.code, cow]))
   const candidateById = new Map(selectableCattle.filter((cow) => typeof cow.backendId === 'number').map((cow) => [cow.backendId as number, cow]))
-  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))))
-  const [deduction, setDeduction] = useState(d?.deduction ?? 0)
-  const [collected, setCollected] = useState(d?.collected ?? 0)
-  const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])
-  const [dueDate, setDueDate] = useState(d?.dueDate ?? todayIso())
-  const [confirmed, setConfirmed] = useState(false)
+  const editor = useExitEditor({
+    type: (d.type as ExitType | undefined) ?? 'Bán', lossKind: d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'),
+    deathCause: d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''), carcassDisposal: d.carcassDisposal ?? '', date: d?.date ?? todayIso(),
+    pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? buyers[0]?.id ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', note: d?.note ?? '',
+    picked: (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))),
+    deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? PAY_METHODS[0], dueDate: d?.dueDate ?? todayIso(),
+  })
+  const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [menu, setMenu] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<File[]>([])
-  const [documentError, setDocumentError] = useState('')
-  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
-  const [checks, setChecks] = useState<ExitChecks | null>(null)
-  const [checksError, setChecksError] = useState<unknown>(null)
-  const [checking, setChecking] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [confirmError, setConfirmError] = useState<unknown>(null)
 
   const needsBuyer = type === 'Bán' || type === 'Loại thải'
   const isLoss = type === 'Chết / mất'
@@ -122,83 +117,11 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const cowsMoney = hasPricing ? picked.reduce((s, c) => s + amount(c), 0) : 0
   const receivable = Math.max(cowsMoney - deduction, 0)
   const remaining = Math.max(receivable - collected, 0)
-  const barnDelta = BARNS.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
+  const barnDelta = exitPenShift(picked)
 
-  const formSnapshot = () => JSON.stringify({
-    date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate,
-    documents: documents.map((file) => ({ name: file.name, size: file.size, type: file.type })),
-    removedAttachmentIds,
-  })
-
-  const patch = (code: string, p: Partial<HerdCow>) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
   const persistedDocuments = (d.docs ?? []).filter((document) => typeof document.id !== 'number' || !removedAttachmentIds.includes(document.id))
-  const selectedDocuments = documents.map((file) => ({ name: file.name, ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', size: file.size }))
-  const documentRows = [...persistedDocuments, ...selectedDocuments]
-  const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-  const isJpg = (file: File) => ['image/jpeg', 'image/jpg'].includes(file.type) || /\.jpe?g$/i.test(file.name)
-  const addDocuments = (files: File[]) => {
-    const invalid = files.find((file) => (!isPdf(file) && !isJpg(file)) || file.size > 10 * 1024 * 1024)
-    if (invalid) {
-      setDocumentError(`Tệp ${invalid.name} không hợp lệ. Chỉ nhận PDF/JPG tối đa 10MB.`)
-      return
-    }
-    setDocumentError('')
-    setDocuments((current) => [...current, ...files.filter((file) => !current.some((item) => item.name === file.name && item.size === file.size))])
-  }
-  const removeDocument = async (index: number) => {
-    if (index < persistedDocuments.length) {
-      const persisted = persistedDocuments[index]
-      if (typeof persisted.id !== 'number' || persisted.id <= 0 || !draftRow) return
-      try {
-        await removeExitAttachment(id, persisted.id)
-        setRemovedAttachmentIds((current) => [...current, persisted.id as number])
-        setDocumentError('')
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể xóa chứng từ.')
-      }
-      return
-    }
-    setDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index - persistedDocuments.length))
-  }
-  const viewDocument = async (index: number) => {
-    const persisted = persistedDocuments[index]
-    if (persisted) {
-      try {
-        let url = typeof persisted.url === 'string' ? persisted.url : ''
-        if (typeof persisted.id === 'number' && persisted.id > 0) url = URL.createObjectURL(await downloadExitAttachment(id, persisted.id))
-        if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer')
-          if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-        }
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-      }
-      return
-    }
-    const file = documents[index - persistedDocuments.length]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    window.open(url, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  }
-  useEffect(() => {
-    formRevision.current += 1
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-  }, [date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
-
-  const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
-  const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
-  const checkRows: Array<[string, ReactNode, boolean?]> = checks
-    ? [
-      ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
-      ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
-    ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
-  const checksReady = Boolean(checks)
-
+  const documentWorkflow = useExitDocuments({ id, persistedDocuments, canRemovePersisted: Boolean(draftRow), documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds })
+  const { documentError, documentRows, addDocuments, removeDocument, viewDocument } = documentWorkflow
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
@@ -211,7 +134,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     dueNote: '(nháp)',
     status: 'Nháp',
     draft: {
-      type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate,
+      type, lossKind: isLoss ? lossKind : undefined, deathCause: isLoss ? deathCause : undefined, carcassDisposal: isLoss && lossKind === 'DIED' ? carcassDisposal : undefined,
+      date, buyerId, quarantine, plate, note: isLoss ? deathCause : note, pricing, deduction, collected, method, dueDate,
       docs: documentRows,
       cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
     },
@@ -222,75 +146,38 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       setFormError('Vui lòng chọn người mua.')
       return true
     }
-    if (!needsBuyer && !note.trim()) {
-      setFormError(isLoss ? 'Vui lòng nhập lý do xuất.' : 'Vui lòng nhập nơi đến.')
+    if (!needsBuyer && !(isLoss ? deathCause : note).trim()) {
+      setFormError(isLoss ? 'Vui lòng nhập nguyên nhân.' : 'Vui lòng nhập nơi đến.')
+      return true
+    }
+    if (isLoss && lossKind === 'DIED' && !carcassDisposal.trim()) {
+      setFormError('Vui lòng nhập phương án xử lý xác.')
       return true
     }
     setFormError(null)
     return false
   }
 
-  const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
-    if (missingWeight) {
-      setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
-      return
-    }
-    const revision = formRevision.current
-    const snapshot = formSnapshot()
-    const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
-    savingRef.current = true
-    setChecking(true)
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-    try {
-      const saved = await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      const nextId = saved.id || savedId || draftRow?.id || id
-      setSavedId(nextId)
-      if (!isCurrentForm()) return
-      const nextChecks = await herdExitApi.checks(nextId)
-      if (!isCurrentForm()) return
-      setChecks(nextChecks)
-    } catch (error) {
-      // useMutation exposes the rejection through saveError; keep the form and
-      // selected files mounted so the user can retry without losing the draft.
-      if (revision === formRevision.current) setChecksError(error)
-    } finally {
-      setChecking(false)
-      savingRef.current = false
-    }
-  }
-
-  const saveDraft = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    savingRef.current = true
-    try {
-      await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      nav('/herd-exit')
-    } catch {
-      // Keep the draft and selected files visible for a retry.
-    } finally {
-      savingRef.current = false
-    }
-  }
-
-  const confirm = async () => {
-    if (savingRef.current || !checks || !confirmed) return
-    savingRef.current = true
-    try {
-      await confirmHerdExit(savedId || draftRow?.id || id, checks.version)
-      nav('/herd-exit')
-    } catch (error) {
-      // useMutation errors remain visible; a direct confirm failure also keeps
-      // this form mounted so the user can safely retry.
-      setConfirmError(error)
-    } finally {
-      savingRef.current = false
-    }
-  }
+  const workflow = useExitWorkflow({
+    baseId: draftRow?.id || draftId || nextId,
+    initialSavedId: draftId ?? '',
+    initialRecord: draftRow,
+    picked,
+    documents,
+    formSnapshot,
+    buildDraftRecord,
+    beforeSave: () => {
+      if (missingRequiredField()) return true
+      const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
+      if (missingWeight) {
+        setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
+        return true
+      }
+      return false
+    },
+  })
+  const { savedId, saving, saveError, checks, checksError, checking, confirmed, setConfirmed, confirmError, saveDraftAndLoadChecks, saveDraft, confirm } = workflow
+  const { checkRows, checksReady } = useExitComposition({ checks, checksError, checking, displayError })
 
   return (
     <Layout title={`Phiếu xuất mới – ${type}`}>
@@ -302,7 +189,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       <Segmented value={type} onChange={(value) => { if (!typeLocked) setType(value as ExitType) }} options={TYPES.map((t) => ({ value: t, label: t, disabled: typeLocked && t !== type }))} />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
+      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="1. Thông tin phiếu" gap="gap-[14px]">
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
@@ -322,9 +209,28 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 </>
               )}
             </div>
-            <Field label={needsBuyer ? 'Ghi chú' : isLoss ? 'Lý do *' : 'Nơi đến *'}>
-              <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
-            </Field>
+            {isLoss ? (
+              <>
+                <Field label="Loại chết / mất">
+                  <Select aria-label="Loại chết / mất" value={lossKind} onChange={(e) => setLossKind(e.target.value as LossKind)} className="w-full">
+                    <option value="DIED">Chết</option>
+                    <option value="MISSING">Mất tích</option>
+                  </Select>
+                </Field>
+                <Field id="exit-death-cause" label={lossKind === 'DIED' ? 'Nguyên nhân chết *' : 'Nguyên nhân mất tích *'}>
+                  <input id="exit-death-cause" className={inputCls} value={deathCause} onChange={(e) => setDeathCause(e.target.value)} />
+                </Field>
+                {lossKind === 'DIED' && (
+                  <Field id="exit-carcass-disposal" label="Phương án xử lý xác *">
+                    <input id="exit-carcass-disposal" className={inputCls} value={carcassDisposal} onChange={(e) => setCarcassDisposal(e.target.value)} />
+                  </Field>
+                )}
+              </>
+            ) : (
+              <Field label={needsBuyer ? 'Ghi chú' : 'Nơi đến *'}>
+                <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
+              </Field>
+            )}
           </Box>
 
           <Box
@@ -374,7 +280,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                       {hasPricing && (
                         <>
                           <Td className={TH}>
-                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" />
+                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" formatWhileTyping />
                           </Td>
                           <Td className={TH}>{money(amount(c))}</Td>
                         </>
@@ -414,12 +320,12 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
 
           <div className={cx('grid items-start gap-[18px]', needsBuyer ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]')}>
             <Box title="3. Chứng từ đính kèm" gap="gap-[10px]">
-              <Dropzone hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" onFiles={addDocuments} />
+              <FileDropzone label="Chọn chứng từ đính kèm" hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" onFiles={addDocuments} />
               {documentError && <Note tone="err">{documentError}</Note>}
-              <Docs
-                docs={documentRows}
-                onView={viewDocument}
-                onRemove={removeDocument}
+              <AttachmentList
+                items={documentRows.map((doc, index) => ({ key: `${index < persistedDocuments.length ? 'saved' : 'new'}:${index < persistedDocuments.length ? index : index - persistedDocuments.length}`, name: doc.name, extension: doc.ext }))}
+                onView={(key) => viewDocument(Number(key.split(':')[1]) + (key.startsWith('saved:') ? 0 : persistedDocuments.length))}
+                onRemove={(key) => removeDocument(Number(key.split(':')[1]) + (key.startsWith('saved:') ? 0 : persistedDocuments.length))}
               />
             </Box>
             {needsBuyer && (
@@ -429,8 +335,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                   <div><div className="mb-[3px] text-[11px] text-faint">Tổng phải thu</div><div className="text-[13px] font-medium">{money(receivable)} đ</div></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3.5">
-                  <Field label="Khấu trừ (hao hụt, môi giới)"><MoneyInput value={deduction} onChange={setDeduction} suffix="đ" /></Field>
-                  <Field label="Đã thu (đặt cọc)"><MoneyInput value={collected} onChange={setCollected} suffix="đ" /></Field>
+                  <Field label="Khấu trừ (hao hụt, môi giới)"><MoneyInput value={deduction} onChange={setDeduction} suffix="đ" formatWhileTyping /></Field>
+                  <Field label="Đã thu (đặt cọc)"><MoneyInput value={collected} onChange={setCollected} suffix="đ" formatWhileTyping /></Field>
                 </div>
                 <div>
                   <div className="mb-[3px] text-[11px] text-faint">Còn phải thu</div>
@@ -456,7 +362,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               ['Số con', picked.length],
               ['Loại xuất', type],
               ['Tổng cân xuất', `${money(totalWeight)} kg${estimated ? ` (${estimated} con ước tính)` : ''}`],
-              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => `${b.name} (${b.count} → ${b.count - b.out})`).join(' · ') : '—'],
+              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => (b.count == null ? `${b.name} (−${b.out})` : `${b.name} (${b.count} → ${b.count - b.out})`)).join(' · ') : '—'],
               ...(hasPricing ? [['Tổng phải thu', `${money(receivable)} đ`]] : []),
             ]}
           />
@@ -466,7 +372,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </Checkbox>
             {formError && <Note tone="err">{formError}</Note>}
-            {Boolean(saveError || confirmError) && <Note tone="err">{displayError(confirmError ?? saveError)}</Note>}
+            <VoucherCommandError error={confirmError ?? saveError ?? checksError} onReload={() => onReload(savedId || draftId || id)} />
             <Button variant="primary" block className="!py-[9px]" disabled={!picked.length || saving || (checksReady ? !confirmed : false)} onClick={checksReady ? confirm : saveDraftAndLoadChecks}>
               {checksReady ? `Xác nhận xuất ${picked.length} con` : 'Lưu và kiểm tra trước khi xác nhận'}
             </Button>

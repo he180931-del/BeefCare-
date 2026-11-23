@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation'
+import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation/workspaceValidation'
 
 describe('farm workspace validation', () => {
   it('requires a valid Owner profile and terms acceptance during onboarding', () => {
@@ -53,6 +53,15 @@ describe('farm workspace validation', () => {
       expect(validateFarmRegistration({ ...farm, province: 'Hà Tây' })).toHaveProperty('province')
       expect(validateFarmRegistration({ ...farm, province: 'TP. Hồ Chí Minh' })).toEqual({})
     })
+
+    it('says "{field} là bắt buộc." (MSG-COM-06) for an empty required field, the length rule only for text that is there', () => {
+      expect(validateFarmRegistration({ name: '', province: '', commune: ' ' })).toEqual({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+      expect(validateFarmRegistration({ ...farm, name: 'A', province: 'Hà Tây', commune: 'x'.repeat(151) }))
+        .toEqual({ name: 'Tên trại cần có từ 2 đến 150 ký tự.', province: 'Chọn tỉnh hoặc thành phố trong danh sách.', commune: 'Xã/Phường tối đa 150 ký tự.' })
+      // The error names the field with its label on screen ("Thông tin giấy chứng nhận"), not "giấy đăng ký".
+      expect(validateFarmRegistration({ ...farm, registrationCertificateInfo: 'x'.repeat(256) })).toEqual({ registrationCertificateInfo: 'Thông tin giấy chứng nhận tối đa 255 ký tự.' })
+      expect(validateFarmInfo({ name: ' ', province: '', commune: '', timeZone: 'Asia/Ho_Chi_Minh' })).toMatchObject({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+    })
   })
 
   it('validates invitation email, role and allowed expiry windows', () => {
@@ -61,7 +70,7 @@ describe('farm workspace validation', () => {
   })
 
   it('separates a missing invitation field (MSG-COM-06) from an invalid one (MSG-COM-10) — TC-03-01/02', () => {
-    expect(validateInvite({ email: '   ', validityDays: 7 })).toEqual({ email: 'Thư điện tử người nhận là bắt buộc.', role: 'Vai trò là bắt buộc.' })
+    expect(validateInvite({ email: '   ', validityDays: 7 })).toEqual({ email: 'Email người nhận là bắt buộc.', role: 'Vai trò là bắt buộc.' })
     expect(validateInvite({ email: 'abc', role: 'OWNER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.', role: 'Chọn Quản lý hoặc Kỹ thuật viên.' })
     expect(validateInvite({ email: `a@${'x'.repeat(248)}.test`, role: 'MANAGER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.' })
   })

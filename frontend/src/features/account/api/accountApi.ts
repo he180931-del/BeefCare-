@@ -1,41 +1,13 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { accountDemoStore, type AccountDemoStore } from '../data/accountDemoStore'
-import { googleAuthorizationUrl } from '../../authentication/googleOAuth'
-import { permissionRowsFor } from '../../farm-workspace'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import type { AccountDemoStore } from '../data/accountDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
+import { googleAuthorizationUrl } from '../../authentication'
+import { permissionRowsFor } from '../../../shared/domain/farmRolePermissions'
 import type { AccountIdentity, AccountProfile, FarmPermissions, PasswordChangeInput, ProfileUpdateInput } from '../types'
-
-function profile(value: unknown): AccountProfile {
-  const row = asRecord(value)
-  return {
-    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.contactPhone ?? row.phone),
-    emailVerified: row.emailVerified === true, passwordSignInEnabled: row.passwordSignInEnabled === true,
-    googleSignInLinked: row.googleSignInLinked === true, ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
-    termsAccepted: row.termsAccepted === true,
-    status: textValue(row.status, 'ACTIVE'),
-    signInMethods: Array.isArray(row.signInMethods) ? row.signInMethods.filter((item): item is string => typeof item === 'string') : [],
-    hasPassword: row.hasPassword === true || row.passwordSignInEnabled === true,
-    platformRole: typeof row.platformRole === 'string' ? row.platformRole : null,
-    farms: asRows(row.farms).map((farm) => ({
-      farmId: numberValue(farm.farmId), farmName: textValue(farm.farmName), role: textValue(farm.role),
-      serviceStatus: textValue(farm.serviceStatus),
-      permissions: Array.isArray(farm.permissions) ? farm.permissions.filter((item): item is string => typeof item === 'string') : [],
-    })),
-  }
-}
-
-function permissions(value: unknown): FarmPermissions {
-  const row = asRecord(value)
-  const role = textValue(row.role)
-  if (role !== 'OWNER' && role !== 'MANAGER' && role !== 'TECHNICIAN') throw new Error('Máy chủ không trả vai trò trại hợp lệ.')
-  return {
-    role,
-    permissions: asRows(row.permissions).map((item) => {
-      const value = textValue(item.value)
-      if (value !== 'FULL' && value !== 'RESTRICTED' && value !== 'NO') throw new Error('Máy chủ không trả quyền trại hợp lệ.')
-      return { area: textValue(item.area), value }
-    }),
-  }
-}
+import { mapAccountProfile, mapFarmPermissions } from './accountMapper'
 
 function mockPermissions(role: 'OWNER' | 'MANAGER' | 'TECHNICIAN'): FarmPermissions {
   const level = { full: 'FULL', view: 'RESTRICTED', none: 'NO' } as const
@@ -43,20 +15,22 @@ function mockPermissions(role: 'OWNER' | 'MANAGER' | 'TECHNICIAN'): FarmPermissi
 }
 
 /** `identity` chỉ dùng ở chế độ mô phỏng; máy chủ thật nhận diện người dùng qua phiên. */
-export function createAccountApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: AccountDemoStore }) {
+export function createAccountApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: AccountDemoStore }) {
   void farmId
   const backend = mode === 'backend'
   return {
+    /** Gợi ý chỉ có ở bản mô phỏng; máy chủ thật không có mật khẩu mẫu. */
+    samplePasswordHint(): string | null { return backend ? null : `Bản mô phỏng: mật khẩu hiện tại là ${store.samplePassword}.` },
     // GET /api/account/profile
     async getProfile(identity: AccountIdentity): Promise<AccountProfile> {
-      return backend ? profile(await transport.get('/api/account/profile')) : store.getProfile(identity)
+      return backend ? mapAccountProfile(await transport.get('/api/account/profile')) : store.getProfile(identity)
     },
     // POST /api/account/profile (FE01 A9: contactPhone là tên trường hợp đồng)
     async updateProfile(identity: AccountIdentity, input: ProfileUpdateInput): Promise<AccountProfile> {
-      return backend ? profile(await transport.command('/api/account/profile', { fullName: input.fullName.trim(), contactPhone: input.phone.trim() }, { method: 'POST' })) : store.updateProfile(identity, input)
+      return backend ? mapAccountProfile(await transport.command('/api/account/profile', { fullName: input.fullName.trim(), contactPhone: input.phone.trim() }, { method: 'POST' })) : store.updateProfile(identity, input)
     },
     async getFarmPermissions(identity: AccountIdentity, farmId: number): Promise<FarmPermissions> {
-      if (backend) return permissions(await transport.get(`/api/farms/${farmId}/my-permissions`))
+      if (backend) return mapFarmPermissions(await transport.get(transport.farmPath(farmId, '/my-permissions')))
       if (identity.role !== 'OWNER' && identity.role !== 'MANAGER' && identity.role !== 'TECHNICIAN') throw new Error('Tài khoản nền tảng không có quyền trại.')
       return mockPermissions(identity.role)
     },
@@ -76,4 +50,4 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
 }
 
 export type AccountApi = ReturnType<typeof createAccountApi>
-export const accountApi = createAccountApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: accountDemoStore })
+export const accountApi = createAccountApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.account.accountDemoStore) })

@@ -1,7 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
-import { Badge, Radio, type BadgeTone } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { money } from '../../../data/format'
+import { Badge, type BadgeTone, Icon, type IconName, Radio } from '../../../shared/ui'
+import { money } from '../../../shared/lib/format'
 
 /** <select> không viền, chỉ hiện chữ + ▾ (ô trong bảng của Figma). Đổi giá trị bằng <select> phủ trong suốt. */
 export function GhostSelect({ value, onChange, options, className }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; className?: string }) {

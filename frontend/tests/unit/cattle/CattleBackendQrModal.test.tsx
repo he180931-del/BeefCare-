@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 
 const response = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 
@@ -9,12 +9,13 @@ describe('backend cattle QR reissue', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('keeps the backend-issued code visible until the user closes the modal', async () => {

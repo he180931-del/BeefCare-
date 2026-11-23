@@ -148,9 +148,9 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 | R-06-15 | Hủy cả phiếu chỉ khi **mọi** bò thỏa R-06-14; có bò không thỏa → nút bị khóa, MSG-FE06-21 nêu tên các bò đó. Hủy: phiếu VOIDED + mọi dòng VOID + bò VOIDED + phân chuồng đóng + thẻ RETIRED + audit trong một transaction; thanh toán đã ghi **giữ trong lịch sử** (hoàn tiền xử lý ngoài hệ thống); bê sinh tại trại quay về PENDING_CONFIRMATION và REM-09 được tạo lại. | GBR-33, UC-05 |
 | R-06-16 | Sau sửa / hủy, đã trả > tổng mới → vẫn lưu, hiện MSG-FE06-23 (chênh lệch xử lý ngoài hệ thống). | UC-03 AF2 |
 | R-06-17 | Thanh toán: số nguyên > 0, không vượt còn nợ, ngày không ở tương lai và không trước ngày phiếu; hủy thanh toán bắt buộc lý do (MSG-FE06-15); không sửa thanh toán. | GBR-91, BR-D39 |
-| R-06-18 | Phiếu FARM_BORN: chỉ bê sống `PENDING_CONFIRMATION` có mẹ trong trại; ngày nhập = ngày sinh; giai đoạn UNWEANED_CALF; cha, mẹ, giống, giới tính, ngày sinh, cân sơ sinh lấy từ lần đẻ và **chỉ đọc**; mục đích mặc định = mục đích ACTIVE đầu tiên loại UNDECIDED; chuồng mặc định = chuồng chọn lúc đẻ; không có số tiền. | GBR-31, GBR-93 |
+| R-06-18 | Phiếu FARM_BORN: chỉ chọn kết quả bê sống `PENDING_CONFIRMATION` có mẹ trong trại, không tạo dòng thiếu lần đẻ nguồn; ngày nhập = ngày sinh; giai đoạn UNWEANED_CALF; cha, mẹ, giống, giới tính, ngày sinh, cân sơ sinh lấy từ lần đẻ và **chỉ đọc**, không nhận giá trị ghi đè từ phiếu; mục đích mặc định = mục đích ACTIVE đầu tiên loại UNDECIDED; chuồng mặc định = chuồng chọn lúc đẻ; không có số tiền. (D55) | GBR-31, GBR-93 |
 | R-06-19 | Bê đã đăng ký → MSG-FE06-02; kết quả đẻ không phải LIVE → MSG-FE06-04. | UC-01 E5 |
-| R-06-20 | Đánh dấu bê "chết trước khi đăng ký" (có lý do): đóng kết quả bê, giải quyết REM-09; **không** đổi LIVE thành STILLBORN. | GBR-58, GBR-93 |
+| R-06-20 | Đánh dấu bê "chết trước khi đăng ký": phải mở hộp thoại cảnh báo không hoàn tác và xác nhận với lý do bắt buộc ≤ 500 ký tự; chuyển trạng thái đăng ký `DIED_BEFORE_REGISTRATION`, giải quyết REM-09; **không** đổi LIVE thành STILLBORN, không tạo bò hay phiếu xuất. (D55) | GBR-58, GBR-93 |
 | R-06-21 | Nhập Excel: mẫu BeefCare, ≤ 200 dòng dữ liệu, ≤ 5 MB; mỗi dòng kiểm như dòng nhập tay; dòng lỗi không được thêm; dòng cảnh báo thêm với giá trị mặc định hiển thị (ví dụ thiếu ngày sinh → Không rõ); dòng đã thêm sửa được trước khi ghi sổ. | GBR-96 |
 | R-06-22 | Bò đã rời đàn quay lại → phiếu mua mới, Internal ID mới. | GBR-29 |
 | R-06-23 | Mọi thay đổi phiếu đã ghi sổ kiểm `version`; lệch → MSG-COM-05. | BR-D31 |
@@ -305,7 +305,7 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | 7 | Birth date, Sex, Birth weight / Ngày sinh, Giới tính, Cân sơ sinh | Chỉ đọc | — | Từ lần đẻ; "UT" khi ước tính | — | — |
 | 8 | Receiving pen / Chuồng nhận | Dropdown | * | Chuồng ACTIVE | Chuồng chọn lúc đẻ | MSG-FE04-05, MSG-FE04-06 |
 | 9 | Production purpose / Mục đích | Dropdown | * | Mục đích ACTIVE; SIRE chỉ đực, BREEDING chỉ cái | Mục đích ACTIVE đầu tiên loại UNDECIDED | MSG-FE05-12 |
-| 10 | Mark died before registration / Đánh dấu chết trước khi đăng ký | Thao tác dòng | — | Bắt buộc lý do | — | MSG-COM-06 |
+| 10 | Mark died before registration / Đánh dấu chết trước khi đăng ký | Thao tác dòng mở modal xác nhận (D55) | — | Cảnh báo không hoàn tác; lý do bắt buộc 1–500 ký tự sau trim; khóa khi gửi; Hủy không thay đổi bê | — | MSG-COM-06, MSG-FE06-02, MSG-FE06-04, MSG-COM-05 |
 | 11 | Attachments / Đính kèm | File | — | PDF / JPG ≤ 10 MB | — | — |
 | 12 | Summary panel / Tóm tắt | Chỉ đọc | — | Số bê, tổng cân sơ sinh, chuồng trước → sau, giai đoạn Bê chưa cai sữa, DRAFT; "Bê sinh tại trại không có giá, không thanh toán" | — | — |
 | 13 | Checks before saving / Kiểm tra | Chỉ đọc | — | Bê vẫn PENDING_CONFIRMATION; thẻ duy nhất; chuồng đủ chỗ; mẹ ACTIVE | — | — |
@@ -380,7 +380,7 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | A9 | Nhập Excel | File + `commit` (false = chỉ kiểm, true = thêm dòng hợp lệ) + `Idempotency-Key` | `{total, valid, warnings, errors, rows[{row, earTag, breedSex, weight, pen, result, message}]}` | COM-10 (tệp sai), FE06-18 | `POST …/entry-vouchers/{id}/import` |
 | A10 | Chi tiết phiếu | — | Mọi trường SCR-75 | COM-08 | `GET …/entry-vouchers/{id}` |
 | A11 | Bê chờ xác nhận | — | `[{calfOutcomeId, calfNo, tagCode, damCode, sire, birthDate, sex, birthWeight, estimated, proposedPenId}]` | — | `GET /api/farms/{farmId}/pending-calves` |
-| A12 | Bê chết trước khi đăng ký | `reason` + `Idempotency-Key` | Bê | COM-06 | `POST …/pending-calves/{calfId}/died-before-registration` |
+| A12 | Bê chết trước khi đăng ký; UI phải xác nhận không hoàn tác (D55) | `reason` bắt buộc ≤ 500 ký tự + `Idempotency-Key` | Bê | COM-06 | `POST …/pending-calves/{calfId}/died-before-registration` |
 | A13 | Sửa bản ghi nhập một con | `changes {entryDate?, source?, weightKg?, weightBasis?, unitPrice?, breedId?, sex?, birthDate?, birthAccuracy?, declarations?}, reason, version` + `Idempotency-Key` | `{entry, voucherTotals, overpaidBy?}` | FE06-07, COM-06, COM-05, COM-02 | `PATCH /api/farms/{farmId}/herd-entries/{entryId}` |
 | A14 | Kiểm tra / hủy bản ghi một con | — / `reason, version` | `{canVoid, events[]}` / `{cattleId, voucherTotals, lastLine}` | FE06-09, COM-06 | `GET …/herd-entries/{entryId}/void-check` · `POST …/void` |
 | A15 | Kiểm tra / hủy cả phiếu | — / `reason, version` | `{rows[{cattleId, code, events[], result}], paidAmount}` / phiếu | FE06-21, COM-06, COM-05 | `GET …/entry-vouchers/{id}/void-check` · `POST …/void` |
@@ -447,9 +447,9 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | TC-06-19 | Nhập tuổi 18 tháng, ngày nhập 06/11/2026 | — | Tháng sinh 05/2025, độ chính xác Ước tính | U | Popup |
 | TC-06-20 | Tệp Excel 201 dòng / 6 MB / .csv | Tải lên | Bị từ chối | I | R-06-21 |
 | TC-06-21 | Excel 10 dòng: 7 hợp lệ, 1 thiếu ngày sinh, 2 trùng số tai | Thêm | MSG-FE06-18 "10 dòng: 8 hợp lệ (1 cảnh báo) · 2 lỗi"; 8 dòng được thêm, dòng thiếu ngày sinh = Không rõ | I | R-06-21 |
-| TC-06-22 | Bê sống PENDING, mẹ M, bố từ lần phối | Lập phiếu FARM_BORN | Ngày nhập = ngày sinh; UNWEANED_CALF; mục đích mặc định UNDECIDED đầu tiên; cha mẹ, giới tính, ngày sinh, cân sơ sinh **không sửa được**; không có tiền | I, E | R-06-18 |
+| TC-06-22 | Bê sống PENDING, mẹ M, bố từ lần phối; có thể còn assigned_* cũ khác nguồn | Lập phiếu FARM_BORN, kể cả payload cố ghi đè cha mẹ | A11 và bò sau ghi sổ lấy cha mẹ nguồn, không đọc assigned_*; ngày nhập = ngày sinh; UNWEANED_CALF; mục đích mặc định UNDECIDED đầu tiên; cha mẹ, giới tính, ngày sinh, cân sơ sinh **không sửa được**; không có tiền (D55) | I, E | R-06-18 |
 | TC-06-23 | Bê đã đăng ký | Đưa vào phiếu khác | MSG-FE06-02 | I | R-06-19 |
-| TC-06-24 | Bê chờ xác nhận | Đánh dấu chết trước khi đăng ký có lý do | Rời danh sách chờ; REM-09 giải quyết; kết quả vẫn LIVE | I | R-06-20 |
+| TC-06-24 | Bê chờ xác nhận | Mở modal đánh dấu chết trước khi đăng ký, Hủy hoặc nhập lý do rồi Xác nhận | Thiếu lý do không gửi; Hủy giữ bê; xác nhận hợp lệ rời danh sách chờ, REM-09 giải quyết, kết quả vẫn LIVE, không tạo bò/phiếu xuất; khóa gửi lặp, lỗi giữ trong modal (D55) | I, E | R-06-20 |
 | TC-06-25 | Bò đã có lần cân ngày 10/11 | Sửa ngày nhập phiếu thành 11/11 | MSG-FE06-07 | I | R-06-13 |
 | TC-06-26 | Bò cái có lần phối | Sửa giới tính thành Đực | MSG-FE06-07 | I | R-06-13 |
 | TC-06-27 | Sửa cân 300 → 320 (giá theo kg 80.000) | Lưu có lý do | Tiền dòng 25.600.000; tổng phiếu tính lại; revision giữ 300 | I | R-06-12 |
@@ -467,6 +467,19 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | TC-06-39 | Bò mã BC-000010 đã VOIDED | Ghi sổ phiếu mới | Mã mới là BC-000011 trở đi, không dùng lại BC-000010 | I | BR-D07 |
 
 ---
+
+## 9.1. Điều chỉnh SCR-24 theo D63 (23/11/2026)
+
+- Phiếu mới: **Phiếu nhập bò mới**; mở lại nháp: **Sửa phiếu nháp {code}**. Popup **Thêm con #N** / **Sửa con #N**; con mới chỉ thêm sau lưu, hủy bỏ dữ liệu tạm. Xóa con trong bảng hoặc popup cần xác nhận và cập nhật lại tổng / sức chứa; không phụ thuộc mã bò.
+- Thẻ tai không bắt buộc, tối đa 30 ký tự; thiếu cả thẻ và đặc điểm chỉ nhắc nhẹ.
+- Một ô tháng sinh ước tính, giới hạn tháng ngày nhập, hiển thị tuổi suy ra. Có tháng -> YYYY-MM-01 / ESTIMATED; trống -> UNKNOWN. Không đổi tháng thì bảo toàn ngày EXACT cũ. Gợi ý giai đoạn vẫn chỉnh được.
+- Một ô cân nhập, có cân -> MEASURED, không cân -> null; giữ ESTIMATED cũ nếu không đổi số cân. Theo kg vẫn bắt buộc cân trước ghi sổ; theo con không bắt buộc. Excel giữ nguyên cơ sở cân, dòng ESTIMATED vẫn đánh dấu UT.
+- Theo kg: đơn giá nhập và thành tiền chỉ đọc; theo con: một giá con lưu unitPrice. Giá không phụ thuộc chọn cơ sở cân. Con mới không có giá / tháng sinh gán cứng. Đổi cách tính giá đặt lại giá các dòng về 0 và cảnh báo.
+- Danh mục mục đích ACTIVE theo ID thật, hiển thị tên và loại; SIRE chỉ đực, BREEDING chỉ cái. Chưa chọn giai đoạn / mục đích không được báo tiêu chí Đạt.
+- Cách ly nhập đàn tùy chọn, không trước ngày nhập, +14/+21 ngày từ ngày nhập; kiểm lại khi đổi ngày phiếu. Giữ ngày cách ly / màu lông / lý do cảnh báo qua vòng lưu nháp; hồ sơ mua ngoài hiện ngày cách ly đến hết hạn.
+- Cảnh báo SCR-24 màu đỏ nhưng không chặn lưu; không đổi Note toàn hệ thống. Lỗi field phải focus / cuộn tới field lỗi. Ô số không giữ số 0 đầu; giữ số thập phân và cho xóa trống khi nhập.
+
+Backend / OpenAPI / schema, Excel, phiếu bê sinh tại trại (trừ tiêu đề) và sửa bản ghi đã ghi sổ giữ hợp đồng hiện có.
 
 ## 10. Điểm SRS chưa rõ
 

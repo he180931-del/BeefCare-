@@ -1,5 +1,5 @@
-import { FARM_TIME_ZONE_ID } from '../../../api/farmTimeZone'
-import { BackendError } from '../../../api/backendClient'
+import { FARM_TIME_ZONE_ID } from '../../../shared/lib/date/farmTime'
+import { BackendError } from '../../../shared/api/backendClient'
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
   FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InvitationListQuery, InvitationPage, InvitationStatus, InviteMemberInput, MemberList, Membership, MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,

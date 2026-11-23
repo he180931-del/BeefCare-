@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient } from '../../src/api/backendClient'
+import { createBackendClient } from '../../src/shared/api/backendClient'
 import { createHerdEntryBackendApi } from '../../src/features/herd-entry/api/herdEntryBackendApi'
 
 type EntryServerState = {

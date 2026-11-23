@@ -1,19 +1,31 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import Layout from '../../../src/components/Layout'
-import { createMockAuthClient } from '../../../src/features/authentication/client'
-import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, canRecordCare, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
-import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
+import Layout from '../../../src/app/layouts/FarmPlatformLayout'
+import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
+import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/data/demoUsers'
+import { HomeRedirect, RoleGate, canRecordCare, type AppRole } from '../../../src/features/authorization'
+import { markOwnerRegistrationCompleted } from '../../../src/app/session/sessionContext'
+import { isStaleFarmSelection } from '../../../src/app/session/SessionProvider'
+import { sessionFromProfile } from '../../../src/app/session/sessionProfile'
+import { homePathForSession, needsOwnerRegistration } from '../../../src/features/authorization/roles'
+import { roleInFarm } from '../../../src/app/session/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
+import { clearCurrentFarmId, readCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
 afterEach(() => clearCurrentFarmId())
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm',
-  ownerRegistrationCompleted: true, platformRole: null, activeFarmCount: 1, logout: async () => undefined,
+  ownerRegistrationCompleted: true, platformRole: null, activeFarmCount: 2,
+  farms: [
+    { id: 1, name: 'Trại thử nghiệm', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    { id: 2, name: 'Trại thứ hai', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+  ],
+  logout: async () => undefined,
 })
+
+const profileForCurrentTab = (value: unknown) => sessionFromProfile(value, readCurrentFarmId())
 
 const withSession = (role: AppRole, path: string, element: React.ReactElement) => render(
   <SessionContext.Provider value={sessionFor(role)}>
@@ -34,7 +46,7 @@ const withSession = (role: AppRole, path: string, element: React.ReactElement) =
 
 describe('session from the backend profile', () => {
   it('keeps the server account id for authorization checks', () => {
-    expect(sessionFromProfile({ id: 47, fullName: 'CS thật', email: 'cs@x', platformRole: 'CS', farms: [] })).toMatchObject({ id: 47, role: 'CS' })
+    expect(profileForCurrentTab({ id: 47, fullName: 'CS thật', email: 'cs@x', platformRole: 'CS', farms: [] })).toMatchObject({ id: 47, role: 'CS' })
   })
 
   it('marks the in-memory session complete after owner registration succeeds', () => {
@@ -42,35 +54,163 @@ describe('session from the backend profile', () => {
   })
 
   it('prefers the platform role over any farm role', () => {
-    const session = sessionFromProfile({ fullName: 'Đỗ Minh Quân', email: 'pm@x', platformRole: 'PM', farms: [{ farmId: 9, farmName: 'A', role: 'OWNER' }] })
+    const session = profileForCurrentTab({ fullName: 'Đỗ Minh Quân', email: 'pm@x', platformRole: 'PM', farms: [{ farmId: 9, farmName: 'A', role: 'OWNER' }] })
     expect(session.role).toBe('PM')
   })
 
   it('uses the role in the farm and keeps the numeric farm id', () => {
-    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [{ farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN' }] })
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [{ farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN' }] })
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 1, farmName: 'Trại A' })
   })
 
   it('uses the farm selected on this device when the account has several farms', () => {
     writeCurrentFarmId(9)
-    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
       { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
       { farmId: 9, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
     ] })
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 9, farmName: 'Trại B', activeFarmCount: 2 })
   })
 
+  it('names no farm while the tab has not entered one, and routes by the strongest farm role', () => {
+    sessionStorage.clear()
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    ] })
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null, farmCount: 2, activeFarmCount: 2 })
+  })
+
+  it('does not send an invited member without a farm in the tab to owner registration (D28)', () => {
+    sessionStorage.clear()
+    const session = profileForCurrentTab({ fullName: 'Lan', email: 'l@x', ownerRegistrationCompleted: false, platformRole: null, farms: [
+      { farmId: 3, farmName: 'Trại C', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session).toMatchObject({ role: 'MANAGER', farmId: null, farmCount: 1 })
+    expect(needsOwnerRegistration(session)).toBe(false)
+  })
+
+  it('keeps the role in each farm, so a page naming its farm checks the role there', () => {
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session.farmRoles).toEqual({ 1: 'OWNER', 9: 'MANAGER' })
+    expect(roleInFarm(session, 9)).toBe('MANAGER')
+    expect(roleInFarm(session, null)).toBe('OWNER')
+    expect(roleInFarm(session, 42)).toBe('OWNER')
+  })
+
   it('treats an account with no farm as an owner still onboarding', () => {
-    expect(sessionFromProfile({ fullName: 'Mới', email: 'n@x', platformRole: null, farms: [] })).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
+    expect(profileForCurrentTab({ fullName: 'Mới', email: 'n@x', platformRole: null, farms: [] })).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
   })
 
   it('keeps owner completion and active-farm facts from the server profile', () => {
-    const session = sessionFromProfile({ fullName: 'Mới', email: 'moi@x', ownerRegistrationCompleted: false, platformRole: null, farms: [{ farmId: 8, farmName: 'Chờ thanh toán', role: 'OWNER', serviceStatus: 'PENDING_PAYMENT' }] })
+    const session = profileForCurrentTab({ fullName: 'Mới', email: 'moi@x', ownerRegistrationCompleted: false, platformRole: null, farms: [{ farmId: 8, farmName: 'Chờ thanh toán', role: 'OWNER', serviceStatus: 'PENDING_PAYMENT' }] })
     expect(session).toMatchObject({ ownerRegistrationCompleted: false, activeFarmCount: 0 })
+  })
+
+  it('maps a platform role ahead of every farm role while keeping its farm-role map', () => {
+    const session = profileForCurrentTab({ fullName: 'Hỗ trợ', email: 'cs@x', platformRole: 'CS', farms: [
+      { farmId: 4, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 8, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+    ] })
+
+    expect(session).toMatchObject({ role: 'CS', platformRole: 'CS', farmId: null, farmName: null, farmRoles: { 4: 'OWNER', 8: 'TECHNICIAN' } })
+  })
+
+  it('maps the selected tab farm, including its role and numeric id, from a multi-farm profile', () => {
+    writeCurrentFarmId(8)
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 4, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 8, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+    ] })
+
+    expect(session).toMatchObject({ role: 'MANAGER', farmId: 8, farmName: 'Trại B', activeFarmCount: 2, farmRoles: { 4: 'OWNER', 8: 'MANAGER' } })
+  })
+
+  it('normalizes the explicitly injected selected farm without reading tab storage', () => {
+    writeCurrentFarmId(4)
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 4, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 8, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+    ] }, 8)
+
+    expect(session).toMatchObject({ role: 'MANAGER', farmId: 8, farmName: 'Trại B' })
+  })
+
+  it('uses strongest farm-role priority without naming a farm until the tab selects one', () => {
+    sessionStorage.clear()
+    const session = profileForCurrentTab({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Kỹ thuật', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+      { farmId: 2, farmName: 'Quản lý', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+      { farmId: 3, farmName: 'Chủ trại', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    ] })
+
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null, farmRoles: { 1: 'TECHNICIAN', 2: 'MANAGER', 3: 'OWNER' } })
+  })
+
+  it('normalizes an explicit null selected farm with the existing strongest-role fallback', () => {
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Kỹ thuật', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+      { farmId: 2, farmName: 'Quản lý', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+      { farmId: 3, farmName: 'Chủ trại', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    ] }, null)
+
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
+  })
+
+  it('falls back to owner facts for unknown server roles while preserving profile counts and owner completion', () => {
+    const session = sessionFromProfile({
+      fullName: 'Mới', email: 'new@x', ownerRegistrationCompleted: true, platformRole: 'UNKNOWN', farms: [
+        { farmId: 6, farmName: 'Trại lạ', role: 'UNKNOWN', serviceStatus: 'ACTIVE' },
+        { farmId: 7, farmName: 'Trại tạm', role: 'UNKNOWN', serviceStatus: 'SUSPENDED' },
+      ],
+    }, null)
+
+    expect(session).toMatchObject({
+      role: 'OWNER', platformRole: null, farmId: null, farmName: null,
+      activeFarmCount: 1, farmCount: 2, ownerRegistrationCompleted: true, farmRoles: {},
+    })
+  })
+
+  it.each([
+    ['MANAGER', '/tong-quan'],
+    ['TECHNICIAN', '/kt'],
+  ] as const)('keeps an invited %s out of owner onboarding when the profile has a farm', (role, homePath) => {
+    const session = profileForCurrentTab({ fullName: 'Được mời', email: 'invite@x', ownerRegistrationCompleted: false, platformRole: null, farms: [
+      { farmId: 7, farmName: 'Trại mời', role, serviceStatus: 'ACTIVE' },
+    ] })
+
+    expect(needsOwnerRegistration(session)).toBe(false)
+    expect(homePathForSession(session)).toBe(homePath)
+  })
+
+  it('defaults a farm-less, non-platform account to an owner who must complete onboarding', () => {
+    const session = profileForCurrentTab({ fullName: 'Mới', email: 'new@x', ownerRegistrationCompleted: false, platformRole: null, farms: [] })
+
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null, farmCount: 0 })
+    expect(needsOwnerRegistration(session)).toBe(true)
+    expect(homePathForSession(session)).toBe('/owner-registration')
+  })
+
+  it('detects only a selected farm that disappears from the returned profile as stale', () => {
+    const profile = { farms: [
+      { farmId: 4, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 8, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+    ] }
+
+    expect(isStaleFarmSelection(profile, 8)).toBe(false)
+    expect(isStaleFarmSelection(profile, 99)).toBe(true)
+    expect(isStaleFarmSelection(profile, null)).toBe(false)
   })
 })
 
 describe('role navigation', () => {
+  // A tab that has not entered a farm yet; the cases about an entered farm write one themselves.
+  beforeEach(() => sessionStorage.clear())
+
   it.each([
     ['OWNER', 'Chọn trại'],
     ['MANAGER', 'Chọn trại'],
@@ -165,7 +305,7 @@ describe('shell menu by role', () => {
   it('shows the CS role in Vietnamese', () => {
     shell('CS')
     expect(screen.getByText('Nhân viên hỗ trợ · CS')).toBeInTheDocument()
-    expect(screen.getByText('Nhân viên hỗ trợ')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nguyễn Văn Hùng, Nhân viên hỗ trợ' })).toBeInTheDocument()
   })
 
   it('takes the display name and initials from the session', () => {
@@ -173,6 +313,15 @@ describe('shell menu by role', () => {
     expect(screen.getByText('Nguyễn Văn Hùng')).toBeInTheDocument()
     expect(screen.getByText('NH')).toBeInTheDocument()
     expect(screen.getByText('Trại thử nghiệm')).toBeInTheDocument()
+  })
+
+  it('opens the farm switcher with the farms from the session', async () => {
+    shell('OWNER')
+    const trigger = screen.getByRole('button', { name: 'Trại thử nghiệm' })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Trại thứ hai' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Quản lý trang trại' })).toHaveAttribute('href', '/chon-trai')
   })
 })
 

@@ -41,7 +41,9 @@ class ReportsAndAuditIT extends HerdEntryTestBase {
         weight(first, TODAY.minusDays(1), "310");
 
         ReportView herd = run("RPT-01");
-        assertThat(herd.summary()).containsEntry("headAtEnd", 3L).containsEntry("entriesInPeriod", 3L).containsEntry("exitsInPeriod", 0L);
+        assertThat(((Number) herd.summary().get("headAtEnd")).longValue()).isEqualTo(3L);
+        assertThat(((Number) herd.summary().get("entriesInPeriod")).longValue()).isEqualTo(3L);
+        assertThat(((Number) herd.summary().get("exitsInPeriod")).longValue()).isZero();
         assertThat(herd.rows()).filteredOn(r -> "pen".equals(r.get("dimension"))).isNotEmpty();
 
         ReportView growth = run("RPT-02");

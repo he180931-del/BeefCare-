@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Segmented } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { notificationsApi } from '../api/notificationsApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { NotificationRow } from '../components/NotificationRow'
 import { countByTab, filterByTab, isUnread, NOTIFICATION_TABS, notificationTarget } from '../domain/notificationRules'
 import type { NotificationTab, NotificationView } from '../types'
+import { useNotificationsUseCase } from '../hooks/useNotificationsUseCase'
 
 const TITLE = 'Thông báo của tôi'
 
@@ -18,10 +16,10 @@ export default function MyNotificationsPage() {
   const [tab, setTab] = useState<NotificationTab>('ALL')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const { data, loading, error, refetch } = useQuery(async () => ({ list: await notificationsApi.listMine(), now: notificationsApi.now() }), [])
+  const { data, loading, error, refetch, markRead, markAllRead } = useNotificationsUseCase()
 
-  if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
+  if (loading && !data) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
+  if (error || !data) return <Layout title={TITLE}><ErrorBlock variant="panel" message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
 
   const { list, now } = data
   const counts = countByTab(list)
@@ -31,9 +29,8 @@ export default function MyNotificationsPage() {
   const markAll = async () => {
     setBusy(true)
     try {
-      await notificationsApi.markAllRead()
+      await markAllRead()
       setNotice({ tone: 'ok', text: 'Tất cả thông báo đã được đánh dấu là đã đọc.' })
-      await refetch()
     } catch {
       setNotice({ tone: 'err', text: 'Không cập nhật được thông báo. Vui lòng thử lại.' })
     } finally {
@@ -42,7 +39,7 @@ export default function MyNotificationsPage() {
   }
   const open = async (item: NotificationView) => {
     try {
-      await notificationsApi.markRead(item.id)
+      await markRead(item.id)
       navigate(notificationTarget(item))
     } catch {
       setNotice({ tone: 'err', text: 'Không mở được thông báo này. Vui lòng thử lại.' })
@@ -53,16 +50,16 @@ export default function MyNotificationsPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE}>
-          <Button onClick={markAll} disabled={busy || unread === 0}>
+          <Button size="bento" onClick={markAll} disabled={busy || unread === 0}>
             <Icon name="checks" size={16} /> Đánh dấu đã đọc tất cả
           </Button>
         </PageHeader>
         {notice && <Note tone={notice.tone}>{notice.text}</Note>}
-        <Segmented options={NOTIFICATION_TABS.map((t) => ({ value: t.value, label: `${t.label} (${counts[t.value]})` }))} value={tab} onChange={(v) => setTab(v as NotificationTab)} />
+        <Segmented className="w-full [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:px-2 @min-[880px]:w-1/2" options={NOTIFICATION_TABS.map((t) => ({ value: t.value, label: `${t.label} (${counts[t.value]})` }))} value={tab} onChange={(v) => setTab(v as NotificationTab)} />
         {shown.length === 0 ? (
-          <EmptyBlock title="Chưa có thông báo" sub="Thông báo về gói, thanh toán và hỗ trợ sẽ xuất hiện ở đây." />
+          <EmptyBlock variant="panel" title="Chưa có thông báo" sub="Thông báo về gói, thanh toán và hỗ trợ sẽ xuất hiện ở đây." />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {shown.map((n) => (
               <NotificationRow key={n.id} item={n} now={now} onOpen={open} />
             ))}

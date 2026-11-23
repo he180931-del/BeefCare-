@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BeefCare · FE-19 · UC-FE19-02</title>
+  <style>
+    :root { --bg:#f4f7fb; --ink:#182230; --muted:#667085; --line:#d9e1ec; --blue:#2563eb; --blue-soft:#eaf1ff; --green:#0f766e; --amber:#b45309; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font:15px/1.55 Arial, Helvetica, sans-serif; }
+    .shell { max-width:1420px; margin:0 auto; padding:16px 20px 20px; }
+    header { display:flex; align-items:center; gap:9px; min-height:28px; margin-bottom:9px; padding:0 2px; color:var(--muted); font-size:12px; }
+    .nav-title { color:var(--ink); font-weight:750; }
+    .nav-sep { color:#98a2b3; }
+    .nav-current { white-space:nowrap; }
+    .workspace { display:grid; grid-template-columns:minmax(0, .9fr) minmax(500px, 1.1fr); gap:12px; align-items:start; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 5px 16px rgba(32,55,91,.05); overflow:hidden; }
+    .card-head { padding:10px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .card-head h2 { margin:0; font-size:16px; }
+    .hint { color:var(--muted); font-size:13px; }
+    .flow { padding:10px 12px; }
+    .step { width:100%; border:0; background:transparent; padding:4px 2px; margin:0; cursor:pointer; color:inherit; transition:.14s ease; }
+    .step:hover .step-title, .step:hover .step-pseudo { color:var(--blue); }
+    .step.active .step-title, .step.active .step-pseudo { color:var(--blue); }
+    .step:last-child { margin-bottom:0; }
+    .step-row { display:flex; gap:8px; align-items:flex-start; }
+    .num { flex:0 0 20px; color:#98a2b3; font-weight:800; font-size:11px; line-height:1.45; text-align:right; }
+    .active .num { color:var(--blue); }
+    .step-title { font-weight:400; font-size:13px; }
+    .step-meta { color:var(--muted); font-size:10px; font-weight:400; margin-top:1px; }
+    .step-pseudo { color:#344054; font-family:inherit; font-size:12px; font-weight:400; line-height:1.35; margin-top:2px; white-space:pre-line; }
+    .arrow { color:#9aa8ba; text-align:center; margin:-3px 0 2px; font-size:13px; line-height:1; }
+    .detail { position:sticky; top:18px; }
+    .detail-body { padding:14px; }
+    .detail-title { margin:0 0 3px; font-size:18px; }
+    .detail-desc { margin:0 0 11px; color:var(--muted); font-size:13px; }
+    .facts { display:grid; grid-template-columns:55px 1fr; gap:5px 10px; padding:9px; border:1px solid var(--line); background:#fbfcfe; border-radius:8px; margin-bottom:11px; }
+    .facts dt { color:var(--muted); font-size:13px; }
+    .facts dd { margin:0; overflow-wrap:anywhere; }
+    code, .mono { font-family:"SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size:.91em; }
+    code { color:#1d4ed8; background:#eef3ff; padding:2px 5px; border-radius:5px; }
+    pre { margin:0; max-height:520px; overflow:auto; background:var(--code); color:#dbeafe; padding:12px; border-radius:8px; font:12px/1.55 "SFMono-Regular", Consolas, monospace; tab-size:2; }
+    .label { margin:10px 0 5px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:800; }
+    .call { display:flex; align-items:center; gap:7px; flex-wrap:wrap; padding:7px 9px; border-left:2px solid #94a3b8; background:#f8fafc; border-radius:0 6px 6px 0; font-size:12px; }
+    .call strong { color:var(--green); }
+    .empty { padding:36px 20px; color:var(--muted); text-align:center; }
+    .legend { margin-top:16px; display:flex; gap:14px; flex-wrap:wrap; color:var(--muted); font-size:13px; }
+    .legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:6px; background:#6b7d99; }
+    .legend span:nth-child(2)::before { background:var(--blue); }
+    .diagram { margin-bottom:12px; }
+    .diagram-body { padding:10px 12px 12px; overflow:auto; }
+    .diagram-guide { margin:0 2px 8px; color:#475569; font-size:11px; }
+    .diagram-guide strong { color:var(--ink); }
+    .lane { border:1px solid var(--line); border-radius:10px; padding:10px; }
+    .lane + .lane { margin-top:8px; }
+    .lane.frontend { background:#f7faff; border-color:#c8d8fb; }
+    .lane.backend { background:#f7fcfb; border-color:#b9e2da; }
+    .lane-title { display:flex; align-items:center; gap:7px; margin-bottom:8px; font-size:10px; letter-spacing:.1em; font-weight:850; }
+    .lane-title::before { content:""; width:10px; height:10px; border-radius:3px; background:var(--blue); }
+    .backend .lane-title::before { background:var(--green); }
+    .flow-section + .flow-section { margin-top:9px; padding-top:9px; border-top:1px solid rgba(148,163,184,.35); }
+    .flow-section-title { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; font-size:11px; font-weight:700; }
+    .flow-section-title span { color:var(--muted); font-size:10px; font-weight:400; }
+    .nodes { display:flex; align-items:stretch; gap:5px; min-width:1040px; }
+    .node { flex:1 1 0; min-width:175px; max-width:100%; padding:7px 8px; border:1px solid #b8c7dd; border-radius:7px; background:#fff; text-align:left; box-shadow:0 2px 6px rgba(32,55,91,.04); font-size:11px; font-weight:700; overflow-wrap:anywhere; word-break:break-word; }
+    .backend .node { border-color:#add5cd; }
+    .node small { display:block; margin-top:2px; color:var(--muted); font:9px/1.25 "SFMono-Regular", Consolas, monospace; overflow-wrap:anywhere; font-weight:400; }
+    .node .method { display:block; min-width:0; max-width:100%; margin-top:5px; padding-top:4px; border-top:1px solid #edf1f6; color:#344054; font:10px/1.35 "SFMono-Regular", Consolas, monospace; font-weight:400; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .node .method b { color:#182230; font-weight:700; }
+    .node .result { display:block; margin-top:4px; color:#475569; font-size:9px; font-weight:400; }
+    .node-arrow { display:flex; flex:0 0 34px; flex-direction:column; align-items:center; justify-content:center; color:#8090a7; font-size:14px; line-height:1; }
+    .node-arrow small { margin-bottom:3px; color:#667085; font:8px/1 Arial, sans-serif; white-space:nowrap; }
+    .dependency-node { flex:1.45 1 0; min-width:260px; }
+    .dependency-list { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:5px; padding-top:4px; border-top:1px solid #edf1f6; }
+    .dependency-list span { min-width:0; max-width:100%; padding:3px 4px; border-radius:4px; background:#f6f8fb; color:#344054; font:9px/1.3 "SFMono-Regular", Consolas, monospace; font-weight:400; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .api-handoff { min-width:1040px; padding:5px 0; color:#475569; font-size:10px; text-align:center; }
+    .api-handoff strong { color:#1d4ed8; }
+    .api-handoff code { color:#334155; background:#e9eef5; }
+    .return-line { margin-top:6px; color:#475569; font-size:10px; }
+    .return-line strong { color:var(--green); }
+    @media (max-width:900px) { .shell{padding:16px;} header{display:block;} .badge{display:inline-block;margin-top:12px;} .workspace{grid-template-columns:1fr;} .detail{position:static;} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <span class="nav-title">FE-19 / UC-FE19-02</span>
+      <span class="nav-sep">›</span>
+      <span class="nav-current">Tạo yêu cầu thanh toán</span>
+    </header>
+
+    <article class="card diagram">
+      <div class="card-head">
+        <h2>Sơ đồ gọi hàm</h2>
+        <span class="hint">Đọc từ trái sang phải · code thật ở dưới</span>
+      </div>
+      <div class="diagram-body">
+        <p class="diagram-guide"><strong>Cách đọc:</strong> tên lớn là file/class có thật; phần dưới đường kẻ là hàm trong file; chữ trên mũi tên cho biết hàm bên trái gọi sang đâu.</p>
+        <div class="lane frontend">
+          <div class="lane-title">FRONTEND · React / TypeScript</div>
+          <div class="flow-section">
+            <div class="flow-section-title">1. Mở trang và tải tổng quan <span>GET subscription overview</span></div>
+            <div class="nodes">
+              <div class="node">FirstSubscriptionPage.tsx<small>features/subscription/pages</small><span class="method"><b>FirstSubscriptionPage()</b><br>useOverview(farmId)</span><span class="result">Đầu vào: farmId của trại đang mở</span></div>
+              <div class="node-arrow"><small>gọi hook</small>→</div>
+              <div class="node">useOverview.ts<small>features/subscription/hooks</small><span class="method"><b>useOverview(farmId)</b><br>subscriptionApi.getOverview(farmId)</span><span class="result">Giữ data · loading · error · refetch</span></div>
+              <div class="node-arrow"><small>gọi adapter</small>→</div>
+              <div class="node">subscriptionApi.ts<small>features/subscription/api</small><span class="method"><b>getOverview(farm)</b><br>transport.get(farmPath(...))<br>readOverview(response, farm)</span><span class="result">Kiểm tra contract trước khi trả UI</span></div>
+              <div class="node-arrow"><small>dùng client</small>→</div>
+              <div class="node">backendTransport.ts<small>shared/api</small><span class="method"><b>backendTransport.get()</b><br>client được tạo bởi createBackendClient()</span><span class="result">Dùng chung cookie · CSRF · lỗi 401</span></div>
+              <div class="node-arrow"><small>thực thi</small>→</div>
+              <div class="node">backendClient.ts<small>shared/api</small><span class="method"><b>get() → request() → fetch()</b><br>GET /api/farms/{farmId}/subscription</span><span class="result">Nhận JSON từ backend</span></div>
+            </div>
+          </div>
+          <div class="flow-section">
+            <div class="flow-section-title">2. Owner bấm “Tạo yêu cầu thanh toán” <span>POST payment request</span></div>
+            <div class="nodes">
+              <div class="node">FirstSubscriptionPage.tsx<small>features/subscription/pages</small><span class="method"><b>submit()</b><br>createPayment(term, price.id)</span><span class="result">Đầu vào: kỳ hạn + bảng giá đã xem</span></div>
+              <div class="node-arrow"><small>gọi hook</small>→</div>
+              <div class="node">usePaymentRequest.ts<small>features/subscription/hooks</small><span class="method"><b>hàm trả về từ usePaymentRequest()</b><br>tạo/giữ idempotencyKey<br>subscriptionApi.createPayment(...)</span><span class="result">Chặn double click và retry trùng ý định</span></div>
+              <div class="node-arrow"><small>gọi adapter</small>→</div>
+              <div class="node">subscriptionApi.ts<small>features/subscription/api</small><span class="method"><b>createPayment(farm, command)</b><br>đổi expectedPriceVersionId<br>→ reviewedPriceVersion</span><span class="result">Sau response: readPayment()</span></div>
+              <div class="node-arrow"><small>dùng client</small>→</div>
+              <div class="node">backendTransport.ts<small>shared/api</small><span class="method"><b>backendTransport.command()</b><br>body + Idempotency-Key</span><span class="result">Command mặc định dùng POST</span></div>
+              <div class="node-arrow"><small>thực thi</small>→</div>
+              <div class="node">backendClient.ts<small>shared/api</small><span class="method"><b>command() → request() → fetch()</b><br>POST /api/farms/{farmId}/subscription/payments</span><span class="result">Gửi JSON + cookie + CSRF + key</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="api-handoff">↓ HTTP chuyển từ Frontend sang Backend qua hai endpoint thật: <strong>GET overview</strong> và <strong>POST payment</strong> ↓</div>
+        <div class="lane backend">
+          <div class="lane-title">BACKEND · Spring Boot / Database</div>
+          <div class="flow-section">
+            <div class="flow-section-title">1. Xử lý GET tổng quan <span>/api/farms/{farmId}/subscription</span></div>
+            <div class="nodes">
+              <div class="node">SubscriptionPaymentResource.java<small>web/rest</small><span class="method"><b>overview(farmId)</b><br>return service.overview(farmId)</span><span class="result">Nhận @PathVariable farmId</span></div>
+              <div class="node-arrow"><small>gọi service</small>→</div>
+              <div class="node">SubscriptionPaymentService.java<small>service</small><span class="method"><b>overview(farmId)</b><br>đọc dữ liệu → tính periods<br>→ serviceStatus → eligibility</span><span class="result">@Transactional(readOnly = true)</span></div>
+              <div class="node-arrow"><small>gọi ra</small>→</div>
+              <div class="node dependency-node">Các file được overview() gọi<small>service + repository</small><div class="dependency-list"><span>FarmAccessService.java<br>require(...)</span><span>PaymentRepository.java<br>findAllBySubscription_...</span><span>PlanVersionRepository.java<br>findFirstByWithdrawnAt...</span><span>FarmServiceFacts.java<br>lastSuspension(...) nếu cần</span></div></div>
+              <div class="node-arrow"><small>tổng hợp</small>→</div>
+              <div class="node">SubscriptionPaymentService.java<small>record nằm trong service</small><span class="method"><b>new SubscriptionOverview(...)</b><br>serviceStatus · periods<br>currentPrices · eligibility</span><span class="result">Trả JSON cho readOverview()</span></div>
+            </div>
+            <div class="return-line"><strong>Giá trị trả về:</strong> SubscriptionOverview → frontend <code>readOverview()</code> → React render trạng thái, giá và kỳ dịch vụ.</div>
+          </div>
+          <div class="flow-section">
+            <div class="flow-section-title">2. Xử lý POST tạo Payment <span>/api/farms/{farmId}/subscription/payments</span></div>
+            <div class="nodes">
+              <div class="node">SubscriptionPaymentResource.java<small>web/rest</small><span class="method"><b>request(farmId, request, key)</b><br>commands.execute(..., () →<br>service.requestPayment(...))</span><span class="result">Body: durationYears · reviewedPriceVersion</span></div>
+              <div class="node-arrow"><small>bọc command</small>→</div>
+              <div class="node">IdempotencyCommandService.java<small>service</small><span class="method"><b>execute(...)</b><br>kiểm tra key + quyền<br>hash request · replay nếu đã chạy<br>mở transaction · command.get()</span><span class="result">Không chạy nghiệp vụ lần hai với cùng key</span></div>
+              <div class="node-arrow"><small>command.get()</small>→</div>
+              <div class="node">SubscriptionPaymentService.java<small>service</small><span class="method"><b>requestPayment(farmId, request)</b><br>validate → lock → kiểm tra<br>→ tạo Payment → lưu → audit</span><span class="result">@Transactional cùng command</span></div>
+              <div class="node-arrow"><small>gọi ra</small>→</div>
+              <div class="node dependency-node">Các file được requestPayment() gọi<small>service + repository</small><div class="dependency-list"><span>FarmAccessService.java<br>require(...)</span><span>FarmRepository.java<br>lockById(...)</span><span>PaymentRepository.java<br>findAll... / saveAndFlush()</span><span>PlanVersionRepository.java<br>find current / findById()</span><span>SubscriptionRepository.java<br>lockByFarmId() / saveAndFlush()</span><span>AuditService.java<br>logAt(...)</span></div></div>
+              <div class="node-arrow"><small>trả kết quả</small>→</div>
+              <div class="node">SubscriptionPaymentService.java<small>record nằm trong service</small><span class="method"><b>toDto(saved)</b><br>return PaymentDTO</span><span class="result">state=PENDING · expiresAt=+24h · reopened</span></div>
+            </div>
+            <div class="return-line"><strong>Giá trị trả về:</strong> PaymentDTO → frontend <code>readPayment()</code> → <code>submit()</code> → mở dialog payment cũ hoặc chuyển sang trang chuyển khoản.</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <section class="workspace">
+      <article class="card">
+        <div class="card-head">
+          <h2>Mã giả luồng</h2>
+        </div>
+        <div id="flow" class="flow"></div>
+      </article>
+
+      <article class="card detail">
+        <div class="card-head"><h2>Chi tiết code</h2></div>
+        <div id="detail" class="detail-body"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const steps = [
+      {
+        title: 'Owner bấm “Thanh toán để kích hoạt” hoặc “Gia hạn”',
+        pseudo: 'Owner chọn trại → mở màn hình chọn gói → lấy farmId đang xem',
+        meta: 'Frontend · mở FirstSubscriptionPage / RenewPage',
+        file: 'frontend/src/features/subscription/pages/FirstSubscriptionPage.tsx',
+        fn: 'FirstSubscriptionPage()',
+        next: 'useOverview(farmId)',
+        code: `// FirstSubscriptionPage.tsx\nconst { farmId, to } = useFarmScope()\nconst createPayment = usePaymentRequest(farmId)\nconst { data, loading, error, refetch } = useOverview(farmId)`,
+        note: 'Trang lấy farmId đang được chọn và bắt đầu tải tổng quan gói dịch vụ.'
+      },
+      {
+        title: 'Tải tổng quan gói dịch vụ của trại',
+        pseudo: 'Khi có farmId → gọi hook tải overview → giữ data/loading/error',
+        meta: 'Frontend → GET /api/farms/{farmId}/subscription',
+        file: 'frontend/src/features/subscription/hooks/useOverview.ts',
+        fn: 'useOverview(farmId)',
+        next: 'subscriptionApi.getOverview(farmId)',
+        code: `// useOverview.ts\nconst q = useQuery(\n  () => subscriptionApi.getOverview(farmId),\n  [farmId]\n)\n\nreturn { ...q, data, loading: q.loading ||\n  !!(q.data && q.data.farmId !== farmId) }`,
+        note: 'Hook gọi API và giữ data/loading/error cho màn hình.'
+      },
+      {
+        title: 'Gọi API lấy subscription overview',
+        pseudo: 'Hook gọi adapter → adapter gọi transport GET → parse response',
+        meta: 'Frontend adapter → HTTP transport',
+        file: 'frontend/src/features/subscription/api/subscriptionApi.ts',
+        fn: 'subscriptionApi.getOverview(farm)',
+        next: 'GET /api/farms/{farmId}/subscription',
+        code: `// subscriptionApi.ts\nasync getOverview(farm) {\n  return mode === 'backend'\n    ? readOverview(\n        await transport.get(\n          transport.farmPath(farm, '/subscription')\n        ),\n        farm\n      )\n    : store.getOverview(farm)\n}`,
+        note: 'Adapter kiểm tra response có đủ field trước khi đưa vào UI.'
+      },
+      {
+        title: 'Backend nhận request tổng quan',
+        pseudo: 'GET đi vào REST resource → resource chuyển farmId cho service',
+        meta: 'REST controller',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/web/rest/SubscriptionPaymentResource.java',
+        fn: 'SubscriptionPaymentResource.overview(farmId)',
+        next: 'service.overview(farmId)',
+        code: `@GetMapping\npublic SubscriptionOverview overview(\n    @PathVariable Long farmId\n) {\n  return service.overview(farmId);\n}`,
+        note: 'Resource chỉ nhận path variable và chuyển việc xử lý cho service.'
+      },
+      {
+        title: 'Tính trạng thái dịch vụ của trại',
+        pseudo: 'Đọc farm + payment → tính kỳ hiện tại → suy ra serviceStatus → tạo overview',
+        meta: 'Backend service · serviceStatus',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/service/SubscriptionPaymentService.java',
+        fn: 'SubscriptionPaymentService.overview(farmId)',
+        next: 'trả SubscriptionOverview cho frontend',
+        code: `// SubscriptionPaymentService.java · overview()\nList<PurchasedPeriod> periods = requests.stream()\n  .filter(p -> "PAID".equalsIgnoreCase(p.getState()))\n  .map(p -> PurchasedPeriod.from(p, now))\n  .sorted(Comparator.comparing(PurchasedPeriod::start).reversed())\n  .toList();\n\nPurchasedPeriod current = periods.stream()\n  .filter(p -> "CURRENT".equals(p.status()))\n  .findFirst().orElse(null);\n\nboolean suspended = "SUSPENDED".equalsIgnoreCase(\n  context.farm().getServiceStatus());\n\nString serviceStatus = suspended ? "SUSPENDED"\n  : current != null ? "ACTIVE"\n  : periods.isEmpty() ? "PENDING_PAYMENT"\n  : "EXPIRED";`,
+        note: 'Đây là nơi backend quyết định serviceStatus thật; frontend không tự quyết định trạng thái này.'
+      },
+      {
+        title: 'Trả tổng quan về frontend và hiển thị bảng giá',
+        pseudo: 'Backend trả overview → frontend đọc serviceStatus/currentPrices → render màn hình',
+        meta: 'Frontend · data.serviceStatus / data.currentPrices',
+        file: 'frontend/src/features/subscription/pages/FirstSubscriptionPage.tsx',
+        fn: 'render FirstSubscriptionPage()',
+        next: 'Owner chọn term = 1 | 2 | 3',
+        code: `// FirstSubscriptionPage.tsx · render\nconst price = data.currentPrices\nconst estimate = term\n  ? estimatePeriod(subscriptionApi.now(), data.latestEnd, term)\n  : null\n\n<Facts items={[\n  ['Trạng thái trang trại', serviceLabel(data.serviceStatus)],\n  ['Kỳ dịch vụ', data.currentPeriod\n    ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end)\n    : 'Chưa có']\n]} />\n\n<TermCards prices={price} selected={term} onSelect={setTerm} />`,
+        note: 'UI hiển thị kết quả backend trả về và cho Owner chọn thời hạn.'
+      },
+      {
+        title: 'Owner chọn thời hạn và bấm tạo yêu cầu',
+        pseudo: 'Owner chọn 1/2/3 năm → bấm tạo → kiểm tra term và price trước khi gửi',
+        meta: 'Frontend · submit()',
+        file: 'frontend/src/features/subscription/pages/FirstSubscriptionPage.tsx',
+        fn: 'FirstSubscriptionPage.submit()',
+        next: 'createPayment(term, price.id)',
+        code: `// FirstSubscriptionPage.tsx\nasync function submit() {\n  if (!term || !price) return\n  setSaving(true)\n  setSaveError('')\n  try {\n    const p = await createPayment(term, price.id)\n    if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })\n    else navigate(to(\n      \`/goi-dich-vu/chuyen-khoan/\${subscriptionApi.paymentRouteId(p)}\`,\n      { from: 'onboarding' }\n    ))\n  } finally {\n    setSaving(false)\n  }\n}`,
+        note: 'Frontend gửi thời hạn và phiên bản bảng giá mà Owner vừa xem.'
+      },
+      {
+        title: 'Tạo idempotency key và dựng request',
+        pseudo: 'Cùng một ý định thanh toán → giữ cùng key → tránh tạo payment trùng',
+        meta: 'Frontend hook · chống tạo payment trùng',
+        file: 'frontend/src/features/subscription/hooks/usePaymentRequest.ts',
+        fn: 'usePaymentRequest(farmId)',
+        next: 'subscriptionApi.createPayment(farmId, command)',
+        code: `// usePaymentRequest.ts\nconst input = \`${'${farmId}'}:${'${term}'}:${'${priceVersion}'}\`\nif (intent.current?.input !== input) {\n  intent.current = { input, key: crypto.randomUUID() }\n}\n\nconst promise = subscriptionApi.createPayment(farmId, {\n  durationYears: term,\n  expectedPriceVersionId: priceVersion,\n  idempotencyKey: intent.current.key,\n})\n\nrunning.current = promise\nreturn promise`,
+        note: 'Nếu response bị mất và Owner thử lại cùng một ý định, key được dùng lại.'
+      },
+      {
+        title: 'Gửi POST tạo yêu cầu thanh toán',
+        pseudo: 'Adapter đổi command frontend → body API → gửi Idempotency-Key',
+        meta: 'Frontend → Backend',
+        file: 'frontend/src/features/subscription/api/subscriptionApi.ts',
+        fn: 'subscriptionApi.createPayment(farm, command)',
+        next: 'POST /api/farms/{farmId}/subscription/payments',
+        code: `// subscriptionApi.ts · createPayment()\nreturn readPayment(await transport.command(\n  transport.farmPath(farm, '/subscription/payments'),\n  {\n    durationYears: command.durationYears,\n    reviewedPriceVersion: command.expectedPriceVersionId,\n  },\n  { key: command.idempotencyKey },\n))`,
+        note: 'Adapter chuyển tên field của frontend sang đúng contract backend.'
+      },
+      {
+        title: 'REST Resource nhận POST và bọc nghiệp vụ bằng idempotency',
+        pseudo: 'Đọc farmId + body + Idempotency-Key → tạo PaymentRequest → giao lambda cho commands.execute',
+        meta: 'Backend · REST boundary',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/web/rest/SubscriptionPaymentResource.java',
+        fn: 'SubscriptionPaymentResource.request(farmId, request, key)',
+        next: 'commands.execute(..., () → service.requestPayment(...))',
+        code: `// SubscriptionPaymentResource.java\n@PostMapping("/payments")\npublic PaymentDTO request(\n    @PathVariable Long farmId,\n    @Valid @RequestBody Request request,\n    @RequestHeader("Idempotency-Key") String key\n) {\n  return commands.execute(\n    farmId,\n    FarmAction.MANAGE_FARM_INFORMATION,\n    "SUBSCRIPTION_PAYMENT_REQUEST",\n    key, request, PaymentDTO.class,\n    () -> service.requestPayment(\n      farmId,\n      new SubscriptionPaymentService.PaymentRequest(\n        request.durationYears(),\n        request.reviewedPriceVersion()\n      )\n    )\n  );\n}`,
+        note: 'Resource nhận HTTP, chuyển DTO REST thành PaymentRequest của service và chưa tự xử lý nghiệp vụ.'
+      },
+      {
+        title: 'Command service kiểm tra request có bị chạy trùng không',
+        pseudo: 'Chuẩn hóa key → xác thực quyền → hash body → có record thì replay → chưa có thì mở transaction và chạy command.get()',
+        meta: 'Backend · idempotency + transaction',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java',
+        fn: 'IdempotencyCommandService.execute(...)',
+        next: 'command.get() → SubscriptionPaymentService.requestPayment(...)',
+        code: `// IdempotencyCommandService.java · executeScoped()\nString normalizedKey = validateKey(key);\nLong actorId = verifiedActorId(farmId, permission, platformRole);\nLong scope = farmId == null ? ACCOUNT_SCOPE : farmId;\nString payloadHash = digest(serialize(request, "request"));\n\nreturn transaction.execute(status -> {\n  var existing = records\n    .findByActorIdAndFarmScopeAndActionAndIdempotencyKey(\n      actorId, scope, action, normalizedKey\n    );\n  if (existing.isPresent()) {\n    return replay(existing.get(), payloadHash, resultType);\n  }\n\n  IdempotencyRecord record = new IdempotencyRecord();\n  record.setActorId(actorId);\n  record.setFarmScope(scope);\n  record.setAction(action);\n  record.setIdempotencyKey(normalizedKey);\n  record.setPayloadHash(payloadHash);\n  record.setResultType(resultType.getName());\n  record.setResultJson("null");\n  record.setCreatedAt(Instant.now());\n  records.saveAndFlush(record);\n\n  T result = command.get();\n  record.setResultJson(new String(serialize(result, "result")));\n  records.saveAndFlush(record);\n  return result;\n});`,
+        note: 'Cùng key và cùng payload sẽ trả lại kết quả cũ; nghiệp vụ tạo Payment không chạy lần thứ hai.'
+      },
+      {
+        title: 'Service kiểm tra toàn bộ luật trước khi tạo Payment',
+        pseudo: 'Kiểm tra quyền → kỳ hạn → bảng giá đã xem → khóa Farm → tìm payment đang chờ → kiểm tra đình chỉ và cửa sổ gia hạn',
+        meta: 'Backend · business validation + pessimistic lock',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/service/SubscriptionPaymentService.java',
+        fn: 'SubscriptionPaymentService.requestPayment(farmId, request)',
+        next: 'tạo hoặc khóa Subscription → dựng Payment',
+        code: `// SubscriptionPaymentService.java · requestPayment()\nFarmContext context = farmAccess.require(\n  farmId, FarmAction.MANAGE_FARM_INFORMATION);\nif (request == null || request.durationYears() == null\n    || !List.of(1, 2, 3).contains(request.durationYears())) {\n  throw DomainException.invalid("durationYears");\n}\nif (request.reviewedPriceVersion() == null\n    || request.reviewedPriceVersion() <= 0) {\n  throw DomainException.required("reviewedPriceVersion");\n}\n\nFarm farm = farms.lockById(farmId)\n  .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));\nInstant now = clock.now();\nList<Payment> requests = payments\n  .findAllBySubscription_Farm_IdOrderByRequestedAtDescIdDesc(farmId);\n\nPayment existing = requests.stream()\n  .filter(p -> "PENDING".equalsIgnoreCase(p.getState())\n    && p.getExpiresAt().isAfter(now))\n  .findFirst().orElse(null);\nif (existing != null) return toDto(existing, true);`,
+        note: 'Backend là nơi quyết định cuối cùng. Payment còn hiệu lực sẽ được mở lại thay vì tạo bản ghi mới.'
+      },
+      {
+        title: 'Service kiểm tra đình chỉ, cửa sổ gia hạn và phiên bản giá',
+        pseudo: 'Nếu Farm bị SUSPENDED thì chặn → nếu còn hơn 90 ngày mới hết hạn thì chặn → lấy bảng giá hiện tại → so với bảng giá Owner đã xem',
+        meta: 'Backend · domain rules trước khi ghi dữ liệu',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/service/SubscriptionPaymentService.java',
+        fn: 'SubscriptionPaymentService.requestPayment() · eligibility section',
+        next: 'currentPrice() → amountFor(price, durationYears)',
+        code: `if ("SUSPENDED".equalsIgnoreCase(farm.getServiceStatus())) {\n  throw DomainException.conflict(\n    "MSG-FE19-09", "farmName", farm.getName());\n}\n\nInstant latestEnd = requests.stream()\n  .filter(p -> "PAID".equalsIgnoreCase(p.getState()))\n  .map(Payment::getPurchasedEnd)\n  .filter(java.util.Objects::nonNull)\n  .max(Comparator.naturalOrder()).orElse(null);\nInstant opensAt = latestEnd == null ? null\n  : latestEnd.atZone(FARM_ZONE).minusDays(90).toInstant();\nif (opensAt != null && now.isBefore(opensAt)) {\n  throw DomainException.conflict(\n    "MSG-FE19-03", "confirmedEnd", latestEnd, "opensAt", opensAt);\n}\n\nPlanVersion price = currentPrice();\nif (price == null || !StringUtils.hasText(bankCode)\n    || !StringUtils.hasText(accountNumber)\n    || !StringUtils.hasText(accountName)\n    || !StringUtils.hasText(accountNamespace)\n    || !StringUtils.hasText(paymentEnvironment)) {\n  throw DomainException.conflict("MSG-FE19-04");\n}\nif (!price.getId().equals(request.reviewedPriceVersion())) {\n  PlanVersion reviewed = plans\n    .findById(request.reviewedPriceVersion())\n    .orElseThrow(() -> DomainException.invalid("reviewedPriceVersion"));\n  throw DomainException.conflict("MSG-FE19-02",\n    "seen", Map.of("version", reviewed.getId(),\n      "term", request.durationYears(),\n      "amountVnd", amountFor(reviewed, request.durationYears())),\n    "current", Map.of("version", price.getId(),\n      "term", request.durationYears(),\n      "amountVnd", amountFor(price, request.durationYears())));\n}`,
+        note: 'Backend luôn kiểm tra lại trạng thái và giá tại thời điểm POST; dữ liệu hiển thị trước đó trên frontend có thể đã cũ.'
+      },
+      {
+        title: 'Service dựng Payment, lưu database và ghi audit',
+        pseudo: 'Lấy/tạo Subscription → đánh dấu request PENDING cũ là EXPIRED → tính amount → chụp thông tin nhận tiền → lưu Payment + audit',
+        meta: 'Backend · persistence trong cùng transaction',
+        file: 'backend/src/main/java/vn/edu/fpt/beefcare/service/SubscriptionPaymentService.java',
+        fn: 'SubscriptionPaymentService.requestPayment() · persistence section',
+        next: 'payments.saveAndFlush(payment) → audit.logAt(...) → toDto(saved)',
+        code: `Subscription subscription = subscriptions\n  .lockByFarmId(farmId)\n  .orElseGet(() -> {\n    Subscription created = new Subscription();\n    created.setFarm(farm);\n    created.setPlanVersion(price);\n    created.setEntitlementStatus("PENDING");\n    return subscriptions.saveAndFlush(created);\n  });\n\nrequests.stream()\n  .filter(p -> "PENDING".equalsIgnoreCase(p.getState()))\n  .forEach(p -> p.setState("EXPIRED"));\n\nBigDecimal amount = amountFor(price, request.durationYears());\nPayment payment = new Payment();\npayment.setQuoteRef("BC" + UUID.randomUUID().toString()\n  .replace("-", "").substring(0, 12)\n  .toUpperCase(Locale.ROOT));\npayment.setDurationYears(request.durationYears());\npayment.setAmountVnd(amount);\npayment.setState("PENDING");\npayment.setRequestedAt(now);\npayment.setExpiresAt(now.plus(REQUEST_TTL));\npayment.setSubscription(subscription);\npayment.setRequestedBy(context.user());\npayment.setPriceVersion(price);\npayment.setReceivingAccountNamespace(accountNamespace);\npayment.setReceivingEnvironment(paymentEnvironment == null ? null\n  : paymentEnvironment.trim().toUpperCase(Locale.ROOT));\npayment.setReceivingAccount(accountNumber.trim());\npayment.setReceivingBankCode(\n  StringUtils.hasText(bankCode) ? bankCode.trim() : null);\npayment.setReceivingAccountName(\n  StringUtils.hasText(accountName) ? accountName.trim() : null);\n\nPayment saved = payments.saveAndFlush(payment);\naudit.logAt(farm, context.user(), "PAYMENT_REQUEST",\n  "Payment", saved.getId(), Map.of(\n    "quoteRef", saved.getQuoteRef(),\n    "termYears", saved.getDurationYears(),\n    "amountVnd", saved.getAmountVnd(),\n    "priceVersionId", price.getId()\n  ), now);\nreturn toDto(saved);`,
+        note: 'Payment và audit nằm trong cùng transaction; lỗi ở bất kỳ bước nào sẽ rollback toàn bộ.'
+      },
+      {
+        title: 'Nhận PaymentDTO và chuyển sang màn hình chuyển khoản',
+        pseudo: 'PaymentDTO về frontend → payment cũ thì mở lại → payment mới thì mở TransferPage',
+        meta: 'Frontend · reopened hoặc payment mới',
+        file: 'frontend/src/features/subscription/pages/FirstSubscriptionPage.tsx',
+        fn: 'submit() → navigate(...)',
+        next: 'TransferPage /goi-dich-vu/chuyen-khoan/{payment.id}',
+        code: `// FirstSubscriptionPage.tsx · sau createPayment()\nif (p.reopened) {\n  dialog.show({ kind: 'pending-exists', payment: p })\n} else {\n  navigate(to(\n    \`/goi-dich-vu/chuyen-khoan/\${subscriptionApi.paymentRouteId(p)}\`,\n    { from: 'onboarding' }\n  ))\n}`,
+        note: 'Payment cũ thì mở lại hướng dẫn; payment mới thì đi tới màn hình chuyển khoản.'
+      }
+    ]
+
+    const flow = document.querySelector('#flow')
+    const detail = document.querySelector('#detail')
+
+    function renderDetail(index) {
+      const item = steps[index]
+      document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i === index))
+      detail.innerHTML = `
+        <h2 class="detail-title">${item.title}</h2>
+        <p class="detail-desc">${item.note}</p>
+        <dl class="facts">
+          <dt>Loại</dt><dd>${item.meta}</dd>
+          <dt>File</dt><dd class="mono">${item.file}</dd>
+          <dt>Hàm</dt><dd><code>${item.fn}</code></dd>
+        </dl>
+        <div class="label">Lời gọi tiếp theo</div>
+        <div class="call"><strong>${item.fn}</strong><span>→</span><code>${item.next}</code></div>
+        <div class="label">Code thật tại source</div>
+        <pre>${escapeHtml(item.code)}</pre>
+      `
+    }
+
+    function escapeHtml(value) {
+      return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    }
+
+    steps.forEach((item, index) => {
+      const textBox = document.createElement('div')
+      textBox.className = 'step'
+      textBox.setAttribute('role', 'button')
+      textBox.setAttribute('tabindex', '0')
+        textBox.innerHTML = `<div class="step-row"><span class="num">${index + 1}</span><span><div class="step-title">${item.title}</div><div class="step-pseudo">${item.pseudo}</div><div class="step-meta">${item.meta}</div></span></div>`
+      textBox.addEventListener('click', () => renderDetail(index))
+      textBox.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); renderDetail(index) } })
+      flow.appendChild(textBox)
+      if (index < steps.length - 1) {
+        const arrow = document.createElement('div')
+        arrow.className = 'arrow'
+        arrow.textContent = '↓'
+        flow.appendChild(arrow)
+      }
+    })
+
+    renderDetail(0)
+  </script>
+</body>
+</html>

@@ -1,8 +1,13 @@
-import { asRecord, backendFarmId, backendMode, backendTransport, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
-import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
-import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, SubscriptionOverview } from '../types'
+import { asRecord, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { BackendError } from '../../../shared/api/backendClient'
+import type { SubscriptionDemoStore } from '../data/subscriptionDemoStore'
+import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, StateDialogState, SubscriptionOverview } from '../types'
 import { SubscriptionError, type PriceQuote } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
 function readOverview(value: unknown, farmId: number): SubscriptionOverview {
@@ -50,7 +55,7 @@ function readPayment(value: unknown): Payment {
 /** D38: reason after trim, as on the backend. */
 export const CANCEL_REASON_MAX = 1000
 
-export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SubscriptionDemoStore }) {
+export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SubscriptionDemoStore }) {
   void farmId
   const getPayment = async (farm: number, id: string): Promise<Payment> => {
     if (mode !== 'backend') return store.getPayment(farm, id)
@@ -58,6 +63,17 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     return readPayment(await transport.get(transport.farmPath(farm, `/subscription/payments/${id}`)))
   }
   return {
+    /** Mã trên đường dẫn `/goi-dich-vu/chuyen-khoan/:id`: id của máy chủ; bản mô phỏng dùng mã quoteRef. */
+    paymentRouteId(payment: Payment): string { return mode === 'backend' ? String(payment.id) : payment.quoteRef },
+    /** Bản mô phỏng không tạo VietQR thật: trang hiện ô minh họa thay cho ảnh QR. */
+    illustrativeQr: mode !== 'backend',
+    /**
+     * Mở trại sau khi thanh toán qua kiểm tra vào trại (UC-FE02-02). Các store mô phỏng không dùng chung danh sách trại,
+     * nên bản mô phỏng chỉ chuyển trang.
+     */
+    entersFarmAfterPayment: mode === 'backend',
+    /** Hộp thoại trạng thái mở thẳng bằng `?m=<tên>` chỉ có ở bản mô phỏng; máy chủ thật không có dữ liệu mẫu. */
+    previewDialog(name: string): StateDialogState | null { return mode === 'backend' ? null : store.previewDialog(name) },
     // chưa có API: đồng hồ phía client (backend dùng giờ hệ thống)
     now(): number { return mode === 'backend' ? Date.now() : store.now() },
     // GET /api/farms/{farmId}/subscription
@@ -141,4 +157,4 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
   }
 }
 export type SubscriptionApi = ReturnType<typeof createSubscriptionApi>
-export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: subscriptionDemoStore })
+export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })

@@ -108,7 +108,9 @@ class GoogleIdentityServiceTest {
         User identity = new User();
         identity.setEmail(account.getEmail());
         identity.setActivated(true);
-        identity.setPasswordLockedUntil(java.time.Instant.now().plusSeconds(900));
+        identity.setPassword("existing-password-hash");
+        var lockedUntil = java.time.Instant.now().plusSeconds(900);
+        identity.setPasswordLockedUntil(lockedUntil);
         when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.empty());
         when(appUsers.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(account));
         when(identities.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(identity));
@@ -118,8 +120,10 @@ class GoogleIdentityServiceTest {
         GoogleIdentityService.Result result = service.provisionOrLink(profile("locked@example.test", "google-subject", true));
 
         assertThat(result.user()).isSameAs(identity);
+        assertThat(identity.getPasswordLockedUntil()).isEqualTo(lockedUntil);
+        assertThat(identity.getPassword()).isEqualTo("existing-password-hash");
         verify(appUsers).saveAndFlush(account);
-        verify(identities, never()).saveAndFlush(any());
+        verify(identities).saveAndFlush(identity);
     }
 
     private OidcUser profile(String email, String subject, boolean verified) {

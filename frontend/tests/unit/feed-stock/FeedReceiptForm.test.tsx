@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import App from '../../../src/App'
+import App from '../../../src/app/routes/AppRoutes'
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { listFeedReceipts, resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
-import { minimumExpiryDate, todayIso } from '../../../src/features/feed-stock/data/feedReceiptForm'
+import { minimumExpiryDate, todayIso } from '../../../src/features/feed-stock/domain/feedReceiptForm'
 
 function renderApp(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)

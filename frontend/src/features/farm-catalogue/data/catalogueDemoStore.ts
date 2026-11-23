@@ -1,8 +1,7 @@
-import {
-  FieldErrors, matchesFilters, purposeUsage, todayIso, validateBreed, validateMedicine, validatePurpose, validateVaccine, vaccineUsage,
-  type FieldErrorMap,
-} from '../domain/catalogueRules'
-import { effectiveVersion, parameterVersionChanges, validateParameterVersion } from '../domain/parameterRules'
+import { FieldErrors, matchesFilters, purposeUsage, todayIso, vaccineUsage, type FieldErrorMap } from '../domain/catalogueRules'
+import { validateBreed, validateMedicine, validatePurpose, validateVaccine } from '../validation/catalogueValidation'
+import { effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import type {
   Breed, BreedCommand, CatalogueBase, CatalogueFilters, Medicine, MedicineCommand, ParameterVersion, ParameterVersionCommand, Purpose,
   PurposeCommand, Vaccine, VaccineCommand,
@@ -65,7 +64,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         rows: data.breeds, id, command: c, errors: validateBreed(c), referenced: (r) => r.referenced,
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), group: c.group.trim(), description: c.description.trim(), available: c.available,
-          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, version,
+          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, referencedCount: ex?.referencedCount, version,
         }),
       })
     },
@@ -79,7 +78,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), diseasePrevented: c.diseasePrevented.trim(), manufacturer: c.manufacturer.trim(),
           dose: c.dose.trim(), route: c.route, boosterInterval: c.boosterInterval, withdrawalDays: c.withdrawalDays ?? 0, available: c.available,
-          scheduleCount: ex?.scheduleCount ?? 0, recordCount: ex?.recordCount ?? 0, version,
+          scheduleCount: ex?.scheduleCount ?? 0, recordCount: ex?.recordCount ?? 0, referencedCount: ex?.referencedCount, version,
         }),
       })
     },
@@ -118,7 +117,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         rows: data.purposes, id, command: c, errors, referenced: (r) => r.referenced,
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), purposeType: c.purposeType, description: c.description.trim(), available: c.available,
-          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, receivingPens: ex?.receivingPens ?? [], version,
+          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, referencedCount: ex?.referencedCount, receivingPens: ex?.receivingPens ?? [], version,
         }),
       })
     },

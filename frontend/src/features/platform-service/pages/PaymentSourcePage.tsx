@@ -1,9 +1,8 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Card, ErrorBlock, Info, LoadingBlock, PageHeader } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { platformServiceApi } from '../api/platformServiceApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Card, ErrorBlock, Info, LoadingBlock, PageHeader } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useSourcePayment } from '../hooks/usePlatformServiceUseCase'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
 import { PAYMENT_STATE_LABEL } from '../domain/reconciliation'
 
@@ -12,12 +11,7 @@ export default function PaymentSourcePage() {
   const [params] = useSearchParams()
   const paymentId = Number(params.get('paymentId'))
   const farmId = Number(params.get('farmId'))
-  const { data, loading, error, refetch } = useQuery(async () => {
-    if (!Number.isSafeInteger(paymentId) || paymentId <= 0) throw new Error('Mã thanh toán không hợp lệ.')
-    const payment = await platformServiceApi.getPayment(paymentId)
-    if (params.has('farmId') && payment.farmId !== farmId) throw new Error('Thanh toán không thuộc trại đã chọn.')
-    return payment
-  }, [paymentId, farmId])
+  const { data, loading, error, refetch } = useSourcePayment(paymentId, params.has('farmId') ? farmId : undefined)
   return <Layout title="Thanh toán nguồn">
     <PageHeader title="Thanh toán nguồn" />
     <section aria-label="Thanh toán nguồn">

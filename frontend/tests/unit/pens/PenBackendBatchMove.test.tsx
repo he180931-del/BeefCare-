@@ -53,12 +53,13 @@ describe('FE-04 backend batch move (TC-04-28)', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('sends every cattle version from the pen detail, including version zero', async () => {

@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
-import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, ErrorBlock, LoadingBlock } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useSession } from '../../../app/session/sessionContext'
+import { useCattleProfileQuery } from '../hooks/useCattleQueries'
 import CowHeader, { COW_TABS } from '../components/CowHeader'
 import OverviewTab from '../components/OverviewTab'
 import TimelineTab from '../components/TimelineTab'
@@ -17,6 +16,7 @@ import QrReissueModal from '../components/QrReissueModal'
 import MoveModal from '../components/MoveModal'
 import RecordEditModal from '../components/RecordEditModal'
 import type { ReactNode } from 'react'
+import { localCattleList } from '../api/cattleApi'
 import { ReproductionProfileTab } from '../../reproduction'
 import { GrowthProfileTab } from '../../growth'
 import { VaccinationProfileTab } from '../../vaccination'
@@ -27,7 +27,7 @@ export default function CowProfile() {
   const session = useSession()
   const [params, setParams] = useSearchParams()
   const [modal, openModal, closeModal] = useModalParam()
-  const profileQuery = useQuery(() => loadProfile(code ?? ''), [code])
+  const profileQuery = useCattleProfileQuery(code ?? '')
   const { cow, barns: barnRows } = profileQuery.data ?? {}
   const barns = Object.fromEntries((barnRows ?? []).map((b) => [b.code, b]))
   const [notice, setNotice] = useState('')
@@ -67,7 +67,7 @@ export default function CowProfile() {
         )}
         {canWrite && modal === 'qr-reissue' && <QrReissueModal cow={cow} onClose={closeModal} onSaved={saved} />}
         {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onReload={saved} onSaved={saved} />}
-        {canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
+        {localCattleList !== null && canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
       </>
     )
   }

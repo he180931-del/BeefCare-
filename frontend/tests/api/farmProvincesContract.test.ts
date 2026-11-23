@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PROVINCES } from '../../src/features/farm-workspace/data/provinces'
+import { PROVINCES } from '../../src/features/farm-workspace/constants/provinces'
 
 const backendList = resolve(dirname(fileURLToPath(import.meta.url)), '../../../backend/src/main/java/vn/edu/fpt/beefcare/service/VietnamProvinces.java')
 

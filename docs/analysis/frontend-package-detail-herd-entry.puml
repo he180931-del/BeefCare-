@@ -1,0 +1,156 @@
+@startuml
+title BeefCare Frontend — UML Package Detail: herd-entry
+
+top to bottom direction
+skinparam monochrome true
+skinparam shadowing false
+skinparam packageStyle folder
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam classAttributeIconSize 0
+skinparam ArrowFontSize 10
+
+package "features / herd-entry" as HERD_ENTRY {
+  class "index.ts" as ENTRY_INDEX <<public API module>>
+  class "entryValidation.ts" as ENTRY_VALIDATION <<validation module>>
+
+  package "pages" as ENTRY_PAGES {
+    class "ImportList" as IMPORT_LIST <<React page>>
+    class "ImportNew" as IMPORT_NEW <<React page>>
+    class "ImportDetail" as IMPORT_DETAIL <<React page>>
+  }
+
+  package "components" as ENTRY_COMPONENTS {
+    class "CancelModal" as CANCEL_MODAL <<React component>>
+    class "ExcelModal" as EXCEL_MODAL <<React component>>
+    class "PayModal" as PAY_MODAL <<React component>>
+    class "RowEditModal" as ROW_EDIT_MODAL <<React component>>
+    class "parts.tsx" as ENTRY_PARTS <<UI module>>
+  }
+
+  package "api" as ENTRY_API {
+    class "herdEntryApi" as API_FACADE <<facade module>>
+    class "createHerdEntryBackendApi" as BACKEND_ADAPTER <<backend adapter>>
+    class "herdEntryLocalApi" as LOCAL_ADAPTER <<local adapter>>
+
+    interface "EntryListFilters" as ENTRY_LIST_FILTERS {
+      +type: PURCHASE / FARM_BORN
+      +from: string
+      +to: string
+      +sellerId: number
+    }
+
+    interface "EntryListView" as ENTRY_LIST_VIEW {
+      +rows: HerdEntry[]
+      +tiles: Record
+      +counts: Record
+    }
+  }
+
+  package "data" as ENTRY_DATA {
+    class "entryData.ts" as ENTRY_DATA_MODULE <<data module>>
+    class "importsData.ts" as IMPORTS_DATA <<demo data>>
+    class "entryExcel.ts" as ENTRY_EXCEL <<parser module>>
+
+    interface "EntryExcelPreviewRow" as ENTRY_EXCEL_ROW {
+      +line: number
+      +tag: string
+      +breed: string
+      +sex: string
+      +weight: number
+    }
+  }
+
+  ENTRY_INDEX -[hidden]down-> ENTRY_PAGES
+  ENTRY_PAGES -[hidden]right-> ENTRY_COMPONENTS
+  ENTRY_PAGES -[hidden]down-> ENTRY_API
+  ENTRY_API -[hidden]right-> ENTRY_DATA
+}
+
+package "shared type module\ntypes.ts" as SHARED_TYPES {
+  interface "HerdEntry" as HERD_ENTRY_TYPE {
+    +id: string
+    +date: string
+    +type: EntryType
+    +status: EntryStatus
+    +detail: EntryDetail
+    +draft: EntryDraft
+  }
+
+  interface "EntryDraft" as ENTRY_DRAFT {
+    +type: EntryType
+    +date: string
+    +cows: EntryCow[]
+    +calves: EntryCalf[]
+    +pricing: kg | con
+  }
+
+  interface "EntryCow" as ENTRY_COW {
+    +tag: string
+    +breed: string
+    +sex: string
+    +weight: number
+    +barn: PenCode
+  }
+
+  interface "EntryCalf" as ENTRY_CALF {
+    +tag: string
+    +mother: string
+    +father: string
+    +born: string
+    +weight: number
+  }
+}
+
+package "shared / api" as SHARED_API {
+  interface "BackendTransport" as BACKEND_TRANSPORT
+  class "backendTransport" as BACKEND_TRANSPORT_INSTANCE <<HTTP transport module>>
+  class "herdDomainApi" as HERD_DOMAIN_API <<domain facade module>>
+}
+
+package "shared / components" as SHARED_COMPONENTS {
+  class "Layout" as LAYOUT <<React component>>
+  class "Modal" as MODAL <<React component>>
+  class "ui.tsx" as SHARED_UI <<UI module>>
+}
+
+ENTRY_INDEX ..> ENTRY_PAGES : <<use>> lazy page loaders
+ENTRY_INDEX ..> API_FACADE : <<use>> public commands
+
+ENTRY_PAGES ..> ENTRY_COMPONENTS : <<use>>
+ENTRY_PAGES ..> API_FACADE : <<use>>
+ENTRY_PAGES ..> ENTRY_DATA : <<use>>
+ENTRY_PAGES ..> ENTRY_VALIDATION : <<use>>
+ENTRY_PAGES ..> SHARED_TYPES : <<use>>
+ENTRY_PAGES ..> SHARED_COMPONENTS : <<use>>
+
+ENTRY_COMPONENTS ..> SHARED_TYPES : <<use>>
+ENTRY_COMPONENTS ..> SHARED_COMPONENTS : <<use>>
+EXCEL_MODAL ..> ENTRY_EXCEL : <<use>>
+
+API_FACADE ..> BACKEND_ADAPTER : backend mode
+API_FACADE ..> LOCAL_ADAPTER : demo mode
+
+ENTRY_API ..> ENTRY_DATA : <<use>>
+ENTRY_API ..> SHARED_API : <<use>>
+ENTRY_API ..> SHARED_TYPES : <<use>>
+ENTRY_DATA ..> SHARED_TYPES : <<use>>
+
+ENTRY_LIST_VIEW ..> HERD_ENTRY_TYPE : rows
+HERD_ENTRY_TYPE *-- ENTRY_DRAFT : draft
+ENTRY_DRAFT o-- ENTRY_COW : cows
+ENTRY_DRAFT o-- ENTRY_CALF : calves
+
+SHARED_API -[hidden]right-> SHARED_TYPES
+SHARED_TYPES -[hidden]right-> SHARED_COMPONENTS
+
+note bottom of HERD_ENTRY
+  Subfolders are packages.
+  React pages/components use component notation.
+  TypeScript interfaces use class-diagram interface notation.
+  Files that only group functions or constants are modules/artifacts.
+end note
+
+caption Figure: UML Package Detail — features/herd-entry
+@enduml

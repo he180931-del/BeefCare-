@@ -6,7 +6,7 @@ import { resetReproductionDemo, reproductionApi } from '../../../src/features/re
 import ReproductionWorklistPage from '../../../src/features/reproduction/pages/ReproductionWorklistPage'
 import TechnicianReproductionPage from '../../../src/features/reproduction/pages/TechnicianReproductionPage'
 import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import CalvingPage from '../../../src/features/reproduction/pages/CalvingPage'
 
 describe('reproduction screens', () => {
@@ -34,7 +34,7 @@ describe('reproduction screens', () => {
     </MemoryRouter>)
 
     await screen.findByRole('heading', { name: 'Ghi sự kiện đẻ' })
-    expect(screen.getByText('Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
+    expect(screen.getByText('Chế độ chỉ xem.')).toBeInTheDocument()
     expect((screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }) as HTMLButtonElement).disabled).toBe(true)
   })
 

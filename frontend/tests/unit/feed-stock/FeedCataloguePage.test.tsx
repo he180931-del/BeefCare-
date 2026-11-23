@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import App from '../../../src/App'
+import App from '../../../src/app/routes/AppRoutes'
 import { resetFeedCatalogueDemoStore } from '../../../src/features/feed-stock/data/feedReceiptDemoStore'
 import * as feedCatalogueApi from '../../../src/features/feed-stock/api/feedCatalogueApi'
 import { listFeedCatalogue } from '../../../src/features/feed-stock/api/feedCatalogueApi'
@@ -38,7 +38,7 @@ describe('SCR-84 feed catalogue', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
     expect(await screen.findByText('Cám ngô đã được lưu.')).toBeInTheDocument()
-    expect(saveFeed).toHaveBeenCalledWith(expect.objectContaining({ id: 106, expectedVersion: 2 }))
+    expect(saveFeed).toHaveBeenCalledWith(expect.objectContaining({ id: 106, expectedVersion: 2 }), expect.objectContaining({ key: expect.any(String) }))
     expect((await listFeedCatalogue()).find((item) => item.code === 'TA-06')?.minimumStockKg).toBe(300)
   })
 

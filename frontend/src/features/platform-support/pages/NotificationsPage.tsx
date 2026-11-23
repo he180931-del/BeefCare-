@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { supportApi } from '../api/supportApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import { errText } from '../components/common'
+import { useSupportCommands, useSupportNotifications } from '../hooks/usePlatformSupportUseCase'
 
 const TITLE = 'Thông báo hỗ trợ'
 const PAGE_SIZE = 50
@@ -14,7 +12,8 @@ export default function NotificationsPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('all')
   const [page, setPage] = useState(1)
-  const { data, loading, error, refetch } = useQuery(() => supportApi.listNotifications(), [])
+  const { data, loading, error, refetch } = useSupportNotifications()
+  const { markNotificationRead, markAllNotificationsRead } = useSupportCommands()
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !data) return <Layout title={TITLE}><ErrorBlock message={errText(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
   const unread = data.filter((n) => !n.read).length
@@ -23,14 +22,14 @@ export default function NotificationsPage() {
   const safePage = Math.min(page, pageCount)
   const pageItems = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const open = async (id: number, ticketCode: string, targetType?: string, targetId?: number) => {
-    await supportApi.markNotificationRead(id)
+    await markNotificationRead(id)
     navigate(targetType === 'INTERNAL_REQUEST' ? `/nen-tang/yeu-cau/${targetId ?? ticketCode}` : `/nen-tang/ho-tro/${ticketCode}`) // màn đích kiểm tra lại quyền khi mở
   }
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub="Mở thông báo sẽ kiểm tra lại quyền của bạn với yêu cầu hỗ trợ">
-          <Button disabled={unread === 0} onClick={async () => { await supportApi.markAllNotificationsRead(); await refetch() }}><Icon name="checks" size={16} /> Đánh dấu đã đọc tất cả</Button>
+          <Button disabled={unread === 0} onClick={async () => { await markAllNotificationsRead(); await refetch() }}><Icon name="checks" size={16} /> Đánh dấu đã đọc tất cả</Button>
         </PageHeader>
         <div><Segmented options={[{ value: 'all', label: 'Tất cả' }, { value: 'unread', label: `Chưa đọc ${unread}` }]} value={tab} onChange={(value) => { setTab(value); setPage(1) }} /></div>
         <Card>

@@ -1,14 +1,12 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, nullableNumber, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, nullableNumber, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentDemoStore, FeedStockAdjustmentDraftInput } from '../types/feedStockAdjustment'
-import {
-  feedStockAdjustmentDemoStore,
-  resetFeedStockAdjustmentDemoStore as resetDemoStore,
-} from '../data/feedReceiptDemoStore'
-
-type MutationOptions = { key?: string }
-
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-adjustment:${Date.now()}:${Math.random().toString(36).slice(2)}`
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
+import { newFeedCommandKey, type FeedCommandOptions } from './command'
 
 const requiredNumber = (value: unknown, field: string) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`AdjustmentView.${field} is missing or invalid`)
@@ -89,10 +87,10 @@ export function createFeedStockAdjustmentApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedStockAdjustmentDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedStockAdjustmentDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedStockAdjustment[]
   demoStore?: FeedStockAdjustmentDemoStore
@@ -113,9 +111,9 @@ export function createFeedStockAdjustmentApi({
       if (mode === 'backend') return getAdjustment(id)
       return demoStore.get(id)
     },
-    async saveDraft(input: FeedStockAdjustmentDraftInput, options: MutationOptions = {}): Promise<FeedStockAdjustment> {
+    async saveDraft(input: FeedStockAdjustmentDraftInput, options: FeedCommandOptions = {}): Promise<FeedStockAdjustment> {
       if (mode !== 'backend') return demoStore.saveDraft(input)
-      const key = options.key ?? commandKey()
+      const key = options.key ?? newFeedCommandKey('feed-adjustment')
       let response: unknown
       if (input.id === undefined) {
         response = await transport.command(root, { ...adjustmentRequest(input), postNow: false }, { key })
@@ -131,9 +129,9 @@ export function createFeedStockAdjustmentApi({
       if (options.key) versionByCommandKey.delete(key)
       return result
     },
-    async post(id: number, expectedVersion?: number, options: MutationOptions = {}): Promise<FeedStockAdjustment> {
+    async post(id: number, expectedVersion?: number, options: FeedCommandOptions = {}): Promise<FeedStockAdjustment> {
       if (mode !== 'backend') return demoStore.post(id)
-      const key = options.key ?? commandKey()
+      const key = options.key ?? newFeedCommandKey('feed-adjustment')
       let version = options.key ? versionByCommandKey.get(key) : undefined
       if (version === undefined) {
         version = requireExpectedVersion(expectedVersion ?? (await getAdjustment(String(id))).version)
@@ -147,19 +145,19 @@ export function createFeedStockAdjustmentApi({
       if (mode !== 'backend') return []
       return asRows(await transport.get(attachmentPath(id))).map(mapAttachment)
     },
-    async uploadAttachment(id: number, file: File, options: MutationOptions = {}): Promise<FeedReceiptAttachment> {
+    async uploadAttachment(id: number, file: File, options: FeedCommandOptions = {}): Promise<FeedReceiptAttachment> {
       if (mode !== 'backend') throw new Error('Lưu chứng từ kiểm kê chỉ hoạt động trong chế độ backend.')
       const data = new FormData()
       data.append('file', file)
-      const key = options.key ?? uploadKeyByFile.get(file) ?? commandKey()
+      const key = options.key ?? uploadKeyByFile.get(file) ?? newFeedCommandKey('feed-adjustment')
       if (!options.key) uploadKeyByFile.set(file, key)
       const attachment = mapAttachment(await transport.command(attachmentPath(id), data, { key }))
       if (!options.key) uploadKeyByFile.delete(file)
       return attachment
     },
-    async removeAttachment(id: number, attachmentId: number, options: MutationOptions = {}): Promise<FeedReceiptAttachment> {
+    async removeAttachment(id: number, attachmentId: number, options: FeedCommandOptions = {}): Promise<FeedReceiptAttachment> {
       if (mode !== 'backend') throw new Error('Xóa chứng từ kiểm kê chỉ hoạt động trong chế độ backend.')
-      return mapAttachment(await transport.command(`${attachmentPath(id)}/${attachmentId}`, undefined, { method: 'DELETE', key: options.key ?? commandKey() }))
+      return mapAttachment(await transport.command(`${attachmentPath(id)}/${attachmentId}`, undefined, { method: 'DELETE', key: options.key ?? newFeedCommandKey('feed-adjustment') }))
     },
     async downloadAttachment(id: number, attachmentId: number): Promise<Blob> {
       if (mode !== 'backend') throw new Error('Tải chứng từ kiểm kê chỉ hoạt động trong chế độ backend.')
@@ -170,18 +168,21 @@ export function createFeedStockAdjustmentApi({
   }
 }
 
-const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
+
+/** Máy chủ cấp mã phiếu, lưu chứng từ và xác định lại tồn hệ thống tại ngày kiểm kê; bản mô phỏng không có các việc này. */
+export const feedStockAdjustmentServerBacked = backendMode === 'backend'
 
 export const listFeedStockAdjustments = () => feedStockAdjustmentApi.list()
 export const getFeedStockAdjustment = (id: string) => feedStockAdjustmentApi.get(id)
-export const saveFeedStockAdjustmentDraft = (input: FeedStockAdjustmentDraftInput, options?: MutationOptions) => feedStockAdjustmentApi.saveDraft(input, options)
-export const postFeedStockAdjustment = (id: number, expectedVersion?: number, options?: MutationOptions) => feedStockAdjustmentApi.post(id, expectedVersion, options)
+export const saveFeedStockAdjustmentDraft = (input: FeedStockAdjustmentDraftInput, options?: FeedCommandOptions) => feedStockAdjustmentApi.saveDraft(input, options)
+export const postFeedStockAdjustment = (id: number, expectedVersion?: number, options?: FeedCommandOptions) => feedStockAdjustmentApi.post(id, expectedVersion, options)
 export const listFeedStockAdjustmentAttachments = (id: number) => feedStockAdjustmentApi.attachments(id)
-export const uploadFeedStockAdjustmentAttachment = (id: number, file: File, options?: MutationOptions) => feedStockAdjustmentApi.uploadAttachment(id, file, options)
-export const removeFeedStockAdjustmentAttachment = (id: number, attachmentId: number, options?: MutationOptions) => feedStockAdjustmentApi.removeAttachment(id, attachmentId, options)
+export const uploadFeedStockAdjustmentAttachment = (id: number, file: File, options?: FeedCommandOptions) => feedStockAdjustmentApi.uploadAttachment(id, file, options)
+export const removeFeedStockAdjustmentAttachment = (id: number, attachmentId: number, options?: FeedCommandOptions) => feedStockAdjustmentApi.removeAttachment(id, attachmentId, options)
 export const downloadFeedStockAdjustmentAttachment = (id: number, attachmentId: number) => feedStockAdjustmentApi.downloadAttachment(id, attachmentId)
 
 /** Kept for callers that specifically exercise the local demo store. */
 export const saveFeedStockAdjustmentDemoDraft = saveFeedStockAdjustmentDraft
 export const postFeedStockAdjustmentDemo = postFeedStockAdjustment
-export const resetFeedStockAdjustmentDemoStore = () => resetDemoStore()
+export const resetFeedStockAdjustmentDemoStore = () => demo.feedReceipt.resetFeedStockAdjustmentDemoStore()
