@@ -341,7 +341,7 @@ public class EntryLineValidator {
         Cattle sire = null;
         String externalSireCode = null;
         if (r.calfOutcomeId() == null) {
-            // D45: birth facts require a calving outcome; they cannot be entered on a voucher.
+            // D55: birth facts require a calving outcome; they cannot be entered on a voucher.
             issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "calfOutcomeId", "field", "calfOutcomeId"));
         } else {
             calf = catalog.calf(farmId, r.calfOutcomeId()).orElse(null);
@@ -356,7 +356,7 @@ public class EntryLineValidator {
             } else if (!"PENDING_CONFIRMATION".equalsIgnoreCase(calf.getRegistrationState())) {
                 issues.add(error(lineNo, HttpStatus.CONFLICT, MessageCodes.COM_05, "calfOutcomeId"));
             } else {
-                // D45: both legacy assigned_* and request parentage are retired; read the source only.
+                // D55: both legacy assigned_* and request parentage are retired; read the source only.
                 dam = calf.getCalving().getDam();
                 var episode = calf.getCalving().getEpisode();
                 var breeding = episode == null ? null : episode.getLinkedBreeding();

@@ -23,7 +23,10 @@ public final class EntryActionRequests {
 
     public record VoidRequest(@NotBlank @Size(max = 500) String reason, Integer expectedVersion) {}
 
-    public record DiedBeforeRegistrationRequest(@NotBlank @Size(max = 500) String reason) {}
+    public record DiedBeforeRegistrationRequest(
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
+        @NotBlank @Size(min = 1, max = 500) String reason
+    ) {}
 
 
     /**

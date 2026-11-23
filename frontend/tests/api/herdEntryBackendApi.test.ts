@@ -638,7 +638,7 @@ test('entry backend serializes FARM_BORN calves without purchase pricing or paym
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.sellerId, null)
   assert.equal(body.lines[0].calfOutcomeId, 17)
-  assert.equal('damId' in body.lines[0], false) // D45: the calving owns parentage, never submit overrides.
+  assert.equal('damId' in body.lines[0], false) // D55: the calving owns parentage, never submit overrides.
   assert.equal('sireId' in body.lines[0], false)
   assert.equal('externalSireCode' in body.lines[0], false)
   assert.equal(body.lines[0].penId, 3)

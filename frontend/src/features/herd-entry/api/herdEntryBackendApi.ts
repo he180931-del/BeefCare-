@@ -243,7 +243,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
           },
           disease: { status: declaration(hist.disease), description: (diseaseItems.length ? diseaseItems : [textValue(hist.diseaseNote)]).filter(Boolean).join('\n') || null },
           reproduction: { status: declaration(hist.repro), earlierCalvings: nullableNumber(hist.earlierCalvings), pregnantAtEntry: textValue(hist.pregnantAtEntry) || 'UNKNOWN', estMonthsPregnant: textValue(hist.pregnantAtEntry) === 'YES' ? nullableNumber(hist.pregnancyMonths) : null, description: textValue(hist.reproductionNote) || null },
-          // D45: parentage comes from the referenced calving; never submit parent overrides.
+          // D55: parentage comes from the referenced calving; never submit parent overrides.
           calfOutcomeId: nullableNumber(cow.calfOutcomeId),
         }
       }),

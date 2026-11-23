@@ -54,7 +54,7 @@ public class CalfOutcome implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle registeredCattle;
 
-    /** Retired by D45; kept for historical rows, never read by registration workflows. */
+    /** Retired by D55; kept for historical rows, never read by registration workflows. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_dam_id")
     private Cattle assignedDam;

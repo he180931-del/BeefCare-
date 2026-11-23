@@ -24,7 +24,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   const [calves, setCalves] = useState<EntryCalf[]>(() => draft?.calves?.map(saved => {
     const source = saved.calfOutcomeId == null ? undefined : pendingCalves.find(calf => calf.calfOutcomeId === saved.calfOutcomeId)
     if (!source) return saved // Preserve unavailable draft rows; the backend still checks registration eligibility.
-    // D45: a saved draft may predate source corrections or contain retired parent assignments.
+    // D55: a saved draft may predate source corrections or contain retired parent assignments.
     // Keep the user's selection/pen/purpose, but always display birth facts from A11.
     return { ...saved, mother: source.mother, father: source.father, damId: source.damId, sireId: source.sireId,
       sireSource: source.sireSource, externalSireName: source.externalSireName, semenBatch: source.semenBatch,

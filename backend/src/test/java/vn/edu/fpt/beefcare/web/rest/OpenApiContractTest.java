@@ -44,9 +44,13 @@ class OpenApiContractTest {
         String json=mvc.perform(get("/v3/api-docs/beefcare").with(user("contract-reviewer").roles("ADMIN"))).andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         JsonNode api=mapper.readTree(json),paths=api.path("paths");
-        // D45: keep the 405 compatibility tombstone out of generated clients.
+        // D55: keep the 405 compatibility tombstone out of generated clients.
         assertThat(paths.has("/api/farms/{farmId}/pending-calves/{calfId}/parentage")).isFalse();
         assertThat(api.path("components").path("schemas").has("AssignCalfParentageRequest")).isFalse();
+        JsonNode calfDeath = api.path("components").path("schemas").path("DiedBeforeRegistrationRequest");
+        assertThat(calfDeath.path("required").toString()).contains("reason");
+        assertThat(calfDeath.path("properties").path("reason").path("minLength").asInt()).isEqualTo(1);
+        assertThat(calfDeath.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(500);
         assertThat(paths.has("/api/farms")).isTrue();
         assertThat(paths.has("/api/support/tickets")).isTrue();
         assertThat(paths.has("/api/cattle")).isFalse();

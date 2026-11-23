@@ -166,7 +166,7 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(count("Cattle")).isEqualTo(2);
     }
 
-    // D45 retires parent selection; both legacy assignments and request overrides must lose to the source.
+    // D55 retires parent selection; both legacy assignments and request overrides must lose to the source.
     @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = { "INTERNAL", "AI", "NONE" })
     void pendingAndPostedCalfUseCalvingParentageDespiteLegacyAssignmentsAndPayload(String source) {
