@@ -136,12 +136,12 @@ describe('Tài khoản người dùng', () => {
     renderAt('/nen-tang/tai-khoan')
     expect(await screen.findByRole('button', { name: /Hồ Văn Tài/ })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Lọc theo trạng thái' })).toHaveValue('SUSPENDED')
-    expect(screen.queryByRole('button', { name: /Vũ Hoàng Nam/ })).not.toBeInTheDocument()
+    expect(userRows().some((row) => row.includes('Vũ Hoàng Nam'))).toBe(false)
 
     await user.type(screen.getByRole('searchbox', { name: /Tìm tài khoản/ }), 'không ai')
     expect(await screen.findByText('Không có bản ghi phù hợp với bộ lọc.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
-    expect(await screen.findByRole('button', { name: /Vũ Hoàng Nam/ })).toBeInTheDocument()
+    await waitFor(() => expect(userRows().some((row) => row.includes('Vũ Hoàng Nam'))).toBe(true))
     expect(screen.getByRole('combobox', { name: 'Lọc theo trạng thái' })).toHaveValue('')
     spy.mockRestore()
   })
@@ -167,7 +167,7 @@ describe('Tài khoản người dùng', () => {
     renderAt('/nen-tang/tai-khoan/999')
     // 404 / MSG-COM-08 dùng câu chung của ứng dụng (userFacingError), có Thử lại; danh sách vẫn dùng được.
     expect(await screen.findByText(/Không tìm thấy dữ liệu cần thao tác/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Vũ Hoàng Nam/ })).toBeInTheDocument()
+    expect(userRows().some((row) => row.includes('Vũ Hoàng Nam'))).toBe(true)
   })
 
   it('vai trò khác SA chỉ thấy thông báo không có quyền', async () => {

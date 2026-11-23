@@ -7,7 +7,7 @@ import type { ChangeMemberInput, MemberAction, Membership } from '../types'
 import { farmToday, MEMBER_REASON_RULE, validateMemberChange, type FormErrors } from '../validation/workspaceValidation'
 import { farmWorkspaceError, FieldError, roleLabel } from './WorkspaceUi'
 
-const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
+const fullWidth = '[&>div]:w-full [&_button]:min-h-11 [&_button]:flex-1 [&_button]:whitespace-normal'
 // UC-FE03-06 E2/E3/E5 or a member that left this farm: the row on screen is outdated, so the list is read again (D30).
 const STALE = ['MSG-FE03-04', 'MSG-FE03-20', 'MSG-COM-05', 'MSG-COM-08']
 const FIELD_MESSAGES: Record<string, Partial<Record<keyof ChangeMemberInput, string>>> = {
@@ -114,14 +114,14 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
             <FieldError>{errors.role}</FieldError>
           </Field>
         )}
-        <Field label="Ngày hiệu lực *" id="member-date"><DateInput id="member-date" value={effectiveDate} readOnly={!editing} onChange={setEffectiveDate} /><FieldError>{errors.effectiveDate}</FieldError></Field>
+        <Field label="Ngày hiệu lực *" id="member-date"><DateInput id="member-date" className="rounded-xl focus-within:ring-2 focus-within:ring-brand" value={effectiveDate} readOnly={!editing} onChange={setEffectiveDate} /><FieldError>{errors.effectiveDate}</FieldError></Field>
         <Field label="Lý do * (5–500 ký tự)" id="member-reason">
           <textarea id="member-reason" rows={2} maxLength={500} value={reason} readOnly={!editing} onChange={(event) => setReason(event.target.value)} className={`${inputCls} resize-none`} placeholder="Phân công quản lý khu chuồng C" />
           <FieldError>{errors.reason}</FieldError>
         </Field>
         {step === 'confirm' && <Note tone="warn">{confirmText}</Note>}
         {step === 'discard' && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-        <ModalFooter compact>
+        <ModalFooter>
           {step === 'discard' ? <>
             <Button size="lg" onClick={() => setStep('form')}>{DISCARD_PROMPT.keep}</Button>
             <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>

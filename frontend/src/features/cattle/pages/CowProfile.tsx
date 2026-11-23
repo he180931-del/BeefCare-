@@ -16,6 +16,7 @@ import QrReissueModal from '../components/QrReissueModal'
 import MoveModal from '../components/MoveModal'
 import RecordEditModal from '../components/RecordEditModal'
 import type { ReactNode } from 'react'
+import { localCattleList } from '../api/cattleApi'
 import { ReproductionProfileTab } from '../../reproduction'
 import { GrowthProfileTab } from '../../growth'
 import { VaccinationProfileTab } from '../../vaccination'
@@ -66,7 +67,7 @@ export default function CowProfile() {
         )}
         {canWrite && modal === 'qr-reissue' && <QrReissueModal cow={cow} onClose={closeModal} onSaved={saved} />}
         {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onReload={saved} onSaved={saved} />}
-        {canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
+        {localCattleList !== null && canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
       </>
     )
   }

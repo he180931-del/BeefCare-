@@ -109,13 +109,10 @@ export function SignInPage({
 
   return (
     <AuthShell
-      title={failed ? "Đăng nhập chưa thành công" : "Đăng nhập"}
-      description={
-        failed
-          ? "Kiểm tra thông tin và thử lại. Mật khẩu phân biệt chữ hoa, chữ thường."
-          : "Đăng nhập để tiếp tục"
-      }
-      eyebrow={failed ? "Thông tin chưa đúng" : "Chào mừng trở lại"}
+      align={failed ? 'start' : 'center'}
+      title={failed ? 'Đăng nhập chưa thành công' : 'Đăng nhập'}
+      description={failed ? 'Kiểm tra thông tin và thử lại. Mật khẩu phân biệt chữ hoa, chữ thường.' : 'Tiếp tục quản lý trại của bạn.'}
+      eyebrow={failed ? 'Thông tin chưa đúng' : 'Chào mừng trở lại'}
       alert={alert}
       footer={
         <>

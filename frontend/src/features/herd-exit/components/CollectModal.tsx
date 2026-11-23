@@ -26,7 +26,7 @@ export default function CollectModal({ row, onClose, onSaved, onReload }: { row:
           <MoneyInput value={amount} onChange={setAmount} />
         </Field>
       </div>
-      <div className="-mt-2 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-ink">Phương thức *</span>
         <div className="flex gap-[18px]">
           {METHODS.map((m) => (
@@ -50,7 +50,7 @@ export default function CollectModal({ row, onClose, onSaved, onReload }: { row:
       </Field>
       <VoucherCommandError error={error} onReload={onReload} formatError={displayError} />
       <Note tone="info">
-        Sau khi lưu: Còn phải thu = {money(left)} đ. Khoản thu đã ghi chỉ sửa/hủy kèm lý do, giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.
+        Sau khi lưu: Còn phải thu = {money(left)} đ. Khoản thu ghi sai cần hủy kèm lý do, giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.
       </Note>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>

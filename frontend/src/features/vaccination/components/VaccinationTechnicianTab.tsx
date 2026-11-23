@@ -25,7 +25,7 @@ export default function VaccinationTechnicianTab({ cattleCode }: { cattleCode: s
       {data.doses.map((d) => (
         <div key={d.id} className={cardCls}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-muted">Hạn {fmtDate(d.effectiveDate)}</span>
+            <span className="text-[11px] font-semibold text-muted">Hạn {fmtDate(d.dueDate)}</span>
             <DoseStatusBadge row={d} />
           </div>
           <div className="text-[13px] font-semibold">{d.kind === 'BOOSTER' ? `${d.scheduleShort} · nhắc lại` : `${d.scheduleName} · ${d.doseText}`}</div>
@@ -40,7 +40,7 @@ export default function VaccinationTechnicianTab({ cattleCode }: { cattleCode: s
             <span className="text-[11px] font-semibold text-muted">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</span>
             <Badge tone={r.source === 'ON_FARM' ? 'ok' : 'outline'}>{r.source === 'ON_FARM' ? 'Tại trại' : 'Nhập lịch sử'}</Badge>
           </div>
-          <div className="text-[13px] font-semibold">{[r.vaccineLabel, r.doseText, r.batchNo ? `lô ${r.batchNo}` : 'lô không rõ', r.dose].filter(Boolean).join(' · ')}</div>
+          <div className="text-[13px] font-semibold">{[r.vaccineLabel, r.doseText, r.dose].filter(Boolean).join(' · ')}</div>
           {r.vaccinator && <div className="text-[10px] text-muted">Tiêm bởi {r.vaccinator}</div>}
         </div>
       ))}

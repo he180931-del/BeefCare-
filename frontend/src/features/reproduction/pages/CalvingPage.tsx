@@ -127,10 +127,10 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
         {!canManage && <Note tone="info">Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
         {banner && <Note tone="err">{banner}</Note>}
         {loadError && <Note tone="err">{loadError}</Note>}
-        {loading && <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
+        {loading && <Card variant="panel"><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
         {profile && (
           <fieldset disabled={!canManage} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
-            <Card title="Thông tin sự kiện đẻ">
+            <Card variant="panel" title="Thông tin sự kiện đẻ">
               <div className="grid gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
                 <ReadOnlyField label="Bò mẹ" value={`${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`} />
                 <Field label="Thai kỳ liên kết" id="calving-pregnancy" hint={'Hoặc "Không có thai được theo dõi"'}>
@@ -156,7 +156,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
               {form.retainedPlacenta && <Note tone="warn">Sót nhau quá 12 giờ: nên mở ca sức khỏe. Biểu mẫu này không tự tạo ca điều trị.</Note>}
             </Card>
 
-            <Card
+            <Card variant="panel"
               title={`Kết quả bê (${calves.length})`}
               sub="Mỗi bê 1 khối; bê sống mới có phần đăng ký"
               actions={<Button disabled={calves.length >= 4} onClick={() => setCalves((current) => [...current, blankCalf(profile)])}><Icon name="circle-plus" size={16} />Thêm bê</Button>}
@@ -170,7 +170,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
                   const basisError = issueOf('weightBasis', index)
                   const purposes = options.purposes.filter((item) => !(item.type === 'SIRE' && calf.sex === 'FEMALE') && !(item.type === 'BREEDING' && calf.sex === 'MALE'))
                   return (
-                    <section key={index} role="group" aria-label={label} className="flex flex-col gap-3 rounded-md border border-rule p-[15px]">
+                    <section key={index} role="group" aria-label={label} className="flex flex-col gap-3 rounded-xl border border-field p-4">
                       <div className="flex items-center gap-2">
                         <h4 className="m-0 flex-1 text-[13px] font-semibold">{label}</h4>
                         {calves.length > 1 && <button type="button" className="cursor-pointer text-xs font-semibold text-err-fg" onClick={() => setCalves((current) => current.filter((_, i) => i !== index))}>Xóa bê</button>}

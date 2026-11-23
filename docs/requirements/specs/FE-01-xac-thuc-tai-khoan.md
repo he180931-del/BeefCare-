@@ -467,4 +467,4 @@ Tầng: **U** = unit, **I** = integration BE (service + DB), **H** = HTTP (contr
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại hoàn toàn từ SRS (không dựa trên code) | Claude (cho LamKD duyệt) |
 | 06/11/2026 | 28/10/2026 | Điền cột Route theo route hiện có trong code | Claude |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
-| 23/11/2026 | 28/10/2026 | Theo D43: giữ SCR-08, tổ chức thành hai tab dùng chung `AccountShell` tại `/tai-khoan` và `/quyen-theo-vai-tro`; chuẩn hóa menu người dùng và đường về sau Google re-authentication; bổ sung TC-01-50 → 53 | LamKD |
+| 23/11/2026 | 28/10/2026 | Theo D48: giữ SCR-08, chuẩn hóa menu người dùng và đường về sau Google re-authentication; bổ sung TC-01-50 → 53 | LamKD |

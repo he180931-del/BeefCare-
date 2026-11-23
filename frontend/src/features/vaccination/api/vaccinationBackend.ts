@@ -1,16 +1,16 @@
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
-import { addMonths, fmtDate } from '../domain/vaccinationFormat'
-import { CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, type FieldErrors } from '../domain/vaccinationRules'
-import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
+import { addMonths } from '../domain/vaccinationFormat'
+import { CONFLICT_MESSAGE, DEFAULT_LEAD_DAYS, VaccinationValidationError, doseTextOf, dueStateOf, hasErrors, matchesDoseFilters, plannedDoseRows, resolveTarget, selectableOf, type FieldErrors } from '../domain/vaccinationRules'
+import { validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import type {
-  CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseTab,
+  CattleVaccination, CorrectVaccinationCommand, DoseFilters, DosePage, DoseRow, DoseTab,
   HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
   ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions, VaccineItem,
   VaccinationRecord, VoidRecordCommand,
 } from '../types'
-import { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, doseStatus, toFarmTime, toInstant, ROUTE_OUT, type CattleRef, type ScheduleView } from './vaccinationMapper'
+import { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, routeOut, toFarmTime, toInstant, type CattleRef, type ScheduleView } from './vaccinationMapper'
 import { mapVaccinationError } from './vaccinationError'
 import { toVaccinationTargetDto } from './vaccinationDto'
 
@@ -22,11 +22,13 @@ export { mapVaccinationError } from './vaccinationError'
  * Adapter FE-09 cho chế độ backend (không bao giờ đọc mock).
  * Route dùng: GET /vaccines, /members, /pens, /cattle, /cattle/resolve, /vaccination-schedules, /vaccinations/history;
  * POST /vaccination-schedules, PUT /vaccination-schedules/{id}, POST /vaccination-schedules/{id}/stop,
- * POST /scheduled-doses/{id}/defer, POST /vaccinations, POST /vaccinations/{id}/correction, POST /vaccinations/{id}/void.
+ * GET /parameters/versions (số ngày nhắc tiêm), POST /vaccinations, POST /vaccinations/{id}/correction, POST /vaccinations/{id}/void.
  * Phần backend chưa có route riêng (danh sách mũi theo tab, xem trước đối tượng, tab tiêm của một con) được ghép ở đây
  * từ các route trên, theo đúng quy tắc trong domain/vaccinationRules (GBR-41, GBR-43).
  */
 export const DOSE_PAGE_SIZE = 6
+/** D46: lịch không còn mũi chờ tiêm thì khóa, không sửa được. */
+const SCHEDULE_COMPLETED_MESSAGE = 'Lịch đã tiêm xong hết nên đã khóa. Tạo lịch mới để tiêm cho bò khác.'
 const CATTLE_PAGE = 200
 
 const num = (value: unknown): number | undefined => {
@@ -90,12 +92,23 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     return all
   }
   const schedules = async () => asRows(await transport.get(path('/vaccination-schedules'))).map(mapSchedule)
+  /**
+   * Số ngày nhắc tiêm (VACCINATION_LEAD_DAYS) của phiên bản tham số đang có hiệu lực – tab "Đến hạn trong N ngày" (D46).
+   * Trại chưa có phiên bản nào thì dùng giá trị mặc định khởi tạo.
+   */
+  const leadDays = async (): Promise<number> => {
+    const versions = asRows(await transport.get(path('/parameters/versions')))
+    const current = versions
+      .filter((v) => textValue(v.effectiveFrom) <= today())
+      .sort((a, b) => cmp(textValue(b.effectiveFrom), textValue(a.effectiveFrom)) || (num(b.versionNo) ?? 0) - (num(a.versionNo) ?? 0))[0]
+    return num(asRecord(current?.parameters).VACCINATION_LEAD_DAYS) ?? DEFAULT_LEAD_DAYS
+  }
 
   const placeholder = (code: string): VaccCattle => ({ code, breed: '', sex: 'Cái', penCode: '', penName: '', herdGroup: 'OTHER', lifeStage: 'ADULT', herdEntryDate: '', status: 'EXITED' })
 
   /** Ngữ cảnh đọc: lịch, mũi, bò và vắc-xin cần cho các màn suy ra. */
   async function snapshot() {
-    const [views, herd, catalogue] = await Promise.all([schedules(), cattle(), vaccines()])
+    const [views, herd, catalogue, lead] = await Promise.all([schedules(), cattle(), vaccines(), leadDays()])
     const byCode = new Map(herd.map((c) => [c.code, c]))
     const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
     const allDoses = views.flatMap((v) => v.doses)
@@ -103,11 +116,11 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const view = scheduleOf(d.scheduleId)!
       const s = view.schedule
       const c = byCode.get(d.cattleCode) ?? placeholder(d.cattleCode)
-      const state = dueStateOf(d, today())
+      const state = dueStateOf(d, today(), lead)
       return {
-        id: d.id, cattleCode: c.code, cattleName: c.name, breed: c.breed, sex: c.sex, penName: c.penName,
-        scheduleId: s.id, scheduleName: s.name, scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind,
-        doseText: doseTextOf(d.kind, d.doseNo, s.doseCount), dueDate: d.dueDate, effectiveDate: effectiveDate(d), newExpectedDate: d.newExpectedDate,
+        id: d.id, cattleCode: c.code, cattleName: c.name, breed: c.breed, sex: c.sex, penCode: c.penCode, penName: c.penName, herdGroup: c.herdGroup,
+        scheduleId: s.id, vaccineId: s.vaccineId, scheduleName: s.name, scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind,
+        doseText: doseTextOf(d.kind, d.doseNo, s.doseCount), dueDate: d.dueDate,
         state, daysOverdue: state === 'OVERDUE' ? Math.round((Date.parse(today()) - Date.parse(d.dueDate)) / 86_400_000) : 0,
         rawStatus: d.status, version: d.version,
       }
@@ -115,12 +128,12 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     const vaccineOf = (view: ScheduleView): VaccineItem =>
       catalogue.find((v) => v.id === view.schedule.vaccineId)
       ?? { id: view.schedule.vaccineId, name: view.vaccineName, shortName: view.vaccineName, disease: '', referenceDose: 0, doseUnit: 'ml', route: 'OTHER', withdrawalDays: 0, active: false }
-    const open = (d: ScheduledDose) => (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE'
-    return { views, herd, byCode, catalogue, scheduleOf, allDoses, rowOf, vaccineOf, open }
+    const open = (d: ScheduledDose) => d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE'
+    return { views, herd, byCode, catalogue, scheduleOf, allDoses, rowOf, vaccineOf, open, lead }
   }
 
   /** Mỗi (lịch, bò) một dòng: mũi đang cần tiêm, hoặc mũi cuối đã tiêm; mũi nhắc lại chỉ chen vào khi đã đến hạn. */
-  const headDoses = (list: ScheduledDose[]): ScheduledDose[] => {
+  const headDoses = (list: ScheduledDose[], lead: number): ScheduledDose[] => {
     const groups = new Map<string, ScheduledDose[]>()
     list.forEach((d) => groups.set(`${d.scheduleId}|${d.cattleCode}`, [...(groups.get(`${d.scheduleId}|${d.cattleCode}`) ?? []), d]))
     const heads: ScheduledDose[] = []
@@ -128,7 +141,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const regular = own.filter((d) => d.kind === 'DOSE').sort((a, b) => a.doseNo - b.doseNo)
       const boosters = own.filter((d) => d.kind === 'BOOSTER' && d.status !== 'DONE').sort((a, b) => a.doseNo - b.doseNo)
       const pending = regular.find((d) => d.status !== 'DONE')
-      const dueBooster = boosters.find((d) => ['OVERDUE', 'DUE'].includes(dueStateOf(d, today())))
+      const dueBooster = boosters.find((d) => ['OVERDUE', 'DUE'].includes(dueStateOf(d, today(), lead)))
       const head = pending ?? dueBooster ?? regular[regular.length - 1] ?? boosters[0]
       if (head) heads.push(head)
     })
@@ -159,7 +172,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         return {
           schedule: v.schedule, vaccine: snap.vaccineOf(v), targetCount: byCattle.size,
           doneCount: [...byCattle.values()].filter((list) => list.find((d) => d.doseNo === v.schedule.doseCount)?.status === 'DONE').length,
-          overdueCount: live.filter((d) => dueStateOf(d, today()) === 'OVERDUE').length,
+          overdueCount: live.filter((d) => dueStateOf(d, today(), snap.lead) === 'OVERDUE').length,
         }
       })
     },
@@ -167,16 +180,16 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     async listDoses(filters: DoseFilters = {}): Promise<DosePage> {
       const snap = await snapshot()
       const live = snap.allDoses.filter((d) => d.status !== 'CANCELLED' && snap.scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE' && (!filters.scheduleId || d.scheduleId === filters.scheduleId))
-      const all = headDoses(live).map(snap.rowOf)
+      const all = headDoses(live, snap.lead).map(snap.rowOf).filter((r) => matchesDoseFilters(r, filters))
       const count = (state: DoseRow['state']) => all.filter((r) => r.state === state).length
-      const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), upcoming: count('UPCOMING'), deferred: count('DEFERRED'), done: count('DONE') }
+      const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), done: count('DONE') }
       const tab = filters.tab ?? 'all'
-      const stateOf: Record<string, DoseRow['state']> = { overdue: 'OVERDUE', due: 'DUE', upcoming: 'UPCOMING', deferred: 'DEFERRED', done: 'DONE' }
+      const stateOf: Record<Exclude<DoseTab, 'all'>, DoseRow['state']> = { overdue: 'OVERDUE', due: 'DUE', done: 'DONE' }
       const sign = filters.dir === 'desc' ? -1 : 1
-      const rows = all.filter((r) => tab === 'all' || r.state === stateOf[tab]).sort((a, b) => sign * cmp(a.effectiveDate, b.effectiveDate) || cmp(a.cattleCode, b.cattleCode))
+      const rows = all.filter((r) => tab === 'all' || r.state === stateOf[tab]).sort((a, b) => sign * cmp(a.dueDate, b.dueDate) || cmp(a.cattleCode, b.cattleCode))
       const size = filters.size ?? DOSE_PAGE_SIZE
       const page = Math.min(Math.max(1, filters.page ?? 1), Math.max(1, Math.ceil(rows.length / size)))
-      return { rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts }
+      return { rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts, leadDays: snap.lead, selectable: selectableOf(rows) }
     },
 
     async getDose(id: number): Promise<DoseRow> {
@@ -191,7 +204,10 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const view = snap.scheduleOf(id)
       if (!view) throw new Error('Không tìm thấy lịch tiêm.')
       const targetCount = targetCountOf(view)
-      return { schedule: view.schedule, vaccine: snap.vaccineOf(view), targetCount, plannedRows: plannedDoseRows(view.schedule, view.doses, targetCount, today()) }
+      return {
+        schedule: view.schedule, vaccine: snap.vaccineOf(view), targetCount, plannedRows: plannedDoseRows(view.schedule, view.doses, targetCount, today()),
+        hasDoneDoses: view.doses.some((d) => d.status === 'DONE'),
+      }
     },
 
     async previewTarget(target: ScheduleTarget): Promise<VaccCattle[]> {
@@ -223,7 +239,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         const schedule: Schedule = {
           id: num(result.id) ?? 0, name: textValue(result.name, body.name), vaccineId: cmd.vaccineId!, firstDueDate: cmd.firstDueDate, doseCount: cmd.doseCount!,
           intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : undefined, boosterIntervalMonths: cmd.boosterIntervalMonths,
-          status: 'ACTIVE', version: num(result.version) ?? 0, target: structuredClone(cmd.target),
+          status: 'ACTIVE', completed: false, version: num(result.version) ?? 0, target: structuredClone(cmd.target),
         }
         return { schedule, targetCount, plannedDoseCount: planned, message: `Đã lưu lịch ${schedule.name}: ${planned} mũi dự kiến cho ${targetCount} bò.` }
       })
@@ -236,14 +252,18 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         if (!view) throw new Error('Không tìm thấy lịch tiêm.')
         const s = view.schedule
         if (s.status !== 'ACTIVE' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== s.version)) throw new Error(CONFLICT_MESSAGE)
+        if (s.completed) throw new Error(SCHEDULE_COMPLETED_MESSAGE)
         const errors = validateSchedule(cmd, { activeNames: views.filter((v) => v.schedule.status === 'ACTIVE' && v.schedule.id !== id).map((v) => v.schedule.name), vaccine: catalogue.find((v) => v.id === cmd.vaccineId) })
         const changed = {
           name: cmd.name.trim() !== s.name, vaccine: cmd.vaccineId !== s.vaccineId, start: cmd.firstDueDate !== s.firstDueDate,
           interval: (cmd.intervalDays ?? undefined) !== s.intervalDays, booster: (cmd.boosterIntervalMonths ?? undefined) !== s.boosterIntervalMonths,
         }
         if (changed.start && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày bắt đầu không được trước hôm nay.'
-        // FE-09 Q3 (D13): đổi vắc-xin khi đã có mũi DONE thì dừng lịch và tạo lịch mới.
-        if (changed.vaccine && view.doses.some((d) => d.status === 'DONE')) errors.vaccineId = 'Lịch đã có mũi được tiêm: hãy dừng lịch này và tạo lịch mới để đổi vắc-xin.'
+        // FE-09 Q3 (D13) và D46: lịch đã có mũi tiêm thì giữ vắc-xin, ngày bắt đầu và khoảng cách giữa mũi.
+        const anyDone = view.doses.some((d) => d.status === 'DONE')
+        if (changed.vaccine && anyDone) errors.vaccineId = 'Lịch đã có mũi được tiêm: hãy dừng lịch này và tạo lịch mới để đổi vắc-xin.'
+        if (changed.start && anyDone) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày bắt đầu.'
+        if (changed.interval && anyDone) errors.intervalDays = 'Lịch đã có mũi được tiêm: không đổi được khoảng cách giữa mũi.'
         // GAP-FE09-01 / R-09-05: đổi số mũi, đối tượng hoặc bỏ nhắc lại chỉ ảnh hưởng mũi chưa tiêm.
         const doseCountChanged = cmd.doseCount !== s.doseCount
         const targetChanged = !sameTarget(cmd.target, s.target)
@@ -282,7 +302,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}/stop`), { reason: cmd.reason.trim() }, { headers: { 'If-Match': String(cmd.expectedVersion) } }))
         const name = textValue(result.name)
         const schedule: Schedule = {
-          id, name, vaccineId: 0, firstDueDate: '', doseCount: 0, status: 'STOPPED', version: num(result.version) ?? cmd.expectedVersion + 1,
+          id, name, vaccineId: 0, firstDueDate: '', doseCount: 0, status: 'STOPPED', completed: false, version: num(result.version) ?? cmd.expectedVersion + 1,
           target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: [] }, stopReason: cmd.reason.trim(),
         }
         return { schedule, targetCount: num(result.targetCount) ?? 0, plannedDoseCount: 0, message: `Đã dừng lịch ${name}.` }
@@ -300,7 +320,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       ;(input.cattleCodes ?? []).forEach((code) => {
         const c = snap.byCode.get(code)
         if (!c || rows.some((r) => r.cattle.code === code)) return
-        const next = snap.allDoses.filter((d) => d.cattleCode === code && snap.open(d)).sort((a, b) => cmp(effectiveDate(a), effectiveDate(b)))[0]
+        const next = snap.allDoses.filter((d) => d.cattleCode === code && snap.open(d)).sort((a, b) => cmp(a.dueDate, b.dueDate))[0]
         rows.push({ cattle: c, dose: next && snap.rowOf(next) })
       })
       const doseRows = rows.map((r) => r.dose)
@@ -315,18 +335,11 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       return run(async () => {
         const [herd, catalogue] = await Promise.all([cattle(), vaccines()])
         const byCode = new Map(herd.map((c) => [c.code, c]))
-        const vaccinated = cmd.animals.filter((a) => a.decision === 'VACCINATE')
-        const herdEntryDate = vaccinated.map((a) => byCode.get(a.cattleCode)?.herdEntryDate ?? '').sort().pop() || undefined
+        const herdEntryDate = cmd.animals.map((a) => byCode.get(a.cattleCode)?.herdEntryDate ?? '').sort().pop() || undefined
         const fields = validateRecordFields(cmd, { now: now(), vaccine: catalogue.find((v) => v.id === cmd.vaccineId), herdEntryDate })
         const rowErrors: FieldErrors = {}
         cmd.animals.forEach((a) => {
           if (!byCode.get(a.cattleCode)) rowErrors[a.cattleCode] = `Không tìm thấy bò ${a.cattleCode}.`
-          else if (a.decision === 'DEFER') {
-            const e = validateDefer({ reason: a.deferralReason, newExpectedDate: a.newExpectedDate }, today())
-            if (!a.scheduledDoseId) rowErrors[a.cattleCode] = `${a.cattleCode} chưa có mũi theo lịch để hoãn.`
-            else if (e.reason) rowErrors[a.cattleCode] = 'Lý do chưa tiêm là bắt buộc.'
-            else if (e.newExpectedDate) rowErrors[a.cattleCode] = e.newExpectedDate
-          }
         })
         if (hasErrors(fields) || hasErrors(rowErrors)) throw new VaccinationValidationError(fields, rowErrors)
         const onFarm = cmd.source === 'ON_FARM'
@@ -335,43 +348,23 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           source: cmd.source,
           vaccinationDate: cmd.administeredAt.slice(0, 10),
           administeredAt: onFarm ? toInstant(cmd.administeredAt) : null,
-          batchNo: cmd.batchNo?.trim() || null,
           dose: cmd.dose?.trim() || null,
-          route: cmd.route ? ROUTE_OUT[cmd.route] : null,
+          route: routeOut(cmd.route, cmd.routeOther),
           withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : 0,
           vaccinator: cmd.vaccinator?.trim() || null,
           animals: cmd.animals.map((a) => ({
             cattleId: byCode.get(a.cattleCode)!.id,
             // Bản ghi tiêm cũ (HISTORICAL) không đóng mũi theo lịch.
-            scheduledDoseId: onFarm || a.decision === 'DEFER' ? a.scheduledDoseId ?? null : null,
+            scheduledDoseId: onFarm ? a.scheduledDoseId ?? null : null,
             expectedDoseVersion: a.expectedDoseVersion ?? null,
-            decision: a.decision,
-            deferralReason: a.decision === 'DEFER' ? a.deferralReason?.trim() ?? null : null,
-            newExpectedDate: a.decision === 'DEFER' ? a.newExpectedDate || null : null,
           })),
         }))
         const vaccinatedCount = num(result.vaccinatedCount) ?? 0
-        const deferredCount = num(result.deferredCount) ?? 0
         return {
-          vaccinatedCount, deferredCount, vaccinationIds: (Array.isArray(result.vaccinationIds) ? result.vaccinationIds : []).map((v) => num(v) ?? 0),
+          vaccinatedCount, vaccinationIds: (Array.isArray(result.vaccinationIds) ? result.vaccinationIds : []).map((v) => num(v) ?? 0),
           // R-09-10 / TC-09-17: bò đã tiêm mũi đó (MSG-FE09-09) hoặc đã rời đàn (MSG-COM-13) được bỏ qua, các con khác vẫn ghi.
           skipped: asRows(result.skipped).map(mapSkipped),
-          message: `Đã ghi nhận ${vaccinatedCount} mũi tiêm; hoãn ${deferredCount} mũi.`,
-        }
-      })
-    },
-
-    async deferDose(id: number, cmd: DeferDoseCommand) {
-      const errors = validateDefer(cmd, today())
-      if (hasErrors(errors)) throw new VaccinationValidationError(errors)
-      return run(async () => {
-        const r = asRecord(await transport.command(path(`/scheduled-doses/${id}/defer`), {
-          expectedVersion: cmd.expectedVersion, reason: cmd.reason.trim(), newExpectedDate: cmd.newExpectedDate || null, note: cmd.note?.trim() || null,
-        }))
-        const newExpectedDate = text(r.newExpectedDate)
-        return {
-          id: num(r.id) ?? id, status: doseStatus(r.status), version: num(r.version) ?? cmd.expectedVersion + 1, reason: text(r.reason), newExpectedDate,
-          message: `Đã hoãn mũi tiêm${newExpectedDate ? ` đến ${fmtDate(newExpectedDate)}` : ''}.`,
+          message: `Đã ghi nhận ${vaccinatedCount} mũi tiêm.`,
         }
       })
     },
@@ -393,28 +386,30 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const cattleId = num(resolved.cattleId)
       if (cattleId === undefined) throw new Error(`Không tìm thấy bò ${code}.`)
       const c = mapCattle(resolved.cattle)
-      const [views, history] = await Promise.all([
+      const [views, history, lead] = await Promise.all([
         schedules(),
         // Tab của một con lấy toàn bộ lịch sử, không giới hạn 3 tháng như màn lịch sử đàn.
         transport.get(path(`/vaccinations/history${query({ cattleId, from: '1970-01-01', to: today() })}`)),
+        leadDays(),
       ])
       const list = asRows(history).map((r) => mapRecord(r)).sort((a, b) => cmp(b.administeredAt, a.administeredAt))
       list.forEach((r) => records.set(r.id, r))
       const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
-      const doses = views.flatMap((v) => v.doses).filter((d) => d.cattleCode === code && (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE')
+      const doses = views.flatMap((v) => v.doses).filter((d) => d.cattleCode === code && d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE')
       const rowOf = (d: ScheduledDose): DoseRow => {
         const s = scheduleOf(d.scheduleId)!.schedule
-        const state = dueStateOf(d, today())
+        const state = dueStateOf(d, today(), lead)
         return {
-          id: d.id, cattleCode: code, cattleName: c.name, breed: c.breed, sex: c.sex, penName: c.penName, scheduleId: s.id, scheduleName: s.name,
+          id: d.id, cattleCode: code, cattleName: c.name, breed: c.breed, sex: c.sex, penCode: c.penCode, penName: c.penName, herdGroup: c.herdGroup,
+          scheduleId: s.id, vaccineId: s.vaccineId, scheduleName: s.name,
           scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind, doseText: doseTextOf(d.kind, d.doseNo, s.doseCount),
-          dueDate: d.dueDate, effectiveDate: effectiveDate(d), newExpectedDate: d.newExpectedDate, state,
+          dueDate: d.dueDate, state,
           daysOverdue: state === 'OVERDUE' ? Math.round((Date.parse(today()) - Date.parse(d.dueDate)) / 86_400_000) : 0, rawStatus: d.status, version: d.version,
         }
       }
       return {
         cattle: stripId(c),
-        doses: doses.map(rowOf).sort((a, b) => cmp(a.effectiveDate, b.effectiveDate)),
+        doses: doses.map(rowOf).sort((a, b) => cmp(a.dueDate, b.dueDate)),
         records: list.map(({ penCode: _pen, ...r }) => r),
       }
     },
@@ -422,7 +417,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
       const before = records.get(id)
       const reasonErrors = validateReason(cmd.reason)
-      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, batchNo: cmd.batchNo, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...reasonErrors }
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...reasonErrors }
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
       // TC-09-27: bản ghi tại trại sửa được số ngày ngưng; bản ghi lịch sử không có ngưng thịt (R-09-08).
       const onFarm = (before?.source ?? 'ON_FARM') === 'ON_FARM'
@@ -430,13 +425,13 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         const r = asRecord(await transport.command(path(`/vaccinations/${id}/correction`), {
           expectedVersion: cmd.expectedVersion, vaccineId: cmd.vaccineId ?? null,
           vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt),
-          batchNo: cmd.batchNo?.trim() || null, dose: cmd.dose?.trim() || null, route: cmd.route ? ROUTE_OUT[cmd.route] : null,
+          dose: cmd.dose?.trim() || null, route: routeOut(cmd.route, cmd.routeOther),
           vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.reason.trim(),
           withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : null,
         }))
         const updated: VaccinationRecord = {
           ...(before ?? emptyRecord(id)),
-          vaccineId: cmd.vaccineId ?? before?.vaccineId, administeredAt: cmd.administeredAt, batchNo: cmd.batchNo?.trim() || undefined, dose: cmd.dose, route: cmd.route,
+          vaccineId: cmd.vaccineId ?? before?.vaccineId, administeredAt: cmd.administeredAt, dose: cmd.dose, route: cmd.route, routeText: cmd.route === 'OTHER' ? cmd.routeOther?.trim() : undefined,
           vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: num(r.withdrawalDays) ?? (onFarm ? cmd.withdrawalDays : undefined) ?? before?.withdrawalDays ?? 0,
           withdrawalEndDate: text(r.withdrawalEndDate), status: 'VALID', corrected: r.corrected !== false,
           version: num(r.version) ?? cmd.expectedVersion + 1, precision: 'EXACT',

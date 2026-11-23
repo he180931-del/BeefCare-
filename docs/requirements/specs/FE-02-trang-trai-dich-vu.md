@@ -359,4 +359,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 08/11/2026 | 28/10/2026 | UC-FE02-02: chốt Q5 (AF1 mở SCR-58 thay vì SCR-57), Q6 (thẻ khóa cho Manager / Technician) và Q7 (cách hiểu AF4). A2 / A5 dùng tên trường như code; MSG-FE02-04 sửa câu "đang ở trạng thái {status}" | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-03: xác nhận luồng (Q1); chốt Q2 (3 múi giờ UTC+7), Q4 (vẫn hiện số ngày còn lại khi SUSPENDED) và Q8 (Manager / Technician mở SCR-11 → về trang chủ). Mục 3.1, 5, 6 (SCR-11), 7 (A3, A4), TC-02-17 | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-04, UC-FE02-05: xác nhận luồng UC-04 (Q1); chốt Q9 (lịch sử dịch vụ lưu trong audit). Mục 3.3, 5 (UC-04), 7 (A6 → A9 theo code, A7 đã có API) | DucNV |
-| 23/11/2026 | 28/10/2026 | Theo D43: bổ sung bộ chuyển trại nhanh trên thanh trên cùng, menu người dùng dùng chung, R-02-14, AF6/AF7 và TC-02-33 → 36 | LamKD |
+| 23/11/2026 | 28/10/2026 | Theo D48: bổ sung bộ chuyển trại nhanh trên thanh trên cùng, menu người dùng dùng chung, R-02-14, AF6/AF7 và TC-02-33 → 36 | LamKD |

@@ -48,7 +48,7 @@ export function ForgotPasswordPage({ client }: { client: AuthClient }) {
 export function InvalidLinkPage({ email, flow = 'reset' }: { email: string; flow?: 'reset' | 'verification' }) {
   const verification = flow === 'verification'
   return (
-    <AuthShell title="Liên kết không còn hiệu lực" description={verification ? 'Liên kết xác minh đã hết hạn hoặc đã được sử dụng.' : 'Liên kết đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng.'} eyebrow="Cần gửi liên kết mới" footer={<ActionLink to={AUTH_PATH.signIn}>Quay lại đăng nhập</ActionLink>}>
+    <AuthShell align="start" title="Liên kết không còn hiệu lực" description={verification ? 'Liên kết xác minh đã hết hạn hoặc đã được sử dụng.' : 'Liên kết đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng.'} eyebrow="Cần gửi liên kết mới" footer={<ActionLink to={AUTH_PATH.signIn}>Quay lại đăng nhập</ActionLink>}>
       <div className="space-y-5">
         <NoticePanel title="Liên kết đã hết hạn">Yêu cầu liên kết mới để tiếp tục.</NoticePanel>
         <Link to={verification ? AUTH_PATH.verification : AUTH_PATH.forgot} state={email ? { email } : undefined} className={`${primaryButtonClass} no-underline`}>{verification ? 'Gửi lại email xác minh' : 'Yêu cầu liên kết mới'}</Link>
@@ -102,17 +102,17 @@ export function ResetPasswordPage({ client }: { client: AuthClient }) {
     } finally { setBusy(false) }
   }
 
-  if (checking) return <AuthShell title="Đặt mật khẩu mới" description="Đang kiểm tra liên kết đặt lại mật khẩu…"><div className="animate-pulse rounded-xl bg-[#eef4ef] p-8 text-center text-sm text-subtle">Đang xác minh liên kết</div></AuthShell>
-  if (checkError) return <AuthShell title="Chưa kiểm tra được liên kết" description="Kết nối máy chủ đang gặp sự cố." alert={<Alert>{checkError}</Alert>} footer={backToSignIn}><button type="button" className={primaryButtonClass} onClick={() => void checkLink()}>Thử lại</button></AuthShell>
+  if (checking) return <AuthShell align="start" title="Đặt mật khẩu mới" description="Đang kiểm tra liên kết đặt lại mật khẩu…"><div className="animate-pulse rounded-xl bg-[#eef4ef] p-8 text-center text-sm text-subtle">Đang xác minh liên kết</div></AuthShell>
+  if (checkError) return <AuthShell align="start" title="Chưa kiểm tra được liên kết" description="Kết nối máy chủ đang gặp sự cố." alert={<Alert>{checkError}</Alert>} footer={backToSignIn}><button type="button" className={primaryButtonClass} onClick={() => void checkLink()}>Thử lại</button></AuthShell>
   if (!validation?.valid) return <InvalidLinkPage email={initialEmail} />
 
   return (
-    <AuthShell title="Đặt mật khẩu mới" description="Tạo mật khẩu mới để bảo vệ tài khoản của bạn." eyebrow="Thiết lập mật khẩu" footer={backToSignIn} alert={error ? <Alert>{error}</Alert> : null}>
+    <AuthShell align="start" title="Đặt mật khẩu mới" description="Tạo mật khẩu mới để bảo vệ tài khoản của bạn." eyebrow="Thiết lập mật khẩu" footer={backToSignIn} alert={error ? <Alert>{error}</Alert> : null}>
       <Form onSubmit={submit}>
         {email && <FormField id="reset-email" label="Email tài khoản" value={email} readOnly />}
         <PasswordField id="reset-password" label="Mật khẩu mới" value={password} onChange={setPassword} error={errors.password} placeholder="Tối thiểu 8 ký tự" autoComplete="new-password" />
         <PasswordField id="reset-confirm" label="Nhập lại mật khẩu" value={confirmPassword} onChange={setConfirmPassword} error={errors.confirmPassword} placeholder="Nhập lại mật khẩu mới" autoComplete="new-password" />
-        <p className="-mt-1 mb-0 text-xs text-subtle">Dùng mật khẩu đủ dài và khó đoán.</p>
+        <p className="m-0 text-xs text-subtle">Dùng mật khẩu đủ dài và khó đoán.</p>
         <button type="submit" disabled={busy} className={primaryButtonClass}>{busy ? 'Đang cập nhật…' : 'Lưu mật khẩu mới'}</button>
       </Form>
     </AuthShell>

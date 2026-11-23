@@ -26,7 +26,7 @@ describe('ghi nhận cân & BCS', () => {
     expect(rec).toMatchObject({ basis: 'MEASURED', status: 'VALID', weightKg: 322 })
     const profile = await api.getProfile('BC-000203')
     expect(profile.latest).toMatchObject({ kg: 322, basis: 'MEASURED' })
-    expect(profile.count).toBe(10)
+    expect(profile.count).toBe(9) // 10 bản ghi, trừ 1 lần đo đã xóa (D43: không đếm)
   })
 
   it('tự tính cân nặng từ thước dây khi không nhập cân', async () => {
@@ -87,11 +87,13 @@ describe('sửa hoặc loại trừ bản ghi', () => {
     expect(profile.records.find((r) => r.id === target.id)?.status).toBe('EXCLUDED')
   })
 
-  it('bắt buộc có lý do và phát hiện bản ghi đã bị đổi', async () => {
+  it('D43: ghi chú không bắt buộc nhưng tối đa 500 ký tự; phát hiện bản ghi đã bị đổi', async () => {
     const { api } = make()
     const target = await findByDate(api, '2026-08-15')
-    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: ' ', expectedVersion: target.version })).rejects.toBeInstanceOf(GrowthValidationError)
-    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: 'x', expectedVersion: target.version + 5 })).rejects.toThrow(/đã thay đổi/)
+    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: 'x'.repeat(501), expectedVersion: target.version })).rejects.toBeInstanceOf(GrowthValidationError)
+    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', expectedVersion: target.version + 5 })).rejects.toThrow(/đã thay đổi/)
+    const deleted = await api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: '  ', expectedVersion: target.version })
+    expect(deleted.status).toBe('EXCLUDED')
   })
 })
 

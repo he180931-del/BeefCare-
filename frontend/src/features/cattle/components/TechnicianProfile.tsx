@@ -29,8 +29,9 @@ function Overview({ cow }: { cow: CowSeed }) {
       <Panel title="Thông tin cá thể" pad="p-4">
         <Fields cols="grid-cols-2" items={[['Giống', cow.breed], ['Tuổi', cow.ageLong.replace('tuổi', 'năm')], ['Mục đích', cow.purpose], ['Giai đoạn', cow.stage], ['Mẹ', cow.mother], ['Chuồng', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—']]} />
       </Panel>
-      <Panel title="Tóm tắt chăm sóc" pad="p-4">
+      <Panel title="Tóm tắt chăm sóc" pad="p-4" tone="emphasis">
         <Fields
+          dark
           cols="grid-cols-2"
           items={[
             ['Cân gần nhất', cow.care.last],

@@ -5,7 +5,8 @@ import { fmtDate, fmtDateTime } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
 import { useVaccinationCommands, useVaccinationOptions } from '../hooks/useVaccinationUseCase'
 import type { VaccinationOptions, VaccinationRecord, VaccineRoute } from '../types'
-import { DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, splitDose } from './vaccinationParts'
+import { ROUTE_OTHER_MAX } from '../domain/vaccinationRules'
+import { DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, routeLabelOf, splitDose } from './vaccinationParts'
 
 interface Props { record: VaccinationRecord; onClose: () => void; onSaved: (message: string) => void }
 
@@ -26,10 +27,10 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   const initialDose = splitDose(record.dose)
   const [action, setAction] = useState<'CORRECT' | 'VOID'>('CORRECT')
   const [vaccineId, setVaccineId] = useState(String(record.vaccineId ?? options.vaccines[0].id))
-  const [batchNo, setBatchNo] = useState(record.batchNo ?? '')
   const [administeredAt, setAdministeredAt] = useState(record.administeredAt)
   const [amount, setAmount] = useState(initialDose.amount)
   const [route, setRoute] = useState<VaccineRoute | ''>(record.route ?? '')
+  const [routeOther, setRouteOther] = useState(record.routeText ?? '')
   const [withdrawal, setWithdrawal] = useState(String(record.withdrawalDays))
   const [vaccinator, setVaccinator] = useState(record.vaccinator ?? '')
   const [reason, setReason] = useState('')
@@ -49,8 +50,9 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
       if (action === 'VOID') await voidRecord(record.id, { expectedVersion: record.version, reason })
       else {
         await correctRecord(record.id, {
-          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
-          route: route || undefined, withdrawalDays: parseNum(withdrawal), vaccinator: vaccinator || undefined, reason,
+          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
+          route: route || undefined, routeOther: route === 'OTHER' ? routeOther : undefined,
+          withdrawalDays: withdrawal.trim() === '' ? 0 : parseNum(withdrawal) ?? Number.NaN, vaccinator: vaccinator || undefined, reason,
         })
       }
       onSaved(`Bản ghi tiêm đã được ${action === 'VOID' ? 'hủy' : 'sửa'}. Giá trị gốc vẫn được lưu trong lịch sử.`)
@@ -63,7 +65,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   }
 
   const when = record.precision === 'MONTH' ? record.administeredAt.slice(5, 7) + '/' + record.administeredAt.slice(0, 4) : fmtDateTime(record.administeredAt)
-  const summary = [record.vaccineLabel, record.batchNo ? `lô ${record.batchNo}` : 'lô không rõ', record.dose, record.route && ROUTE_LABEL[record.route].toLowerCase(), record.vaccinator ?? 'Không rõ'].filter(Boolean).join(' · ')
+  const summary = [record.vaccineLabel, record.dose, record.route && routeLabelOf(record.route, record.routeText).toLowerCase(), record.vaccinator ?? 'Không rõ'].filter(Boolean).join(' · ')
   return (
     <Modal title="Sửa / hủy bản ghi tiêm" sub={`${record.cattleCode} · ${record.vaccineLabel}${record.doseText ? ` ${record.doseText}` : ''} · ${when}`} width={700} onClose={onClose}>
       <Field label="Bản ghi" id="cv-record"><input id="cv-record" readOnly value={summary} className={`${inputCls} bg-page text-muted`} /></Field>
@@ -74,16 +76,12 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
         </div>
       </Field>
       {action === 'CORRECT' && (
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead><tr><Th>Trường thông tin</Th><Th>Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
           <tbody>
             <tr>
               <Td className="font-medium">Vắc-xin</Td><Td>{record.vaccineLabel}</Td>
               <Td><Select aria-label="Vắc-xin mới" value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select><FieldError>{errors.vaccineId}</FieldError></Td>
-            </tr>
-            <tr>
-              <Td className="font-medium">Số lô</Td><Td>{record.batchNo ?? 'Không rõ'}</Td>
-              <Td><input aria-label="Số lô mới" maxLength={50} className={inputCls} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} /><FieldError>{errors.batchNo}</FieldError></Td>
             </tr>
             <tr>
               <Td className="font-medium">Thời điểm tiêm</Td><Td>{when}</Td>
@@ -94,8 +92,12 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
               <Td><UnitInput aria-label="Liều mới" type="text" inputMode="decimal" unit={initialDose.unit} aria-invalid={!!errors.dose} value={amount} onChange={(e) => setAmount(e.target.value)} /><FieldError>{errors.dose}</FieldError></Td>
             </tr>
             <tr>
-              <Td className="font-medium">Đường tiêm</Td><Td>{record.route ? ROUTE_LABEL[record.route] : '—'}</Td>
-              <Td><Select aria-label="Đường tiêm mới" value={route} onChange={(e) => setRoute(e.target.value as VaccineRoute | '')}><option value="">—</option>{(Object.keys(ROUTE_LABEL) as VaccineRoute[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select></Td>
+              <Td className="font-medium">Đường tiêm</Td><Td>{routeLabelOf(record.route, record.routeText)}</Td>
+              <Td>
+                <Select aria-label="Đường tiêm mới" value={route} onChange={(e) => setRoute(e.target.value as VaccineRoute | '')}><option value="">—</option>{(Object.keys(ROUTE_LABEL) as VaccineRoute[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select>
+                {route === 'OTHER' && <input aria-label="Đường tiêm khác mới" placeholder="Nhập đường tiêm *" className={inputCls} maxLength={ROUTE_OTHER_MAX} value={routeOther} onChange={(e) => setRouteOther(e.target.value)} />}
+                <FieldError>{errors.routeOther}</FieldError>
+              </Td>
             </tr>
             {onFarm && (
               <tr>

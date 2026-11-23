@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Card, Icon, inputCls, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Icon, inputCls, Panel, Select, Table, Td, Th } from '../../../shared/ui'
 import { formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionEventType, ReproductionFemale } from '../types'
 import { SOURCE_LABEL, nowLocal } from './reproductionFields'
@@ -51,7 +51,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
   }
 
   return (
-    <Card
+    <Panel
       title={source ? 'Bản ghi sinh sản' : 'Dòng thời gian sinh sản'}
       sub={'Dòng đã sửa có nhãn "Đã sửa"; dòng đã hủy in xám'}
       actions={!source && (
@@ -103,6 +103,6 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
           {!rows.length && <tr><Td colSpan={6} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản trong khoảng đã chọn.</Td></tr>}
         </tbody>
       </Table>
-    </Card>
+    </Panel>
   )
 }

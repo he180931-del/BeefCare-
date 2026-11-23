@@ -37,8 +37,8 @@ describe('Gói dịch vụ của trại', () => {
     expect(screen.getByText('27 ngày')).toBeInTheDocument()
     expect(screen.getByText('Đang hoạt động')).toBeInTheDocument()
     expect(screen.getByText('3.060.000 đ')).toBeInTheDocument()
-    const periods = screen.getByText('Các kỳ đã mua').closest('section, div') as HTMLElement
-    expect(within(periods.parentElement as HTMLElement).getByText('BCA9X2M1')).toBeInTheDocument()
+    const periods = screen.getByRole('region', { name: 'Các kỳ đã mua' })
+    expect(within(periods).getByText('BCA9X2M1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gia hạn gói' })).toBeEnabled()
   })
 

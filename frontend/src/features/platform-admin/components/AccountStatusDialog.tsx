@@ -63,7 +63,7 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
       </Field>
       {fieldError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{fieldError}</p>}
       {error != null && <Note tone="err"><span role="alert">{error}</span></Note>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Quay lại</ModalButton>
         <ModalButton variant={suspending ? 'danger' : 'primary'} onClick={submit} disabled={busy}>
           {suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}

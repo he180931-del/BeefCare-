@@ -6,7 +6,7 @@ import { GROWTH_HERD_GROUPS, GROWTH_LIFE_STAGES } from '../constants/growthOptio
 import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
 import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
-import { validateMeasurement, validateReason } from '../validation/growthValidation'
+import { validateCorrectionNote, validateMeasurement } from '../validation/growthValidation'
 import type {
   CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdPage,
   GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthProjection, GrowthRecord, GrowthRecordStatus, GrowthRevision, GrowthWindow,
@@ -152,7 +152,7 @@ const FIELD_MESSAGE: Record<string, string> = {
   bodyLengthCm: 'Dài thân phải từ 30 đến 250 cm.',
   bcs: 'BCS không đúng thang điểm của trại.',
   note: 'Ghi chú tối đa 500 ký tự.',
-  reason: 'Nhập lý do (tối đa 500 ký tự).',
+  reason: 'Ghi chú tối đa 500 ký tự.',
 }
 
 /** Đổi lỗi backend sang lỗi màn hình đang bắt (GrowthLargeChangeError / GrowthValidationError). */
@@ -289,7 +289,7 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
         adg90: num(body.adg),
         latestBcs: num(body.latestBcs),
         nextWeighingDate: text(body.nextWeighing),
-        count: num(body.measurements) ?? profile.count,
+        count: profile.count,
         // GAP-FE08-02 / GBR-107: dự kiến xuất chuồng theo backend (tham số trại, ADG 60 ngày).
         projection,
       }
@@ -319,7 +319,7 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     },
 
     async correct(code: string, recordId: number, command: CorrectGrowthCommand): Promise<GrowthRecord> {
-      assertValid(validateReason(command.reason))
+      assertValid(validateCorrectionNote(command.reason))
       return run(async () => {
         const { cattleId, cattle } = await resolve(code)
         const before = records.get(recordId)
@@ -349,7 +349,7 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
           })
           : null
         const saved = mapRecord(await transport.command(path(`/cattle/${cattleId}/growth/${recordId}/correction`), {
-          action: command.action, values, reason: command.reason, expectedVersion: command.expectedVersion,
+          action: command.action, values, reason: command.reason?.trim() || null, expectedVersion: command.expectedVersion,
         }), code)
         records.set(saved.id, saved)
         return saved

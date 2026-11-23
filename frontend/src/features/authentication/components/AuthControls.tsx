@@ -11,8 +11,8 @@ export function PasswordField({ label, id, value, onChange, error, autoComplete,
   const [visible, setVisible] = useState(false)
   return (
     <div className="relative">
-      <FormField id={id} label={label} type={visible ? 'text' : 'password'} value={value} onChange={(event) => onChange(event.target.value)} error={error} invalid={invalid} autoComplete={autoComplete} placeholder={placeholder} maxLength={maxLength} required />
-      <button type="button" className="absolute right-3 top-[41px] grid size-8 place-items-center rounded text-subtle hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/20" aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onClick={() => setVisible((shown) => !shown)}>
+      <FormField id={id} label={label} className="pr-14!" type={visible ? 'text' : 'password'} value={value} onChange={(event) => onChange(event.target.value)} error={error} invalid={invalid} autoComplete={autoComplete} placeholder={placeholder} maxLength={maxLength} required />
+      <button type="button" className="absolute right-1 top-[33px] grid size-11 place-items-center rounded-lg text-subtle hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/20" aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onClick={() => setVisible((shown) => !shown)}>
         <Icon name="eye" size={18} />
       </button>
     </div>

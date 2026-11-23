@@ -1,6 +1,40 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createHerdExitBackendApi, type BackendTransport } from '../../src/features/herd-exit/api/herdExitBackendApi'
+import { mapVoucher } from '../../src/features/herd-exit/api/herdExitMapper'
+
+test('exit payments preserve identities and void metadata; amountCollected takes precedence over deposit', () => {
+  const mapped = mapVoucher({ totalReceivable: 10000000, depositCollected: 5000000, amountCollected: 2000000, outstanding: 8000000, payments: [
+    { id: 21, version: 0, status: 'VOIDED', paymentDate: '2026-10-20', amount: 3000000, recordedByName: 'An', method: 'CASH', note: 'Đợt đầu', voidReason: 'Nhập nhầm', voidedAt: '2026-11-22T18:05:00Z' },
+    { amount: 2000000 },
+  ] })
+  assert.equal(mapped.collected, 2000000); assert.equal(mapped.due, 8000000)
+  const [voided, legacy] = mapped.detail!.payments!
+  assert.deepEqual([voided.id, voided.version, voided.status, voided.by, voided.note, voided.voidReason, voided.voidedAt], [21, 0, 'VOIDED', 'An', 'Đợt đầu', 'Nhập nhầm', '2026-11-22T18:05:00Z'])
+  assert.equal(legacy.status, 'RECORDED'); assert.equal(legacy.id, undefined); assert.equal(legacy.version, undefined)
+  assert.equal(mapVoucher({}).collected, undefined)
+})
+test('exit payment void uses the payment snapshot, trimmed reason, farm path and stable intent key', async () => {
+  const calls: Array<{ path: string; body: unknown; key?: string }> = []
+  const api = createHerdExitBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('No eager snapshot refresh') },
+    command: async (path, body, options) => { calls.push({ path, body, key: options?.key }); return { payment: { id: 21, status: 'VOIDED', version: 1 }, summary: { total: 10000000, paid: 2000000, outstanding: 8000000 } } },
+  } })
+  const result = await api.voidPayment(21, { reason: '  Thu nhầm  ', version: 0 })
+  await api.voidPayment(21, { version: 0, reason: 'Thu nhầm' })
+  await api.voidPayment(21, { reason: 'Khác', version: 0 })
+  await api.voidPayment(22, { reason: 'Thu nhầm', version: 0 })
+  await api.voidPayment(21, { reason: 'Thu nhầm', version: 1 })
+  assert.equal(calls[0].path, '/api/farms/9/payments/21/void')
+  assert.deepEqual(calls[0].body, { reason: 'Thu nhầm', version: 0 })
+  assert.match(calls[0].key!, /^beefcare-voucher-payment-void-/)
+  assert.equal(calls[0].key, calls[1].key)
+  for (const call of calls.slice(2)) assert.notEqual(call.key, calls[0].key)
+  assert.equal(result.payment.status, 'VOIDED'); assert.equal(result.summary.paid, 2000000)
+  await assert.rejects(() => api.voidPayment(21, { reason: 'Thu nhầm', version: undefined }), /phiên bản/)
+  assert.equal(calls.length, 5)
+})
 
 const voucher = (status = 'DRAFT') => ({
   id: 61, code: 'PX-2026-0061', exitType: 'SALE', status, exitDate: '2026-10-29', buyer: { id: 8, name: 'Lò mổ Hà Đông' },

@@ -6,6 +6,7 @@ import type { HerdExit } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 import { useExitVoid } from '../hooks/useExitVoid'
 import { exitVoidError } from '../api/exitVoidError'
+import { exitPaymentTotals } from '../domain/exitPaymentTotals'
 
 const MAX_REASON = 500
 
@@ -16,7 +17,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
   useEffect(() => {
     if (form.choices.focusCattleId) warningInputs.current[form.choices.focusCattleId]?.focus()
   }, [form.error, form.choices.focusCattleId])
-  const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
+  const { collected } = exitPaymentTotals(row)
   const barnCount = row.count
   const restoringByPen = restoreCounts(row.detail?.cows ?? [])
   const barnNames = Object.keys(restoringByPen)
@@ -32,7 +33,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
 
   return (
     <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={`${row.type} · ${(row.date ?? '').slice(8)}/${(row.date ?? '').slice(5, 7)}/${(row.date ?? '').slice(0, 4)} · ${barnCount ?? 0} con · ${row.who ?? ''}`} topTitle="Hủy phiếu xuất" onClose={onClose}>
-      <div className="-mt-2 flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2.5">
         <div className="text-sm font-semibold">Khi xác nhận hủy</div>
         <Note tone="ok">
           <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />{barnCount} con trở lại ACTIVE và mở lại phân chuồng cuối {occupancyText || 'theo từng con'}.</div>

@@ -3,6 +3,7 @@ import { exitCollectionDefaults, herdExitApi } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import type { HerdExit } from '../types'
 import type { VoucherPaymentSnapshot } from '../../../shared/api/snapshotVersion'
+import { exitPaymentTotals } from '../domain/exitPaymentTotals'
 
 export function isValidCollectionAmount(amount: number, owed: number) {
   return amount > 0 && amount <= owed
@@ -11,9 +12,8 @@ export function isValidCollectionAmount(amount: number, owed: number) {
 export function useExitCollection(row: HerdExit, onSaved?: () => void, onClose?: () => void) {
   const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string }; snapshot: VoucherPaymentSnapshot }, HerdExit>(({ id, payment, snapshot }) => herdExitApi.recordPayment(id, payment, snapshot))
   const payments = row.detail?.payments ?? []
-  const collected = payments.reduce((sum, payment) => sum + payment.amount, 0)
+  const { collected, outstanding: owed } = exitPaymentTotals(row)
   const total = row.total
-  const owed = row.due ?? 0
   const [defaults] = useState(exitCollectionDefaults)
   const [date, setDate] = useState(defaults.date)
   const [amount, setAmount] = useState(owed)

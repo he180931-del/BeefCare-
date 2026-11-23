@@ -203,7 +203,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
         </Field>
       </div>
       <Note tone="info">Lưu sẽ trừ kho {formatNumber(actualTotal)} kg{selectedPen?.headcount ? ` (${formatNumber(actualTotal / selectedPen.headcount)} kg/con)` : ''}.</Note>
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton disabled={saving || !lines.length} onClick={() => { commands.resetCommandKey(); setLines((current) => current.map((line) => ({ ...line, actualKg: line.plannedKg }))) }}>Điền theo kế hoạch</ModalButton>
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving || (feedFeedingServerBacked && (planQuery.loading || !serverPlan)) || Boolean(duplicate)} onClick={() => void submit()}>{saving ? 'Đang ghi…' : 'Lưu & trừ kho'}</ModalButton>
@@ -307,7 +307,7 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
       )}
       <Field label="Lý do *" id="feeding-correct-reason"><Textarea id="feeding-correct-reason" maxLength={500} value={reason} onChange={(event) => { commands.resetCommandKey(); setReason(event.target.value); setError('') }} /></Field>
       <Note tone="info">{effectNote}</Note>
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton disabled={saving} onClick={onClose}>Đóng</ModalButton>
         {action === 'void'
           ? <ModalButton variant="danger" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang hủy…' : 'Xác nhận hủy bản ghi'}</ModalButton>
@@ -383,7 +383,7 @@ export function FeedQuickFillDialog({ data, date, missing, onClose, onSaved }: {
         </Table>
       )}
       <Note tone="info">Mỗi cữ mở trong một biểu mẫu riêng theo thứ tự đã chọn. Biểu mẫu lấy kế hoạch mới nhất từ máy chủ; kiểm tra tồn kho và lượng thực tế trước khi lưu.</Note>
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="primary" disabled={!rows.length} onClick={review}>Kiểm tra {selected.size} cữ đã chọn</ModalButton>
       </ModalFooter>

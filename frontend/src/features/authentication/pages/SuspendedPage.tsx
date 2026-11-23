@@ -10,7 +10,7 @@ export function SuspendedPage({ onBackToSignIn }: { onBackToSignIn?: () => void 
   const location = useLocation()
   const email = emailFromState(location.state) || new URLSearchParams(location.search).get('email')?.trim().toLowerCase() || ''
   return (
-    <AuthShell title="Tài khoản đang tạm ngưng" description="Bạn chưa thể truy cập trại bằng tài khoản này." eyebrow="Trạng thái tài khoản" footer={<ActionLink to={AUTH_PATH.signIn} onClick={onBackToSignIn}>Quay lại đăng nhập</ActionLink>}>
+    <AuthShell align="start" title="Tài khoản đang tạm ngưng" description="Bạn chưa thể truy cập trại bằng tài khoản này." eyebrow="Trạng thái tài khoản" footer={<ActionLink to={AUTH_PATH.signIn} onClick={onBackToSignIn}>Quay lại đăng nhập</ActionLink>}>
       <div className="space-y-5">
         <NoticePanel title="Tài khoản đã bị tạm ngưng">
           Liên hệ hỗ trợ để được kiểm tra trạng thái và hướng dẫn bước tiếp theo.

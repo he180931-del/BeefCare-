@@ -81,7 +81,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
 
   return (
     <Modal width={820} title={`Chọn bò vào phiếu xuất ${id}`} sub="Chỉ hiện bò ACTIVE chưa nằm trong phiếu xuất khác đang Nháp / Chờ xác nhận / Đã xuất" topTitle="Chọn bò vào phiếu xuất" onClose={onClose}>
-      <div className="-mt-2 flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <Field label="Tìm kiếm">
           <input className={`${inputCls} !w-[260px]`} placeholder="Mã bò, thẻ tai…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </Field>

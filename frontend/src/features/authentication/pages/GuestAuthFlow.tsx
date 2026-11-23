@@ -38,6 +38,11 @@ export function GuestAuthFlow({
     rememberInvitationLink(location.pathname + location.search);
   }, [location.pathname, location.search]);
 
+  const mockNotice = client.mode === "mock" && (
+    <div className={path === AUTH_PATH.loginFailed ? "flex justify-end bg-page px-4 pb-3" : "fixed bottom-3 right-3 z-30"}>
+      <span className="block rounded-full border border-[#c7dfcf] bg-white px-3 py-1.5 text-[11px] font-semibold text-brand shadow">Chế độ mô phỏng · dữ liệu chỉ ở bộ nhớ</span>
+    </div>
+  );
   let page;
   if (forceSuspended || path === AUTH_PATH.suspended)
     page = <SuspendedPage onBackToSignIn={onExitSuspended} />;
@@ -81,7 +86,7 @@ export function GuestAuthFlow({
         initialError={initialError}
       />
     );
-  return <>{page}</>;
+  return <>{page}{mockNotice}</>;
 }
 
 export const guestAuthPaths = AUTH_PATH;

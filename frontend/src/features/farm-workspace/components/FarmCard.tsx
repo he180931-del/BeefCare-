@@ -1,7 +1,7 @@
-import { Badge, Icon, type IconName } from "../../../shared/ui";
-import { serviceView } from "../domain/statusViews";
-import type { FarmServiceStatus, FarmSummary } from "../types";
-import { lastServiceDay, roleLabel, serviceLabel } from "./WorkspaceUi";
+import { Badge, Button, Icon, Panel, type IconName } from '../../../shared/ui'
+import { serviceView } from '../domain/statusViews'
+import type { FarmServiceStatus, FarmSummary } from '../types'
+import { lastServiceDay, roleLabel, serviceLabel } from './WorkspaceUi'
 
 const tone = (status: string) => serviceView(status).tone;
 const place = (farm: FarmSummary) =>
@@ -96,54 +96,18 @@ export function FarmCard({
     </div>
   );
   return (
-    <article className="flex flex-col gap-3 rounded-2xl border border-field bg-white p-5">
-      <div>
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="m-0 text-sm font-semibold text-ink">{farm.name}</h2>
-          <div className="mt-2">
-            <Badge tone={tone(farm.serviceStatus)}>
-              {serviceLabel(farm.serviceStatus)}
-            </Badge>
-          </div>
-        </div>
-        <p className="m-0 mt-1 text-xs text-subtle">{place(farm)}</p>
+    <Panel title={farm.name} sub={place(farm)}>
+      <div><Badge tone={tone(farm.serviceStatus)}>{serviceLabel(farm.serviceStatus)}</Badge></div>
+      <div className="flex flex-col gap-2">
+        {fact('Vai trò của bạn', roleLabel(farm.role))}
+        {fact('Quy mô', farm.activeCattleCount == null ? 'Chưa có dữ liệu từ máy chủ' : `${farm.activeCattleCount} con`)}
+        {fact('Dịch vụ', serviceText(farm))}
       </div>
-      <div className="flex flex-col gap-2 whitespace-nowrap">
-        <div className="flex items-baseline gap-2 whitespace-nowrap">
-          <span className="text-[11px] text-subtle">Vai trò của bạn:</span>
-          <strong className="text-[13px] font-medium text-ink">
-            {roleLabel(farm.role)}
-          </strong>
-        </div>
-        <div className="flex items-baseline gap-2 whitespace-nowrap">
-          <span className="text-[11px] text-subtle">Quy mô:</span>
-          <strong className="text-[13px] font-medium text-ink">
-            {farm.activeCattleCount == null
-              ? "Chưa có dữ liệu từ máy chủ"
-              : `${farm.activeCattleCount} con`}
-          </strong>
-        </div>
-        <div className="flex items-baseline gap-2 whitespace-nowrap">
-          <span className="text-[11px] text-subtle">Dịch vụ:</span>
-          <strong className="text-[13px] font-medium text-ink">
-            {fact("", serviceText(farm))}
-          </strong>
-        </div>
-      </div>
-      {action.disabled && (
-        <p className="m-0 text-[11px] text-subtle">
-          {unavailableFarmMessage(farm.name, farm.serviceStatus)}
-        </p>
-      )}
-      <button
-        type="button"
-        disabled={action.disabled || busy}
-        onClick={() => onOpen(farm)}
-        className={`inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${action.primary ? "border-brand bg-brand text-white" : "border-field bg-white text-ink"}`}
-      >
-        <Icon name={action.icon} size={16} />
-        {action.label}
-      </button>
-    </article>
-  );
+      {action.disabled && <p className="m-0 text-[11px] text-subtle">{unavailableFarmMessage(farm.name, farm.serviceStatus)}</p>}
+      <Button
+        variant={action.primary ? 'primary' : 'default'} size="lg" block disabled={action.disabled || busy} onClick={() => onOpen(farm)}
+        className="mt-auto h-auto! min-h-11 whitespace-normal! py-2"
+      ><Icon name={action.icon} size={16} />{action.label}</Button>
+    </Panel>
+  )
 }

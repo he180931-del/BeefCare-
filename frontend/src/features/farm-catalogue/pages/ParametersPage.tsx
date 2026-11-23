@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { catalogueError } from '../api/catalogueError'
-import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Select } from '../../../shared/ui'
+import { Badge, Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Panel, Select } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useSession } from '../../../app/session/sessionContext'
 import { useCatalogueParametersUseCase } from '../hooks/useCatalogueUseCase'
@@ -125,20 +125,23 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
       {actions}
       {notice && <Note tone="ok"><span role="status">{notice}</span></Note>}
       {formError && <Note tone="err"><span role="alert">{formError}</span></Note>}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-edge bg-white px-3.5 py-2.5">
+      {/* Phiên bản đang áp dụng là thông tin trạng thái tích cực (§3): nền xanh nhạt, luôn kèm nhãn chữ. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-ok-bg bg-ok-bg px-4 py-3">
         {current ? (
           <>
-            <Badge tone="ok">{`v${current.versionNo} · đang áp dụng`}</Badge>
+            <Badge tone="ok" className="border-white! bg-white!">{`v${current.versionNo} · đang áp dụng`}</Badge>
             <span className="text-xs text-ink">Áp dụng từ {formatDate(current.effectiveFrom)} · Nguồn: {current.sourceNote} · lưu bởi {current.savedBy}</span>
           </>
         ) : <Badge tone="info">Chưa có phiên bản đang áp dụng</Badge>}
-        <span className="text-[11px] text-muted lg:ml-auto">Gợi ý chỉ hỗ trợ quyết định, không tự tạo sự kiện hay đổi trạng thái</span>
+        <span className="text-[11px] text-label lg:ml-auto">Gợi ý chỉ hỗ trợ quyết định, không tự tạo sự kiện hay đổi trạng thái</span>
       </div>
       {scheduled && <Note tone="info">{`Đã lên lịch phiên bản v${scheduled.versionNo}, áp dụng từ ${formatDate(scheduled.effectiveFrom)}.`}</Note>}
 
-      <div className="grid items-stretch gap-3.5 lg:grid-cols-2">
+      {/* 6+6 khi vùng nội dung từ 880 px (laptop 1.280 px có sidebar), hẹp hơn mỗi nhóm một hàng. */}
+      <div className="@container">
+      <div className="grid items-stretch gap-4 @min-[880px]:grid-cols-2 @min-[1024px]:gap-6">
         {PARAMETER_GROUPS.map((g) => (
-          <Card key={g.id} title={g.title} sub={g.sub}>
+          <Panel key={g.id} title={<span className="text-base">{g.title}</span>} sub={g.sub}>
             <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${g.minCol}px, 1fr))` }}>
               {g.hasBcs && (
                 <Field label="Thang BCS *" id="param-bcs" hint={fieldError(errors.bcsScale)}>
@@ -153,12 +156,13 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
               )}
               {g.fields.map(renderField)}
             </div>
-          </Card>
+          </Panel>
         ))}
+      </div>
       </div>
 
       {canEdit && (
-        <Card title="Lưu phiên bản mới" sub="Bắt buộc ghi nguồn; phiên bản cũ vẫn được giữ để tra cứu">
+        <Panel title={<span className="text-base">Lưu phiên bản mới</span>} sub="Bắt buộc ghi nguồn; phiên bản cũ vẫn được giữ để tra cứu">
           <form
             noValidate
             className="flex flex-wrap items-start gap-3"
@@ -179,7 +183,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
             </div>
             <Button type="submit" variant="primary" className="mt-[26px]" disabled={saving}>Lưu phiên bản mới</Button>
           </form>
-        </Card>
+        </Panel>
       )}
 
       <Foot>Chủ trại và Quản lý có thể lưu phiên bản tham số mới kèm nguồn và ngày áp dụng. Giá trị ngoài khoảng cho phép được báo dưới ô nhập.</Foot>

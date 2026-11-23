@@ -12,7 +12,7 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'info' | 'outline'; i
 export default function FeedReceiptTable({ rows }: { rows: readonly FeedReceipt[] }) {
   const navigate = useNavigate()
   return (
-    <Table scroll stack={false}>
+    <Table scroll stack={false} bordered={false}>
       <thead>
         <tr>
           <Th>Mã phiếu</Th>

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { dmy, money } from '../../../shared/lib/format'
 import type { EntryDetail, HerdEntry } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -12,8 +13,8 @@ const TH = 'px-1! first:pl-3! last:pr-3!'
  */
 export default function CancelModal({ record, onConfirm, onClose, error, saving, onReload }: { record: HerdEntry; onConfirm: (reason: string) => void | Promise<void>; onClose: () => void; error?: unknown; saving?: boolean; onReload?: () => Promise<unknown> }) {
   // Phiếu không có chi tiết (phiếu cũ) vẫn hủy được; danh sách bò rỗng.
-  const d: EntryDetail = { cows: [], payments: [], sourceName: record.source, ...record.detail }
-  const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
+  const d: EntryDetail = { payments: [], sourceName: record.source, ...record.detail, cows: (record.detail?.cows ?? []).filter(cow => cow.lineStatus !== 'VOID') }
+  const { paid } = entryPaymentTotals(record)
   const blocked = (d.cows ?? []).some((c) => c.events?.length)
   const [reason, setReason] = useState('Ghi nhầm nguồn – bò thực tế mua của hộ ông Lê Văn C')
 
@@ -27,7 +28,7 @@ export default function CancelModal({ record, onConfirm, onClose, error, saving,
     >
       <div className="flex flex-col gap-2">
         <h3 className="m-0 text-sm font-semibold">Kiểm tra trước khi hủy</h3>
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead>
             <tr>
               <Th className={`${TH} w-[170px]`}>Bò</Th>

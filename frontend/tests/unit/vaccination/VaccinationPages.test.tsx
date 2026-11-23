@@ -23,7 +23,7 @@ beforeEach(async () => {
 })
 
 describe('lịch tiêm phòng /tiem-phong', () => {
-  it('Quản lý chọn nhiều mũi, ghi nhận hàng loạt và có kiểm tra số lô', async () => {
+  it('Quản lý chọn nhiều mũi và ghi nhận hàng loạt, không có ô số lô (D44)', async () => {
     const user = userEvent.setup()
     app('MANAGER')
     expect(await screen.findByText('BC-000131')).toBeInTheDocument()
@@ -32,11 +32,9 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     await user.click(screen.getByLabelText('Chọn BC-000154'))
     await user.click(screen.getByRole('button', { name: 'Ghi nhận 2 mũi đã chọn' }))
     expect(await screen.findByRole('heading', { name: 'Ghi nhận tiêm – LMLM 2026 · mũi 2/2' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Số lô/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu 2 mũi tiêm' }))
-    expect(await screen.findByText('Số lô là bắt buộc khi tiêm tại trại.')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Số lô'), 'AFT-2609-17')
-    await user.click(screen.getByRole('button', { name: 'Lưu 2 mũi tiêm' }))
-    expect(await screen.findByText(/Đã ghi nhận 2 mũi tiêm; hoãn 0 mũi/)).toBeInTheDocument()
+    expect(await screen.findByText(/Đã ghi nhận 2 mũi tiêm\./)).toBeInTheDocument()
     expect(await screen.findByText('Quá hạn (10)')).toBeInTheDocument()
   })
 
@@ -48,7 +46,6 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     await user.click(await screen.findByLabelText('Chọn BC-000131'))
     await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
     await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })
-    await user.type(screen.getByLabelText('Số lô'), 'AFT-1')
     const dose = screen.getByLabelText('Liều')
     await user.clear(dose)
     await user.type(dose, 'nhiều')
@@ -63,18 +60,61 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     record.mockRestore()
   })
 
-  it('hoãn một mũi cần lý do', async () => {
+  it('D45: đường tiêm "Khác" bắt buộc nhập mô tả; ngưng thịt để trống là 0 ngày, số thập phân bị chặn', async () => {
+    const user = userEvent.setup()
+    const record = vi.spyOn(vaccinationApi, 'recordVaccinations')
+    app('MANAGER')
+    await user.click(await screen.findByLabelText('Chọn BC-000131'))
+    await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
+    await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })
+    expect(screen.queryByLabelText('Đường tiêm khác')).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Đường tiêm'), 'OTHER')
+    const wd = screen.getByLabelText('Ngưng sử dụng thịt')
+    await user.clear(wd)
+    await user.type(wd, '1.5')
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText('Nhập đường tiêm khác.')).toBeInTheDocument()
+    expect(screen.getByText('Số ngày ngưng phải là số nguyên từ 0 đến 365.')).toBeInTheDocument()
+    // Lớp API kiểm và từ chối trước khi gửi lên máy chủ: lần gọi đầu kết thúc bằng lỗi, không ghi gì.
+    await expect(record.mock.results[0].value).rejects.toThrow()
+    await user.type(screen.getByLabelText('Đường tiêm khác'), 'Tiêm tĩnh mạch')
+    await user.clear(wd)
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText(/Đã ghi nhận 1 mũi tiêm/)).toBeInTheDocument()
+    expect(record.mock.calls.at(-1)![0]).toMatchObject({ route: 'OTHER', routeOther: 'Tiêm tĩnh mạch', withdrawalDays: 0 })
+    record.mockRestore()
+  })
+
+  it('D47: lọc như màn chọn bò vào phiếu và "Chọn tất cả" chọn mọi mũi chưa tiêm khớp bộ lọc, kể cả trang khác', async () => {
     const user = userEvent.setup()
     app('MANAGER')
     await screen.findByText('BC-000131')
-    await user.click(screen.getAllByRole('button', { name: 'Hoãn' })[0])
-    await screen.findByLabelText('Lý do chưa tiêm')
-    await user.click(screen.getByRole('button', { name: 'Lưu hoãn' }))
-    expect(await screen.findByText('Lý do chưa tiêm là bắt buộc.')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Lý do chưa tiêm'), 'Bò yếu')
-    await user.click(screen.getByRole('button', { name: 'Lưu hoãn' }))
-    expect(await screen.findByText(/Đã hoãn mũi tiêm/)).toBeInTheDocument()
-    expect(await screen.findByText('Quá hạn (11)')).toBeInTheDocument()
+    expect(screen.getByText('Quá hạn (12)')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Chọn tất cả 12 mũi chưa tiêm'))
+    expect(screen.getByRole('button', { name: 'Ghi nhận 12 mũi đã chọn' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Bỏ chọn' }))
+    await user.type(screen.getByLabelText('Tìm kiếm'), 'BC-000131')
+    expect(await screen.findByText('Quá hạn (1)')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Chọn tất cả 1 mũi chưa tiêm'))
+    await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
+    expect(await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })).toBeInTheDocument()
+  })
+
+  it('D47: xem tất cả các lịch (nhiều vắc-xin) thì "Chọn tất cả" bị tắt', async () => {
+    const user = userEvent.setup()
+    app('MANAGER')
+    await screen.findByText('BC-000131')
+    await user.click(screen.getByRole('button', { name: /LMLM 2026/ }))
+    expect(await screen.findByLabelText('Chọn một lịch để chọn tất cả')).toBeDisabled()
+  })
+
+  it('D46: không còn nút Hoãn; tab chỉ còn Tất cả, Quá hạn, Đến hạn trong N ngày, Đã tiêm', async () => {
+    app('MANAGER')
+    await screen.findByText('BC-000131')
+    expect(screen.queryByRole('button', { name: 'Hoãn' })).not.toBeInTheDocument()
+    expect(screen.getByText(/^Đến hạn trong 7 ngày \(/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Sắp tới \(/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Đã hoãn \(/)).not.toBeInTheDocument()
   })
 
   it('báo lỗi tải và cho thử lại', async () => {
@@ -165,7 +205,7 @@ describe('tab Tiêm phòng của hồ sơ bò', () => {
   })
 
   it.each(['TECHNICIAN'] as const)('%s chỉ xem', async (role) => {
-    renderAs(role, <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine&m=defer')
+    renderAs(role, <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine')
     await screen.findByText('Lịch sử tiêm')
     expect(screen.queryByRole('button', { name: /Ghi nhận tiêm/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Thao tác')).not.toBeInTheDocument()

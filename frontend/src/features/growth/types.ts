@@ -69,7 +69,8 @@ export interface RecordGrowthCommand {
 export interface CorrectGrowthCommand {
   action: 'CORRECT' | 'EXCLUDE'
   values?: Partial<Pick<RecordGrowthCommand, 'measuredAt' | 'method' | 'weightKg' | 'heartGirthCm' | 'bodyLengthCm' | 'bcs'>>
-  reason: string
+  /** Ghi chú, không bắt buộc (D43); gửi lên API ở trường `reason`. */
+  reason?: string
   expectedVersion: number
 }
 

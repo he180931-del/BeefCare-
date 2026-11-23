@@ -104,7 +104,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
 
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
-    expect(screen.getByTestId('current-path')).toHaveTextContent('/sign-in')
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/dang-nhap')
     expect(sessionStorage.getItem(CURRENT_FARM_KEY)).toBeNull()
   })
 
@@ -129,7 +129,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     await user.click(await screen.findByRole('button', { name: 'Đăng xuất' }))
 
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByTestId('current-path')).toHaveTextContent('/sign-in')
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/dang-nhap')
     expect(sessionStorage.getItem(CURRENT_FARM_KEY)).toBeNull()
   })
 })

@@ -6,5 +6,5 @@ export const TH = '!px-1 first:!pl-3 last:!pr-3'
 
 /** Thẻ Figma: viền #bdbdbd, bo 6, padding 16, gap 14 giữa các khối. */
 export const Box = ({ className, children }: { className?: string; children: ReactNode }) => (
-  <section className={cx('flex flex-col gap-[14px] rounded-md border border-[#bdbdbd] bg-white p-4', className)}>{children}</section>
+  <section className={cx('flex min-w-0 flex-col gap-[14px] rounded-2xl border border-field bg-white p-4', className)}>{children}</section>
 )

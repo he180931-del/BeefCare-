@@ -39,7 +39,7 @@ export type BackendProfile = {
   notes?: string | null
   canUpdate?: boolean
   canChangePurpose?: boolean
-  entry?: { source?: string | null; entryDate?: string | null; weightKg?: number | null; weightBasis?: string | null; voucherCode?: string | null; seller?: string | null } | null
+  entry?: { id?: number | null; voucherId?: number | null; source?: string | null; entryDate?: string | null; weightKg?: number | null; weightBasis?: string | null; voucherCode?: string | null; seller?: string | null } | null
   quarantineUntil?: string | null
   photoUrl?: string | null
   damId?: number | null

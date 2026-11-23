@@ -101,8 +101,8 @@ export default function AnnouncementListPage() {
           {writer && <Button variant="primary" onClick={() => navigate('/thong-bao/moi')}>Soạn thông báo</Button>}
         </PageHeader>
         <Segmented options={tabs} value={activeTab} onChange={(v) => pickTab(v as Tab)} />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,400px)_minmax(0,1fr)]">
-          <Card>
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)] @min-[1024px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[1024px]:gap-6">
+          <Card variant="panel">
             {items.length === 0 ? <EmptyBlock title="Chưa có thông báo" sub="Thông báo trong mục này sẽ hiện ở đây." /> : (
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {items.map((a) => (
@@ -111,7 +111,7 @@ export default function AnnouncementListPage() {
                       type="button"
                       onClick={() => pick(a.id)}
                       aria-current={a.id === selectedId}
-                      className={`flex w-full cursor-pointer flex-col gap-1.5 rounded-md border px-3 py-2.5 text-left ${a.id === selectedId ? 'border-edge bg-chip' : 'border-transparent bg-white hover:bg-page'}`}
+                      className={`flex w-full cursor-pointer flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-brand ${a.id === selectedId ? 'border-ok-bg bg-ok-bg' : 'border-transparent bg-white hover:bg-page'}`}
                     >
                       <span className={`text-[13px] text-[#212121] ${a.unread ? 'font-bold' : 'font-semibold'}`}>{a.title}</span>
                       <span className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">

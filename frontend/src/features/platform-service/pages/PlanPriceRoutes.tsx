@@ -212,7 +212,7 @@ export default function PlanPriceRoutes() {
     </Modal> : null}
     {leaveTo ? <Modal title={DISCARD_PROMPT.question} topTitle={TITLE} width={560} onClose={() => setLeaveTo(null)}>
       <p className="m-0 text-sm text-ink">Bảng giá đang soạn chưa được công bố.</p>
-      <ModalFooter className="!px-0 !pb-0"><ModalButton onClick={() => setLeaveTo(null)}>{DISCARD_PROMPT.keep}</ModalButton><ModalButton variant="danger" onClick={discardAndLeave}>{DISCARD_PROMPT.discard}</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton onClick={() => setLeaveTo(null)}>{DISCARD_PROMPT.keep}</ModalButton><ModalButton variant="danger" onClick={discardAndLeave}>{DISCARD_PROMPT.discard}</ModalButton></ModalFooter>
     </Modal> : null}
     {withdrawing ? <WithdrawDialog version={withdrawing} onClose={() => setWithdrawing(null)} onStale={refresh} onDone={() => { setMessage(`Đã rút lại phiên bản v${withdrawing.id}; phiên bản được giữ trong lịch sử.`); setWithdrawing(null); refresh() }} /> : null}
   </Layout>

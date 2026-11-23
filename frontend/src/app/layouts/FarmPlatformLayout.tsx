@@ -167,9 +167,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
         </aside>
 
         <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px]" style={{ backgroundImage: `url(${wave})` }}>
-          <header className="flex h-[72px] items-center bg-white px-4 lg:pl-8 lg:pr-[30px]">
-            <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-10 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
-            <div className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{override || title}</div>
+          <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px]">
+            <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-11 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
+            <div className="min-w-0 flex-1 wrap-anywhere pr-3 text-sm font-bold leading-tight text-ink">{override || title}</div>
             {!platform && (
               <div className="relative mr-[22px] hidden lg:block">
                 <button
@@ -217,7 +217,8 @@ export default function Layout({ title, user = 'owner', children }: { title: str
             </Link>
             <AccountMenu fallbackName={u.name} fallbackInitials={u.initials} fallbackRole={u.role} />
           </header>
-          <main className="flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>
+          {/* @container: lưới Bento đo theo vùng nội dung sau sidebar (docs/BeefCare-Bento-Grid.md §2), không theo màn hình. */}
+          <main className="@container flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>
     </TopbarTitleContext.Provider>

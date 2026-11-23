@@ -34,10 +34,10 @@ export function PermissionChecklist({ role }: { role: FarmRole }) {
 
 const ROLES: FarmRole[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 
-/** SCR-13 "Quyền theo vai trò" (D29): toàn bộ Table III-2, chỉ đọc, ba vai trò cạnh nhau; điện thoại hiện dạng thẻ. */
+/** SCR-13 "Quyền theo vai trò" (D29): toàn bộ Table III-2, chỉ đọc, ba vai trò cạnh nhau. */
 export function PermissionTable() {
   return (
-    <Table>
+    <Table variant="panel" stack={false}>
       <thead><tr><Th>Nhóm quyền</Th>{ROLES.map((role) => <Th key={role}>{roleLabel(role)}</Th>)}</tr></thead>
       <tbody>
         {PERMISSION_AREAS.map((area) => (

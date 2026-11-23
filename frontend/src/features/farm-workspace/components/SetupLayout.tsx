@@ -90,28 +90,13 @@ export default function SetupLayout({
         </div>
         <img src={farm} alt="" className="absolute inset-x-0 bottom-0 w-full" />
       </aside>
-      <div className="relative min-h-screen overflow-x-clip">
-        <img
-          src={wave}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 size-full object-cover opacity-80"
-        />
+      <div className="@container/setup relative min-h-screen overflow-x-clip">
+        <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full object-cover opacity-80" />
         <header className="relative z-10 flex h-[72px] items-center justify-between gap-4 border-b border-rule bg-white px-5 sm:px-8">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-base font-bold text-brand-dark no-underline lg:invisible"
-          >
-            <img src={logo} alt="" className="size-8 rounded-lg object-cover" />
-            BeefCare
-          </Link>
+          <Link to="/" className="flex items-center gap-2 text-base font-bold text-brand-dark no-underline lg:invisible"><img src={logo} alt="" className="size-8 rounded-lg object-cover" />BeefCare</Link>
           <AccountMenu fallbackName={user.fullName} fallbackInitials={user.fullName.trim().charAt(0).toUpperCase()} fallbackRole={session?.role} />
         </header>
-        <main
-          className={`relative mx-auto flex w-full flex-col gap-5 px-5 py-8 sm:px-8 ${narrow ? "max-w-[784px]" : ""}`}
-        >
-          {children}
-        </main>
+        <main className={`@container relative mx-auto flex w-full min-w-0 flex-col gap-4 px-4 py-8 @min-[640px]/setup:px-6 @min-[1024px]/setup:gap-6 @min-[1024px]/setup:px-8 ${narrow ? 'max-w-[784px]' : ''}`}>{children}</main>
       </div>
     </div>
   );

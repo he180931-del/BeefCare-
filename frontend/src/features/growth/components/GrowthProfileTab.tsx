@@ -11,6 +11,7 @@ import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import type { GrowthProfile, GrowthProjection, GrowthRecord } from '../types'
 import GrowthChart, { ChartLegend } from './GrowthChart'
 import GrowthCorrectModal from './GrowthCorrectModal'
+import GrowthDeleteModal from './GrowthDeleteModal'
 import GrowthRecordModal from './GrowthRecordModal'
 
 const HISTORY_ROWS = 5
@@ -31,9 +32,10 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
     next.delete('r')
     setParams(next)
   }
-  const openCorrect = (id: number) => {
+  /** Mở popup Sửa ('correct') hoặc Xóa ('delete') cho một lần đo; giữ trên URL để mở lại được từ dòng thời gian. */
+  const openRecordModal = (kind: 'correct' | 'delete', id: number) => {
     const next = new URLSearchParams(params)
-    next.set('m', 'correct')
+    next.set('m', kind)
     next.set('r', String(id))
     setParams(next)
   }
@@ -49,6 +51,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   const correctTarget = modal === 'correct'
     ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
     : undefined
+  const deleteTarget = modal === 'delete' ? data.records.find((r) => String(r.id) === params.get('r') && r.status === 'VALID') : undefined
 
   const { projection } = data
   return (
@@ -64,7 +67,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
           <div className="col-span-full">
             <Note tone="warn">
               {`Chờ xác nhận chết / mất: ${data.cattle.code} không ghi được lần cân mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất.`}
-              {canWrite && ' Vẫn sửa hoặc loại trừ được các bản ghi cân đã có.'}
+              {canWrite && ' Vẫn sửa hoặc xóa được các bản ghi cân đã có.'}
             </Note>
           </div>
         )}
@@ -84,10 +87,17 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
           </section>
         )}
         {!modal && recordId != null && !selectedRecord && <div className="col-span-full"><Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note></div>}
-        <History profile={data} selectedRecord={!modal ? selectedRecord : undefined} canWrite={canWrite} onCorrect={openCorrect} />
+        <History
+          profile={data}
+          selectedRecord={!modal ? selectedRecord : undefined}
+          canWrite={canWrite}
+          onCorrect={(id) => openRecordModal('correct', id)}
+          onDelete={(id) => openRecordModal('delete', id)}
+        />
       </div>
       {canWrite && !exitPending && modal === 'record' && <GrowthRecordModal cattleCode={cattleCode} onClose={closeModal} onSaved={saved} />}
       {canWrite && correctTarget && <GrowthCorrectModal key={correctTarget.id} record={correctTarget} onClose={closeAll} onSaved={saved} />}
+      {canWrite && deleteTarget && <GrowthDeleteModal key={deleteTarget.id} record={deleteTarget} onClose={closeAll} onDeleted={saved} />}
     </div>
   )
 }
@@ -225,17 +235,21 @@ function Progress({ progress }: { progress?: FinishingProgress }) {
   )
 }
 
-function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: GrowthProfile; selectedRecord?: GrowthRecord; canWrite: boolean; onCorrect: (id: number) => void }) {
+interface RowActions { canWrite: boolean; onCorrect: (id: number) => void; onDelete: (id: number) => void }
+
+function History({ profile, selectedRecord, canWrite, onCorrect, onDelete }: RowActions & { profile: GrowthProfile; selectedRecord?: GrowthRecord }) {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const [all, setAll] = useState(false)
-  const rows = selectedRecord ? [selectedRecord] : [...profile.records].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
+  // Lần đo đã xóa (EXCLUDED) không hiện trong lịch sử đo; chỉ còn xem được khi mở đúng bản ghi đó từ dòng thời gian.
+  const visible = profile.records.filter((r) => r.status === 'VALID')
+  const rows = selectedRecord ? [selectedRecord] : [...visible].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   const shown = all ? rows : rows.slice(0, HISTORY_ROWS)
   return (
     <Panel
       title={selectedRecord ? 'Bản ghi tăng trưởng đã chọn' : 'Lịch sử đo'}
       sub={selectedRecord
         ? 'ADG (mức tăng cân bình quân mỗi ngày) tính từ lần cân hợp lệ trước đó.'
-        : 'Mới nhất ở trên · nhấn tiêu đề cột Thời điểm đo để đổi thứ tự. ADG (mức tăng cân bình quân mỗi ngày) của từng dòng tính từ lần cân hợp lệ trước đó; dòng đã loại trừ in xám và không được tính.'}
+        : 'Mới nhất ở trên · nhấn tiêu đề cột Thời điểm đo để đổi thứ tự. ADG (mức tăng cân bình quân mỗi ngày) của từng dòng tính từ lần cân hợp lệ trước đó.'}
       className="col-span-full"
     >
       {rows.length === 0 ? (
@@ -249,7 +263,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: Gr
             </tr>
           </thead>
           <tbody>
-            {shown.map((r) => <HistoryRow key={r.id} r={r} adg={profile.rowAdg[r.id]} canWrite={canWrite} onCorrect={onCorrect} />)}
+            {shown.map((r) => <HistoryRow key={r.id} r={r} adg={profile.rowAdg[r.id]} canWrite={canWrite} onCorrect={onCorrect} onDelete={onDelete} />)}
           </tbody>
         </Table>
       )}
@@ -260,7 +274,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: Gr
   )
 }
 
-function HistoryRow({ r, adg, canWrite, onCorrect }: { r: GrowthRecord; adg?: number; canWrite: boolean; onCorrect: (id: number) => void }) {
+function HistoryRow({ r, adg, canWrite, onCorrect, onDelete }: RowActions & { r: GrowthRecord; adg?: number }) {
   const excluded = r.status !== 'VALID'
   const method = r.method ? `${METHOD_LABEL[r.method]} · ${r.basis ? BASIS_LABEL[r.basis] : ''}` : '—'
   return (
@@ -275,9 +289,18 @@ function HistoryRow({ r, adg, canWrite, onCorrect }: { r: GrowthRecord; adg?: nu
       <Td>{excluded || adg === undefined ? '—' : fmtDec(adg, 2)}</Td>
       <Td>{r.measuredByName}</Td>
       <Td>
-        {r.status === 'EXCLUDED' ? <Badge tone="outline">Đã loại trừ</Badge> : r.corrected ? <Badge tone="info">Hợp lệ · Đã sửa</Badge> : <Badge tone="ok" icon="circle-check">Hợp lệ</Badge>}
+        {r.status === 'EXCLUDED' ? <Badge tone="outline">Đã xóa</Badge> : r.corrected ? <Badge tone="info">Hợp lệ · Đã sửa</Badge> : <Badge tone="ok" icon="circle-check">Hợp lệ</Badge>}
       </Td>
-      {canWrite && <Td>{excluded ? '—' : <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa · Loại trừ</Button>}</Td>}
+      {canWrite && (
+        <Td>
+          {excluded ? '—' : (
+            <span className="inline-flex gap-3">
+              <Button variant="link" onClick={() => onCorrect(r.id)}>Sửa</Button>
+              <Button variant="link" className="text-err-fg" onClick={() => onDelete(r.id)}>Xóa</Button>
+            </span>
+          )}
+        </Td>
+      )}
     </tr>
   )
 }

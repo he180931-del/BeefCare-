@@ -20,7 +20,12 @@ describe('SCR-07 Owner registration', () => {
     render(<SessionContext.Provider value={session}><MemoryRouter><OwnerRegistrationPage /></MemoryRouter></SessionContext.Provider>)
 
     await waitFor(() => expect(getProfile).toHaveBeenCalled())
-    expect(await screen.findByDisplayValue(/owner@example.test/)).toBeInTheDocument()
+    // Read-only value: the whole address and its status stay visible (it wraps on phones) and nothing is editable.
+    const email = await screen.findByLabelText('Thư điện tử đăng nhập')
+    await waitFor(() => expect(email).toHaveTextContent('owner@example.test · đã xác minh'))
+    expect(email.tagName).toBe('OUTPUT')
+    expect(email).toHaveClass('wrap-anywhere')
+    expect(screen.queryByRole('textbox', { name: 'Thư điện tử đăng nhập' })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     getProfile.mockRestore()
   })

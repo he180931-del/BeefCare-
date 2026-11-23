@@ -756,14 +756,71 @@ AnNT đồng ý phương án trong phiên: "Được, sửa theo đề xuất c�
 
 Thứ tự thực hiện: cập nhật spec / câu hỏi / quyết định trước, sau đó sửa code và kiểm chứng. Quyết định này chưa tự chứng nhận API hoặc UI; bằng chứng nằm ở kiểm thử của gói triển khai.
 
-### D43 — Tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
+### D43 — FE-08: tách Sửa / Xóa bản ghi cân, ghi chú không bắt buộc (22/11/2026)
+
+TuanPQ (chủ FE-08) chốt trong phiên: "Xóa dùng cách đề xuất", và "vẫn bỏ ràng buộc lý do, ghi quyết định vào REQUIREMENT_DECISIONS". Làm khác R-08-07 và popup "Sửa / Loại trừ bản ghi cân" của spec FE-08 (SRS 28/10, UC-FE08-03):
+
+1. Bảng lịch sử đo (SCR-30) có hai nút riêng: **Sửa** và **Xóa**, thay cho nút "Sửa · Loại trừ" và ô chọn hành động trong popup.
+2. Popup **Sửa bản ghi cân** chỉ để sửa giá trị. Ô "Lý do *" đổi thành **Ghi chú**, không bắt buộc, tối đa 500 ký tự; khi mở, điền sẵn ghi chú của lần sửa gần nhất.
+3. **Xóa** hiện popup xác nhận, không cần ghi chú. Phía máy chủ vẫn là loại trừ mềm (`action: EXCLUDE`, trạng thái `EXCLUDED`), không xóa vật lý: lần đo không vào tính toán (R-08-06), không vẽ, không hiện trong lịch sử đo và không đếm vào "Số lần đo"; mở đúng bản ghi từ dòng thời gian vẫn thấy nhãn "Đã xóa".
+4. BR-D15 giữ nguyên phần còn lại: mỗi lần sửa / xóa vẫn lưu Record Revision với giá trị trước / sau, người và thời điểm trong cùng transaction, kiểm version (MSG-COM-05). Chỉ ghi chú (`reason`) có thể `null`.
+
+Đi kèm: `GrowthDtos.Correction.reason` bỏ `@NotBlank` (giữ `@Size(max = 500)`); `RecordRevisionService` thêm `recordWithOptionalNote` cho FE-08, hàm `record` của các feature khác vẫn bắt buộc lý do. Không migration (cột `reason`, `correction_reason` đã cho phép null), không đổi route hay hình dạng response; OpenAPI vốn không đánh dấu `reason` bắt buộc.
+
+Cùng đợt (đã merge ở PR #64), TuanPQ yêu cầu gọn giao diện FE-08: popup ghi đổi tên "Ghi nhận cân", bỏ lựa chọn "Ước lượng khác" khi ghi mới (bản ghi cũ vẫn hiển thị / sửa được, backend vẫn nhận `OTHER`), bỏ ô "Cơ sở số liệu" và các dòng chú thích; chỉ số ADG ghi số ngày và số lần cân thực tế thay cho nhãn cố định "ADG 60 / 90 ngày" (công thức GBR-39 / GBR-107 không đổi).
+
+Spec FE-08 đã cập nhật theo quyết định này: UC-FE08-03, R-08-06, R-08-07, SCR-30 (mục 3, 4, 6, 9, 13, 14), popup Ghi nhận cân, popup Sửa bản ghi cân, popup Xóa lần đo mới, hợp đồng A4, MSG-FE08-05 và MSG-FE08-06 mới, TC-08-12 → TC-08-14.
+
+### D44 — FE-09: bỏ số lô vắc-xin khỏi ghi tiêm (22/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: "xóa trường này, ko ý nghĩa vì tôi ko quản lí số lượng", chọn phương án ẩn hẳn số lô cũ. Trang trại không quản lý tồn kho vắc-xin theo lô, nên số lô gõ tay không dùng được để truy vết. Làm khác R-09-08 và SCR-33 của spec FE-09 (SRS 28/10, GBR-42):
+
+1. Màn Ghi nhận tiêm, popup Sửa / Hủy bản ghi tiêm và popup sửa trên dòng thời gian hồ sơ bò không còn ô Số lô; tiêm tại trại không còn bắt buộc số lô (gỡ MSG-FE09-05).
+2. Không nơi nào trên giao diện hiển thị số lô, kể cả bản ghi cũ: cột "Lô · liều" đổi thành "Liều" ở hồ sơ tiêm của bò và trang Lịch sử tiêm; màn kỹ thuật viên và dòng thời gian bỏ phần "lô …".
+3. Dữ liệu cũ không xóa: cột `batch_no` giữ nguyên (không migration). API `POST /vaccinations` và `/vaccinations/{id}/correction` vẫn nhận `batchNo` tùy chọn (≤ 50 ký tự) để tương thích; frontend không gửi nữa, nên sửa bản ghi giữ nguyên số lô cũ trong DB.
+
+Đi kèm: `VaccinationCommandService` bỏ kiểm "bắt buộc số lô khi ON_FARM", giữ giới hạn 50 ký tự khi có gửi. Không đổi route hay hình dạng response. Spec FE-09 đã cập nhật: bảng dữ liệu, R-09-08, UC ghi tiêm / sửa, popup ghi tiêm (mục 3), bảng hồ sơ và Lịch sử tiêm, popup sửa, hợp đồng A6, MSG-FE09-05, TC-09-13. "Số lô" của nhập kho thức ăn (FE-23) không thuộc quyết định này.
+
+### D45 — FE-09: kiểm liều, đường tiêm "Khác" và số ngày ngưng thịt (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: liều chỉ nhận số dương; chọn đường tiêm "Khác" thì phải cho nhập và bắt buộc không để trống; ngưng thịt chỉ là số nguyên, "nếu người dùng không chọn thì tự để là 0". Bổ sung cho popup Ghi tiêm và popup Sửa bản ghi tiêm của spec FE-09 (SCR-33, mục 5 – 7):
+
+1. **Liều** (không bắt buộc): nếu nhập phải là số dương, có thể kèm đơn vị bắt đầu bằng chữ cái ("2", "2,5 ml", "1 liều"); từ chối 0, số âm, chữ, khoảng "1-2 ml". Frontend báo "Liều không hợp lệ."; backend kiểm lại liều do người dùng gửi (liều tham chiếu lấy từ danh mục không kiểm lại).
+2. **Đường tiêm "Khác"**: hiện ô "Đường tiêm khác", bắt buộc, tối đa 255 ký tự. Mô tả lưu thẳng vào cột `route` (thay cho mã `OTHER`) và hiển thị lại đúng chữ đã nhập; gửi `OTHER` trơn bị từ chối với `field = routeOther`. Không migration (cột `route` varchar(255)).
+3. **Ngưng thịt**: số nguyên 0 – 365, giữ cho phép 0 vì có vắc-xin không cần ngưng thịt. Ô để trống được ghi là 0 ngày. Backend không còn làm tròn ngầm số thập phân (trước đây `1.5` thành `1`): trường `withdrawalDays` của ghi tiêm và sửa bản ghi đọc bằng `WholeNumberDeserializer`, gửi số thập phân trả HTTP 400.
+
+Đi kèm: `VaccinationCommandService` thêm `requireValidDose`, `requireRouteDescription`, `requireWithdrawalDays` (Javadoc tiếng Việt, hằng số đặt đầu class); `CareDtos.RecordVaccinations` / `CorrectVaccination` gắn deserializer cho `withdrawalDays`. Không đổi route API hay hình dạng response; client API không gửi `withdrawalDays` vẫn lấy theo danh mục vắc-xin như cũ.
+
+### D46 — FE-09: bỏ hoãn mũi tiêm, khóa lịch đã hoàn thành và điều kiện sửa lịch (23/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: lịch tiêm xong hết "phải khóa lịch đấy chứ sao lại còn cho chỉnh sửa để dùng lại"; "hoãn không có ý nghĩa" – con nào chưa tiêm được thì sửa lịch bỏ con đó ra; bỏ tab Sắp tới; số ngày "Đến hạn" theo tham số trại; đồng ý bảng quy tắc sửa lịch và cách chuyển dữ liệu hoãn cũ. Làm khác UC-FE09-06, R-09-05, R-09-12, GBR-43 (tab) và SCR-31 / SCR-32 / SCR-33 của spec FE-09 (SRS 28/10):
+
+1. **Bỏ hoãn mũi**: không còn API `POST /scheduled-doses/{doseId}/defer` (trả 404), popup Hoãn, lựa chọn "Hoãn" từng con khi ghi theo lô, trạng thái `DEFERRED`, tab "Đã hoãn", MSG-FE09-06 / 11. Hủy bản ghi tiêm thì mũi quay về PLANNED (lịch đã dừng thì CANCELLED).
+2. **Lịch đã hoàn thành**: lịch ACTIVE không còn mũi PLANNED (đã tiêm hoặc đã hủy hết) được suy ra là "đã hoàn thành" (`completed` trong A2), hiện nhãn trên thẻ lịch và bị khóa: không sửa, không thêm bò (backend trả MSG-COM-05 `schedule_completed`); màn Quản lý lịch ẩn nút Lưu và Dừng. Lịch có nhắc lại sinh mũi nhắc mới sau mỗi lần tiêm mũi cuối nên chỉ kết thúc khi dừng. Hủy một bản ghi làm mũi quay về PLANNED thì lịch tự mở lại.
+3. **Điều kiện sửa lịch đang chạy**: chưa ai tiêm thì sửa tự do; đã có mũi DONE thì khóa vắc-xin (như Q3), ngày bắt đầu và khoảng cách giữa mũi; số mũi không giảm dưới mũi đã tiêm, không đổi khi đã bắt đầu loạt nhắc lại; vẫn đổi được tên, nhắc lại, thêm / bỏ bò. Bò thêm vào lịch có ngày bắt đầu đã qua thì mũi 1 hạn hôm nay (trước đây bị quá hạn ngay khi thêm).
+4. **Tab danh sách mũi**: Tất cả · Quá hạn · Đến hạn trong N ngày · Đã tiêm. N = `VACCINATION_LEAD_DAYS` của phiên bản tham số trại đang hiệu lực (mặc định 7). Mũi còn xa hạn chỉ hiện ở "Tất cả".
+5. **Dữ liệu cũ**: changeset mới `20261123000100_vaccination_remove_deferral` chuyển mũi DEFERRED về PLANNED, hạn = ngày hẹn mới nếu có, tăng version; cột `deferral_reason`, `new_expected_date`, `deferral_note` giữ nguyên (không còn dùng). Không sửa migration cũ.
+
+Đi kèm: `VaccinationCommandService` viết lại phần sửa lịch thành các hàm nhỏ (`applyName`, `applyVaccine`, `applyDates`, `applyBooster`, `applyDoseCount`, `applyTarget`, `planMissingDoses`, `isCompleted`) theo Java Code Convention, Javadoc tiếng Việt; `CareDtos` bỏ `DeferDose`, `DoseResult`, trường hoãn của `VaccinationAnimal` / `ScheduledDoseView` và `deferredCount` của `VaccinationBatchResult`; `VaccinationCommandResource` viết lại. OpenAPI và API catalog đã sinh lại. Phần chỉ đọc trạng thái hoãn của FE-04 (xuất đàn), FE-14 (nhắc việc REM-06) và FE-15 (dashboard, báo cáo) **không sửa**: sau migration không còn mũi DEFERRED nên các nhánh đó không còn chạy; trang Tổng quan vẫn tự giữ "Đến hạn 7 ngày" của FE-15 – cần báo chủ các feature nếu muốn thống nhất.
+
+### D47 — FE-09: lọc và "Chọn tất cả" ở danh sách mũi tiêm (23/11/2026)
+
+TuanPQ (chủ FE-09) yêu cầu trong phiên: trang Tiêm phòng không có cách chọn nhanh mà phải ấn từng mũi; lọc "như lúc chọn bò cho vào phiếu". Bổ sung cho SCR-31 (SRS chỉ có ô chọn từng dòng):
+
+1. **Bộ lọc** như màn chọn bò vào phiếu xuất: Tìm kiếm (mã / tên bò), Chuồng, Nhóm đàn – kết hợp VÀ, áp cho bảng và số đếm trên tab; bỏ lọc bằng lựa chọn "Tất cả" của từng ô (không có nút Xóa lọc riêng). Hệ thống không có khái niệm "khu" (chuồng chỉ có mã, tên, sức chứa) nên gom theo chuồng.
+2. **Chọn tất cả**: ô đầu cột chọn mọi mũi chưa tiêm khớp lịch đang xem + tab + bộ lọc, kể cả các trang chưa mở; bấm lại để bỏ; thêm nút "Bỏ chọn".
+3. **Một lần ghi một vắc-xin**: màn ghi tiêm theo lô dùng một vắc-xin cho cả lô và backend từ chối mũi của lịch khác vắc-xin, nên "Chọn tất cả" chỉ bật khi các mũi khớp bộ lọc cùng vắc-xin (đang xem tất cả các lịch thì tắt, gợi ý chọn một lịch); chọn tay lẫn vắc-xin thì báo và khóa nút "Ghi nhận".
+
+Chỉ đổi frontend (lọc trên dữ liệu A2 đã đọc); không đổi backend, route hay DTO. Spec FE-09 SCR-31 đã cập nhật (mục 6a, 7).
+
+### D48 — Cài đặt tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
 
 Chủ dự án xác nhận cập nhật tài liệu theo hành vi giao diện đã chốt, giữ nguyên hệ thống mã của SRS 28/10:
 
-1. Không tạo `UC-FE01-04A` hoặc `SCR-08A`. `SCR-08` vẫn là màn hình logic **Hồ sơ & quyền của tôi**, dùng chung một `AccountShell` cho mọi vai trò, gồm hai tab **Hồ sơ** (`/tai-khoan`) và **Quyền theo vai trò** (`/quyen-theo-vai-tro`). Các route hồ sơ cũ chỉ chuyển hướng về `/tai-khoan`.
-2. Tab Hồ sơ chỉ sửa họ tên và số điện thoại liên hệ; email và phương thức đăng nhập chỉ đọc. Lưu hai trường hồ sơ không yêu cầu xác thực lại mật khẩu. Đổi hoặc thêm mật khẩu vẫn theo UC-FE01-06 / D07; Google xác thực lại luôn trở về `/tai-khoan`.
-3. Tab Quyền theo vai trò là bảng tham khảo cố định Table III-2 cho Owner, Manager và Technician, không phụ thuộc membership hoặc trại hiện tại, không cấp quyền và không gọi API quyền membership. Các dòng `NO` được ẩn; API quyền membership giữ lại để tương thích.
-4. Mọi khung giao diện đã đăng nhập dùng cùng menu avatar + họ tên với đúng hai mục **Hồ sơ của tôi** và **Đăng xuất**. Hồ sơ mở SCR-08; đăng xuất kết thúc phiên và xóa trại đang chọn.
+1. Không tạo `UC-FE01-04A` hoặc `SCR-08A`. `SCR-08` vẫn là màn hình logic **Cài đặt**, nhưng được mở bằng popup dùng chung từ menu tài khoản sau khi người dùng đăng nhập; không còn trang hồ sơ độc lập có thanh điều hướng riêng. Popup gồm hai mục **Hồ sơ** và **Quyền theo vai trò**. Các route hồ sơ cũ chuyển hướng về trang phù hợp với phiên đăng nhập.
+2. Mục Hồ sơ chỉ sửa họ tên và số điện thoại liên hệ; email và phương thức đăng nhập chỉ đọc. Lưu hai trường hồ sơ không yêu cầu xác thực lại mật khẩu. Đổi hoặc thêm mật khẩu vẫn theo UC-FE01-06 / D07; sau khi Google xác thực lại, hệ thống trở về đúng trang trước đó và mở lại luồng đổi mật khẩu trong popup.
+3. Mục Quyền theo vai trò là bảng tham khảo cố định Table III-2 cho Owner, Manager và Technician, không phụ thuộc membership hoặc trại hiện tại, không cấp quyền và không gọi API quyền membership. Các dòng `NO` được ẩn; API quyền membership giữ lại để tương thích.
+4. Mọi khung giao diện đã đăng nhập dùng cùng menu avatar + họ tên với đúng hai mục **Hồ sơ của tôi** và **Đăng xuất**. **Hồ sơ của tôi** mở popup SCR-08 tại trang hiện tại; **Đăng xuất** kết thúc phiên và xóa trại đang chọn.
 5. Trong không gian trại, tên trại trên thanh trên cùng mở bộ chuyển nhanh. Chọn trại `ACTIVE` kiểm lại quyền / trạng thái, xóa dữ liệu và bộ lọc trại trước rồi mở trang chủ đúng vai trò; chọn trại không `ACTIVE` hoặc **Quản lý trang trại** mở SCR-09.
 
 Ảnh hưởng: cập nhật SRS UC-FE01-04, UC-FE02-02, SCR-08, SCR-09, quy ước thanh trên cùng và chú thích Table III-2; cập nhật spec FE-01 / FE-02 và test case tương ứng. Đây là thay đổi điều hướng và trình bày quyền, không đổi schema dữ liệu hay hình dạng API hồ sơ / danh sách trại.

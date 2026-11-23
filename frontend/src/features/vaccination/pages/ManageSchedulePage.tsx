@@ -38,6 +38,9 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
   const navigate = useNavigate()
   const [modal, openModal, closeModal] = useModalParam()
   const s = detail?.schedule
+  // D46: lịch đã tiêm xong hết thì khóa toàn bộ; lịch đã có mũi tiêm thì khóa vắc-xin, ngày bắt đầu, khoảng cách giữa mũi.
+  const locked = s?.completed === true
+  const started = detail?.hasDoneDoses === true
   const [name, setName] = useState(s?.name ?? '')
   const [vaccineId, setVaccineId] = useState(String(s?.vaccineId ?? options.vaccines[0].id))
   const [firstDue, setFirstDue] = useState(s?.firstDueDate ?? options.now.slice(0, 10))
@@ -87,36 +90,39 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={TITLE} sub={s ? `${s.name} · đang chạy từ ${fmtDate(s.firstDueDate)}` : 'Tạo lịch tiêm mới cho một nhóm bò'}>
-        {s && <Button onClick={() => openModal('stop')}>Dừng lịch</Button>}
-        <Button variant="primary" disabled={saving} onClick={() => void save()}>Lưu lịch</Button>
+      <PageHeader title={TITLE} sub={s ? `${s.name} · ${locked ? 'đã hoàn thành' : `đang chạy từ ${fmtDate(s.firstDueDate)}`}` : 'Tạo lịch tiêm mới cho một nhóm bò'}>
+        {s && !locked && <Button onClick={() => openModal('stop')}>Dừng lịch</Button>}
+        {!locked && <Button variant="primary" disabled={saving} onClick={() => void save()}>Lưu lịch</Button>}
       </PageHeader>
       <div className="flex flex-wrap items-center gap-3">
         <label htmlFor="ms-pick" className="text-xs font-medium text-ink">Lịch đang chạy</label>
         <Select id="ms-pick" className="w-[320px] max-w-full" value={String(selectedId)} onChange={(e) => onSelect(e.target.value)}>
-          {cards.map((c) => <option key={c.schedule.id} value={c.schedule.id}>{c.schedule.name}</option>)}
+          {cards.map((c) => <option key={c.schedule.id} value={c.schedule.id}>{c.schedule.completed ? `${c.schedule.name} (đã hoàn thành)` : c.schedule.name}</option>)}
           <option value="new">+ Lịch mới</option>
         </Select>
       </div>
       {errors.form && <Note tone="err">{errors.form}</Note>}
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Thông tin lịch">
+      {locked && <Note tone="info">Lịch đã tiêm xong hết nên đã khóa, chỉ xem. Muốn tiêm cho bò khác thì tạo lịch mới.</Note>}
+      {!locked && started && <Note tone="info">Lịch đã có mũi được tiêm: không đổi được vắc-xin, ngày bắt đầu và khoảng cách giữa mũi. Vẫn đổi được tên, số mũi, nhắc lại và thêm / bỏ bò.</Note>}
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        {/* fieldset disabled khóa mọi ô và nút bên trong khi lịch đã hoàn thành (D46). */}
+        <fieldset disabled={locked} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
+          <Card variant="panel" title="Thông tin lịch">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Tên lịch *" id="ms-name"><input id="ms-name" className={inputCls} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /><FieldError>{errors.name}</FieldError></Field>
               <Field label="Vắc-xin (danh mục trại) *" id="ms-vaccine">
-                <Select id="ms-vaccine" value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
+                <Select id="ms-vaccine" disabled={started} value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
                 <FieldError>{errors.vaccineId}</FieldError>
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Ngày bắt đầu *" id="ms-first"><DateInput id="ms-first" value={firstDue} onChange={setFirstDue} /><FieldError>{errors.firstDueDate}</FieldError></Field>
+              <Field label="Ngày bắt đầu *" id="ms-first"><DateInput id="ms-first" value={firstDue} readOnly={locked || started} onChange={locked || started ? undefined : setFirstDue} /><FieldError>{errors.firstDueDate}</FieldError></Field>
               <Field label="Số mũi *" id="ms-count" hint="1 – 10"><input id="ms-count" type="number" min={1} max={10} step={1} className={inputCls} value={doseCount} onChange={(e) => setDoseCount(e.target.value)} /><FieldError>{errors.doseCount}</FieldError></Field>
-              <Field label="Cách giữa mũi" id="ms-gap" hint={parseNum(doseCount) && parseNum(doseCount)! > 1 ? 'Bắt buộc khi có từ 2 mũi · ngày' : 'ngày'}><input id="ms-gap" type="number" min={1} max={365} step={1} className={inputCls} value={interval} onChange={(e) => setInterval(e.target.value)} /><FieldError>{errors.intervalDays}</FieldError></Field>
+              <Field label="Cách giữa mũi" id="ms-gap" hint={parseNum(doseCount) && parseNum(doseCount)! > 1 ? 'Bắt buộc khi có từ 2 mũi · ngày' : 'ngày'}><input id="ms-gap" type="number" min={1} max={365} step={1} disabled={started} className={inputCls} value={interval} onChange={(e) => setInterval(e.target.value)} /><FieldError>{errors.intervalDays}</FieldError></Field>
               <Field label="Nhắc lại sau" id="ms-booster" hint="Không bắt buộc · tháng"><input id="ms-booster" type="number" min={1} max={60} step={1} className={inputCls} value={booster} onChange={(e) => setBooster(e.target.value)} /><FieldError>{errors.boosterIntervalMonths}</FieldError></Field>
             </div>
           </Card>
-          <Card title="Nhóm bò áp dụng" sub="Các điều kiện kết hợp với nhau (VÀ)" actions={<Badge tone={matches.length ? 'ok' : 'err'}>{matches.length} con khớp</Badge>}>
+          <Card variant="panel" title="Nhóm bò áp dụng" sub="Các điều kiện kết hợp với nhau (VÀ)" actions={<Badge tone={matches.length ? 'ok' : 'err'}>{matches.length} con khớp</Badge>}>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Chuồng" id="ms-pens"><MultiSelect id="ms-pens" label="Chuồng" options={options.pens.map((p) => ({ value: p.code, label: p.label }))} value={target.penCodes} onChange={(v) => set('penCodes', v)} /></Field>
               <Field label="Nhóm đàn" id="ms-groups"><MultiSelect id="ms-groups" label="Nhóm đàn" options={options.herdGroups} value={target.herdGroups} onChange={(v) => set('herdGroups', v)} /></Field>
@@ -154,21 +160,21 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
               )}
             </div>
           </Card>
-        </div>
+        </fieldset>
         <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Vắc-xin tham chiếu" sub="Lấy từ danh mục, chỉ xem">
+          <Card variant="panel" title="Vắc-xin tham chiếu" sub="Lấy từ danh mục, chỉ xem">
             <Info cols={2} items={[['Phòng bệnh', vaccine?.disease ?? '—'], ['Liều tham chiếu', vaccine ? `${vaccine.referenceDose} ${vaccine.doseUnit}` : '—'], ['Đường tiêm', vaccine ? ROUTE_LABEL[vaccine.route] : '—'], ['Ngưng sử dụng thịt', vaccine ? `${vaccine.withdrawalDays} ngày` : '—']]} />
           </Card>
-          <Card title="Các mũi theo lịch">
+          <Card variant="panel" title="Các mũi theo lịch">
             <div className="flex flex-col gap-2">
               {(plan.data ?? []).map((r) => (
-                <div key={r.label} className="flex items-center justify-between gap-2 rounded-md border border-rule p-3">
+                <div key={r.label} className="flex items-center justify-between gap-2 rounded-xl border border-field p-3">
                   <div><div className="text-[13px] font-semibold">{r.label}</div><div className="text-xs text-muted">{fmtDate(r.date)} · {r.count} con</div></div>
                   <Badge tone={r.tone} icon={r.tone === 'warn' ? 'alert-triangle' : undefined}>{r.badge}</Badge>
                 </div>
               ))}
             </div>
-            <Note tone="info">Sửa lịch chỉ áp dụng cho các mũi chưa tiêm. Dừng lịch cần nhập lý do.</Note>
+            <Note tone="info">Sửa lịch chỉ áp dụng cho các mũi chưa tiêm. Bò thêm vào lịch đã bắt đầu có mũi 1 từ hôm nay. Dừng lịch cần nhập lý do.</Note>
           </Card>
         </div>
       </div>
@@ -195,7 +201,7 @@ function StopModal({ name, version, onClose }: { name: string; version: number; 
   }
   return (
     <Modal title="Dừng lịch tiêm" sub={name} width={560} onClose={onClose}>
-      <Note tone="warn">Dừng lịch {name}? Các mũi chưa tiêm hoặc đang hoãn sẽ bị hủy. Các mũi đã tiêm vẫn được giữ.</Note>
+      <Note tone="warn">Dừng lịch {name}? Các mũi chưa tiêm sẽ bị hủy. Các mũi đã tiêm vẫn được giữ.</Note>
       <Field label="Lý do *" id="st-reason" hint="Tối đa 500 ký tự">
         <Textarea id="st-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         <FieldError>{error.reason}</FieldError>

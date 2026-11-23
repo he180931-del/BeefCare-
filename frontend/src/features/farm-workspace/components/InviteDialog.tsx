@@ -5,7 +5,7 @@ import { PermissionChecklist } from './PermissionChecklist'
 import { MemberChangeDialog } from './MemberChangeDialog'
 import { FieldError, roleLabel } from './WorkspaceUi'
 
-const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
+const fullWidth = '[&>div]:w-full [&_button]:min-h-11 [&_button]:flex-1 [&_button]:whitespace-normal'
 
 /** UC-FE03-01 (popup "Invite Member"), mở bằng `?m=invite` từ Thành viên và Lời mời. */
 export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSent }: {
@@ -46,7 +46,7 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
         {alternative?.kind === 'resend' && <Note tone="warn"><p className="m-0">Đã có lời mời đang chờ cho email này.</p><p className="mb-0">Gửi lại lời mời cho {alternative.invitation.email} với vai trò {roleLabel(alternative.invitation.role)}, hiệu lực {alternative.invitation.validityDays} ngày?</p></Note>}
         {alternative?.kind === 'reactivate' && <Note tone="warn">{alternative.member.email} là thành viên đã ngưng. Kích hoạt lại thay vì mời? Vai trò hiện tại: {roleLabel(alternative.member.role)}.</Note>}
         {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-        <ModalFooter compact>
+        <ModalFooter>
           {discarding ? <>
             <Button size="lg" onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</Button>
             <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>
