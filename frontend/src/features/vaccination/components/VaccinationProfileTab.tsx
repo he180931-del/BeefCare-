@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Panel, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
 import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
@@ -45,7 +45,7 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
       {notice && <Note tone="ok">{notice}</Note>}
       <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} />
       <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} />
-      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Hoãn, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
+      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
       {canWrite && correctTarget && <CorrectVaccinationModal key={correctTarget.id} record={correctTarget} onClose={() => setModal(null)} onSaved={saved} />}
     </div>
   )
@@ -53,7 +53,8 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
 
 function Scheduled({ data, canWrite, onRecord }: { data: CattleVaccination; canWrite: boolean; onRecord: (id: number) => void }) {
   return (
-    <Card title="Mũi tiêm theo lịch" sub="Các mũi chưa tiêm của bò này">
+    // Bento (Figma Tab 17 ②b): mũi còn phải tiêm là việc tiếp theo của tab, nền xanh nhạt khi có mũi.
+    <Panel tone={data.doses.length ? 'ok' : 'default'} title={<span className="text-sm font-semibold">Mũi tiêm theo lịch</span>} sub="Các mũi chưa tiêm của bò này" className="gap-3! p-4!">
       {data.doses.length === 0 ? (
         <EmptyBlock title="Không còn mũi nào cần tiêm" sub="Bò này không có mũi chưa tiêm trong các lịch đang chạy." />
       ) : (
@@ -72,7 +73,7 @@ function Scheduled({ data, canWrite, onRecord }: { data: CattleVaccination; canW
           </tbody>
         </Table>
       )}
-    </Card>
+    </Panel>
   )
 }
 
@@ -80,7 +81,7 @@ function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect }: { d
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const rows = [...data.records].sort((a, b) => (a.administeredAt < b.administeredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   return (
-    <Card title={title} sub={title === 'Lịch sử tiêm' ? 'Mới nhất ở trên · dòng đã hủy in xám' : undefined}>
+    <Card variant="panel" title={title} sub={title === 'Lịch sử tiêm' ? 'Mới nhất ở trên · dòng đã hủy in xám' : undefined}>
       {rows.length === 0 ? (
         <EmptyBlock title="Chưa có mũi tiêm nào" sub="Các mũi đã tiêm và lịch sử nhập từ người bán sẽ hiện ở đây." />
       ) : (

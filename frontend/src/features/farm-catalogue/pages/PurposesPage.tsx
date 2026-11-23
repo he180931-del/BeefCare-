@@ -36,7 +36,7 @@ export default function PurposesPage() {
             <tbody>
               {(page.data ?? []).map((p) => (
                 <SelectableRow key={p.id} selected={item?.id === p.id} muted={!p.available} onSelect={() => page.select(p)}>
-                  <Td className="font-medium">{p.code}</Td>
+                  <Td className="whitespace-nowrap font-medium">{p.code}</Td>
                   <Td>{p.name}</Td>
                   <Td>{PURPOSE_TYPE_LABELS[p.purposeType]}</Td>
                   <Td>{p.activeCattle}</Td>

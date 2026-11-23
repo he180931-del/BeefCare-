@@ -31,6 +31,10 @@ export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInp
   : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export const entryLineCorrectionEnabled = usingBackend
+export const entryHistoryDemoEnabled = !usingBackend
+export const correctEntryHistoryDemo = (voucherCode: string, cattleCode: string, history: EntryCow['hist'], reason: string): Promise<void> => usingBackend
+  ? Promise.reject(new Error('Sửa khai báo trên backend phải dùng bản ghi nhập và phiên bản đã mở.'))
+  : demo.entryLocal.correctHistory(voucherCode, cattleCode, history, reason)
 const unsupportedLineCommand = () => new Error('Chế độ demo chưa hỗ trợ sửa / hủy bản ghi nhập')
 export const entryVoidCheck = (entryId: number): Promise<EntryLineVoidCheck> => usingBackend ? backendApi.entryVoidCheck(entryId) : Promise.reject(unsupportedLineCommand())
 export const voidEntryLine = (entryId: number, input: EntryLineVoidInput): Promise<EntryLineCommandResult> => usingBackend ? backendApi.voidEntryLine(entryId, input) : Promise.reject(unsupportedLineCommand())

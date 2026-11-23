@@ -1,20 +1,18 @@
 import { useMemo, useState } from 'react'
-import { DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Th } from '../../../shared/ui'
+import { DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
 import { PURPOSE_OPTIONS, STAGES } from '../constants/entryOptions'
 import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
-import { entryToday } from '../validation/entryValidation'
+import EntryHistoryDeclarationForm from './EntryHistoryDeclarationForm'
+import { validateEntryHistory } from '../domain/entryHistory'
 import type { EntryCow } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
 
-const TH = 'px-1! first:pl-3! last:pr-3!'
 const compactInputCls = 'box-border min-w-0 w-full rounded-lg border border-field bg-white px-1.5 py-1.5 text-[12px] text-ink outline-none focus:border-brand read-only:bg-page read-only:text-muted sm:px-2 sm:py-2 sm:text-[13px]'
 const compactSelectCls = '[&_select]:min-w-0 [&_select]:rounded-lg [&_select]:px-1.5 [&_select]:py-1.5 [&_select]:text-[12px] sm:[&_select]:px-2 sm:[&_select]:py-2 sm:[&_select]:text-[13px]'
-const HIST_OPTIONS = ['Có', 'Không', 'Không rõ']
 const ACCURACY = { 'Chính xác': 'Chính xác', 'Ước tính': 'Ước tính', 'Không rõ': 'Không rõ' }
 type EditCow = EntryCow & { colourMarkings?: string; quarantineUntil?: string }
-type HistoryDetail = 'vaccine' | 'disease' | 'repro'
 
 /**
  * Sex is selected first because the catalogue has biological constraints. The
@@ -46,46 +44,11 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
   const [c, setC] = useState(() => ({ ...cow, pricing, unitPrice: pricing === 'con' ? cow.unitPrice : initialWeightBasis ? cow.unitPrice : 0 }))
   const [validationError, setValidationError] = useState<string | null>(null)
   const warningReason = String(cow.warningReason ?? '')
-  const [detailModal, setDetailModal] = useState<HistoryDetail | null>(null)
-  const [detailDraft, setDetailDraft] = useState('')
-  const [detailDate, setDetailDate] = useState('')
-  const [detailSource, setDetailSource] = useState('')
-  const [vaccineRows, setVaccineRows] = useState<Array<{ vaccineId?: number; vaccineName: string; date: string; source: string }>>([])
   const [weightInput, setWeightInput] = useState(String(cow.weight))
   const set = (p: Partial<EditCow>) => setC((x) => ({ ...x, ...p }))
   const availableStages = useMemo(() => stagesForSex(c.sex), [c.sex])
   const availablePurposes = useMemo(() => purposesForSex(c.sex), [c.sex])
   const setHist = (patch: Partial<EditCow['hist']>) => set({ hist: { ...c.hist, ...patch } })
-  const detailMeta: Record<HistoryDetail, { title: string; label: string; placeholder: string; value: string; type?: 'number' }> = {
-    vaccine: { title: 'Chi tiết tiêm phòng', label: 'Loại vaccine', placeholder: 'Nhập tên vaccine nếu chưa có trong danh mục', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
-    disease: { title: 'Chi tiết bệnh đã biết', label: 'Mô tả bệnh', placeholder: 'Nhập mô tả bệnh đã biết', value: c.hist.diseaseNote ?? '' },
-    repro: { title: 'Chi tiết sinh sản', label: 'Số tháng mang thai', placeholder: 'Nhập số tháng nếu đang mang thai', value: c.hist.pregnancyMonths == null ? '' : String(c.hist.pregnancyMonths), type: 'number' },
-  }
-  const openDetail = (kind: HistoryDetail) => {
-    setDetailDraft(detailMeta[kind].value)
-    setDetailDate(kind === 'vaccine' ? c.hist.vaccineDate ?? '' : '')
-    setDetailSource(kind === 'vaccine' ? c.hist.vaccineSource ?? '' : kind === 'repro' ? c.hist.reproductionNote ?? '' : '')
-    if (kind === 'vaccine') setVaccineRows((c.hist.vaccineItems?.length ? c.hist.vaccineItems : [{ vaccineId: c.hist.vaccineId, vaccineName: c.hist.vaccineName ?? c.hist.vaccineNote ?? '', vaccineDate: c.hist.vaccineDate ?? '', vaccineSource: c.hist.vaccineSource ?? '' }]).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName ?? '', date: item.vaccineDate ?? '', source: item.vaccineSource ?? '' })))
-    // The backend contract stores one disease declaration description string
-    // (max 1,000 characters), so keep this editor as one textarea rather than
-    // presenting a UI-only list that would be re-joined before submission.
-    setDetailModal(kind)
-  }
-  const saveDetail = () => {
-    if (!detailModal) return
-    if (detailModal === 'repro') {
-      const pregnantAtEntry = c.hist.pregnantAtEntry ?? 'UNKNOWN'
-      const months = pregnantAtEntry === 'YES' && c.hist.pregnancyMonths != null ? Number(c.hist.pregnancyMonths) : undefined
-      if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) return setValidationError('Số tháng mang thai phải từ 1 đến 9.')
-      setHist({ pregnancyMonths: months, earlierCalvings: c.hist.earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
-    } else if (detailModal === 'vaccine') {
-      if (detailDate && detailDate > entryToday()) return setValidationError('Ngày tiêm không được ở tương lai.')
-      const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: item.date, vaccineSource: item.source }))
-      setHist({ vaccineItems: items, vaccineId: items[0]?.vaccineId, vaccineName: items[0]?.vaccineName, vaccineDate: items[0]?.vaccineDate, vaccineSource: items[0]?.vaccineSource, vaccineNote: items[0]?.vaccineSource || items[0]?.vaccineName })
-    } else setHist({ diseaseNote: detailDraft.trim().slice(0, 1000) })
-    setValidationError(null)
-    setDetailModal(null)
-  }
   // Older drafts may only contain YYYY-MM. Native date inputs need a day, so
   // use the first day of that month as the editable calendar value. The
   // backend already normalizes estimated dates to the first of the month.
@@ -133,10 +96,8 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
     if (c.weight > 0 && !hasWeightBasis) return setValidationError('Vui lòng chọn cơ sở cân.')
     if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return setValidationError(pricing === 'con' ? 'Vui lòng nhập số tiền cuối lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
     if (receptionError) return setValidationError(receptionError)
-    if (c.hist.vaccine === 'Có' && !c.hist.vaccineNote?.trim()) return setValidationError('Vui lòng nhập thông tin tiêm phòng.')
-    if (c.hist.disease === 'Có' && !String((c.hist as Record<string, unknown>).diseaseNote ?? '').trim()) return setValidationError('Vui lòng mô tả bệnh đã biết.')
-    if (c.hist.repro === 'Có' && c.hist.pregnantAtEntry === 'YES' && (!Number.isInteger(c.hist.pregnancyMonths) || Number(c.hist.pregnancyMonths) < 1 || Number(c.hist.pregnancyMonths) > 9)) return setValidationError('Vui lòng nhập số tháng mang thai từ 1 đến 9.')
-    if (c.hist.repro === 'Có' && (!Number.isInteger(c.hist.earlierCalvings) || Number(c.hist.earlierCalvings) < 0 || Number(c.hist.earlierCalvings) > 15)) return setValidationError('Vui lòng nhập số lứa đã đẻ từ 0 đến 15.')
+    const historyError = validateEntryHistory(c.hist, true, dateIso)
+    if (historyError) return setValidationError(historyError)
     setValidationError(null)
     onSave({ ...c, pricing, weightBasis: c.weight > 0 ? weightBasis : null, estimated: c.weight > 0 && weightBasis === 'ESTIMATED', warningReason: criterionIssues.length ? (warningReason.trim() || 'Không phù hợp tiêu chí chuồng') : (warningReason.trim() || undefined) })
   }
@@ -276,47 +237,11 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
             <DateInput id="entry-cow-quarantine" value={String(c.quarantineUntil ?? '')} onChange={(quarantineUntil) => set({ quarantineUntil })} />
           </Field>
         </div>
-        <h3 className="m-0 text-sm font-semibold text-ink">Lịch sử trước nhập đàn</h3>
-        <div className="overflow-hidden rounded border border-edge">
-          <Table bordered={false} stack={false}>
-            <thead>
-              <tr>
-                <Th className={`${TH} w-[110px]`}>Mục</Th>
-                <Th className={`${TH} w-[260px]`}>Khai báo</Th>
-                <Th className={TH}>Chi tiết</Th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <Td className={TH}>Tiêm phòng</Td>
-                <Td className={TH}><RadioRow name="vaccine" value={c.hist.vaccine} options={HIST_OPTIONS} onChange={(v) => setHist({ vaccine: v })} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết tiêm phòng" disabled={c.hist.vaccine !== 'Có'} onClick={() => openDetail('vaccine')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.vaccine === 'Có' && (c.hist.vaccineName?.trim() || c.hist.vaccineNote?.trim()) ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
-              </tr>
-              <tr>
-                <Td className={TH}>Bệnh đã biết</Td>
-                <Td className={TH}><RadioRow name="disease" value={c.hist.disease} options={HIST_OPTIONS} onChange={(v) => setHist({ disease: v })} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết bệnh đã biết" disabled={c.hist.disease !== 'Có'} onClick={() => openDetail('disease')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.disease === 'Có' && c.hist.diseaseNote?.trim() ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
-              </tr>
-              <tr>
-                <Td className={TH}>{c.sex === 'Cái' ? 'Sinh sản (bò cái)' : 'Sinh sản'}</Td>
-                <Td className={TH}><RadioRow name="repro" value={c.hist.repro} options={HIST_OPTIONS} onChange={(v) => {
-                  if (v === 'Có') {
-                    setHist({ repro: v, pregnantAtEntry: c.hist.pregnantAtEntry ?? 'UNKNOWN' })
-                  } else {
-                    // Conditional reproduction details must not survive after
-                    // the declaration is changed away from "Có".
-                    setHist({ repro: v, pregnantAtEntry: v === 'Không' ? 'NO' : 'UNKNOWN', earlierCalvings: undefined, pregnancyMonths: undefined, reproductionNote: undefined })
-                  }
-                }} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết sinh sản" disabled={c.hist.repro !== 'Có'} onClick={() => openDetail('repro')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.repro === 'Có' && c.hist.pregnancyMonths != null ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
-              </tr>
-            </tbody>
-          </Table>
-        </div>
+        <EntryHistoryDeclarationForm value={c.hist} sex={c.sex} vaccines={vaccines} onChange={setHist} onError={setValidationError} />
         {barn && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 
-      <ModalFooter compact className="min-[768px]:!px-3">
+      <ModalFooter>
         {(validationError || receptionError || criterionIssues.length > 0) && (
           <div className="min-w-0 basis-full min-[768px]:basis-auto min-[768px]:flex-1 [&>div]:text-sm [&>div]:font-medium">
             {validationError && <Note tone="err">{validationError}</Note>}
@@ -331,50 +256,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
         </div>
       </ModalFooter>
     </Modal>
-    {detailModal && (
-      <Modal width={520} maxHeight="min(600px, calc(100vh - 2rem))" title={detailMeta[detailModal].title} sub="Nhập thông tin chi tiết cho khai báo này." onClose={() => setDetailModal(null)}>
-        {detailModal === 'vaccine' ? <div className="flex min-h-0 flex-col gap-2">
-          <div aria-label="Danh sách vaccine" role="region" className="max-h-[220px] min-h-0 overflow-y-auto overscroll-contain pr-1">
-          <div className="flex flex-col gap-2">
-          {vaccineRows.map((item, index) => <div key={index} className="grid items-end gap-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
-            <Field label={index === 0 ? 'Loại vaccine' : undefined} id={`entry-history-vaccine-name-${index}`}>
-              <input id={`entry-history-vaccine-name-${index}`} aria-label={index === 0 ? 'Tên vaccine tự do' : `Tên vaccine tự do ${index + 1}`} className={compactInputCls} value={item.vaccineName} placeholder="Ví dụ: LMLM" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, vaccineId: undefined, vaccineName: e.target.value }; setVaccineRows(next) }} />
-            </Field>
-            {vaccines.length > 0 ? <Field label={index === 0 ? 'Chọn trong danh mục' : undefined} id={`entry-history-vaccine-catalogue-${index}`}><select id={`entry-history-vaccine-catalogue-${index}`} aria-label={`Chọn vaccine trong danh mục ${index + 1}`} className={compactInputCls} value={item.vaccineId == null ? '' : `id:${item.vaccineId}`} onChange={(e) => { const value = e.target.value; const next = [...vaccineRows]; const option = vaccines.find((entry) => String(entry.id) === value.slice(3)); next[index] = value ? { ...item, vaccineId: option?.id, vaccineName: option?.name ?? item.vaccineName } : { ...item, vaccineId: undefined }; setVaccineRows(next) }}><option value="">Không chọn</option>{vaccines.map((entry) => <option key={entry.id} value={`id:${entry.id}`}>{entry.code} · {entry.name}</option>)}</select></Field> : <span aria-hidden="true" />}
-            <Field label={index === 0 ? 'Ngày tiêm' : undefined}><input aria-label={`Ngày tiêm ${index + 1}`} type="date" className={compactInputCls} value={item.date} onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, date: e.target.value }; setVaccineRows(next) }} /></Field>
-            <Field label={index === 0 ? 'Nguồn thông tin' : undefined}><input aria-label={`Nguồn thông tin ${index + 1}`} className={compactInputCls} value={item.source} placeholder="Ví dụ: sổ tiêm cũ" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, source: e.target.value }; setVaccineRows(next) }} /></Field>
-            <button type="button" aria-label={`Xóa vaccine ${index + 1}`} className="h-8 cursor-pointer rounded border border-field px-2 text-xs text-danger hover:border-danger" onClick={() => setVaccineRows((rows) => rows.length > 1 ? rows.filter((_, rowIndex) => rowIndex !== index) : [{ vaccineName: '', date: '', source: '' }])}>Xóa</button>
-          </div>)}
-          </div>
-          </div>
-          <button type="button" className="w-fit cursor-pointer rounded border border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-page" onClick={() => setVaccineRows((rows) => [...rows, { vaccineName: '', date: '', source: '' }])}>+ Thêm vaccine</button>
-        </div> : detailModal === 'disease' ? <div className="flex flex-col gap-2">
-          <Field label="Mô tả bệnh" id="entry-history-disease">
-            <textarea id="entry-history-disease" aria-label="Mô tả bệnh" rows={5} maxLength={1000} autoFocus className={`${compactInputCls} min-h-[120px] resize-y`} value={detailDraft} placeholder="Nhập mô tả bệnh đã biết" onChange={(e) => setDetailDraft(e.target.value)} />
-          </Field>
-          <p className="text-xs text-muted">Tối đa 1.000 ký tự.</p>
-        </div> : detailModal === 'repro' ? <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Số lứa đã đẻ trước nhập đàn" id="entry-history-earlier-calvings"><input id="entry-history-earlier-calvings" aria-label="Số lứa đã đẻ trước nhập đàn" type="number" min={0} max={15} className={compactInputCls} value={c.hist.earlierCalvings ?? ''} onChange={(e) => setHist({ earlierCalvings: e.target.value === '' ? undefined : Number(e.target.value) })} /></Field>
-          <Field label="Đang mang thai" id="entry-history-pregnant"><select id="entry-history-pregnant" aria-label="Đang mang thai" className={compactInputCls} value={c.hist.pregnantAtEntry ?? 'UNKNOWN'} onChange={(e) => { const pregnantAtEntry = e.target.value; setHist({ pregnantAtEntry, ...(pregnantAtEntry !== 'YES' ? { pregnancyMonths: undefined } : {}) }) }}><option value="YES">Có</option><option value="NO">Không</option><option value="UNKNOWN">Không rõ</option></select></Field>
-          <Field label="Số tháng mang thai" id="entry-history-pregnancy-months">
-            <input
-              id="entry-history-pregnancy-months"
-              aria-label="Số tháng mang thai"
-              type="number"
-              min={1}
-              max={9}
-              disabled={c.hist.pregnantAtEntry !== 'YES'}
-              className={`${compactInputCls} disabled:cursor-not-allowed disabled:bg-page disabled:text-muted`}
-              value={c.hist.pregnancyMonths ?? ''}
-              placeholder={c.hist.pregnantAtEntry === 'YES' ? 'Nhập 1–9 tháng' : 'Chỉ nhập khi đang mang thai'}
-              onChange={(e) => setHist({ pregnancyMonths: e.target.value === '' ? undefined : Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Mô tả bổ sung" id="entry-history-repro-note"><textarea id="entry-history-repro-note" aria-label="Mô tả bổ sung" rows={3} maxLength={1000} className={`${compactInputCls} resize-y`} value={detailSource} placeholder="Thông tin sinh sản bổ sung" onChange={(e) => setDetailSource(e.target.value)} /></Field>
-        </div> : null}
-        <ModalFooter compact className="-mt-2 !px-0 [&_button]:h-10 [&_button]:rounded-lg [&_button]:px-3 [&_button]:text-xs"><ModalButton onClick={() => setDetailModal(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={saveDetail}>Lưu chi tiết</ModalButton></ModalFooter>
-      </Modal>
-    )}
+
     </>
   )
 }

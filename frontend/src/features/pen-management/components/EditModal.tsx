@@ -156,7 +156,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
       </Field>
 
       <div className="text-[13px] font-semibold text-[#212121]">Tiêu chí nhận bò · phiên bản mới từ {dmy(today)}</div>
-      <Table stack={false}>
+      <Table variant="panel" stack={false}>
         <thead>
           <tr>
             <Th className={cx(TH, 'w-[190px]')}>Loại tiêu chí</Th>

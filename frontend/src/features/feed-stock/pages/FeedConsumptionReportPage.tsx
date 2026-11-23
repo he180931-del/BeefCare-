@@ -36,7 +36,7 @@ export default function FeedConsumptionReportPage() {
         <div className="no-print"><FeedManagementTabs /></div>
         {loaded?.source === 'backend' && <Note tone="info">Đang xem số liệu máy chủ. Chi phí lấy theo giá đã chốt ở từng cữ.</Note>}
 
-        <section role="tabpanel" aria-label="Báo cáo tiêu thụ thức ăn" className="flex flex-col gap-4">
+        <section role="tabpanel" aria-label="Báo cáo tiêu thụ thức ăn" className="@container flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <label htmlFor="feed-report-from" className="sr-only">Từ ngày</label>
@@ -50,20 +50,21 @@ export default function FeedConsumptionReportPage() {
           {!validPeriod && <p role="alert" className="m-0 text-xs text-err-fg">Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.</p>}
 
           {summary && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric compact label="Tổng tiêu thụ" value={formatKg(summary.actualKg, 0)} sub={`${summary.days} ngày · ${formatNumber(summary.headDays, 0)} con-ngày`} />
-              <Metric compact label="Chi phí thức ăn" value={summary.cost === null ? '—' : formatVnd(summary.cost)} sub={summary.cost === null ? 'Thiếu giá tại một hoặc nhiều cữ' : 'Theo giá nhập bình quân'} />
-              <Metric compact label="Bình quân" value={summary.averageCostPerHeadDay === null ? '—' : `${formatNumber(summary.averageCostPerHeadDay, 0)} đ/con/ngày`} sub={summary.averageKgPerHeadDay === null ? '— kg/con/ngày' : `${formatNumber(summary.averageKgPerHeadDay)} kg/con/ngày`} />
-              <Metric compact label="Nhập kho trong kỳ" value={formatKg(summary.receivedKg, 0)} sub={`${summary.receiptCount} phiếu · ${summary.receivedAmount === null ? '—' : formatVnd(summary.receivedAmount)}`} />
+            // Bento (Figma Tab 21 ④b): khối nổi bật trả lời câu hỏi chính của báo cáo – tổng tiêu thụ trong kỳ.
+            <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+              <Metric surface="panel" tone="emphasis" label="Tổng tiêu thụ" value={formatKg(summary.actualKg, 0)} sub={`${summary.days} ngày · ${formatNumber(summary.headDays, 0)} con-ngày`} />
+              <Metric compact surface="panel" label="Chi phí thức ăn" value={summary.cost === null ? '—' : formatVnd(summary.cost)} sub={summary.cost === null ? 'Thiếu giá tại một hoặc nhiều cữ' : 'Theo giá nhập bình quân'} />
+              <Metric compact surface="panel" label="Bình quân" value={summary.averageCostPerHeadDay === null ? '—' : `${formatNumber(summary.averageCostPerHeadDay, 0)} đ/con/ngày`} sub={summary.averageKgPerHeadDay === null ? '— kg/con/ngày' : `${formatNumber(summary.averageKgPerHeadDay)} kg/con/ngày`} />
+              <Metric compact surface="panel" label="Nhập kho trong kỳ" value={formatKg(summary.receivedKg, 0)} sub={`${summary.receiptCount} phiếu · ${summary.receivedAmount === null ? '—' : formatVnd(summary.receivedAmount)}`} />
             </div>
           )}
 
-          {loading && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tổng hợp báo cáo…</div>}
-          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={loading || !validPeriod} onClick={() => void refetch()}>Thử tải lại</Button></div>}
+          {loading && <div role="status" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">Đang tổng hợp báo cáo…</div>}
+          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={loading || !validPeriod} onClick={() => void refetch()}>Thử tải lại</Button></div>}
           {!loading && !errorMessage && validPeriod && rows.length === 0 && <Note tone="info">Không có dữ liệu tiêu thụ trong khoảng thời gian này.</Note>}
 
           {!loading && !errorMessage && rows.length > 0 && (
-            <Card title={option.title} sub="So với khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch của các cữ đã ghi">
+            <Card variant="panel" title={option.title} sub="So với khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch của các cữ đã ghi">
               <Table scroll stack={false}>
                 <thead><tr><Th>{option.column}</Th><Th>Số con TB</Th><Th>Tiêu thụ (kg)</Th><Th>kg/con/ngày</Th><Th>Chi phí (đ)</Th><Th>đ/con/ngày</Th><Th>So với khẩu phần</Th></tr></thead>
                 <tbody>
@@ -105,8 +106,8 @@ export default function FeedConsumptionReportPage() {
           )}
 
           {!loading && !errorMessage && rows.length > 0 && (
-            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,660px)_minmax(0,436px)]">
-              <Card title="Chi phí theo thức ăn">
+            <div className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @min-[1024px]:gap-6">
+              <Card variant="panel" title="Chi phí theo thức ăn">
                 <div className="flex flex-col gap-3">
                   {feedBars.map((row) => (
                     <div key={row.key} className="flex items-center gap-3 text-xs">
@@ -117,7 +118,7 @@ export default function FeedConsumptionReportPage() {
                   ))}
                 </div>
               </Card>
-              <Card title="Cách tính">
+              <Card variant="panel" title="Cách tính">
                 <ul className="m-0 flex list-none flex-col gap-2 p-0 text-xs text-[#183528]">
                   {[
                     'Chi phí = lượng thực tế đã ghi trong nhật ký × giá nhập bình quân gia quyền của thức ăn tại thời điểm ghi.',

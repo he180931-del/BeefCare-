@@ -68,7 +68,7 @@ export default function HealthCaseList() {
       {rows.length === 0 ? (
         <EmptyBlock title="Không có ca sức khỏe phù hợp" sub="Thử đổi bộ lọc hoặc mở ca mới từ hồ sơ bò." />
       ) : (
-        <>
+        <div className="min-w-0 space-y-2 rounded-2xl border border-field bg-white p-2">
           <Table scroll>
             <thead>
               <tr>
@@ -96,8 +96,8 @@ export default function HealthCaseList() {
               })}
             </tbody>
           </Table>
-          {rows.length > PAGE_SIZE && <Pagination page={page} pageCount={pageCount} onChange={setPage} summary={`${rows.length} ca`} />}
-        </>
+          {rows.length > PAGE_SIZE && <div className="px-2 pb-1"><Pagination page={page} pageCount={pageCount} onChange={setPage} summary={`${rows.length} ca`} /></div>}
+        </div>
       )}
       <Foot>{NOTE}</Foot>
     </Layout>

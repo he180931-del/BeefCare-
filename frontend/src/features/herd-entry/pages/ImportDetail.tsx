@@ -7,9 +7,11 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
-import type { EntryLineCommandResult, EntryPayment } from '../types'
+import type { EntryCattleDetail, EntryLineCommandResult, EntryPayment } from '../types'
 import EntryLineModal from '../components/EntryLineModal'
-import { entryLineCorrectionEnabled, entryPaymentVoidEnabled, voidEntryPayment } from '../api'
+import { entryHistoryDemoEnabled, entryLineCorrectionEnabled, entryPaymentVoidEnabled, voidEntryPayment } from '../api'
+import EntryHistoryDemoModal from '../components/EntryHistoryDemoModal'
+import { isFarmBornEntry } from '../domain/entryLineCorrection'
 import { useSession } from '../../../app/session/sessionContext'
 import { useEntryDetail } from '../hooks/useEntryDetail'
 import { herdEntryError } from '../api/herdEntryError'
@@ -27,6 +29,7 @@ export default function ImportDetail() {
   const [params, setParams] = useSearchParams()
   const role = useSession()?.role
   const [lineResult, setLineResult] = useState<EntryLineCommandResult | null>(null)
+  const [demoHistoryLine, setDemoHistoryLine] = useState<EntryCattleDetail | null>(null)
   const [paymentToVoid, setPaymentToVoid] = useState<EntryPayment | null>(null)
   const [paymentNotice, setPaymentNotice] = useState('')
   const paymentRole = role === 'OWNER' || role === 'MANAGER'
@@ -53,6 +56,7 @@ export default function ImportDetail() {
   const { paid, outstanding } = entryPaymentTotals(r)
   const paymentActions = entryPaymentVoidEnabled && paymentRole && r.status === 'Đã nhập'
   const lineActions = entryLineCorrectionEnabled && (role === 'OWNER' || role === 'MANAGER') && r.status === 'Đã nhập'
+  const historyActions = !entryLineCorrectionEnabled && entryHistoryDemoEnabled && paymentRole && r.status === 'Đã nhập' && !isFarmBornEntry(r)
   const selectedLine = lineActions ? d.cows?.find(line => line.lineStatus === 'VALID' && line.entryId != null && String(line.entryId) === params.get('entry')) : undefined
   const lineModal = (name?: 'line' | 'cancel', entryId?: number) => {
     const next = new URLSearchParams(params)
@@ -75,9 +79,9 @@ export default function ImportDetail() {
         {lineResult?.overpaidNotice && <Note tone="warn">{lineResult.overpaidNotice.message}</Note>}
         {paymentNotice && <Note tone="ok">{paymentNotice}</Note>}
 
-        <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
           <div className="flex min-w-0 flex-col gap-[18px]">
-            <Card title="Thông tin phiếu">
+            <Card variant="panel" title="Thông tin phiếu">
               <Info
                 items={[
                   ['Ngày nhập trại', dmy(r.date)],
@@ -92,7 +96,7 @@ export default function ImportDetail() {
               />
             </Card>
 
-            <Card title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
+            <Card variant="panel" title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
               <Table stack={false} scroll>
                 <thead>
                   <tr>
@@ -103,7 +107,7 @@ export default function ImportDetail() {
                     <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
                     <Th className={`${TH} w-[90px]`}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
-                    {lineActions && <Th className={TH}>Thao tác</Th>}
+                    {(lineActions || historyActions) && <Th className={TH}>Thao tác</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -116,12 +120,13 @@ export default function ImportDetail() {
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>{c.current}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
+                      {historyActions && <Td className={TH}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
                       {lineActions && <Td className={TH}>{c.lineStatus === 'VALID' && c.entryId != null && <Button onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (
                     <tr>
-                      <Td colSpan={lineActions ? 8 : 7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
+                      <Td colSpan={lineActions || historyActions ? 8 : 7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
                     </tr>
                   )}
                 </tbody>
@@ -140,14 +145,14 @@ export default function ImportDetail() {
               </p>
             </Card>
 
-            <Card title="Chứng từ đính kèm">
+            <Card variant="panel" title="Chứng từ đính kèm">
               {d ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 
           <div className="flex flex-col gap-[18px]">
             {r.total != null && (
-              <Card title="Thanh toán">
+              <Card variant="panel" title="Thanh toán">
                 <Info
                   cols={2}
                   items={[
@@ -168,7 +173,7 @@ export default function ImportDetail() {
                 )}
               </Card>
             )}
-            <Card title="Lịch sử phiếu">
+            <Card variant="panel" title="Lịch sử phiếu">
               <div className="flex flex-col gap-2 text-xs">
                 {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h, index) => <span key={`${index}:${h}`}>{h}</span>)}
               </div>
@@ -183,6 +188,9 @@ export default function ImportDetail() {
       {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidEntryPayment} onClose={closePaymentVoid} onReload={async () => { await detailQuery.reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await detailQuery.refetch() }} />}
       {m === 'cancel' && canCancel && <CancelModal record={r} saving={detailQuery.voidSaving} error={voidError} onReload={async () => { await detailQuery.reload(); closeModal() }} onConfirm={async (reason) => { await cancelRecord(reason); closeModal() }} onClose={closeModal} />}
       {m === 'line' && selectedLine && <EntryLineModal key={`${r.id}:${selectedLine.entryId}`} record={r} line={selectedLine} onClose={() => lineModal()} onVoidVoucher={() => lineModal('cancel')} onReload={async () => { await detailQuery.reload(); lineModal() }} onSuccess={async result => { setLineResult(result); lineModal(); await detailQuery.refetch() }} />}
+      {historyActions && demoHistoryLine && <EntryHistoryDemoModal record={r} line={demoHistoryLine} onClose={() => setDemoHistoryLine(null)} onSaved={async () => {
+        setDemoHistoryLine(null); setLineResult({ notice: { code: 'MSG-FE06-06', params: {}, message: 'Đã sửa khai báo lịch sử.' }, overpaidNotice: null }); await detailQuery.refetch()
+      }} />}
     </Layout>
   )
 }

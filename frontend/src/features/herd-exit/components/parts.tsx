@@ -9,7 +9,7 @@ export const TH = '!px-1 first:!pl-3 last:!pr-3'
 
 /** Thẻ Figma: viền #bdbdbd, bo 6, padding 16. */
 export const Box = ({ title, sub, actions, gap = 'gap-[10px]', className, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; gap?: string; className?: string; children: ReactNode }) => (
-  <section className={cx('flex flex-col rounded-md border border-edge bg-white p-4', gap, className)}>
+  <section className={cx('flex min-w-0 flex-col rounded-2xl border border-field bg-white p-4', gap, className)}>
     {(title || actions) && (
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">
@@ -52,7 +52,7 @@ export const SummaryCard = ({ badge, rows, children }: { badge?: ReactNode; rows
 
 /** Bảng "Kiểm tra trước khi xác nhận": rows = [[mục, kết quả, lỗi?]]. */
 export const CheckList = ({ rows }: { rows: Array<[string, ReactNode, boolean?]> }) => (
-  <Table stack={false}>
+  <Table variant="panel" stack={false}>
     <thead>
       <tr><Th className={cx(TH, 'w-[150px]')}>Mục</Th><Th className={TH}>Kết quả</Th></tr>
     </thead>

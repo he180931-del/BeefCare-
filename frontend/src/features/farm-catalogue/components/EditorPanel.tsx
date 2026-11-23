@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Button, Card, EmptyBlock, Note } from '../../../shared/ui'
+import { Button, EmptyBlock, Note, Panel } from '../../../shared/ui'
 
 interface Props {
   title: string
@@ -13,7 +13,7 @@ interface Props {
 /** Thẻ "Biên tập" bên phải danh sách. */
 export function EditorPanel({ title, sub, error, footer, onSubmit, children }: Props) {
   return (
-    <Card title={title} sub={sub}>
+    <Panel title={<span className="text-base">{title}</span>} sub={sub}>
       <form
         noValidate
         onSubmit={(e) => {
@@ -26,12 +26,12 @@ export function EditorPanel({ title, sub, error, footer, onSubmit, children }: P
         {children}
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 pt-1">{footer}</div>}
       </form>
-    </Card>
+    </Panel>
   )
 }
 
 export function EditorEmpty({ text }: { text: string }) {
-  return <Card><EmptyBlock title={text} /></Card>
+  return <Panel><EmptyBlock title={text} /></Panel>
 }
 
 export function EditorFooter({ onCancel, saving, create, left }: { onCancel: () => void; saving: boolean; create: boolean; left?: ReactNode }) {

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Button, Field, Info, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th, inputCls } from '../../../shared/ui'
+import { useState, type ReactNode } from 'react'
+import { Button, Field, Info, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th, inputCls } from '../../../shared/ui'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import { businessDate } from '../../../shared/lib/date/farmTime'
@@ -8,6 +8,8 @@ import { herdEntryError } from '../api/herdEntryError'
 import type { EntryCattleDetail, EntryLineCommandResult, HerdEntry } from '../types'
 import type { EntryLineForm } from '../domain/entryLineCorrection'
 import { entryEventLabel } from '../domain/entryEventLabel'
+import EntryHistoryEditModal from './EntryHistoryEditModal'
+import { entryHistorySummary, unknownEntryHistory, type EntryHistory } from '../domain/entryHistory'
 
 function ChangeRow({ label, current, children }: { label: string; current?: ReactNode; children: ReactNode }) {
   return <tr><Td>{label}</Td><Td>{current || '—'}</Td><Td>{children}</Td></tr>
@@ -16,7 +18,10 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
   record: HerdEntry; line: EntryCattleDetail; onSuccess: (result: EntryLineCommandResult) => Promise<void>; onClose: () => void; onReload: () => Promise<void>; onVoidVoucher: () => void
 }) {
   const s = useEntryLineCorrection(record, line, onSuccess)
+  const [historyDraft, setHistoryDraft] = useState<EntryHistory | null>(null)
   const r = s.record, c = s.line
+  const female = (s.form.sex || c.sexCode) === 'FEMALE'
+  const originalHistory = c.hist ?? unknownEntryHistory()
   const readOnly = <span className="text-muted">Lấy từ lần đẻ</span>
   const input = (key: keyof EntryLineForm, label: string, type = 'text', extra: { max?: string | number; min?: number; step?: string; maxLength?: number } = {}) =>
     <input className={inputCls} type={type} aria-label={label} value={s.form[key]} onChange={e => s.update(key, e.target.value)} placeholder="Giữ nguyên" disabled={s.saving} {...extra} />
@@ -26,7 +31,7 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
   const accuracy = [{ value: 'EXACT', label: 'Chính xác' }, { value: 'ESTIMATED', label: 'Ước tính' }, { value: 'UNKNOWN', label: 'Không rõ' }]
   const errorValue = s.error as { code?: string; params?: { action?: string } } | null
   const wholeVoucher = s.lastValid || errorValue?.code === 'MSG-FE06-20' && errorValue.params?.action === 'VOID_VOUCHER'
-  return <Modal width={840} title="Sửa / Hủy bản ghi nhập" onClose={() => { if (!s.saving) onClose() }}>
+  return <><Modal width={840} title="Sửa / Hủy bản ghi nhập" onClose={() => { if (!s.saving) onClose() }}>
     <Info items={[[ 'Bò', c.code ], ['Mã phiếu', r.id], ['Ngày nhập', dmy(r.date)], ['Người ghi', r.detail?.by || '—']]} />
     {s.loading && <Note>Đang kiểm tra…</Note>}
     {Boolean(s.loadError) && <><Note tone="err">{herdEntryError(s.loadError)}</Note><Button onClick={() => { void s.retry() }}>Thử lại</Button></>}
@@ -36,12 +41,12 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
     </>}
     {wholeVoucher && <Note>{s.lastValid ? 'Đây là con cuối cùng còn hiệu lực. Dùng Hủy phiếu để hủy cả phiếu.' : 'Bạn có thể chuyển sang hủy cả phiếu.'} <Button disabled={s.saving} onClick={onVoidVoucher}>Hủy cả phiếu</Button></Note>}
     {!s.confirming && <fieldset disabled={s.saving} className="m-0 flex flex-wrap gap-4 border-0 p-0"><legend className="mb-2 text-xs font-medium">Hành động</legend>
-      <label className="flex items-center gap-2 text-sm"><input type="radio" name="entry-line-action" checked={s.action === 'correct'} onChange={() => s.setAction('correct')} />Sửa bản ghi</label>
-      {s.canVoid && <label className="flex items-center gap-2 text-sm"><input type="radio" name="entry-line-action" checked={s.action === 'void'} onChange={() => s.setAction('void')} />Hủy bản ghi</label>}
+      <Radio name="entry-line-action" checked={s.action === 'correct'} onChange={() => s.setAction('correct')}>Sửa bản ghi</Radio>
+      {s.canVoid && <Radio name="entry-line-action" checked={s.action === 'void'} onChange={() => s.setAction('void')}>Hủy bản ghi</Radio>}
     </fieldset>}
     {s.confirming ? <Note tone="warn">Hủy bản ghi nhập của {c.code} trên {r.id}? Bò sẽ bị bỏ khỏi danh sách đang nuôi và tiền của bò bị trừ khỏi tổng phiếu.</Note> : s.action === 'correct' && <>
       <Note>Chỉ nhập giá trị mới ở trường cần sửa. Để trống = giữ nguyên. Ngày nhập của phiếu mua áp cho mọi bò của phiếu.</Note>
-      <Table scroll stack={false}><thead><tr><Th>Trường</Th><Th>Hiện tại</Th><Th>Mới</Th></tr></thead><tbody>
+      <Table variant="panel" scroll stack={false}><thead><tr><Th>Trường</Th><Th>Hiện tại</Th><Th>Mới</Th></tr></thead><tbody>
         <ChangeRow label="Ngày nhập" current={dmy(r.date)}>{s.purchase ? input('entryDate', 'Ngày nhập mới', 'date', { max: businessDate() }) : readOnly}</ChangeRow>
         <ChangeRow label="Người bán" current={r.detail?.sourceName || r.source}>{s.purchase ? select('sellerId', 'Người bán mới', (s.data?.sellers ?? []).map(item => ({ value: String(item.id), label: item.name }))) : readOnly}</ChangeRow>
         <ChangeRow label="Số giấy kiểm dịch" current={r.detail?.quarantine}>{s.purchase ? input('quarantineCertNo', 'Số giấy kiểm dịch mới', 'text', { maxLength: 50 }) : readOnly}</ChangeRow>
@@ -54,7 +59,13 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
         <ChangeRow label="Ngày sinh" current={dmy(c.birthDate)}>{s.purchase ? input('birthDate', 'Ngày sinh mới', 'date', { max: s.form.entryDate || r.date }) : readOnly}</ChangeRow>
         <ChangeRow label="Độ chính xác ngày sinh" current={accuracy.find(item => item.value === c.birthDateAccuracy)?.label}>{s.purchase ? select('birthDateAccuracy', 'Độ chính xác ngày sinh mới', accuracy) : readOnly}</ChangeRow>
         {!s.purchase && <><ChangeRow label="Bò mẹ" current={c.damCode}>{readOnly}</ChangeRow><ChangeRow label="Bò bố" current={c.sireCode}>{readOnly}</ChangeRow></>}
-        <ChangeRow label="Khai báo lịch sử" current="Giữ nguyên khai báo đã ghi"><span className="text-muted">Sửa khai báo lịch sử sẽ có ở bản sau</span></ChangeRow>
+        {s.purchase && <ChangeRow label="Khai báo lịch sử" current={entryHistorySummary(originalHistory, c.sexCode === 'FEMALE')}>
+          {s.history && <p className="text-xs">{entryHistorySummary(s.history, female)}</p>}
+          <Button disabled={s.saving} aria-label="Sửa khai báo lịch sử" onClick={() => {
+            setHistoryDraft(structuredClone(s.history ?? originalHistory))
+          }}>Sửa</Button>
+          {s.form.sex === 'MALE' && <p className="text-xs text-muted">Khai báo sinh sản sẽ bị bỏ vì bò là đực.</p>}
+        </ChangeRow>}
       </tbody></Table>
       {s.validationError && <Note tone="err">{s.validationError}</Note>}
     </>}
@@ -66,4 +77,7 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
       </>}
     </ModalFooter>
   </Modal>
+  {historyDraft && <EntryHistoryEditModal initial={historyDraft} female={female} date={s.form.entryDate || r.date || businessDate()}
+    vaccines={s.data?.vaccines ?? []} onClose={() => setHistoryDraft(null)} onApply={value => { s.setHistory(value); setHistoryDraft(null) }} />}
+  </>
 }

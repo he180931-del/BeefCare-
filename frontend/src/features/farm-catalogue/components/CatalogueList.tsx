@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SearchInput, Select } from '../../../shared/ui'
+import { EmptyBlock, ErrorBlock, LoadingBlock, Panel, SearchInput, Select } from '../../../shared/ui'
 import { catalogueError } from '../api/catalogueError'
 import type { AvailabilityFilter } from '../types'
 
@@ -23,17 +23,17 @@ export function CatalogueList({ q, onQ, status, onStatus, rows, error, onRetry, 
   else if (!rows) body = <LoadingBlock />
   else if (rows.length === 0) body = <EmptyBlock title={emptyTitle} sub="Thử đổi từ khóa hoặc bộ lọc trạng thái." />
   return (
-    <Card>
-      <div className="mb-3 flex flex-wrap gap-3">
+    <Panel>
+      <div className="flex flex-wrap gap-2.5">
         <SearchInput className="min-w-0 flex-1 sm:max-w-[300px]" placeholder="Tìm mã, tên…" aria-label="Tìm mã, tên" value={q} onChange={(e) => onQ(e.target.value)} />
-        <Select className="w-full sm:w-[180px]" aria-label="Lọc theo trạng thái" value={status} onChange={(e) => onStatus(e.target.value as AvailabilityFilter)}>
+        <Select className="w-full sm:w-[220px]" aria-label="Lọc theo trạng thái" value={status} onChange={(e) => onStatus(e.target.value as AvailabilityFilter)}>
           <option value="">Trạng thái: Tất cả</option>
           <option value="ACTIVE">Trạng thái: Đang dùng</option>
           <option value="INACTIVE">Trạng thái: Ngừng dùng</option>
         </Select>
       </div>
       {body}
-    </Card>
+    </Panel>
   )
 }
 

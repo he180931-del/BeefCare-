@@ -131,8 +131,9 @@ export default function BarnList() {
       {notice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{notice}</div>}
       {Boolean(loadError) && <Note tone="err">{penError(loadError, 'Không tải được danh sách chuồng. Vui lòng thử lại.')}</Note>}
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
-        <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">
+      {/* Danh sách + chi tiết (Bento, Figma Tab 16 ③b): 7+5 khi vùng nội dung 880–1.023 px, 6+6 từ 1.024 px. */}
+      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @min-[1024px]:grid-cols-2 @min-[1024px]:gap-6">
+        <div className="min-w-0 rounded-2xl border border-field bg-white p-2">
           <BarnTable
             rows={visibleBarns}
             selected={selected?.code}

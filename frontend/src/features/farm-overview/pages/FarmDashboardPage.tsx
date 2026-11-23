@@ -60,12 +60,6 @@ export default function FarmDashboardPage() {
             <DashboardFilterBar filters={filters} pens={overview.pens} onChange={setFilters} />
             <p className="m-0 text-xs text-muted">Bộ lọc áp dụng cho các chỉ số tương thích. Cảnh báo và cơ cấu đàn hiển thị theo toàn trại.</p>
           </section>
-          {guide && (
-            <div className="col-span-full space-y-2">
-              {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
-      <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => markStepDone(step))} onDismiss={() => act(dismissGettingStarted)} />
-            </div>
-          )}
           {metrics ? (
             <section aria-label="Chỉ số chính" className="col-span-full">
               <PrimaryMetrics view={metrics} filtersApplied={filtersApplied} />
@@ -81,7 +75,14 @@ export default function FarmDashboardPage() {
             <QuickRecordCard />
           </div>
           {/* Laptop 1.280 px (vùng nội dung ~950 px, lưới 8 cột) đã chia 5+3; từ 1.024 px vùng nội dung chia 8+4 như Figma Tab 15. */}
-          <div className="col-span-full @min-[880px]:col-span-5 @min-[1024px]:col-span-8">
+          {/* Trại mới (Figma Tab 15 ①b · Trại mới): khung "Bắt đầu sử dụng" đứng ở cột 8 cạnh Cơ cấu đàn, trên Cần chú ý hôm nay. */}
+          <div className="col-span-full flex min-w-0 flex-col gap-4 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 @min-[1024px]:gap-6">
+            {guide && (
+              <div className="space-y-2">
+                {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
+                <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => markStepDone(step))} onDismiss={() => act(dismissGettingStarted)} />
+              </div>
+            )}
             <AttentionCard rows={overview.attention} />
           </div>
           <div className="col-span-full @min-[880px]:col-span-3 @min-[1024px]:col-span-4">

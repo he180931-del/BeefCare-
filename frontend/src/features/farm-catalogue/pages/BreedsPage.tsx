@@ -36,7 +36,7 @@ export default function BreedsPage() {
             <tbody>
               {(page.data ?? []).map((b) => (
                 <SelectableRow key={b.id} selected={item?.id === b.id} muted={!b.available} onSelect={() => page.select(b)}>
-                  <Td className="font-medium">{b.code}</Td>
+                  <Td className="whitespace-nowrap font-medium">{b.code}</Td>
                   <Td><div className="font-medium">{b.name}</div>{b.description && <SubLine>{b.description}</SubLine>}</Td>
                   <Td>{b.group}</Td>
                   <Td>{b.activeCattle}</Td>

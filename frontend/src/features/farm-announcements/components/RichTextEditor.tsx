@@ -16,6 +16,7 @@ export function RichTextEditor({
   onChange,
   invalid = false,
   describedBy,
+  compact = false,
 }: {
   id: string
   label: string
@@ -23,6 +24,7 @@ export function RichTextEditor({
   onChange: (value: string) => void
   invalid?: boolean
   describedBy?: string
+  compact?: boolean
 }) {
   const editorRef = useRef<HTMLDivElement>(null)
   const urlRef = useRef<HTMLInputElement>(null)
@@ -190,8 +192,8 @@ export function RichTextEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1 rounded-[5px] bg-[#f0f0f0] p-1" role="toolbar" aria-label="Định dạng nội dung">
+    <div className="@container flex min-w-0 flex-col gap-2">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-chip p-1" role="toolbar" aria-label="Định dạng nội dung">
         {TOOLS.map((tool) => (
           <button
             key={tool.format}
@@ -200,7 +202,7 @@ export function RichTextEditor({
             title={tool.label}
             onMouseDown={(event) => { event.preventDefault(); rememberSelection() }}
             onClick={() => applyFormat(tool.format)}
-            className="grid h-8 min-w-8 cursor-pointer place-items-center rounded bg-transparent px-2 text-sm font-semibold text-muted hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+            className="grid h-11 min-w-11 cursor-pointer place-items-center rounded-md @min-[480px]:h-8 @min-[480px]:min-w-8 bg-transparent px-2 text-sm font-semibold text-muted hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
           >
             {tool.format === 'ul' ? <Icon name="clipboard-list" size={16} /> : tool.content}
           </button>
@@ -211,7 +213,7 @@ export function RichTextEditor({
           title="Chèn liên kết"
           onMouseDown={(event) => { event.preventDefault(); rememberSelection() }}
           onClick={openLink}
-          className="grid h-8 cursor-pointer place-items-center rounded bg-transparent px-2 text-xs font-medium text-muted hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+          className="grid h-11 min-w-11 cursor-pointer place-items-center rounded-md @min-[480px]:h-8 bg-transparent px-2 text-xs font-medium text-muted hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
         >
           Liên kết
         </button>
@@ -244,8 +246,8 @@ export function RichTextEditor({
               placeholder="https://example.com"
             />
           </label>
-          <button type="button" className="h-[34px] rounded border border-brand px-3 text-xs font-semibold text-brand" onClick={applyLink}>Thêm liên kết</button>
-          <button type="button" className="h-[34px] rounded border border-field bg-white px-3 text-xs text-muted" onClick={closeLink}>Hủy</button>
+          <button type="button" className="min-h-11 rounded-lg border focus-visible:outline-2 focus-visible:outline-brand @min-[480px]:min-h-[34px] border-brand px-3 text-xs font-semibold text-brand" onClick={applyLink}>Thêm liên kết</button>
+          <button type="button" className="min-h-11 rounded-lg border focus-visible:outline-2 focus-visible:outline-brand @min-[480px]:min-h-[34px] border-field bg-white px-3 text-xs text-muted" onClick={closeLink}>Hủy</button>
           {linkError && <span id={`${id}-link-error`} role="alert" className="w-full text-xs text-err-fg">{linkError}</span>}
         </div>
       )}
@@ -270,7 +272,7 @@ export function RichTextEditor({
           insertPlainText(event.clipboardData.getData('text/plain'))
         }}
         onDrop={(event) => event.preventDefault()}
-        className="min-h-[180px] whitespace-pre-wrap break-words rounded border border-field bg-white px-3 py-2.5 text-sm leading-6 text-[#212121] outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 [&_a]:text-brand [&_a]:underline [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-6"
+        className={`${compact ? 'min-h-[140px]' : 'min-h-[180px]'} whitespace-pre-wrap wrap-anywhere rounded-lg border border-field bg-white px-3 py-2.5 text-sm leading-6 text-[#212121] outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 [&_a]:text-brand [&_a]:underline [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-6`}
       />
     </div>
   )

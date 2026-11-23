@@ -11,6 +11,7 @@ export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; ca
   return (
     <>
       <Panel
+        tone="ok"
         title="Thẻ hiện hành"
         gap="gap-4"
         action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />{active ? 'Thay thẻ' : 'Cấp thẻ'}</Button>}

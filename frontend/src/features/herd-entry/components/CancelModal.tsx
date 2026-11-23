@@ -28,7 +28,7 @@ export default function CancelModal({ record, onConfirm, onClose, error, saving,
     >
       <div className="flex flex-col gap-2">
         <h3 className="m-0 text-sm font-semibold">Kiểm tra trước khi hủy</h3>
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead>
             <tr>
               <Th className={`${TH} w-[170px]`}>Bò</Th>

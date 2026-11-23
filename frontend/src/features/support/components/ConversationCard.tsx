@@ -7,7 +7,7 @@ function Bubble({ message }: { message: TicketMessage }) {
   const mine = message.authorRole === 'OWNER'
   const who = mine ? `${message.author} (bạn)` : `${message.author} · Bộ phận hỗ trợ`
   return (
-    <div className={`rounded-md border border-rule p-3 ${mine ? 'bg-white' : 'bg-page'}`}>
+    <div className={`rounded-lg border border-rule p-3 ${mine ? 'bg-white' : 'bg-page'}`}>
       <div className="mb-1 flex items-center gap-2">
         <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-chip text-[9px] font-semibold text-brand">
           {initials(message.author)}
@@ -70,7 +70,7 @@ export function ConversationCard({
   }
 
   return (
-    <Card title="Trao đổi">
+    <Card variant="panel" title="Trao đổi">
       {hasMore && beforeId != null && (
         <div className="flex justify-center">
           <Button variant="link" size="sm" disabled={loading} onClick={loadOlder}>

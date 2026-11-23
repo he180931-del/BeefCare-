@@ -104,10 +104,10 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
       {errors.form && <Note tone="err">{errors.form}</Note>}
       {locked && <Note tone="info">Lịch đã tiêm xong hết nên đã khóa, chỉ xem. Muốn tiêm cho bò khác thì tạo lịch mới.</Note>}
       {!locked && started && <Note tone="info">Lịch đã có mũi được tiêm: không đổi được vắc-xin, ngày bắt đầu và khoảng cách giữa mũi. Vẫn đổi được tên, số mũi, nhắc lại và thêm / bỏ bò.</Note>}
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
-        {/* fieldset disabled khóa mọi ô và nút bên trong khi lịch đã hoàn thành. */}
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        {/* fieldset disabled khóa mọi ô và nút bên trong khi lịch đã hoàn thành (D46). */}
         <fieldset disabled={locked} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
-          <Card title="Thông tin lịch">
+          <Card variant="panel" title="Thông tin lịch">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Tên lịch *" id="ms-name"><input id="ms-name" className={inputCls} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /><FieldError>{errors.name}</FieldError></Field>
               <Field label="Vắc-xin (danh mục trại) *" id="ms-vaccine">
@@ -122,7 +122,7 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
               <Field label="Nhắc lại sau" id="ms-booster" hint="Không bắt buộc · tháng"><input id="ms-booster" type="number" min={1} max={60} step={1} className={inputCls} value={booster} onChange={(e) => setBooster(e.target.value)} /><FieldError>{errors.boosterIntervalMonths}</FieldError></Field>
             </div>
           </Card>
-          <Card title="Nhóm bò áp dụng" sub="Các điều kiện kết hợp với nhau (VÀ)" actions={<Badge tone={matches.length ? 'ok' : 'err'}>{matches.length} con khớp</Badge>}>
+          <Card variant="panel" title="Nhóm bò áp dụng" sub="Các điều kiện kết hợp với nhau (VÀ)" actions={<Badge tone={matches.length ? 'ok' : 'err'}>{matches.length} con khớp</Badge>}>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Chuồng" id="ms-pens"><MultiSelect id="ms-pens" label="Chuồng" options={options.pens.map((p) => ({ value: p.code, label: p.label }))} value={target.penCodes} onChange={(v) => set('penCodes', v)} /></Field>
               <Field label="Nhóm đàn" id="ms-groups"><MultiSelect id="ms-groups" label="Nhóm đàn" options={options.herdGroups} value={target.herdGroups} onChange={(v) => set('herdGroups', v)} /></Field>
@@ -162,13 +162,13 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
           </Card>
         </fieldset>
         <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Vắc-xin tham chiếu" sub="Lấy từ danh mục, chỉ xem">
+          <Card variant="panel" title="Vắc-xin tham chiếu" sub="Lấy từ danh mục, chỉ xem">
             <Info cols={2} items={[['Phòng bệnh', vaccine?.disease ?? '—'], ['Liều tham chiếu', vaccine ? `${vaccine.referenceDose} ${vaccine.doseUnit}` : '—'], ['Đường tiêm', vaccine ? ROUTE_LABEL[vaccine.route] : '—'], ['Ngưng sử dụng thịt', vaccine ? `${vaccine.withdrawalDays} ngày` : '—']]} />
           </Card>
-          <Card title="Các mũi theo lịch">
+          <Card variant="panel" title="Các mũi theo lịch">
             <div className="flex flex-col gap-2">
               {(plan.data ?? []).map((r) => (
-                <div key={r.label} className="flex items-center justify-between gap-2 rounded-md border border-rule p-3">
+                <div key={r.label} className="flex items-center justify-between gap-2 rounded-xl border border-field p-3">
                   <div><div className="text-[13px] font-semibold">{r.label}</div><div className="text-xs text-muted">{fmtDate(r.date)} · {r.count} con</div></div>
                   <Badge tone={r.tone} icon={r.tone === 'warn' ? 'alert-triangle' : undefined}>{r.badge}</Badge>
                 </div>

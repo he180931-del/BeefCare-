@@ -11,7 +11,7 @@ const dmy = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? va
 function QuickAction({ icon, label, note, to }: { icon: IconName; label: string; note: string; to: string }) {
   const nav = useNavigate()
   return (
-    <button type="button" onClick={() => nav(to)} className="flex cursor-pointer items-center gap-3 rounded-md border border-edge bg-white p-4 text-left">
+    <button type="button" onClick={() => nav(to)} className="flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border border-field bg-white p-4 text-left hover:bg-[#f4f8f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#cde9d8] text-brand"><Icon name={icon} size={20} /></span>
       <span className="flex min-w-0 flex-col gap-1 leading-[normal]">
         <span className="text-sm font-semibold text-[#212121]">{label}</span>
@@ -29,18 +29,20 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
   const entryCode = typeof cow.entryVoucherCode === 'string' ? cow.entryVoucherCode : ''
   const entryId = typeof cow.entryId === 'number' && Number.isInteger(cow.entryId) && cow.entryId > 0 ? cow.entryId : undefined
   const canEditEntry = canWrite && cow.status === 'ACTIVE' && !cow.exitPending && (backend ? Boolean(entryCode && entryId != null) : Boolean(cow.importRecord))
+  // Bento (Figma Tab 16 ①b): lối tắt ghi nhận 4 cột, nội dung 8+4 (5+3 khi vùng nội dung 880–1.023 px); khối nổi bật là
+  // Tóm tắt chăm sóc. Đo theo vùng nội dung sau sidebar.
   return (
-    <>
+    <div className="@container flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
       {canWrite && (
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-4 @min-[1024px]:gap-6">
           <QuickAction icon="scale" label="Ghi cân & BCS" note={weighDue ? `Lần cân tới ${weighDue}` : 'Cân và chấm thể trạng'} to={`/can-nang/ghi-nhan?cattle=${code}`} />
           <QuickAction icon="vaccine" label="Ghi tiêm" note={cow.care.vaccine.label} to={`/tiem-phong/ghi-nhan?cattle=${code}`} />
           <QuickAction icon="stethoscope" label="Ghi bất thường" note="Mở ca, điều trị" to={`/suc-khoe/mo-ca?cattle=${code}`} />
           {cow.sex === 'Cái' && <QuickAction icon="heartbeat" label="Ghi khám thai" note={cow.care.repro} to={`/cattle/${code}?tab=repro`} />}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-[minmax(0,1.725fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-[18px]">
+      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <div className="flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
           <Panel title="Định danh" gap="gap-3.5">
             <Fields
               cols="grid-cols-2 sm:grid-cols-4"
@@ -77,9 +79,10 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
             />
           </Panel>
         </div>
-        <div className="flex min-w-0 flex-col gap-[18px]">
-          <Panel title="Tóm tắt chăm sóc" gap="gap-3.5">
+        <div className="flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
+          <Panel title="Tóm tắt chăm sóc" gap="gap-3.5" tone="emphasis">
             <Fields
+              dark
               cols="grid-cols-2"
               items={[
                 ['Cân gần nhất', cow.care.last],
@@ -88,7 +91,7 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ['Sức khỏe', cow.care.healthCase],
                 ['Sinh sản', cow.care.repro],
                 ['Tiêm phòng', <Chip key="v" tone={cow.care.vaccine.tone} icon={cow.care.vaccine.tone === 'err' ? 'alert-triangle' : undefined}>{cow.care.vaccine.label}</Chip>],
-                ['Cách ly thịt', cow.withdrawalUntil ? <span key="w" className="font-semibold text-warn-fg">{`Đến ${dmy(String(cow.withdrawalUntil))}`}</span> : 'Không'],
+                ['Cách ly thịt', cow.withdrawalUntil ? <Chip key="w" tone="warn" icon="alert-triangle">{`Đến ${dmy(String(cow.withdrawalUntil))}`}</Chip> : 'Không'],
               ]}
             />
           </Panel>
@@ -120,6 +123,6 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
       <Foot>
         Hồ sơ cá thể là nguồn duy nhất cho mọi tab chăm sóc; mã bò không đổi, dùng để tra cứu và in thẻ.
       </Foot>
-    </>
+    </div>
   )
 }

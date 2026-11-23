@@ -49,7 +49,7 @@ export default function HistoryPage() {
         {data.rows.length === 0 ? (
           <EmptyBlock title="Không có mũi tiêm phù hợp" sub="Thử mở rộng khoảng thời gian hoặc đổi bộ lọc." />
         ) : (
-          <div className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
+          <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-field bg-white p-4">
             <Table>
               <thead><tr><Th>Thời điểm ↓</Th><Th>Bò · chuồng</Th><Th>Vắc-xin · mũi</Th><Th>Liều</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th></tr></thead>
               <tbody>{data.rows.map((r) => <Row key={r.id} r={r} />)}</tbody>

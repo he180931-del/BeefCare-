@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { Badge, ErrorBlock, Info, LoadingBlock, Note } from '../../../shared/ui'
+import { Badge, ErrorBlock, LoadingBlock, Note } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { fmtDate, fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
@@ -7,7 +7,7 @@ import { adgBasis, validWeights } from '../domain/growthRules'
 import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import GrowthChart from './GrowthChart'
 
-const cardCls = 'flex flex-col gap-2 rounded-lg border border-edge bg-white p-3'
+const cardCls = 'flex flex-col gap-2 rounded-2xl border border-field bg-white p-4'
 const heading = 'm-0 text-[10px] font-semibold uppercase tracking-wide text-brand'
 
 /** Bản đọc cho điện thoại, hiển thị trong hồ sơ bò của kỹ thuật viên (không có khung riêng). */
@@ -25,17 +25,20 @@ export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string
   return (
     <div className="flex flex-col gap-3">
       {sourceId == null && <>
-      <div className={cardCls}>
-        <Info
-          cols={2}
-          items={[
-            ['Cân gần nhất', latest ? `${fmtKg(latest.kg)} kg · ${BASIS_LABEL[latest.basis]}` : '—'],
-            ['ADG', adg90 === undefined ? '—' : `${fmtDec(adg90, 2)} kg/ngày${adg90Days === undefined ? '' : ` · ${adg90Days} ngày`}`],
-            ['BCS gần nhất', latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`],
-            ['Lần cân tới', nextWeighingDate ? fmtDate(nextWeighingDate) : '—'],
-          ]}
-        />
-      </div>
+      {/* Bento (Figma Tab 17 ④b): tóm tắt tăng trưởng là khối nổi bật xanh đậm của tab trên điện thoại. */}
+      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-brand-dark bg-brand-dark p-4">
+        {([
+          ['Cân gần nhất', latest ? `${fmtKg(latest.kg)} kg · ${BASIS_LABEL[latest.basis]}` : '—'],
+          ['ADG', adg90 === undefined ? '—' : `${fmtDec(adg90, 2)} kg/ngày${adg90Days === undefined ? '' : ` · ${adg90Days} ngày`}`],
+          ['BCS gần nhất', latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`],
+          ['Lần cân tới', nextWeighingDate ? fmtDate(nextWeighingDate) : '—'],
+        ] as const).map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="mb-[3px] text-[11px] text-side-text">{label}</dt>
+            <dd className="m-0 text-[13px] font-semibold text-white">{value}</dd>
+          </div>
+        ))}
+      </dl>
       <div className={cardCls}>
         <h3 className="m-0 text-[13px] font-semibold">Cân nặng 3 tháng</h3>
         <GrowthChart points={data.chart} height={150} />
