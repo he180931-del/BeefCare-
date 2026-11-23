@@ -108,7 +108,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     const review = within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' }))
     expect(fields.getByRole('textbox', { name: 'Biển số xe' })).toBeInTheDocument()
     expect(fields.getByRole('button', { name: 'Nhập từ Excel' })).toBeInTheDocument()
-    expect(fields.getByRole('textbox', { name: 'Phí vận chuyển (đ)' })).toBeInTheDocument()
+    expect(fields.getByRole('button', { name: 'Thanh toán' })).toBeInTheDocument()
     expect(review.getByText('Kiểm tra trước khi lưu')).toBeInTheDocument()
     expect(review.getByRole('button', { name: /Lưu & tạo hồ sơ/ })).toBeInTheDocument()
     expect(review.getByRole('button', { name: 'Lưu nháp phiếu' })).toBeInTheDocument()
@@ -146,41 +146,41 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     expect(code).toHaveAttribute('readonly')
   })
 
-  it('cho phép nhập các trường đầu phiếu và giữ người nhập chỉ đọc', async () => {
+  it('cho phép nhập các trường đầu phiếu hiện có bằng bàn phím', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitForForm()
 
     await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's2')
-    const entryDate = document.getElementById('entry-date') as HTMLInputElement
-    await user.clear(entryDate)
-    await user.type(entryDate, '2026-10-21')
+    await user.clear(screen.getByLabelText('Chọn ngày'))
+    await user.type(screen.getByLabelText('Chọn ngày'), '2026-10-21')
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.type(controlInField('Số giấy kiểm dịch'), 'KD-SL-2026-00871')
+    await user.clear(controlInField('Người nhập'))
+    await user.type(controlInField('Người nhập'), 'Nguyễn Văn Hùng')
     await user.clear(controlInField('Ghi chú khi nhận bò'))
     await user.type(controlInField('Ghi chú khi nhận bò'), 'Bò khỏe, nhận đủ số lượng')
 
     expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
-    expect(entryDate).toHaveValue('2026-10-21')
+    expect(screen.getByLabelText('Chọn ngày')).toHaveValue('2026-10-21')
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-2026-00871')
-    expect(controlInField('Người nhập')).toHaveAttribute('readonly')
+    expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
     expect(controlInField('Ghi chú khi nhận bò')).toHaveValue('Bò khỏe, nhận đủ số lượng')
   })
 
-  it('không hiển thị trường Loại nhập và đổi loại bằng nút phân đoạn', async () => {
+  it('hiển thị loại nhập chỉ đọc và chỉ đổi loại bằng nút phân đoạn khi tạo mới', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitForForm()
 
-    expect(screen.queryByLabelText('Loại nhập')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mua ngoài' })).toBeInTheDocument()
+    const type = controlInField('Loại nhập') as HTMLInputElement
+    expect(type).toHaveValue('Mua ngoài')
+    expect(type).toHaveAttribute('readonly')
+
     await user.click(screen.getByRole('button', { name: 'Bê sinh tại trại' }))
 
-    const calfFields = await screen.findByRole('region', { name: 'Nội dung phiếu nhập bê sinh tại trại' })
-    expect(calfFields).toBeInTheDocument()
-    const typeInput = within(calfFields).getByRole('textbox', { name: 'Loại nhập' })
-    expect(typeInput).toHaveValue('Bê sinh tại trại')
-    expect(typeInput).toHaveAttribute('readonly')
+    const calfType = await screen.findByDisplayValue('Bê sinh tại trại')
+    expect(calfType).toHaveAttribute('readonly')
   })
 
   it('cung cấp tên truy cập cho các control theo đúng nhãn người dùng nhìn thấy', async () => {
@@ -190,7 +190,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     expect(screen.getByRole('textbox', { name: 'Mã phiếu' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Số giấy kiểm dịch' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Người nhập' })).toHaveAttribute('readonly')
+    expect(screen.getByRole('textbox', { name: 'Người nhập' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Ghi chú khi nhận bò' })).toBeInTheDocument()
   })
 
@@ -219,7 +219,6 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
-    await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's1')
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ/ }))
 
@@ -235,9 +234,8 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
 
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.type(controlInField('Số giấy kiểm dịch'), 'KD-2026-100')
-    const entryDate = document.getElementById('entry-date') as HTMLInputElement
-    await user.clear(entryDate)
-    await user.type(entryDate, '2099-01-01')
+    await user.clear(screen.getByLabelText('Chọn ngày'))
+    await user.type(screen.getByLabelText('Chọn ngày'), '2099-01-01')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ/ }))
 
     expect(await screen.findByText(/ngày nhập.*không.*tương lai/i)).toBeInTheDocument()
@@ -270,7 +268,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     expect(controlInField('Mã phiếu')).toHaveValue('PN-2026-0042')
     expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-42')
-    expect(controlInField('Người nhập')).toHaveAttribute('readonly')
+    expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
     expect(controlInField('Ghi chú khi nhận bò')).toHaveValue('Nháp cần hoàn thiện')
     expect(screen.getByRole('textbox', { name: 'Biển số xe' })).toHaveValue('26C-045.12')
   })
@@ -293,7 +291,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await user.click(typeSwitch)
 
     expect(typeSwitch).toBeDisabled()
-    expect(screen.queryByLabelText('Loại nhập')).not.toBeInTheDocument()
+    expect(controlInField('Loại nhập')).toHaveValue('Mua ngoài')
   })
 
   it('lưu nháp đầy đủ thông tin đầu phiếu nhưng không yêu cầu tạo hồ sơ bò', async () => {
@@ -305,6 +303,8 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.type(controlInField('Số giấy kiểm dịch'), 'KD-DRAFT-14')
     await user.type(screen.getByRole('textbox', { name: 'Biển số xe' }), '29C-999.99')
+    await user.clear(controlInField('Người nhập'))
+    await user.type(controlInField('Người nhập'), 'Trần Quốc Long')
     await user.clear(controlInField('Ghi chú khi nhận bò'))
     await user.type(controlInField('Ghi chú khi nhận bò'), 'Lưu để bổ sung bò sau')
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
@@ -319,6 +319,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
       sourceId: 's2',
       quarantine: 'KD-DRAFT-14',
       plate: '29C-999.99',
+      receiver: 'Trần Quốc Long',
       note: 'Lưu để bổ sung bò sau',
     })
     expect(persisted.cattleRows ?? []).toHaveLength(0)

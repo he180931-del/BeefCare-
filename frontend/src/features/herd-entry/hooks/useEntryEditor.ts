@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { EntryCalf, EntryCow, HerdEntry, NewEntrySeller } from '../types'
+import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { calfTotals, purchaseTotals, receivingPenAfter, receivingPenOverflow } from '../domain/entryTotals'
 
@@ -13,9 +13,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   pens: Pen[]
   isBuy: boolean
 }) {
-  // An empty value is intentional: never silently assign the first seller.
-  const [sourceId, setSourceId] = useState(draft?.sourceId ?? '')
-  const [newSeller, setNewSeller] = useState<NewEntrySeller | null>(draft?.newSeller ?? null)
+  const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
   const [date, setDate] = useState(draft?.date ?? defaults.date)
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? defaults.quarantine)
   const [plate, setPlate] = useState(draft?.plate ?? '')
@@ -47,7 +45,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   const calvesSummary = calfTotals(calves, pens, calfPen.code)
 
   return {
-    sourceId, setSourceId, newSeller, setNewSeller, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
+    sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
     cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue, printQr, setPrintQr,
     patchCow, patchCalf, purchase, pensAfter, overflow, calfPen, calvesSummary, isBuy,
   }

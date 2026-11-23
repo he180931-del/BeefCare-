@@ -39,8 +39,6 @@ tối đa 10 MiB mỗi file.
 | EN-U17 | Cách ly nhập đàn không trước ngày nhập. Hai nút nhanh cộng 14 hoặc 21 ngày từ ngày nhập | Component | `RowEditModal.cleanup.test.tsx` |
 | EN-U18 | Hủy popup thanh toán không lưu phí vận chuyển. Có thể lưu phí vào nháp khi chưa thanh toán | Component | `ImportNew.files.test.tsx` |
 | EN-U19 | Số lứa đẻ ngoài 0–15 không thể xác nhận trong khai báo sinh sản | Component | `RowEditModal.required-fields.test.tsx` |
-| EN-U20 | Phí vận chuyển/trả trước không âm; trả trước không vượt tổng; phương thức bắt buộc khi trả trước; hạn trả không trước ngày nhập | Validation | `entryFormValidation.test.ts` |
-| EN-U21 | Nguồn mới bắt buộc tên, giới hạn tên/SĐT/khu vực; chọn nguồn cũ và nguồn mới loại trừ nhau | Validation + Component | `entryFormValidation.test.ts`, `ImportNew.header.test.tsx` |
 
 ## Integration tests — màn hình, adapter và HTTP
 
@@ -57,8 +55,6 @@ tối đa 10 MiB mỗi file.
 | EN-I09 | Xóa con giữa sau xác nhận. Mở lại đúng con sau khi đổi số thứ tự. PUT giữ đúng hai thẻ còn lại | Page → adapter | `ImportNew.files.test.tsx`, `draftFieldsRoundtrip.test.ts` |
 | EN-I10 | Mở lại và lưu không mất ngày cách ly, màu lông, lý do cảnh báo, tên giống hoặc ID mục đích | Adapter → DTO | `draftFieldsRoundtrip.test.ts` |
 | EN-I11 | Hồ sơ chỉ hiện cách ly nhập đàn của bò mua ngoài đến hết hạn | Profile mapping → overview | `tests/unit/cattle/OverviewEntryLink.test.tsx` |
-| EN-I12 | Save purchase gửi `sellerId` số trực tiếp hoặc `newSeller` với `sellerId=null`; response hydrate lại seller thực tế | Adapter → transport → page | `herdEntryBackendApi.test.ts`, `entryDraftBackendFlow.test.ts` |
-| EN-I13 | Nháp với phương thức thanh toán trống gửi `paymentMethod=null`; paid-off không gửi hạn trả cũ | Adapter → DTO | `herdEntryBackendApi.test.ts` |
 
 ## Backend integration tests — nguồn sự thật nghiệp vụ
 

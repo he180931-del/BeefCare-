@@ -1,30 +1,12 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
-import type { EntryCow, EntryType, NewEntrySeller } from '../types'
+import type { EntryCow, EntryType } from '../types'
 
 type ValidationInput = {
   date?: string; type?: EntryType; sourceId?: string; receiver?: string; cows?: EntryCow[]; pricing?: 'kg' | 'con'
-  paid?: number; total?: number; freight?: number; method?: string; due?: string; newSeller?: NewEntrySeller | null; today?: string
+  paid?: number; total?: number; method?: string; today?: string
 }
-
-type PaymentErrors = Partial<Record<'freight' | 'paid' | 'method' | 'due', string>>
 
 export const entryToday = businessDate
-
-/** Voucher-level money rules are shared by direct payment fields and posting. */
-export function validateEntryPayment({ freight, paid, total, method, due, date }: Pick<ValidationInput, 'freight' | 'paid' | 'total' | 'method' | 'due' | 'date'>): PaymentErrors {
-  const errors: PaymentErrors = {}
-  const transportFee = Number(freight ?? 0)
-  const amountPaid = Number(paid ?? 0)
-  const payable = Number(total ?? 0)
-  if (!Number.isFinite(transportFee) || transportFee < 0) errors.freight = 'Phí vận chuyển phải là số không âm.'
-  if (!Number.isFinite(amountPaid) || amountPaid < 0) errors.paid = 'Trả trước phải là số không âm.'
-  else if (Number.isFinite(payable) && amountPaid > payable) errors.paid = 'Số tiền đã thanh toán không được vượt quá tổng phải trả.'
-  if (amountPaid > 0 && !String(method ?? '').trim()) errors.method = 'Vui lòng chọn phương thức thanh toán.'
-  if (due && date && due < date) errors.due = 'Hạn trả phần nợ không được trước ngày nhập.'
-  return errors
-}
-
-const firstPaymentError = (errors: PaymentErrors): string | null => errors.freight ?? errors.paid ?? errors.method ?? errors.due ?? null
 
 const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con', forPost = true): string | null => {
   const weight = Number(cow.weight)
@@ -52,15 +34,8 @@ export function validateEntryForPost(input: ValidationInput): string | null {
   const today = input.today ?? entryToday()
   if (!input.date) return 'Ngày nhập là bắt buộc.'
   if (input.date > today) return 'Ngày nhập không được ở tương lai.'
-  const newSeller = input.newSeller
-  if (input.type === 'Mua ngoài' && !String(input.sourceId ?? '').trim() && !String(newSeller?.name ?? '').trim()) return 'Vui lòng chọn hoặc thêm nguồn bán.'
-  if (input.type === 'Mua ngoài' && newSeller) {
-    const name = newSeller.name.trim()
-    if (!name) return 'Tên nguồn bán là bắt buộc.'
-    if (name.length > 150) return 'Tên nguồn bán tối đa 150 ký tự.'
-    if (newSeller.phone.trim().length > 50) return 'Số điện thoại tối đa 50 ký tự.'
-    if (newSeller.area.trim().length > 255) return 'Khu vực tối đa 255 ký tự.'
-  }
+  if (input.type === 'Mua ngoài' && !String(input.sourceId ?? '').trim()) return 'Vui lòng chọn người bán.'
+  if (input.type === 'Mua ngoài' && !String(input.receiver ?? '').trim()) return 'Vui lòng nhập người thực hiện nhập đàn.'
   const cows = input.cows ?? []
   if (!cows.length) return 'Phiếu nhập phải có ít nhất một con bò.'
   for (const [index, cow] of cows.entries()) {
@@ -85,5 +60,8 @@ export function validateEntryForPost(input: ValidationInput): string | null {
     if (hist.disease === 'Có' && !String((hist as Record<string, unknown>).diseaseNote ?? '').trim()) return `${line}: cần mô tả bệnh đã biết.`
     if (hist.repro === 'Có' && hist.pregnantAtEntry === 'YES' && (!Number.isFinite(Number((hist as Record<string, unknown>).pregnancyMonths)) || Number((hist as Record<string, unknown>).pregnancyMonths) < 1 || Number((hist as Record<string, unknown>).pregnancyMonths) > 9)) return `${line}: cần nhập số tháng mang thai từ 1 đến 9.`
   }
-  return firstPaymentError(validateEntryPayment(input))
+  const paid = Number(input.paid ?? 0)
+  if (paid > 0 && !String(input.method ?? '').trim()) return 'Vui lòng chọn phương thức thanh toán.'
+  if (paid > Number(input.total ?? 0)) return 'Số tiền đã thanh toán không được vượt quá tổng phải trả.'
+  return null
 }
