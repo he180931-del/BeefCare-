@@ -2,10 +2,13 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { type AppRole } from '../../features/authorization'
 import { useSession } from '../session/sessionContext'
+import { pageLoader, writeCurrentFarmId } from '../session/currentFarm'
+import type { SessionFarm } from '../session/sessionTypes'
 import logo from '../../shared/assets/logo.png'
 import farm from '../../shared/assets/farm.png'
 import wave from '../../shared/assets/wave.png'
 import { Icon, TopbarTitleContext, type IconName } from '../../shared/ui'
+import { AccountMenu } from '../../features/account'
 import { demoSessionUser } from '../../demo/demoModules'
 
 // Menu theo Figma Redesign. Quản lý (manager) không có "Thông tin trại / Gói dịch vụ / Hỗ trợ".
@@ -32,13 +35,13 @@ type Shell = {
   platformRole?: string; search: string; searchTo: string; notifications: string; profile: string
 }
 
-const FARM_SEARCH = { search: 'Tìm hồ sơ bò hoặc mã QR...', searchTo: '/cattle', profile: '/ho-so' }
+const FARM_SEARCH = { search: 'Tìm hồ sơ bò hoặc mã QR...', searchTo: '/cattle', profile: '/tai-khoan' }
 const USERS = {
   manager: { initials: '', name: '', role: 'Quản lý', groups: [...NAV_COMMON, FARM_MANAGER], gap: 'mt-[2px]', notifications: '/thong-bao', ...FARM_SEARCH },
   owner: { initials: '', name: '', role: 'Chủ trại', groups: [...NAV_COMMON, FARM_OWNER], gap: 'mt-[3px]', notifications: '/thong-bao-cua-toi', ...FARM_SEARCH },
 } satisfies Record<string, Shell>
 
-const PLATFORM_PROFILE = '/nen-tang/ho-so'
+const PLATFORM_PROFILE = '/tai-khoan'
 const PLATFORM: Partial<Record<AppRole, Shell>> = {
   CS: {
     initials: '', name: '', role: 'Nhân viên hỗ trợ', gap: 'mt-[3px]', platformRole: 'Nhân viên hỗ trợ · CS',
@@ -92,7 +95,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const u: Shell = person ? { ...base, name: person.fullName, initials: initialsOf(person.fullName), role: person.role === 'OWNER' ? 'Chủ trại' : person.role === 'MANAGER' ? 'Quản lý' : base.role } : base
   const platform = Boolean(u.platformRole)
   const [open, setOpen] = useState(false)
-  const [menu, setMenu] = useState(false)
+  const [farmMenu, setFarmMenu] = useState(false)
   const [query, setQuery] = useState('')
   const [override, setOverride] = useState<string | null>(null)
   const location = useLocation()
@@ -102,6 +105,19 @@ export default function Layout({ title, user = 'owner', children }: { title: str
     event.preventDefault()
     const text = query.trim()
     navigate(text ? `${u.searchTo}?q=${encodeURIComponent(text)}` : u.searchTo)
+  }
+  const switchFarm = (farm: SessionFarm) => {
+    setFarmMenu(false)
+    if (farm.id === person?.farmId) return
+    if (farm.serviceStatus !== 'ACTIVE') {
+      navigate('/chon-trai')
+      return
+    }
+    if (!writeCurrentFarmId(farm.id)) {
+      navigate('/chon-trai')
+      return
+    }
+    pageLoader.load(farm.role === 'TECHNICIAN' ? '/kt' : '/tong-quan')
   }
   return (
     <TopbarTitleContext.Provider value={setOverride}>
@@ -155,12 +171,42 @@ export default function Layout({ title, user = 'owner', children }: { title: str
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-11 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 wrap-anywhere pr-3 text-sm font-bold leading-tight text-ink">{override || title}</div>
             {!platform && (
-              <Link to="/chon-trai" className="mr-[22px] hidden h-[46px] w-[200px] shrink-0 items-center gap-1 rounded-xl border border-field bg-white px-[13px] text-[13px] font-bold text-brand-dark no-underline lg:flex">
-                {/* A tab that has not entered a farm shows "Chọn trại", never a sample farm name; the sample name stays for
-                    pages rendered outside a session (single-page tests). */}
-                <span className="min-w-0 truncate">{person?.farmName ?? 'Chọn trại'}</span>
-                <Icon name="chevron-down" size={14} />
-              </Link>
+              <div className="relative mr-[22px] hidden lg:block">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={farmMenu}
+                  onClick={() => setFarmMenu((value) => !value)}
+                  className="flex h-[46px] w-[200px] items-center gap-1 rounded-xl border border-field bg-white px-[13px] text-left text-[13px] font-bold text-brand-dark"
+                >
+                  <span className="min-w-0 flex-1 truncate">{person?.farmName ?? 'Chọn trại'}</span>
+                  <Icon name="chevron-down" size={14} />
+                </button>
+                {farmMenu && (
+                  <div role="menu" className="absolute right-0 top-[52px] z-40 w-[260px] rounded-xl border border-field bg-white py-1 shadow-lg">
+                    {session?.farms?.map((farm) => (
+                      <button
+                        key={farm.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => switchFarm(farm)}
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-page ${farm.id === person?.farmId ? 'bg-page font-semibold text-brand-dark' : 'text-ink'}`}
+                      >
+                        <span className="min-w-0 truncate">{farm.name}</span>
+                        {farm.id === person?.farmId && <span className="ml-2 shrink-0 text-xs text-brand">Đang chọn</span>}
+                      </button>
+                    ))}
+                    <Link
+                      to="/chon-trai"
+                      role="menuitem"
+                      onClick={() => setFarmMenu(false)}
+                      className="block border-t border-field px-3 py-2 text-sm font-semibold text-brand no-underline hover:bg-page"
+                    >
+                      Quản lý trang trại
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
             <form role="search" onSubmit={search} className={`mr-5 hidden h-[46px] shrink-0 items-center gap-2 rounded-xl border border-field bg-page px-[13px] text-[13px] text-subtle xl:flex ${platform ? 'w-[500px]' : 'w-[278px]'}`}>
               <Icon name="search" />
@@ -169,21 +215,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
             <Link to={u.notifications} aria-label="Thông báo" className="mr-4 grid size-9 shrink-0 place-items-center rounded-full bg-[#eef4ef] text-brand">
               <Icon name="bell" size={18} />
             </Link>
-            <div className="relative flex shrink-0 items-center">
-              <button type="button" aria-haspopup="menu" aria-expanded={menu} aria-label="Tài khoản" onClick={() => setMenu((value) => !value)} className="flex cursor-pointer items-center text-left">
-                <span className="mr-2 grid size-10 shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{u.initials}</span>
-                <span className="hidden w-[150px] shrink-0 sm:block">
-                  <span className="block whitespace-nowrap text-xs font-bold leading-[18px] text-ink">{u.name}</span>
-                  <span className="block text-[10px] leading-4 text-subtle">{u.role}</span>
-                </span>
-              </button>
-              {menu && (
-                <div role="menu" className="absolute right-0 top-[48px] z-40 w-[200px] rounded-md border border-edge bg-white py-1 text-xs shadow-md">
-                  <Link role="menuitem" to={u.profile} onClick={() => setMenu(false)} className="flex items-center gap-2 px-3 py-2 text-ink no-underline hover:bg-page"><Icon name="user-circle" />Hồ sơ của tôi</Link>
-                  {session && <button role="menuitem" type="button" onClick={() => { setMenu(false); void session.logout() }} className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-err-fg hover:bg-page"><Icon name="logout" />Đăng xuất</button>}
-                </div>
-              )}
-            </div>
+            <AccountMenu fallbackName={u.name} fallbackInitials={u.initials} fallbackRole={u.role} />
           </header>
           {/* @container: lưới Bento đo theo vùng nội dung sau sidebar (docs/BeefCare-Bento-Grid.md §2), không theo màn hình. */}
           <main className="@container flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>

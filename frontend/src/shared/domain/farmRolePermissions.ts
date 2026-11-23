@@ -1,9 +1,8 @@
-import type { FarmRole } from '../types'
+export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
 
 /**
- * Bảng quyền cố định theo vai trò, đúng SRS Table III-2 (GBR-06, D29): 17 nhóm quyền × 3 vai trò. `text` là nội dung ô
- * của SRS (null = không có quyền, hiện "—"); `level` là mức thô dùng chung với SCR-08 (`FULL`/`RESTRICTED`/`NO` của
- * `GET /api/farms/{farmId}/my-permissions`), nhãn nhóm quyền trùng nhãn SCR-08.
+ * Bảng quyền cố định theo vai trò, đúng SRS Table III-2 (GBR-06, D29): 17 nhóm quyền × 3 vai trò.
+ * Đây là dữ liệu miền dùng chung cho cả khu vực tài khoản và không gian làm việc của trang trại.
  */
 export type PermissionLevel = 'full' | 'view' | 'none'
 
@@ -26,7 +25,6 @@ export const PERMISSION_AREAS: readonly PermissionArea[] = [
   area('CATTLE_PROFILE_QR', 'Hồ sơ bò & thẻ QR', ['full', 'Quản lý (cả mục đích)'], ['full', 'Quản lý (trừ mục đích)'], ['view', 'Xem']),
   area('PENS_AND_MOVES', 'Chuồng trại & chuyển chuồng', ['full', 'Quản lý'], ['full', 'Quản lý'], ['view', 'Xem']),
   area('HERD_ENTRY_AND_PAYMENTS', 'Nhập đàn, thanh toán & xác nhận bê', ['full', 'Quản lý'], ['full', 'Quản lý'], null),
-  // D41: Chủ trại có toàn bộ quyền của Quản lý và Kỹ thuật viên.
   area('GROWTH_BCS', 'Cân nặng & thể trạng', ['full', 'Ghi và sửa'], ['full', 'Ghi và sửa'], ['view', 'Xem']),
   area('VACCINATION', 'Tiêm phòng', ['full', 'Lập lịch, ghi và sửa'], ['full', 'Lập lịch, ghi và sửa'], ['view', 'Xem']),
   area('HEALTH_AND_TREATMENT', 'Sức khỏe & điều trị', ['full', 'Ghi và sửa'], ['full', 'Ghi và sửa'], ['view', 'Xem']),

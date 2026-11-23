@@ -50,6 +50,8 @@ class PlatformAccessResourceTest extends DomainTestSupport {
 
     private AppUser verified(AppUser account) {
         account.setGoogleSubject("google-uc9-" + next());
+        account.setTermsAccepted(true);
+        account.setTermsAcceptedAt(Instant.parse("2026-10-28T00:00:00Z"));
         em.flush();
         return account;
     }

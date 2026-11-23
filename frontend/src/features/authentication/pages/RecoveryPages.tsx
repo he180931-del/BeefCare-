@@ -6,8 +6,10 @@ import { Icon } from '../../../shared/ui'
 import type { AuthClient, PasswordResetValidation } from '../types'
 import { isValidEmail, normalizeEmail, validateReset } from '../validation/authValidation'
 import { Alert, AuthShell, Form, FormField, NoticePanel, primaryButtonClass } from '../components/AuthShell'
-import { ActionLink, PasswordField } from '../components/AuthControls'
-import { AUTH_PATH, emailFromState, friendlyAccountError, friendlyEmailRequestError, readError } from '../domain/authErrors'
+import { PasswordField } from '../components/AuthControls'
+import { ActionLink } from '../../../shared/ui'
+import { AUTH_PATH } from '../domain/authPaths'
+import { emailFromState, friendlyAccountError, friendlyEmailRequestError, readError } from '../domain/authErrors'
 import { useAuthenticationUseCase } from '../hooks/useAuthenticationUseCase'
 
 const backToSignIn = <ActionLink to={AUTH_PATH.signIn}><Icon name="arrow-left" size={13} className="mr-1 inline" />Quay lại đăng nhập</ActionLink>
@@ -38,7 +40,6 @@ export function ForgotPasswordPage({ client }: { client: AuthClient }) {
           <FormField id="forgot-email" label="Email đăng ký" type="email" value={email} onChange={(event) => setEmail(event.target.value)} error={fieldError} placeholder="email@example.com" autoComplete="email" maxLength={254} required />
           <button type="submit" disabled={busy} className={primaryButtonClass}>{busy ? 'Đang gửi…' : 'Gửi liên kết đặt lại'}</button>
         </Form>
-        <p className="m-0 rounded-[14px] bg-[#eef4ef] px-5 py-4 text-[13px] leading-5 text-subtle">Nếu bạn đăng nhập bằng Google, hãy khôi phục tài khoản trong Google.</p>
       </div>
     </AuthShell>
   )

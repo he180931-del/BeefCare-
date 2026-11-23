@@ -744,7 +744,7 @@ class BrowserSessionFlowIT {
         owner.browser.post("/api/account/google-reauthentication", Map.of("returnTo", "/nen-tang/ho-so"))
             .andExpect(status().isNoContent());
 
-        assertThat(owner.browser.session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isEqualTo("/ho-so");
+        assertThat(owner.browser.session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isEqualTo("/tai-khoan");
     }
 
     @Test

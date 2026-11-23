@@ -153,7 +153,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
 
             <Card variant="panel"
               title={`Kết quả bê (${calves.length})`}
-             
+
               actions={<Button disabled={calves.length >= 4} onClick={() => setCalves((current) => [...current, blankCalf(profile)])}><Icon name="circle-plus" size={16} />Thêm bê</Button>}
             >
               <div className="flex flex-col gap-3">

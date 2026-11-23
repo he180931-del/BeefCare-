@@ -180,7 +180,13 @@ public class SecurityConfiguration {
                     }
                 }
                 try {
-                    access.currentActiveUser();
+                    var user = access.currentActiveUser();
+                    if (user.getGoogleSubject() != null && !user.isTermsAccepted() && !allowsTermsAcceptance(request)) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"code\":\"MSG-FE01-14\",\"params\":{\"field\":\"termsAccepted\"}}");
+                        return;
+                    }
                 } catch (DomainException ex) {
                     if (session != null) {
                         var sessionInformation = sessionRegistry.getSessionInformation(session.getId());
@@ -197,6 +203,16 @@ public class SecurityConfiguration {
                 }
             }
             chain.doFilter(request, response);
+        }
+
+        private boolean allowsTermsAcceptance(HttpServletRequest request) {
+            String path = request.getRequestURI().substring(request.getContextPath().length());
+            return path.equals("/api/csrf") ||
+                path.equals("/api/authenticate") ||
+                path.equals("/api/logout") ||
+                path.equals("/api/account/profile") ||
+                path.equals("/api/account/terms-acceptance") ||
+                path.equals("/api/account/owner-registration");
         }
     }
 }

@@ -1090,7 +1090,7 @@ ID | Use Case | Feature | Use Case Description
 UC-FE01-01 | Register Farm Owner Account | FE-01 | A Guest creates an account with Google, or with an email and password verified through an emailed link, and completes the Owner profile so the account can register farms.
 UC-FE01-02 | Sign In | FE-01 | A Guest signs in with Google or with a verified email and password and reaches only the farms and platform areas currently authorized.
 UC-FE01-03 | Sign Out | FE-01 | A signed-in user ends the BeefCare session and clears the selected farm on the device.
-UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user views own profile, sign-in methods, roles and permissions in the current farm, and updates full name and contact phone.
+UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user opens the shared account screen, views and updates full name and contact phone, views sign-in methods, and may consult the fixed permission matrix of each farm role independently of the current farm.
 UC-FE01-05 | Reset Forgotten Password | FE-01 | A Guest receives a single-use reset link by email and sets a new password.
 UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or adds a first password to an account that uses only Google.
 [/TABLE]
@@ -1098,7 +1098,7 @@ UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or
 [TABLE block 362]
 ID | Use Case | Feature | Use Case Description
 UC-FE02-01 | Register Farm Workspace | 2.1 Owner Farm Workspace | A Farm Owner registers a first or additional farm; the farm starts in PENDING_PAYMENT and the Owner continues to plan selection.
-UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm.
+UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm, either on SCR-09 or from the quick farm switcher in the top bar.
 UC-FE02-03 | Update Farm Information | 2.1 Owner Farm Workspace | The Farm Owner updates registration, contact and operating information of an owned farm.
 UC-FE02-04 | View Platform Farm Service Overview | 2.2 Platform Farm Service | The Platform Manager views, searches and filters all farms with Owner, service status and coverage, without farm operational data.
 UC-FE02-05 | Suspend or Restore Farm Service | 2.2 Platform Farm Service | The Platform Manager suspends a farm's service with a reason, or restores it so that its status follows the subscription again.
@@ -1478,7 +1478,7 @@ Public landing page | View | Full | Full | Full | Full | Full | Full | Full
 [P498 ] Table 5.1-1 Navigation menu by role
 [TABLE block 499]
 Role | Menu group | Menu items → screen
-All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; farm switcher → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; profile → SCR-08; sign out
+All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; quick farm switcher changes an ACTIVE farm directly and "Manage farms" → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; shared user menu (avatar and name) → SCR-08 or sign out
 Farm Owner | Overview | Farm Dashboard SCR-48; Farm Reminders SCR-44; Farm Announcements SCR-26
 Farm Owner | Herd | Cattle SCR-18; Herd Entry Vouchers SCR-23; Pens SCR-17; Herd Exit Vouchers SCR-41
 Farm Owner | Care | Growth & BCS SCR-29; Vaccination SCR-31; Health & Treatment SCR-36; Reproduction SCR-38; Feed SCR-77 (tabs Stock SCR-77, Feed Receipts SCR-78, Stock Count SCR-80, Rations SCR-81, Feeding Log SCR-83, Catalogue SCR-84, Report SCR-85); recording buttons are shown on the care, reproduction and feeding log screens
@@ -1507,7 +1507,7 @@ SCR-04 | Verify Email (Xác minh email) | FE-01 | Informs the Guest that a verif
 SCR-05 | Forgot Password (Quên mật khẩu) | FE-01 | Allows a Guest to request a password-reset link; shows the same confirmation whether or not the email exists.
 SCR-06 | Set New Password (Đặt mật khẩu mới) | FE-01 | Allows a Guest who opened a valid reset link to set a new password; shows "link no longer valid" for an expired or used link.
 SCR-07 | Complete Owner Profile (Hoàn tất hồ sơ chủ trại) | FE-01 | Allows a newly authenticated user to complete the Owner profile (step 1 of onboarding).
-SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Allows a signed-in user to view and update own profile, sign-in methods and the fixed permissions of their role in the current farm. Popups: Change Password.
+SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Shared account screen for every signed-in role. The Profile tab updates own name and contact phone; the Permissions by Role tab shows the fixed Table III-2 matrix for Owner, Manager or Technician independently of the selected farm. Popups: Change Password.
 SCR-09 | Select Farm (Chọn trang trại) | FE-02 | Allows a user to see their farms with role and service status, register a new farm (Owner) and enter a farm.
 SCR-10 | Register Farm (Đăng ký trang trại) | FE-02 | Allows the Owner to register a farm (step 2 of onboarding).
 SCR-11 | Farm Information (Thông tin trại) | FE-02 | Allows the Owner to view and update registration, contact and operating information and see the service summary.
@@ -1734,8 +1734,8 @@ Trigger | The user signs in with more than one farm, or opens the farm switcher.
 Description | As a farm member, I want to see my farms with my role and their service status and choose one, so that I work only with that farm's data.
 Preconditions | PRE-1: The user is signed in and the account is ACTIVE.
 Postconditions | POST-1: The selected farm is the current context with the user's role in that farm. / POST-2: No farm, membership or subscription is changed.
-Normal Flow | 1. User opens Select Farm (SCR-09). / 2. System lists every farm where the user has an ACTIVE membership as a card: farm name, location, service status, user's role, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED; a Manager or Technician sees a farm that is not ACTIVE as a disabled card (AF3). / 3. User selects "Enter farm" on an ACTIVE farm. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
-Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Select Term and Review (SCR-58) for the first purchase or the renewal with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician card of a farm that is not ACTIVE: the card is disabled with MSG-FE02-04. / AF4 – Only one available farm: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm".
+Normal Flow | 1. User opens Select Farm (SCR-09), or opens the quick farm switcher from the current farm name in the top bar. / 2. System lists every farm where the user has an ACTIVE membership with its name, service status and the user's role; SCR-09 additionally shows location, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED; a Manager or Technician sees a farm that is not ACTIVE as unavailable (AF3). / 3. User selects "Enter farm" on SCR-09 or selects an ACTIVE farm in the quick switcher. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
+Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Select Term and Review (SCR-58) for the first purchase or the renewal with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician farm that is not ACTIVE: SCR-09 shows a disabled card with MSG-FE02-04; selecting it from the quick switcher opens SCR-09 and never opens farm operations. / AF4 – Only one available farm immediately after sign-in: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm". / AF6 – User selects "Manage farms" in the quick switcher: SCR-09 opens.
 Exceptions | E1: Membership deactivated or role changed after the list was shown: MSG-COM-01 and the list is refreshed. / E2: Loading failure: MSG-COM-03.
 Priority | High
 Frequency of Use | At every sign-in; several times a day for multi-farm users.
@@ -2800,7 +2800,8 @@ Dialog behaviour | Cancel or ✕ closes without saving; when data was entered, M
 Home screen by role | After sign-in, after entering a farm and from the logo: Farm Owner and Farm Manager → Farm Dashboard (SCR-48); Farm Technician → Technician Home (SCR-74); Customer Support → Ticket Queue (SCR-67); Platform Manager → Farm Service Overview (SCR-12); System Admin → User Accounts (SCR-16).
 Links from email | The verification link opens SCR-07 (or SCR-02 when Owner registration is not pending); the password-reset link opens SCR-06; the invitation link opens SCR-15 after sign-in or registration with the invited email.
 Read-only records | An EXITED cattle shows MSG-COM-13 and a VOIDED cattle MSG-COM-18, with no recording buttons; a cattle on a PENDING death voucher shows MSG-COM-17 and only correction and void actions (GBR-26). A farm that is not ACTIVE shows MSG-COM-12 on farm operation screens (GBR-14).
-Sign out | Available from the user menu in the top bar of every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
+User menu | The same avatar-and-name menu is used on farm, farm-selection and account screens. It contains exactly "My profile" (SCR-08) and "Sign out".
+Sign out | Available from the shared user menu on every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
 Farm scope and versions | Every list, count and detail shows only data of the current farm (BR-D01); every update carries the record version (BR-D31, GBR-89).
 Phone screens | The same screens adapt to phone width: tables become cards, the sidebar becomes the bottom navigation and dialogs become full-screen sheets (NFR-I02).
 [/TABLE]
@@ -2906,20 +2907,21 @@ Complete and register farm | Button. Saves Owner registration and opens SCR-10.
 [TABLE block 776]
 [Figure to be inserted] Mockup – Figma 02 › "Hồ sơ & quyền của tôi"
 [/TABLE]
-[P778 ] This screen allows any signed-in user to view and update their own profile (UC-FE01-04) and to see the fixed permissions of their role in the current farm (GBR-06). Platform staff see their platform role instead of farm permissions.
+[P778 ] This shared account screen is available at one account destination for every signed-in role and does not depend on the selected farm. It has two tabs: Profile, for viewing and updating the user's own account data (UC-FE01-04), and Permissions by Role, for consulting the fixed Table III-2 matrix for Farm Owner, Farm Manager or Farm Technician (GBR-06). Platform staff may consult the same reference matrix; it does not grant permissions.
 [P779 ] Field Description
 [TABLE block 780]
 Field Name | Description
-Header | Full name and "role at farm name" (or platform role).
+Account navigation | Tabs Profile and Permissions by Role.
+Header | "My profile" on the Profile tab.
 Sign-in email | Read-only, with verification state.
 Sign-in methods | Read-only: Google and/or Email & password.
 Full name * | Text, 2–100 characters.
 Contact phone | Optional, Vietnamese phone format.
 Change password / Add password | Button. Opens popup "Change Password" (UC-FE01-06). "Add password" is shown when the account has no password.
-Save profile | Button. Saves name and phone; MSG-FE01-13.
-My permissions in this farm | 
-Role | Read-only: Farm Owner, Farm Manager or Farm Technician.
-Permission table | Read-only list of permission areas with the value for the user's role, as in Table III-2.
+Save profile | Button. Saves name and phone without password re-authentication; MSG-FE01-13. Email and sign-in methods do not change.
+Permissions by Role |
+Role selector | Farm Owner, Farm Manager or Farm Technician; one role at a time.
+Function table | Read-only Table III-2 reference for the selected role. Areas with no access are omitted; concise labels describe View, Manage, Record or Correct access. It does not depend on the user's membership or selected farm.
 [/TABLE]
 [P782 4] 1.8 Popup: Change Password
 [TABLE block 783]
@@ -2946,7 +2948,7 @@ Cancel / Save | Buttons. On success MSG-FE01-07; other sessions are ended.
 [P796 ] Field Description
 [TABLE block 797]
 Field Name | Description
-User | Read-only full name and email; sign-out link.
+User menu | Avatar initials and full name; exactly "My profile" (SCR-08) and "Sign out".
 Register new farm | Button. Opens SCR-10 (SCR-07 first when Owner registration is incomplete).
 Farm card (one per farm) | 
 Farm name, address | Read-only; commune and province.
@@ -2955,6 +2957,7 @@ Your role | Read-only: Farm Owner, Farm Manager or Farm Technician.
 Herd size | Number of ACTIVE cattle.
 Service | "Until dd/mm/yyyy", "No service period yet" or "Suspended".
 Card action | ACTIVE: "Enter farm" opens the farm home screen: SCR-48 for the Owner and a Manager, SCR-74 for a Technician. Owner + PENDING_PAYMENT: "Pay to activate" (SCR-58). Owner + EXPIRED: "Renew" (SCR-58). Owner + SUSPENDED: "Send support ticket" (SCR-65). Manager or Technician of a farm that is not ACTIVE: disabled card with "The Owner manages the subscription" (MSG-FE02-04).
+Quick farm switcher | On farm screens, the current farm name opens a menu of the user's farms. The current item is marked "Selected". Selecting an ACTIVE farm rechecks access, clears the previous farm's data and opens the new farm home; selecting a non-ACTIVE farm opens SCR-09. "Manage farms" opens SCR-09.
 [/TABLE]
 [P799 5] 2.1.2 SCR-10 Register Farm
 [TABLE block 800]
@@ -3062,7 +3065,7 @@ Joined | mm/yyyy.
 Actions | Owner only: "Change role · Deactivate" for ACTIVE members, "Reactivate" for INACTIVE members (popup "Change Role / Deactivate Member"). None on the Owner row.
 Permissions by role | Read-only Table III-2.
 [/TABLE]
-[P838 ] Table III-2 Permissions by farm role (shown on SCR-08 and SCR-13)
+[P838 ] Table III-2 Permissions by farm role (shown as a role-reference tab on SCR-08 and as the membership permission reference on SCR-13)
 [TABLE block 839]
 Permission area | Farm Owner | Farm Manager | Farm Technician
 Cattle profile and QR tag | Manage (incl. purpose) | Manage (except purpose) | View

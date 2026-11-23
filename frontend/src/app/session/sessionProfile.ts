@@ -1,5 +1,5 @@
 import { asRecord, asRows, numberValue, textValue } from '../../shared/api/parse'
-import type { AppRole, FarmRole, PlatformRole, SessionUser } from './sessionTypes'
+import type { AppRole, FarmRole, PlatformRole, SessionFarm, SessionUser } from './sessionTypes'
 
 const PLATFORM_ROLES: readonly PlatformRole[] = ['CS', 'PM', 'SA']
 const FARM_ROLES: readonly FarmRole[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
@@ -16,6 +16,16 @@ export const isFarmRole = (role: string): role is FarmRole => FARM_ROLES.include
 export function sessionFromProfile(value: unknown, selectedFarmId: number | null): SessionUser {
   const row = asRecord(value)
   const farms = asRows(row.farms)
+  const sessionFarms: SessionFarm[] = farms
+    .map((item) => {
+      const role = textValue(item.role)
+      return {
+        id: numberValue(item.farmId),
+        name: textValue(item.farmName),
+        role: (isFarmRole(role) ? role : 'OWNER') as FarmRole,
+        serviceStatus: textValue(item.serviceStatus, 'ACTIVE'),
+      }
+    })
   const farm = selectedFarmId == null ? undefined : farms.find((item) => Number(item.farmId) === selectedFarmId)
   const platformRole = textValue(row.platformRole)
   const farmRole = farm ? textValue(farm.role) : FARM_ROLES.find((role) => farms.some((item) => textValue(item.role) === role)) ?? ''
@@ -30,11 +40,14 @@ export function sessionFromProfile(value: unknown, selectedFarmId: number | null
     farmId: farm ? numberValue(farm.farmId) : null,
     farmName: farm ? textValue(farm.farmName) : null,
     ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    googleSignInLinked: row.googleSignInLinked === true,
+    termsAccepted: row.termsAccepted === true,
     platformRole: isPlatformRole(platformRole) ? platformRole : null,
     activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
     farmCount: farms.length,
     farmRoles: Object.fromEntries(farms
       .filter((item) => isFarmRole(textValue(item.role)))
       .map((item) => [numberValue(item.farmId), textValue(item.role) as AppRole])),
+    farms: sessionFarms,
   }
 }
