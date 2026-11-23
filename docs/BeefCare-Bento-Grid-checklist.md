@@ -17,6 +17,8 @@
 | 3 | `9b2b64ae` (tab 18, 19, 21), nhánh `feature/bento-grid` | Chưa lên `dev` |
 | 4 | `9b2b64ae`: hộp thoại chung, hồ sơ bò, nhập/xuất đàn, chuồng trại (tab 16); tăng trưởng, tiêm phòng, sức khỏe (tab 17); nhắc việc, thông báo trại, kỹ thuật viên (tab 15) | Chưa lên `dev` |
 | 5 | nhánh `feature/bento-grid` (tab 13 và sáu trạng thái xác thực tab 12) | Chưa commit |
+| 6 | nhánh `feature/bento-grid` (hai khung cuối tab 15) | Chưa commit |
+| 7 | nhánh `feature/bento-grid` (17 hộp thoại và trang còn lại của tab 16, 17) | Chưa commit |
 
 ## Tổng hợp
 
@@ -24,13 +26,13 @@
 |---|---:|---:|---:|---:|
 | 12 · Guest – Công khai & Đăng nhập | 11 | 11 | 0 | 0 |
 | 13 · Chủ trại – Trại & Thành viên | 38 | 38 | 0 | 0 |
-| 15 · Tổng quan & Nhắc việc | 12 | 10 | 2 | 0 |
-| 16 · Đàn bò, Nhập/Xuất & Chuồng | 33 | 24 | 9 | 0 |
-| 17 · Tăng trưởng, Tiêm phòng & Sức khỏe | 24 | 16 | 8 | 0 |
+| 15 · Tổng quan & Nhắc việc | 12 | 12 | 0 | 0 |
+| 16 · Đàn bò, Nhập/Xuất & Chuồng | 33 | 33 | 0 | 0 |
+| 17 · Tăng trưởng, Tiêm phòng & Sức khỏe | 24 | 24 | 0 | 0 |
 | 18 · Sinh sản | 17 | 17 | 0 | 0 |
 | 19 · Danh mục & Tham số | 6 | 6 | 0 | 0 |
 | 21 · Quản lý thức ăn | 14 | 14 | 0 | 0 |
-| **Tổng** | **155** | **136** | **19** | **0** |
+| **Tổng** | **155** | **155** | **0** | **0** |
 
 Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento từ đợt 3 nằm chung nhánh `feature/bento-grid`.
 
@@ -135,8 +137,8 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento 
 
 - [x] [Thông báo trại – danh sách & chi tiết](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13109) — `/thong-bao` · đợt 4
 - [x] [Soạn thông báo](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13316) — đợt 4
-- [ ] [Xem lại trước khi đăng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13502) *(đã đổi một phần: card bo 16 px, lưới 8+4)*
-- [ ] [Đính chính thông báo](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13647) *(đã đổi một phần: card bo 16 px, lưới 8+4)*
+- [x] [Xem lại trước khi đăng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13502) — `/thong-bao/moi?nhap=:id&m=xem-lai` · đợt 6. Hộp thoại dùng vùng xem trước riêng, một cột thông tin ở điện thoại và hai cột khi đủ rộng. Giữ form soạn thật bên dưới và căn giữa viewport theo Modal dùng chung.
+- [x] [Đính chính thông báo](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-13647) — `/thong-bao/:id/dinh-chinh` · đợt 6. Giữ thanh định dạng, bộ đếm ký tự và ô tiêu đề nhập một dòng. Bảng lịch sử dùng Table bo 16 px. Nội dung và lịch sử phiên bản trong ảnh mock khớp dữ liệu của khung.
 
 **③b Báo cáo quản lý (FE-15)**
 
@@ -169,28 +171,28 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento 
 - [x] [Phiếu nhập – Danh sách](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-20334) — `/herd-entry` · đợt 4
 - [x] [Phiếu nhập mới – Mua ngoài](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-20685) — `/herd-entry/new` · đợt 1
 - [x] [Thêm / sửa con trong phiếu nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-21059) — đợt 4
-- [ ] [Nhập danh sách bò từ Excel](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-21349) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Nhập danh sách bò từ Excel](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-21349) — `/herd-entry/new?m=excel` · đợt 7. Bảng kết quả một khung viền, "Đổi tệp" là liên kết chữ như Figma. Giữ nút "Tải mẫu .xlsx" cỡ nhỏ và hộp thoại cách đỉnh 24 px để vừa bảng dài.
 - [x] [Phiếu nhập mới – Bê sinh tại trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-21575) — `/herd-entry/new` · đợt 4 (sửa thêm nút "Đánh dấu chết" bị bẻ chữ)
 - [x] [Chi tiết phiếu nhập – Đã nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-21861) — `/herd-entry/:id` · đợt 4
-- [ ] [Ghi nhận thanh toán phiếu nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22176) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Hủy phiếu nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22350) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Sửa / hủy bản ghi nhập đàn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22505) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Ghi nhận thanh toán phiếu nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22176) — `/herd-entry/:id?m=pay` · đợt 7. Tệp đính kèm là dòng trơn như Figma. Giữ câu "sổ thu chi, không phải hóa đơn thuế" khi còn nợ.
+- [x] [Hủy phiếu nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22350) — `/herd-entry/:id?m=cancel` · đợt 7. Bảng kiểm tra trước khi hủy dùng Table bo 16 px.
+- [x] [Sửa / hủy bản ghi nhập đàn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22505) — `/herd-entry/:id?m=line&entry=:entryId` · đợt 7. Hộp thoại chỉ bật khi chạy với backend nên so bằng code, chưa chụp runtime. Lựa chọn Sửa/Hủy dùng Radio chung. Giữ tiêu đề "Sửa / Hủy bản ghi nhập", độ rộng 840 px và các dòng của phiếu mua (người bán, giấy kiểm dịch, biển số xe).
 
 **③b Chuồng trại (FE-04)**
 
 - [x] [Chuồng trại – danh sách & chi tiết](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-22736) — `/pens` · đợt 4
-- [ ] [Tạo / sửa chuồng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23078) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Ngừng / mở lại sử dụng chuồng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23263) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Tạo / sửa chuồng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23078) — `/pens?barn=:code&m=edit` · đợt 7. Giữ ô chọn tiêu chí sửa ngay trong bảng và độ rộng 680 px. Figma dùng danh sách thả xuống, nút "Thêm tiêu chí" và nhóm Tình trạng sử dụng; không thêm trường.
+- [x] [Ngừng / mở lại sử dụng chuồng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23263) — `/pens?barn=:code&m=disable` · đợt 7. Giữ badge trạng thái mới thay cho radio của Figma. Ba ô thông tin xuống hai cột trên điện thoại để badge không bị cắt.
 
 **④b Xuất đàn theo phiếu xuất (FE-13)**
 
 - [x] [Phiếu xuất – Danh sách](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23423) — `/herd-exit` · đợt 4
 - [x] [Phiếu xuất mới – Bán](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-23741) — `/herd-exit/new` · đợt 4
 - [x] [Chọn bò vào phiếu xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-24141) — đợt 4
-- [ ] [Phiếu xuất – Chết / mất (chờ xác nhận)](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-24394) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Phiếu xuất – Chết / mất (chờ xác nhận)](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-24394) — `/herd-exit/:id` (phiếu Chết / mất chờ xác nhận) · đợt 7. Bảng bò trong phiếu và bảng kiểm tra trước khi xác nhận dùng Table bo 16 px (bảng kiểm tra dùng chung với phiếu bán).
 - [x] [Chi tiết phiếu xuất – Đã xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-24680) — `/herd-exit/:id` · đợt 4
-- [ ] [Hủy phiếu xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-25005) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Ghi nhận thu tiền phiếu xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-25145) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Hủy phiếu xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-25005) — `/herd-exit/:id?m=cancel` · đợt 7. Giữ biểu tượng trong hai ghi chú xanh và vàng.
+- [x] [Ghi nhận thu tiền phiếu xuất](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-25145) — `/herd-exit/:id?m=collect` · đợt 7. Ba số tiền xuống một cột trên điện thoại.
 
 **⑤b Kỹ thuật viên – Đàn bò & hồ sơ bò (chỉ xem)**
 
@@ -205,7 +207,7 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento 
 
 - [x] [Tăng trưởng & BCS – danh sách đàn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-2192) — `/can-nang` · đợt 4
 - [x] [Ghi nhận cân & BCS](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-2881) — đợt 4
-- [ ] [Sửa / loại trừ bản ghi cân](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-3097) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Sửa / loại trừ bản ghi cân](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-3097) — `/cattle/:code?tab=growth&m=correct` · đợt 7. Giữ tiêu đề "Sửa bản ghi cân", các dòng vòng ngực, dài thân và ô Ghi chú. Figma có ô Bản ghi, lựa chọn Sửa/Loại trừ và Lý do; loại trừ đang ở hộp thoại "Xóa lần đo?".
 - [x] [Hồ sơ bò › Tăng trưởng & BCS](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2789-1980) — `/cattle/:code?tab=growth` · đợt 1
 - [x] [Dự kiến xuất bán · Không áp dụng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2798-2269) — đợt 4
 - [x] [Dự kiến xuất bán · Chưa đủ dữ liệu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2798-2286) — đợt 4
@@ -216,20 +218,20 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento 
 - [x] [Quản lý lịch tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-3616) — đợt 4
 - [x] [Ghi nhận tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-3890) — đợt 4. Không thêm ô "Số lô" trong Figma: đã bỏ theo D44.
 - [x] [Hồ sơ bò › Tiêm phòng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4155) — đợt 4
-- [ ] [Hoãn mũi tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4456) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Sửa / hủy bản ghi tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4614) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Hoãn mũi tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4456) — `/cattle/:code?tab=vaccine&m=defer` · đợt 7.
+- [x] [Sửa / hủy bản ghi tiêm](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4614) — `/cattle/:code?tab=vaccine&m=correct` · đợt 7. Hộp thoại React không có dòng Số lô mà Figma có; không thêm trường.
 - [x] [Lịch sử tiêm phòng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-4850) — đợt 4
-- [ ] [Sửa / hủy bản ghi điều trị](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5098) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Sửa / hủy bản ghi điều trị](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5098) — `/cattle/:code?tab=health&m=correct` · đợt 7. Ghi chú "Ngưng thịt đến" đặt sau ô Lý do như Figma; màu xanh khi ngày thay đổi, xám khi giữ nguyên.
 
 **③b Sức khỏe & Điều trị – Quản lý (FE-10)**
 
 - [x] [Ca sức khỏe – danh sách](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5335) — `/suc-khoe` · đợt 4
 - [x] [Hồ sơ bò › Sức khỏe](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5644) — đợt 4
-- [ ] [Mở ca sức khỏe / ghi bất thường](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5934) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Ghi theo dõi ca sức khỏe](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6139) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Mở ca sức khỏe / ghi bất thường](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-5934) — `/cattle/:code?tab=health&m=open-case` · đợt 7. Ô chọn ca đang mở chỉ hiện khi chọn "Nối vào ca đang có".
+- [x] [Ghi theo dõi ca sức khỏe](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6139) — `/cattle/:code?tab=health&m=follow-up` · đợt 7. Giữ nhãn diễn biến "Tốt hơn / Không đổi / Xấu hơn".
 - [x] [Ghi điều trị](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6309) — đợt 4
-- [ ] [Cập nhật trạng thái / đóng ca](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6504) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
-- [ ] [Cập nhật trạng thái / đóng ca – Chết](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6685) *(đã đổi một phần: hộp thoại chung bo 16 px, chưa so riêng)*
+- [x] [Cập nhật trạng thái / đóng ca](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6504) — `/cattle/:code?tab=health&m=update-status` · đợt 7. Giữ nhóm Diễn biến và ô Nghi truyền nhiễm.
+- [x] [Cập nhật trạng thái / đóng ca – Chết](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2827-6685) — `/cattle/:code?tab=health&m=update-status` (Đóng ca → Chết) · đợt 7. Cảnh báo đỏ và nút "Xác nhận đóng ca" đỏ như Figma.
 
 **④b Kỹ thuật viên – Tăng trưởng, tiêm phòng, sức khỏe trong hồ sơ bò (chỉ xem)**
 
