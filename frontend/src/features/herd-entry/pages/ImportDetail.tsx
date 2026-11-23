@@ -7,9 +7,11 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
-import type { EntryLineCommandResult, EntryPayment } from '../types'
+import type { EntryCattleDetail, EntryLineCommandResult, EntryPayment } from '../types'
 import EntryLineModal from '../components/EntryLineModal'
-import { entryLineCorrectionEnabled, entryPaymentVoidEnabled, voidEntryPayment } from '../api'
+import { entryHistoryDemoEnabled, entryLineCorrectionEnabled, entryPaymentVoidEnabled, voidEntryPayment } from '../api'
+import EntryHistoryDemoModal from '../components/EntryHistoryDemoModal'
+import { isFarmBornEntry } from '../domain/entryLineCorrection'
 import { useSession } from '../../../app/session/sessionContext'
 import { useEntryDetail } from '../hooks/useEntryDetail'
 import { herdEntryError } from '../api/herdEntryError'
@@ -27,6 +29,7 @@ export default function ImportDetail() {
   const [params, setParams] = useSearchParams()
   const role = useSession()?.role
   const [lineResult, setLineResult] = useState<EntryLineCommandResult | null>(null)
+  const [demoHistoryLine, setDemoHistoryLine] = useState<EntryCattleDetail | null>(null)
   const [paymentToVoid, setPaymentToVoid] = useState<EntryPayment | null>(null)
   const [paymentNotice, setPaymentNotice] = useState('')
   const paymentRole = role === 'OWNER' || role === 'MANAGER'
@@ -53,6 +56,7 @@ export default function ImportDetail() {
   const { paid, outstanding } = entryPaymentTotals(r)
   const paymentActions = entryPaymentVoidEnabled && paymentRole && r.status === 'Đã nhập'
   const lineActions = entryLineCorrectionEnabled && (role === 'OWNER' || role === 'MANAGER') && r.status === 'Đã nhập'
+  const historyActions = !entryLineCorrectionEnabled && entryHistoryDemoEnabled && paymentRole && r.status === 'Đã nhập' && !isFarmBornEntry(r)
   const selectedLine = lineActions ? d.cows?.find(line => line.lineStatus === 'VALID' && line.entryId != null && String(line.entryId) === params.get('entry')) : undefined
   const lineModal = (name?: 'line' | 'cancel', entryId?: number) => {
     const next = new URLSearchParams(params)
@@ -103,7 +107,7 @@ export default function ImportDetail() {
                     <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
                     <Th className={`${TH} w-[90px]`}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
-                    {lineActions && <Th className={TH}>Thao tác</Th>}
+                    {(lineActions || historyActions) && <Th className={TH}>Thao tác</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -116,12 +120,13 @@ export default function ImportDetail() {
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>{c.current}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
+                      {historyActions && <Td className={TH}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
                       {lineActions && <Td className={TH}>{c.lineStatus === 'VALID' && c.entryId != null && <Button onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (
                     <tr>
-                      <Td colSpan={lineActions ? 8 : 7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
+                      <Td colSpan={lineActions || historyActions ? 8 : 7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
                     </tr>
                   )}
                 </tbody>
@@ -183,6 +188,9 @@ export default function ImportDetail() {
       {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidEntryPayment} onClose={closePaymentVoid} onReload={async () => { await detailQuery.reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await detailQuery.refetch() }} />}
       {m === 'cancel' && canCancel && <CancelModal record={r} saving={detailQuery.voidSaving} error={voidError} onReload={async () => { await detailQuery.reload(); closeModal() }} onConfirm={async (reason) => { await cancelRecord(reason); closeModal() }} onClose={closeModal} />}
       {m === 'line' && selectedLine && <EntryLineModal key={`${r.id}:${selectedLine.entryId}`} record={r} line={selectedLine} onClose={() => lineModal()} onVoidVoucher={() => lineModal('cancel')} onReload={async () => { await detailQuery.reload(); lineModal() }} onSuccess={async result => { setLineResult(result); lineModal(); await detailQuery.refetch() }} />}
+      {historyActions && demoHistoryLine && <EntryHistoryDemoModal record={r} line={demoHistoryLine} onClose={() => setDemoHistoryLine(null)} onSaved={async () => {
+        setDemoHistoryLine(null); setLineResult({ notice: { code: 'MSG-FE06-06', params: {}, message: 'Đã sửa khai báo lịch sử.' }, overpaidNotice: null }); await detailQuery.refetch()
+      }} />}
     </Layout>
   )
 }

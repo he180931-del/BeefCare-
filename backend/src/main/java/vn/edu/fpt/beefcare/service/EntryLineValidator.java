@@ -637,6 +637,9 @@ public class EntryLineValidator {
         Sex sex,
         boolean full
     ) {
+        if (in != null && in.estMonthsPregnant() != null && in.pregnantAtEntry() != YesNoUnknown.YES) {
+            issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_10, "reproduction.estMonthsPregnant", "field", "estMonthsPregnant"));
+        }
         DeclarationStatus status = in == null || in.status() == null ? DeclarationStatus.UNKNOWN : in.status();
         if (status != DeclarationStatus.UNKNOWN && sex == Sex.MALE) {
             issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_10, "reproduction", "field", "reproduction"));

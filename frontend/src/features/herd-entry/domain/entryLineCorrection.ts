@@ -1,13 +1,14 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import type { EntryBirthAccuracy, EntryCattleDetail, EntryLineChanges, EntrySexCode, EntryWeightBasis, HerdEntry } from '../types'
+import { historyDeclarations, unknownEntryHistory, validateEntryHistory, type EntryHistory } from './entryHistory'
 
-export type EntryLineForm = Record<keyof EntryLineChanges, string>
+export type EntryLineForm = Record<Exclude<keyof EntryLineChanges, 'vaccination' | 'disease' | 'reproduction'>, string>
 export const emptyEntryLineForm = (): EntryLineForm => ({ entryDate: '', sellerId: '', quarantineCertNo: '', vehiclePlate: '', entryWeightKg: '', weightBasis: '', unitPrice: '', breedId: '', sex: '', birthDate: '', birthDateAccuracy: '' })
 export const isFarmBornEntry = (record: HerdEntry) => record.entryType === 'FARM_BORN' || record.type === 'Bê sinh tại trại'
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
 
 /** Blank new values retain the snapshot. Totals and later-event chronology remain server-owned. */
-export function buildEntryLineChanges(record: HerdEntry, line: EntryCattleDetail, form: EntryLineForm): { changes: EntryLineChanges; error: string | null } {
+export function buildEntryLineChanges(record: HerdEntry, line: EntryCattleDetail, form: EntryLineForm, history?: EntryHistory): { changes: EntryLineChanges; error: string | null } {
   const changes: EntryLineChanges = {}
   let error: string | null = null
   const fail = (message: string) => { error ??= message }
@@ -65,5 +66,15 @@ export function buildEntryLineChanges(record: HerdEntry, line: EntryCattleDetail
     changes.birthDateAccuracy = accuracy as EntryBirthAccuracy
   }
   if (birth && birth > (entryDate || record.date || businessDate())) fail('Ngày sinh không được sau ngày nhập.')
+  if (history) {
+    const female = (form.sex || line.sexCode) === 'FEMALE'
+    const validation = validateEntryHistory(history, female, entryDate || record.date)
+    if (validation) fail(validation)
+    const original = historyDeclarations(line.hist ?? unknownEntryHistory())
+    const next = historyDeclarations(history)
+    if (JSON.stringify(next.vaccination) !== JSON.stringify(original.vaccination)) changes.vaccination = next.vaccination
+    if (JSON.stringify(next.disease) !== JSON.stringify(original.disease)) changes.disease = next.disease
+    if (female && JSON.stringify(next.reproduction) !== JSON.stringify(original.reproduction)) changes.reproduction = next.reproduction
+  }
   return { changes, error }
 }
