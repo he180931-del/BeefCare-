@@ -156,7 +156,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
       </Field>
 
       <div className="text-[13px] font-semibold text-[#212121]">Tiêu chí nhận bò · phiên bản mới từ {dmy(today)}</div>
-      <Table stack={false}>
+      <Table variant="panel" stack={false}>
         <thead>
           <tr>
             <Th className={cx(TH, 'w-[190px]')}>Loại tiêu chí</Th>
@@ -211,7 +211,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
         </div>
       )}
 
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
           {Boolean(saveError) && <span className="text-sm text-err-fg">{penError(saveError, 'Không thể lưu chuồng. Vui lòng kiểm tra lại thông tin.')}</span>}
         </div>

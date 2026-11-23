@@ -49,7 +49,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
   const tape = method === 'TAPE'
   return (
     <Modal title="Sửa bản ghi cân" sub={`${record.cattleCode} · bản ghi ${fmtDateTime(record.measuredAt)}`} width={700} onClose={onClose}>
-      <Table stack={false}>
+      <Table variant="panel" stack={false}>
         <thead><tr><Th>Trường thông tin</Th><Th>Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
         <tbody>
           <tr>
@@ -99,7 +99,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
         <FieldError>{errors.reason}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={() => void submit()}>Lưu chỉnh sửa</ModalButton>
       </ModalFooter>

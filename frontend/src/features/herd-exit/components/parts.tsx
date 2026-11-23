@@ -52,7 +52,7 @@ export const SummaryCard = ({ badge, rows, children }: { badge?: ReactNode; rows
 
 /** Bảng "Kiểm tra trước khi xác nhận": rows = [[mục, kết quả, lỗi?]]. */
 export const CheckList = ({ rows }: { rows: Array<[string, ReactNode, boolean?]> }) => (
-  <Table stack={false}>
+  <Table variant="panel" stack={false}>
     <thead>
       <tr><Th className={cx(TH, 'w-[150px]')}>Mục</Th><Th className={TH}>Kết quả</Th></tr>
     </thead>

@@ -60,7 +60,7 @@ function DeferForm({ dose, onClose, onSaved }: Props & { dose: DoseRow }) {
         <FieldError>{errors.note}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={() => void submit()}>Lưu hoãn</ModalButton>
       </ModalFooter>

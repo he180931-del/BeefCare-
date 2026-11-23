@@ -65,7 +65,7 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
       </Field>
 
       {file && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-field bg-page px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
           <Badge>JPG</Badge>
           <span className="text-xs font-semibold">uy-nhiem-chi-2210.jpg</span>
           <span className="flex-1" />
@@ -84,7 +84,7 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
       </Note>
 
       {onReload && <VoucherCommandError error={error} onReload={onReload} />}
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={invalid || saving} onClick={() => { void Promise.resolve(onSave({ date, by: defaults.by, method, ref, amount, note })).catch(() => undefined) }}>
           Lưu thanh toán

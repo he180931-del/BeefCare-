@@ -52,7 +52,7 @@ export default function CollectModal({ row, onClose, onSaved, onReload }: { row:
       <Note tone="info">
         Sau khi lưu: Còn phải thu = {money(left)} đ. Khoản thu ghi sai cần hủy kèm lý do, giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.
       </Note>
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={!valid || saving} onClick={() => { void save().catch(() => undefined) }}>Lưu khoản thu</ModalButton>
       </ModalFooter>

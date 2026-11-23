@@ -2,13 +2,13 @@ import { useEffect, type ReactNode } from 'react'
 import { Button } from '../Button/Button'
 import { useTopbarTitle } from './topbarTitle'
 
-const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 640: 'w-[640px]', 700: 'w-[700px]', 720: 'w-[720px]', 760: 'w-[760px]', 820: 'w-[820px]', 840: 'w-[840px]', 1040: 'w-[1040px]', 1100: 'w-[1100px]', 1180: 'w-[1180px]', 1200: 'w-[1200px]' }
+const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 620: 'w-[620px]', 640: 'w-[640px]', 700: 'w-[700px]', 720: 'w-[720px]', 760: 'w-[760px]', 820: 'w-[820px]', 840: 'w-[840px]', 1040: 'w-[1040px]', 1100: 'w-[1100px]', 1180: 'w-[1180px]', 1200: 'w-[1200px]' }
 
 /**
  * Hộp thoại theo Figma: phủ mờ rgba(20,36,30,.32) toàn màn hình, căn giữa vùng nội dung
  * (bên phải sidebar), bo 16 px như card Bento (docs/BeefCare-Bento-Grid.md §2), padding 24, tiêu đề 20px đậm #183528, phụ đề 12px #67766c.
  * `topTitle`: tiêu đề hiện trên thanh trên khi modal mở (Figma đổi tiêu đề topbar).
- * `width`: 560 | 600 | 640 | 700 | 720 | 760 | 820 | 1100 | 1180 | 1200 (px, theo từng frame Figma).
+ * `width`: 560 | 600 | 620 | 640 | 700 | 720 | 760 | 820 | 840 | 1040 | 1100 | 1180 | 1200 (px, theo từng frame Figma).
  * Chân modal: dùng <ModalFooter> (nút cao 46px, bo 12px, căn phải).
  */
 export default function Modal({ title, sub, topTitle, width = 600, maxHeight, onClose, top, compact = false, dialogClassName = '', bodyClassName = '', children }: { title: string; sub?: ReactNode; topTitle?: string; width?: number; maxHeight?: string; onClose: () => void; top?: number; compact?: boolean; dialogClassName?: string; bodyClassName?: string; children: ReactNode }) {

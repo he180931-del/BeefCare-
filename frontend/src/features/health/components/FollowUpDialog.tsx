@@ -35,7 +35,7 @@ export default function FollowUpDialog({ card, cattleCode, options, onClose, onS
       </Field>
       <Field label="Mô tả *" id="fu-desc" hint={hint(errors.description, 'Tối đa 1.000 ký tự')}><Textarea id="fu-desc" rows={2} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
       {form.formError && <Note tone="err">{form.formError}</Note>}
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={form.saving}>Lưu theo dõi</ModalButton>
       </ModalFooter>

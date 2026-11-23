@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Button, Field, Info, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th, inputCls } from '../../../shared/ui'
+import { Button, Field, Info, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th, inputCls } from '../../../shared/ui'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import { businessDate } from '../../../shared/lib/date/farmTime'
@@ -36,12 +36,12 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
     </>}
     {wholeVoucher && <Note>{s.lastValid ? 'Đây là con cuối cùng còn hiệu lực. Dùng Hủy phiếu để hủy cả phiếu.' : 'Bạn có thể chuyển sang hủy cả phiếu.'} <Button disabled={s.saving} onClick={onVoidVoucher}>Hủy cả phiếu</Button></Note>}
     {!s.confirming && <fieldset disabled={s.saving} className="m-0 flex flex-wrap gap-4 border-0 p-0"><legend className="mb-2 text-xs font-medium">Hành động</legend>
-      <label className="flex items-center gap-2 text-sm"><input type="radio" name="entry-line-action" checked={s.action === 'correct'} onChange={() => s.setAction('correct')} />Sửa bản ghi</label>
-      {s.canVoid && <label className="flex items-center gap-2 text-sm"><input type="radio" name="entry-line-action" checked={s.action === 'void'} onChange={() => s.setAction('void')} />Hủy bản ghi</label>}
+      <Radio name="entry-line-action" checked={s.action === 'correct'} onChange={() => s.setAction('correct')}>Sửa bản ghi</Radio>
+      {s.canVoid && <Radio name="entry-line-action" checked={s.action === 'void'} onChange={() => s.setAction('void')}>Hủy bản ghi</Radio>}
     </fieldset>}
     {s.confirming ? <Note tone="warn">Hủy bản ghi nhập của {c.code} trên {r.id}? Bò sẽ bị bỏ khỏi danh sách đang nuôi và tiền của bò bị trừ khỏi tổng phiếu.</Note> : s.action === 'correct' && <>
       <Note>Chỉ nhập giá trị mới ở trường cần sửa. Để trống = giữ nguyên. Ngày nhập của phiếu mua áp cho mọi bò của phiếu.</Note>
-      <Table scroll stack={false}><thead><tr><Th>Trường</Th><Th>Hiện tại</Th><Th>Mới</Th></tr></thead><tbody>
+      <Table variant="panel" scroll stack={false}><thead><tr><Th>Trường</Th><Th>Hiện tại</Th><Th>Mới</Th></tr></thead><tbody>
         <ChangeRow label="Ngày nhập" current={dmy(r.date)}>{s.purchase ? input('entryDate', 'Ngày nhập mới', 'date', { max: businessDate() }) : readOnly}</ChangeRow>
         <ChangeRow label="Người bán" current={r.detail?.sourceName || r.source}>{s.purchase ? select('sellerId', 'Người bán mới', (s.data?.sellers ?? []).map(item => ({ value: String(item.id), label: item.name }))) : readOnly}</ChangeRow>
         <ChangeRow label="Số giấy kiểm dịch" current={r.detail?.quarantine}>{s.purchase ? input('quarantineCertNo', 'Số giấy kiểm dịch mới', 'text', { maxLength: 50 }) : readOnly}</ChangeRow>
@@ -60,7 +60,7 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
     </>}
     <Field label={<span>Lý do <span aria-hidden="true">*</span></span>} id="entry-line-reason" hint="Tối đa 500 ký tự"><Textarea id="entry-line-reason" aria-label="Lý do" value={s.reason} onChange={e => s.setReason(e.target.value)} maxLength={500} required disabled={s.saving} /></Field>
     <VoucherCommandError error={s.error} onReload={onReload} formatError={herdEntryError} />
-    <ModalFooter>
+    <ModalFooter className="px-0! pt-0! pb-0!">
       {s.confirming ? <><ModalButton disabled={s.saving} onClick={s.back}>Quay lại</ModalButton><ModalButton variant="danger" disabled={!s.canSave} onClick={() => { void s.submit() }}>Xác nhận hủy</ModalButton></> : <>
         <ModalButton disabled={s.saving} onClick={onClose}>Đóng</ModalButton><ModalButton variant="primary" disabled={!s.canSave} onClick={() => { void s.submit() }}>{s.saving ? 'Đang lưu…' : 'Lưu'}</ModalButton>
       </>}

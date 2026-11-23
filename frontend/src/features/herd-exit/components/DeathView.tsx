@@ -184,7 +184,7 @@ export default function DeathView({ row, onReload }: { row: HerdExit; onReload: 
           </Box>
 
           <Box title="2. Bò trong phiếu" sub="1 con" gap="gap-3">
-            <Table scroll>
+            <Table variant="panel" scroll>
               <thead>
                 <tr>
                   <Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Tuổi</Th>

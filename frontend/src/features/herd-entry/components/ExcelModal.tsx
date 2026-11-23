@@ -46,7 +46,7 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
           </span>
           {loading && <ProcessingIndicator label={loadingLabel} />}
           <span className="flex-1" />
-          <Button small disabled={loading} onClick={() => inputRef.current?.click()}>{fileName ? 'Đổi tệp' : 'Chọn tệp'}</Button>
+          <Button variant="link" small className="min-h-11 px-2!" disabled={loading} onClick={() => inputRef.current?.click()}>{fileName ? 'Đổi tệp' : 'Chọn tệp'}</Button>
           <input
             ref={inputRef}
             type="file"
@@ -61,8 +61,8 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
 
       {rows.length > 0 && <div className="flex flex-col gap-2">
         <h3 className="m-0 text-[13px] font-semibold">3. Kết quả kiểm tra</h3>
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-edge">
-        <Table stack={false}>
+        <div className="max-h-64 overflow-y-auto rounded-2xl border border-field">
+        <Table bordered={false} stack={false}>
           <thead>
             <tr>
               <Th className={`${TH} w-[40px]`}>Dòng</Th>
@@ -97,7 +97,7 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
         {`${rows.length} dòng: ${valid.length} hợp lệ (${warn} cảnh báo) · ${bad} lỗi. Dòng lỗi không được thêm – sửa tệp rồi tải lại, hoặc thêm tay bằng "+ Thêm con". Tối đa 200 dòng.`}
       </Note>}
 
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton disabled={loading} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={!valid.length || loading} onClick={add}><Icon name="circle-plus" />{`Thêm ${valid.length} con vào phiếu`}</ModalButton>
       </ModalFooter>

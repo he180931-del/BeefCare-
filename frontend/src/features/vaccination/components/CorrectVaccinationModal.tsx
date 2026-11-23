@@ -73,7 +73,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
         </div>
       </Field>
       {action === 'CORRECT' && (
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead><tr><Th>Trường thông tin</Th><Th>Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
           <tbody>
             <tr>
@@ -111,7 +111,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}
       <Note tone="info">{action === 'VOID' ? `Mũi tương ứng quay lại trạng thái chưa tiêm trong lịch (hạn ${record.scheduledDoseId ? 'theo lịch' : fmtDate(record.administeredAt)}).` : 'Ngày hết ngưng sử dụng thịt của bò được tính lại khi lưu.'}</Note>
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={action === 'VOID' ? 'danger' : 'primary'} disabled={saving} onClick={() => void submit()}>{action === 'VOID' ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>
       </ModalFooter>

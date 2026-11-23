@@ -84,7 +84,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
       </Field>
       <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
       <VoucherCommandError error={form.error} onReload={onReload} formatError={exitVoidError} />
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={!form.canSubmit} onClick={() => { void form.confirm() }}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
       </ModalFooter>

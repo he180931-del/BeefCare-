@@ -76,7 +76,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
         </Note>
       )}
       {form.formError && <Note tone="err">{form.formError}</Note>}
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={lost ? 'danger' : 'primary'} onClick={save} disabled={form.saving}>{lost ? 'Xác nhận đóng ca' : 'Lưu cập nhật'}</ModalButton>
       </ModalFooter>
