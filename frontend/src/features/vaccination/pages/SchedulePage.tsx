@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Note, PageHeader, Pagination, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Note, NoticeDialog, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
@@ -33,6 +33,7 @@ export default function SchedulePage() {
   const demo = useDemoState()
   const [notice] = useNotice()
   const [selected, setSelected] = useState<number | null | undefined>(undefined) // undefined: lịch đầu tiên, null: tất cả
+  const [showCompleted, setShowCompleted] = useState(false)
   const [tab, setTab] = useState<DoseTab>('overdue')
   const [picked, setPicked] = useState<PickedDose[]>([])
   const [filters, setFilters] = useState<RowFilters>({})
@@ -44,8 +45,11 @@ export default function SchedulePage() {
   if (cards.loading && !cards.data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (cards.error || !cards.data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(cards.error, 'Không tải được lịch tiêm phòng.')} onRetry={cards.refetch} /></Layout>
 
-  const list = cards.data
-  const scheduleId = selected === undefined ? list[0]?.schedule.id : selected ?? undefined
+  // D48: hàng thẻ chỉ có lịch đang chạy; lịch đã hoàn thành gom vào mục đóng / mở riêng để trang không phình dần.
+  const running = cards.data.filter((c) => !c.schedule.completed)
+  const completed = cards.data.filter((c) => c.schedule.completed)
+  const scheduleId = selected === undefined ? running[0]?.schedule.id : selected ?? undefined
+  const pick = (id: number) => { setSelected(id === scheduleId ? null : id); setTab('all') }
   const mixed = new Set(picked.map((p) => p.vaccineId)).size > 1
   const recordPicked = () => {
     if (!picked.length) return setHint('Chọn ít nhất một mũi trong danh sách để ghi nhận.')
@@ -56,24 +60,38 @@ export default function SchedulePage() {
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-5">
-        <PageHeader title={TITLE} sub={`${list.length} lịch đang chạy · chọn mũi để ghi nhận hàng loạt`}>
+        <PageHeader title={TITLE} sub={`${running.length} lịch đang chạy · chọn mũi để ghi nhận hàng loạt`}>
           <Button onClick={() => navigate('/tiem-phong/lich-su')}><Icon name="history" />Lịch sử tiêm</Button>
           {canWrite && <Button onClick={() => navigate('/tiem-phong/quan-ly')}>Quản lý lịch</Button>}
           {canWrite && <Button variant="primary" onClick={recordPicked}><Icon name="circle-plus" />Ghi nhận tiêm</Button>}
         </PageHeader>
         {notice && <Note tone="ok">{notice}</Note>}
-        {hint && <Note tone="warn">{hint}</Note>}
+        {hint && <NoticeDialog title="Chưa ghi nhận được" message={hint} onClose={() => setHint(null)} />}
         <div className="grid gap-4 md:grid-cols-3">
-          {list.map((c) => <ScheduleCardView key={c.schedule.id} card={c} active={c.schedule.id === scheduleId} onClick={() => { setSelected(c.schedule.id === scheduleId ? null : c.schedule.id); setTab('all') }} />)}
+          {running.map((c) => <ScheduleCardView key={c.schedule.id} card={c} active={c.schedule.id === scheduleId} onClick={() => pick(c.schedule.id)} />)}
         </div>
-        {list.length === 0 && <EmptyBlock title="Chưa có lịch tiêm nào đang chạy" sub={canWrite ? 'Dùng "Quản lý lịch" để tạo lịch tiêm mới.' : undefined} />}
+        {running.length === 0 && <EmptyBlock title="Chưa có lịch tiêm nào đang chạy" sub={canWrite ? 'Dùng "Quản lý lịch" để tạo lịch tiêm mới.' : undefined} />}
+        {completed.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div>
+              <Button aria-expanded={showCompleted} onClick={() => setShowCompleted(!showCompleted)}>
+                <Icon name="circle-check" />{showCompleted ? 'Ẩn lịch đã hoàn thành' : `Lịch đã hoàn thành (${completed.length})`}
+              </Button>
+            </div>
+            {showCompleted && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {completed.map((c) => <ScheduleCardView key={c.schedule.id} card={c} active={c.schedule.id === scheduleId} onClick={() => pick(c.schedule.id)} />)}
+              </div>
+            )}
+          </div>
+        )}
         <DoseList
           key={`${scheduleId}-${reload}`} scheduleId={scheduleId} tab={tab} onTab={setTab} canWrite={canWrite}
           filters={filters} onFilters={setFilters} options={options.data ?? null}
           picked={picked} onPick={(next) => { setPicked(next); setHint(null) }}
           onRecordPicked={recordPicked} onRecord={(id) => navigate(recordPath({ doses: String(id) }))}
         />
-        <Foot>Màn lịch tiêm cấp đàn. Thẻ lịch cho biết tiến độ từng lịch; nhấn thẻ để lọc danh sách theo lịch đó. Tab đếm mũi theo hạn tiêm; lịch đã tiêm xong hết hiện "Đã hoàn thành" và bị khóa sửa. Lọc theo mã bò, chuồng, nhóm đàn rồi tick từng mũi hoặc "Chọn tất cả" (mọi mũi chưa tiêm khớp bộ lọc, kể cả trang khác) và nhấn "Ghi nhận n mũi đã chọn"; mỗi lần ghi chỉ một vắc-xin; Chủ trại và Kỹ thuật viên chỉ xem, không có ô chọn và cột Thao tác.</Foot>
+        <Foot>Màn lịch tiêm cấp đàn. Thẻ lịch cho biết tiến độ từng lịch đang chạy; nhấn thẻ để lọc danh sách theo lịch đó. Lịch đã tiêm xong gom trong mục "Lịch đã hoàn thành" (bấm để mở, chọn thẻ để xem lại các mũi). Tab đếm mũi theo hạn tiêm; lịch đã tiêm xong hết hiện "Đã hoàn thành" và bị khóa sửa. Lọc theo mã bò, chuồng, nhóm đàn rồi tick từng mũi hoặc "Chọn tất cả" (mọi mũi chưa tiêm khớp bộ lọc, kể cả trang khác) và nhấn "Ghi nhận n mũi đã chọn"; mỗi lần ghi chỉ một vắc-xin; Chủ trại và Kỹ thuật viên chỉ xem, không có ô chọn và cột Thao tác.</Foot>
       </div>
     </Layout>
   )
@@ -127,22 +145,17 @@ function DoseList({ scheduleId, tab, onTab, canWrite, filters, onFilters, option
   const setFilter = (patch: RowFilters) => { setPage(1); onFilters({ ...filters, ...patch }) }
   return (
     <>
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="Tìm kiếm" id="vd-q">
-          <input id="vd-q" className={`${inputCls} !w-[240px]`} placeholder="Mã bò, tên bò…" value={filters.q ?? ''} onChange={(e) => setFilter({ q: e.target.value || undefined })} />
-        </Field>
-        <Field label="Chuồng" id="vd-pen">
-          <Select id="vd-pen" className="w-[170px]" value={filters.penCode ?? ''} onChange={(e) => setFilter({ penCode: e.target.value || undefined })}>
-            <option value="">Tất cả chuồng</option>
-            {(options?.pens ?? []).map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
-          </Select>
-        </Field>
-        <Field label="Nhóm đàn" id="vd-group">
-          <Select id="vd-group" className="w-[170px]" value={filters.herdGroup ?? ''} onChange={(e) => setFilter({ herdGroup: (e.target.value || undefined) as HerdGroup | undefined })}>
-            <option value="">Tất cả nhóm</option>
-            {(options?.herdGroups ?? []).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-          </Select>
-        </Field>
+      {/* Bento: hàng lọc gọn như các màn danh sách khác (Cân nặng, Đàn bò) – ô tìm có kính lúp, nhãn nằm trong lựa chọn. */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[260px_repeat(2,minmax(0,200px))]">
+        <SearchInput aria-label="Tìm mã bò, tên bò" placeholder="Tìm mã bò, tên bò" value={filters.q ?? ''} onChange={(e) => setFilter({ q: e.target.value || undefined })} />
+        <FilterSelect aria-label="Chuồng" value={filters.penCode ?? ''} onChange={(e) => setFilter({ penCode: e.target.value || undefined })}>
+          <option value="">Chuồng: Tất cả</option>
+          {(options?.pens ?? []).map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
+        </FilterSelect>
+        <FilterSelect aria-label="Nhóm đàn" value={filters.herdGroup ?? ''} onChange={(e) => setFilter({ herdGroup: (e.target.value || undefined) as HerdGroup | undefined })}>
+          <option value="">Nhóm đàn: Tất cả</option>
+          {(options?.herdGroups ?? []).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+        </FilterSelect>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Segmented

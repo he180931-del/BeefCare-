@@ -51,10 +51,29 @@ export function DateTimeInput({ label, value, onChange, max = nowLocal(), disabl
   )
 }
 
-export function DateTimeField({ label, value, onChange, hint, max }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string }) {
+/** Lỗi nhập liệu hiện ngay dưới ô (D51). */
+export const FieldMessage = ({ children }: { children?: ReactNode }) =>
+  children ? <span role="alert" className="text-[11px] text-err-fg">{children}</span> : null
+
+/** Ô số nguyên đọc nghiêm: trống → null, "5" → 5, gõ sai (chữ, số thập phân) → NaN để báo dưới ô (D51). */
+export const parseIntegerText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
+/** Ô số thập phân đọc nghiêm: "21", "21,5", "21.5" → số; gõ sai → NaN (không bị JSON đổi thành null âm thầm) (D51). */
+export const parseDecimalText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+([.,]\d+)?$/.test(t) ? Number(t.replace(',', '.')) : Number.NaN
+}
+
+export function DateTimeField({ label, value, onChange, hint, max, error }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string; error?: string }) {
   return (
     <Field label={label} id={`dt-${plain(label)}`} hint={hint}>
       <DateTimeInput id={`dt-${plain(label)}`} label={plain(label)} value={value} onChange={onChange} max={max} />
+      <FieldMessage>{error}</FieldMessage>
     </Field>
   )
 }

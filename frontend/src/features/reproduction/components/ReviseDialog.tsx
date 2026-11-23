@@ -1,11 +1,9 @@
+import { ReproductionValidationError } from '../domain/reproductionRules'
 import { useState, type ReactNode } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { METHOD_TEXT, formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalfOutcome, CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
-import {
-  CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow,
-  SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS,
-} from './reproductionFields'
+import { CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow, SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS, FieldMessage, parseDecimalText } from './reproductionFields'
 import { useReproductionOptions } from './reproductionOptions'
 
 export type RevisedRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
@@ -129,6 +127,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [confirm, setConfirm] = useState<{ text: string; yes: string } | null>(null)
 
   const validCalvings = profile.calvings.filter((calving) => calving.status === 'VALID')
@@ -181,7 +180,14 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
     if (!current || !reason.trim()) return
     const message = confirmed ? null : warning()
     if (message) { setConfirm({ text: message, yes: action === 'void' ? 'Vẫn hủy' : 'Tiếp tục' }); return }
-    setError(''); setConfirm(null); setBusy(true)
+    setError(''); setConfirm(null); setFieldErrors({})
+    // D51: cân bê gõ sai không được gửi đi (NaN qua JSON thành null âm thầm) – báo ngay dưới ô.
+    const weight = current.kind === 'calf' && action === 'correct' ? parseDecimalText(get('weightKg')) : null
+    if (weight !== null && (!Number.isFinite(weight) || weight < 1 || weight > 80)) {
+      setFieldErrors({ weightKg: 'Cân sơ sinh phải là số từ 1 đến 80 kg, ví dụ 21 hoặc 21,5.' })
+      return
+    }
+    setBusy(true)
     try {
       const text = reason.trim()
       if (action === 'void') {
@@ -191,7 +197,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
         else await onVoidEvent(current.event.id, text)
       } else if (current.kind === 'calf') {
         const calves = current.calving.calves.map((calf) => calf.id !== current.calf.id ? calf : {
-          ...calf, sex: get('sex') as CalfOutcome['sex'], weightKg: get('weightKg') === '' ? null : Number(get('weightKg')),
+          ...calf, sex: get('sex') as CalfOutcome['sex'], weightKg: weight,
           weightBasis: (get('weightBasis') || null) as CalfOutcome['weightBasis'], earTag: get('earTag').trim() || null,
         })
         await onCorrectCalving(current.calving.id, { calves }, text)
@@ -202,7 +208,18 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
       }
       onClose()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không lưu được chỉnh sửa.')
+      // Lỗi có ô hiện dưới ô của dòng đó; lỗi điều kiện (đang được liên kết, bê đã đăng ký…) hiện popup.
+      if (cause instanceof ReproductionValidationError) {
+        const byRow: Record<string, string> = {}
+        const general: string[] = []
+        for (const issue of cause.issues) {
+          const key = issue.field === 'weight' ? 'weightKg' : issue.field
+          if (key && rows.some((row) => row.key === key)) byRow[key] = issue.message
+          else general.push(issue.message)
+        }
+        setFieldErrors(byRow)
+        if (general.length) setError(general.join(' '))
+      } else setError(cause instanceof Error ? cause.message : 'Không lưu được chỉnh sửa.')
     } finally { setBusy(false) }
   }
 
@@ -218,7 +235,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
     const common = { 'aria-label': row.label, disabled: row.disabled }
     if (row.control === 'datetime') return <DateTimeInput label={row.label} value={value} onChange={(next) => set(row.key, next)} />
     if (row.control === 'textarea') return <Textarea {...common} rows={2} maxLength={1000} value={value} onChange={(event) => set(row.key, event.target.value)} />
-    if (row.control === 'number') return <input {...common} type="number" min="1" max="80" step="0.1" className={inputCls} value={value} onChange={(event) => set(row.key, event.target.value)} />
+    if (row.control === 'number') return <input {...common} type="text" inputMode="decimal" className={inputCls} value={value} onChange={(event) => set(row.key, event.target.value)} />
     if (row.control === 'member') return <MemberSelect label={row.label} value={value} onChange={(next) => set(row.key, next)} />
     if (row.control === 'person') return <PersonInput id={`rev-${row.key}`} label={row.label} value={value} onChange={(next) => set(row.key, next)} />
     if (row.control === 'select') return <Select {...common} value={value} onChange={(event) => set(row.key, event.target.value)}>{(row.options ?? []).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select>
@@ -229,7 +246,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
   const correcting = action === 'correct'
   return (
     <Modal width={width} title={title} sub={sub} onClose={onClose}>
-      {error && <Note tone="err">{error}</Note>}
+      {error && <NoticeDialog title="Chưa lưu được" message={error} onClose={() => setError('')} />}
       {confirm && (
         <Note tone="warn">
           <div className="flex flex-wrap items-center gap-2"><span className="flex-1">{confirm.text}</span>
@@ -264,7 +281,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
                 <tr key={row.key}>
                   <Td className="font-medium">{row.label}</Td>
                   <Td>{row.current}</Td>
-                  {correcting && <Td className="py-2">{control(row)}</Td>}
+                  {correcting && <Td className="py-2">{control(row)}<FieldMessage>{fieldErrors[row.key]}</FieldMessage></Td>}
                 </tr>
               ))}
             </tbody>
@@ -274,8 +291,8 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
         <Field label="Lý do *" id="rev-reason" hint="Tối đa 500 ký tự">
           <Textarea id="rev-reason" aria-label="Lý do" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
         </Field>
-        {group === 'eb' && <Note tone="info">Nếu bản ghi đang được lần phối giống liên kết, hệ thống báo trước khi hủy.</Note>}
-        {group === 'pc' && <Note tone="info">Hủy sự kiện đẻ bị chặn nếu bê đã được đăng ký; khi đó phải xử lý hồ sơ bê trước.</Note>}
+        {group === 'eb' && <Note tone="info">Bản ghi đang được liên kết sẽ được hỏi lại trước khi hủy.</Note>}
+        {group === 'pc' && <Note tone="info">Không hủy được sự kiện đẻ khi bê đã đăng ký.</Note>}
       </div>
       <ModalFooter>
         <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>

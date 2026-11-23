@@ -1,7 +1,7 @@
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { validateReproductionCommand } from '../domain/reproductionRules'
+import { ReproductionValidationError, reproductionIssues } from '../domain/reproductionRules'
 import { backendId, mapProfile, mapWorklistItem, num, text } from './reproductionMapper'
 import { mapReproductionError } from './reproductionError'
 import { METHOD_OUT, ROLE_TEXT, SIGN_CODE, query, rowsOf } from './reproductionDto'
@@ -264,8 +264,8 @@ export function createReproductionBackend({ farmId, transport }: { farmId: strin
       // Kiểm tra trước khi gửi bằng đúng quy tắc của chế độ local (spec FE-11 / FE-12 mục 6), cùng cách báo lỗi.
       // Ca sức khỏe chỉ đi kèm Biến chứng (R-12-06); ô này ẩn với loại khác nên giá trị cũ được bỏ khi gửi, không báo lỗi.
       const checked = command.type === 'PREGNANCY_UPDATE' && command.updateType !== 'COMPLICATION' ? { ...command, linkedHealthCaseId: undefined } : command
-      const errors = validateReproductionCommand(checked, { today: toFarmLocal(new Date().toISOString()), profile: await known(code) })
-      if (errors.length) throw new Error(errors[0])
+      const issues = reproductionIssues(checked, { today: toFarmLocal(new Date().toISOString()), profile: await known(code) })
+      if (issues.length) throw new ReproductionValidationError(issues)
       await eventCommand(code, command)
       return profile(code)
     }),

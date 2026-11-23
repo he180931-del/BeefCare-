@@ -7,6 +7,7 @@ export { EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note } from './Feedback/Fee
 export { Checkbox, DateInput, Field, FilterSelect, Radio, SearchInput, Select, Textarea, inputCls, smInputCls } from './Form/Form'
 export { ICON_NAMES, Icon, type IconName } from './Icon/Icon'
 export { default as Modal, ModalButton, ModalFooter } from './Modal/Modal'
+export { default as NoticeDialog } from './Modal/NoticeDialog'
 export { TopbarTitleContext, useTopbarTitle } from './Modal/topbarTitle'
 export { DISCARD_PROMPT } from './Modal/discardPrompt'
 export { PageHeader } from './PageHeader/PageHeader'

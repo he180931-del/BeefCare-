@@ -141,7 +141,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Cập nhật ca HC-0412' })
     await user.click(within(dialog).getByRole('radio', { name: 'Đóng ca' }))
     await user.click(within(dialog).getByRole('radio', { name: 'Khỏi' }))
-    expect(within(dialog).getByText('Chỉ cần khi có diễn biến mới')).toBeInTheDocument()
+    expect(within(dialog).getByText('Không bắt buộc')).toBeInTheDocument()
     await user.type(within(dialog).getByRole('textbox', { name: /Diễn biến mới/ }), 'Ăn lại bình thường')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu cập nhật' }))
     expect(await within(dialog).findByText('Diễn biến là bắt buộc.')).toBeInTheDocument()

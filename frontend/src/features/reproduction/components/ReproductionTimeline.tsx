@@ -53,7 +53,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
   return (
     <Panel
       title={source ? 'Bản ghi sinh sản' : 'Dòng thời gian sinh sản'}
-      sub={'Dòng đã sửa có nhãn "Đã sửa"; dòng đã hủy in xám'}
+     
       actions={!source && (
         <div className="relative flex flex-wrap items-center gap-2.5">
           <Select aria-label="Loại sự kiện" className="w-[150px]" value={type} onChange={(event) => setType(event.target.value as ReproductionEventType | '')}>
