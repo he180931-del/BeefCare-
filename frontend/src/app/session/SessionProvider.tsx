@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, numberValue } from '../../shared/api/parse'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from './currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
-import { useAuth } from '../../features/authentication'
-import { useAuthenticationUseCase } from '../../features/authentication'
+import { TermsAcceptancePage, useAuth, useAuthenticationUseCase } from '../../features/authentication'
 import { demo } from '../../demo/demoModules'
 import { markOwnerRegistrationCompleted, SessionContext } from './sessionContext'
 import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
 import { sessionFromProfile } from './sessionProfile'
 import type { Session, SessionUser } from './sessionTypes'
-import { TermsAcceptancePage } from '../../features/authentication/pages/TermsAcceptancePage'
 
 /** UC-FE02-02 E1: the farm entered in this tab is no longer one of the account's farms (membership ended or changed). */
 export function isStaleFarmSelection(profile: unknown, selected: number | null): boolean {
