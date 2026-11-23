@@ -69,7 +69,7 @@ describe('reproduction mock API boundary', () => {
     expect(voided.calvings[0]?.voidReason).toBe('Ghi nhầm sự kiện')
   })
 
-  it('requires a correction reason and blocks voiding a breeding used by a later check', async () => {
+  it('D69: a note is optional; voiding a breeding used by a later check is still blocked', async () => {
     const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const cow = await api.getProfile('BC-000061')
@@ -80,9 +80,8 @@ describe('reproduction mock API boundary', () => {
       method: 'ULTRASOUND', linkedBreedingId: breeding.id, examiner: 'BS. Minh',
     }, 'MANAGER')
 
+    // D69: ghi chú không bắt buộc – xóa không ghi chú vẫn bị chặn vì có khám thai phụ thuộc.
     await expect(api.voidEvent('BC-000061', breeding.id, '', 'MANAGER'))
-      .rejects.toThrow('Nhập lý do sửa hoặc hủy.')
-    await expect(api.voidEvent('BC-000061', breeding.id, 'Ghi nhầm', 'MANAGER'))
       .rejects.toThrow('Không thể hủy vì đã có khám thai liên quan.')
   })
 
@@ -124,8 +123,6 @@ describe('reproduction mock API boundary', () => {
     const cow = await api.getProfile('BC-000142')
     const estrus = cow.events.find((event) => event.type === 'ESTRUS')!
 
-    await expect(api.correctEvent('BC-000142', estrus.id, { details: 'Sửa dấu hiệu' }, '', 'MANAGER'))
-      .rejects.toThrow('Nhập lý do sửa hoặc hủy.')
     await expect(api.voidEvent('BC-000142', estrus.id, 'Không chính xác', 'TECHNICIAN'))
       .rejects.toThrow('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 

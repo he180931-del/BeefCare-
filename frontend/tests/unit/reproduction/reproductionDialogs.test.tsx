@@ -106,18 +106,18 @@ describe('correct and void dialogs show current against new values and need a re
   it('estrus: shows the record, the value table and saves a correction only with a reason', async () => {
     const event = eventOf('BC-000142', 're-142-e2')
     const { user, onCorrectEvent } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'correct' }, 'BC-000142')
-    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy bản ghi động dục' })
+    const dialog = screen.getByRole('dialog', { name: 'Sửa bản ghi động dục' })
+    // D69: không còn ô chọn hành động; ghi chú không bắt buộc.
+    expect(within(dialog).queryByRole('radio', { name: 'Hủy bản ghi' })).not.toBeInTheDocument()
     expect(within(dialog).getByText('BC-000142 · 19/10/2026 18:10')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Bản ghi')).toHaveValue('Động dục · BC-000142 · 19/10/2026 18:10 · Lê Thị Mai')
     for (const heading of ['Trường thông tin', 'Giá trị hiện tại', 'Giá trị mới']) expect(within(dialog).getByText(heading)).toBeInTheDocument()
     expect(within(dialog).getAllByText('Bồn chồn, nhảy lên con khác').length).toBeGreaterThan(0)
 
     const save = within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' })
-    expect(save).toBeDisabled()
     await user.clear(within(dialog).getByRole('textbox', { name: 'Mô tả' }))
     await user.type(within(dialog).getByRole('textbox', { name: 'Mô tả' }), 'Bồn chồn, nhảy lên con khác, kêu rống')
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Bổ sung dấu hiệu kêu rống theo sổ ghi chép')
-    expect(save).toBeEnabled()
+    await user.type(within(dialog).getByRole('textbox', { name: 'Ghi chú' }), 'Bổ sung dấu hiệu kêu rống theo sổ ghi chép')
     await user.click(save)
     expect(onCorrectEvent).toHaveBeenCalledWith('re-142-e2', expect.objectContaining({ details: 'Bồn chồn, nhảy lên con khác, kêu rống', observer: 'Lê Thị Mai' }), 'Bổ sung dấu hiệu kêu rống theo sổ ghi chép')
   })
@@ -125,26 +125,26 @@ describe('correct and void dialogs show current against new values and need a re
   it('estrus: warns before voiding a record that a breeding links to', async () => {
     const event = eventOf('BC-000061', 're-061-e1')
     const { user, onVoidEvent } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'void' }, 'BC-000061')
-    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy bản ghi động dục' })
-    expect(within(dialog).getByRole('radio', { name: 'Hủy bản ghi' })).toBeChecked()
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Ghi nhầm bò')
-    await user.click(within(dialog).getByRole('button', { name: 'Hủy bản ghi' }))
+    // D69: Xóa là popup xác nhận riêng, không có bảng giá trị hay ô lý do.
+    const dialog = screen.getByRole('dialog', { name: 'Xóa bản ghi động dục?' })
+    expect(within(dialog).queryByRole('textbox', { name: 'Ghi chú' })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Xóa' }))
     expect(onVoidEvent).not.toHaveBeenCalled()
     expect(within(dialog).getByText(/đang được lần phối giống 20\/09\/2026 07:00 liên kết/)).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Vẫn hủy' }))
-    expect(onVoidEvent).toHaveBeenCalledWith('re-061-e1', 'Ghi nhầm bò')
+    await user.click(within(dialog).getByRole('button', { name: 'Vẫn xóa' }))
+    expect(onVoidEvent).toHaveBeenCalledWith('re-061-e1', '')
   })
 
-  it('pregnancy check: has its own title and the six fields of the frame', async () => {
+  it('pregnancy check: has its own title and five fields (D70: no data source)', async () => {
     const event = eventOf('BC-000087', 're-087-pc3')
     const { user, onCorrectEvent } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'correct' }, 'BC-000087')
-    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy kết quả khám thai' })
+    const dialog = screen.getByRole('dialog', { name: 'Sửa kết quả khám thai' })
     expect(within(dialog).getByText('BC-000087 · khám 20/02/2026 08:30')).toBeInTheDocument()
-    for (const field of ['Kết quả', 'Thời điểm khám', 'Phương pháp', 'Người khám', 'Nguồn dữ liệu', 'Lần phối liên kết']) {
+    for (const field of ['Kết quả', 'Thời điểm khám', 'Phương pháp', 'Người khám', 'Lần phối liên kết']) {
       expect(within(dialog).getAllByText(field).length).toBeGreaterThan(0)
     }
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Phương pháp' }), 'ULTRASOUND')
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Nhập nhầm phương pháp – đối chiếu sổ thú y')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Ghi chú' }), 'Nhập nhầm phương pháp – đối chiếu sổ thú y')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
     expect(onCorrectEvent).toHaveBeenCalledWith('re-087-pc3', expect.objectContaining({ method: 'ULTRASOUND' }), 'Nhập nhầm phương pháp – đối chiếu sổ thú y')
   })
@@ -152,7 +152,7 @@ describe('correct and void dialogs show current against new values and need a re
   it('pregnancy and calving: the record type switches the table and a calving correction leaves registered calves out', async () => {
     const event = eventOf('BC-000087', 're-087-pu1')
     const { user, onCorrectCalving } = open({ mode: 'revise', record: { kind: 'event', event }, action: 'correct' }, 'BC-000087')
-    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy bản ghi mang thai & sinh bê' })
+    const dialog = screen.getByRole('dialog', { name: 'Sửa bản ghi mang thai & sinh bê' })
     expect(within(dialog).getByText('BC-000087 · thai kỳ 3')).toBeInTheDocument()
     expect(within(dialog).getByRole('radio', { name: 'Diễn biến thai' })).toBeChecked()
     expect(within(dialog).getByRole('combobox', { name: 'Loại cập nhật' })).toBeInTheDocument()
@@ -160,7 +160,7 @@ describe('correct and void dialogs show current against new values and need a re
     await user.click(within(dialog).getByRole('radio', { name: 'Sự kiện đẻ' }))
     expect(within(dialog).queryByRole('combobox', { name: 'Loại cập nhật' })).not.toBeInTheDocument()
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Kiểu đẻ' }), 'ASSISTED')
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Bổ sung diễn biến')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Ghi chú' }), 'Bổ sung diễn biến')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
     expect(onCorrectCalving).toHaveBeenCalledWith('calv-087-2', expect.objectContaining({ course: 'ASSISTED' }), 'Bổ sung diễn biến')
     expect(onCorrectCalving.mock.calls[0]![1]).not.toHaveProperty('calves')
@@ -211,12 +211,12 @@ describe('D51: lỗi nhập liệu hiện dưới ô, lỗi điều kiện hiệ
       </MemoryRouter>,
     )
     const user = userEvent.setup()
-    const dialog = screen.getByRole('dialog', { name: 'Sửa / hủy bản ghi mang thai & sinh bê' })
+    const dialog = screen.getByRole('dialog', { name: 'Sửa bản ghi mang thai & sinh bê' })
     await user.click(within(dialog).getByRole('radio', { name: 'Kết quả bê' }))
     const weight = within(dialog).getByRole('textbox', { name: 'Cân sơ sinh' })
     await user.clear(weight)
     await user.type(weight, 'abc')
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Sửa cân')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Ghi chú' }), 'Sửa cân')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu chỉnh sửa' }))
     expect(onCorrectCalving).not.toHaveBeenCalled()
     expect(within(dialog).getByText('Cân sơ sinh phải là số từ 1 đến 80 kg, ví dụ 21 hoặc 21,5.')).toHaveClass('text-err-fg')

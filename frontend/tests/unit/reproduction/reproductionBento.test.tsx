@@ -49,7 +49,7 @@ describe('reproduction Bento layout (Figma Tab 18)', () => {
     expect(await screen.findByRole('heading', { name: 'Hồ sơ bò' })).toBeInTheDocument()
   })
 
-  it('shows the status as the dark block with a white primary button, the window on light green', async () => {
+  it('D68: shows the status as the dark block with the window inside and a white primary button; eligibility met is light green', async () => {
     render(<MemoryRouter><ReproductionProfileTab cattleCode="BC-000142" role="MANAGER" /></MemoryRouter>)
     await screen.findByText('Trạng thái sinh sản')
 
@@ -57,8 +57,17 @@ describe('reproduction Bento layout (Figma Tab 18)', () => {
     expect(status).toHaveClass('bg-brand-dark')
     expect(within(status).getByRole('button', { name: 'Ghi phối giống' })).toHaveClass('bg-white', 'text-brand')
     expect(within(status).getByRole('button', { name: 'Ghi động dục' })).toHaveClass('bg-white/12', 'text-white')
-    expect(panelOf('Cửa sổ phối gợi ý')).toHaveClass('bg-ok-bg')
-    expect(panelOf('Điều kiện xét phối')).toHaveClass('bg-white')
+    expect(within(status).getByText('Cửa sổ phối gợi ý')).toBeInTheDocument()
+    expect(panelOf('Điều kiện xét phối')).toHaveClass('bg-ok-bg')
+  })
+
+  it('D67: cow bred over 21 days ago gets "Xác nhận có thai (quan sát)" which opens the check prefilled with Observation', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ReproductionProfileTab cattleCode="BC-000061" role="MANAGER" /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Xác nhận có thai (quan sát)' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ghi khám thai' })
+    expect(within(dialog).getByRole('combobox', { name: 'Phương pháp' })).toHaveValue('OBSERVATION')
+    expect(within(dialog).getByRole('radio', { name: 'Có thai' })).toBeChecked()
   })
 
   it('tints the current pregnancy yellow only when the cow is due soon', async () => {

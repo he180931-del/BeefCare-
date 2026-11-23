@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { METHOD_TEXT, formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalfOutcome, CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
-import { CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow, SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS, FieldMessage, parseDecimalText } from './reproductionFields'
+import { CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow, UPDATE_TYPE_OPTIONS, FieldMessage, parseDecimalText } from './reproductionFields'
 import { useReproductionOptions } from './reproductionOptions'
 
 export type RevisedRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
@@ -27,7 +27,6 @@ interface Row { key: string; label: string; current: string; init: string; contr
 
 const labelOf = (options: Array<[string, string]>, value: string | undefined) => options.find(([key]) => key === value)?.[1] ?? (value || '—')
 const METHOD_OPTIONS = Object.entries(METHOD_TEXT)
-const SOURCE_OPT = SOURCE_OPTIONS.map(([key, label]): [string, string] => [key, label])
 const BASIS_OPTIONS: Array<[string, string]> = [['', 'Chưa chọn'], ['MEASURED', 'Cân thực tế'], ['ESTIMATED', 'Ước tính']]
 const PLACENTA_OPTIONS: Array<[string, string]> = [['false', 'Không'], ['true', 'Có']]
 
@@ -47,7 +46,6 @@ function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: s
     const c = cur.calving
     return [
       { key: 'birthAt', label: 'Thời điểm đẻ', current: formatDateTime(c.birthAt), init: c.birthAt, control: 'datetime' },
-      { key: 'dataSource', label: 'Nguồn dữ liệu', current: SOURCE_LABEL[c.dataSource], init: c.dataSource, control: 'select', options: SOURCE_OPT },
       { key: 'attendant', label: 'Người đỡ đẻ', current: c.attendant || '—', init: c.attendant ?? '', control: 'person' },
       { key: 'course', label: 'Kiểu đẻ', current: labelOf(COURSE_OPTIONS, c.course), init: c.course, control: 'select', options: COURSE_OPTIONS },
       { key: 'damCondition', label: 'Tình trạng bò mẹ sau đẻ', current: labelOf(DAM_CONDITION_OPTIONS, c.damCondition), init: c.damCondition, control: 'select', options: DAM_CONDITION_OPTIONS },
@@ -55,7 +53,6 @@ function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: s
     ]
   }
   const e = cur.event
-  const source: Row = { key: 'dataSource', label: 'Nguồn dữ liệu', current: SOURCE_LABEL[e.dataSource ?? 'DIRECT_OBSERVATION'], init: e.dataSource ?? 'DIRECT_OBSERVATION', control: 'select', options: SOURCE_OPT }
   if (e.type === 'ESTRUS') {
     return [
       { key: 'occurredAt', label: 'Thời điểm quan sát', current: formatDateTime(e.occurredAt), init: e.occurredAt, control: 'datetime' },
@@ -68,7 +65,6 @@ function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: s
     const estrusOptions: Array<[string, string]> = [['', 'Không liên kết'], ...estrus.map((item): [string, string] => [item.id, `${formatDateTime(item.occurredAt)} · Động dục`])]
     return [
       { key: 'occurredAt', label: 'Thời điểm phối', current: formatDateTime(e.occurredAt), init: e.occurredAt, control: 'datetime' },
-      source,
       { key: 'method', label: 'Phương pháp', current: labelOf(METHOD_OPTIONS, e.method), init: e.method ?? 'NATURAL_SERVICE', control: 'select', options: METHOD_OPTIONS },
       { key: 'sireLabel', label: 'Đực giống', current: e.sireLabel || '—', init: e.sireLabel ?? '', control: 'text' },
       { key: 'semenCode', label: 'Mã tinh', current: e.semenCode || '—', init: e.semenCode ?? '', control: 'text' },
@@ -84,7 +80,6 @@ function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: s
       { key: 'occurredAt', label: 'Thời điểm khám', current: formatDateTime(e.occurredAt), init: e.occurredAt, control: 'datetime' },
       { key: 'method', label: 'Phương pháp', current: labelOf(CHECK_METHOD_OPTIONS, e.method), init: e.method ?? 'ULTRASOUND', control: 'select', options: CHECK_METHOD_OPTIONS },
       { key: 'examiner', label: 'Người khám', current: e.examiner || '—', init: e.examiner ?? '', control: 'person' },
-      source,
       { key: 'linkedBreedingId', label: 'Lần phối liên kết', current: labelOf(breedingOptions, e.linkedBreedingId ?? '').replace(/ · [A-Z]+-\d+$/, ''), init: e.linkedBreedingId ?? '', control: 'select', options: breedingOptions },
     ]
   }
@@ -99,14 +94,13 @@ function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: s
 
 function patchFor(cur: Current, get: (key: string) => string): Partial<ReproductionEvent> | Partial<CalvingRecord> {
   if (cur.kind === 'calving') {
-    return { birthAt: get('birthAt'), dataSource: get('dataSource') as CalvingRecord['dataSource'], attendant: get('attendant'), course: get('course') as CalvingRecord['course'], damCondition: get('damCondition') as CalvingRecord['damCondition'], retainedPlacenta: get('retainedPlacenta') === 'true' }
+    return { birthAt: get('birthAt'), attendant: get('attendant'), course: get('course') as CalvingRecord['course'], damCondition: get('damCondition') as CalvingRecord['damCondition'], retainedPlacenta: get('retainedPlacenta') === 'true' }
   }
   if (cur.kind === 'calf') return {}
   const type = cur.event.type
-  const source = get('dataSource') as ReproductionEvent['dataSource']
   if (type === 'ESTRUS') return { occurredAt: get('occurredAt'), details: get('details'), description: get('details'), observer: get('observer') }
-  if (type === 'BREEDING') return { occurredAt: get('occurredAt'), dataSource: source, method: get('method'), sireLabel: get('sireLabel'), semenCode: get('semenCode') || undefined, performer: get('performer'), linkedEstrusId: get('linkedEstrusId') || null }
-  if (type === 'PREGNANCY_CHECK') return { result: get('result') as ReproductionEvent['result'], occurredAt: get('occurredAt'), method: get('method'), examiner: get('examiner'), dataSource: source, linkedBreedingId: get('linkedBreedingId') || null }
+  if (type === 'BREEDING') return { occurredAt: get('occurredAt'), method: get('method'), sireLabel: get('sireLabel'), semenCode: get('semenCode') || undefined, performer: get('performer'), linkedEstrusId: get('linkedEstrusId') || null }
+  if (type === 'PREGNANCY_CHECK') return { result: get('result') as ReproductionEvent['result'], occurredAt: get('occurredAt'), method: get('method'), examiner: get('examiner'), linkedBreedingId: get('linkedBreedingId') || null }
   return { updateType: get('updateType') as ReproductionEvent['updateType'], occurredAt: get('occurredAt'), description: get('description'), linkedHealthCaseId: get('linkedHealthCaseId') || null }
 }
 
@@ -120,7 +114,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
   const group = groupOf(target.record)
   const initialType: RecType = target.record.kind === 'calving' || target.record.event.type === 'CALVING' ? 'calving' : 'update'
   const initialId = target.record.kind === 'calving' ? target.record.calving.id : target.record.event.id
-  const [action, setAction] = useState<'correct' | 'void'>(target.action)
+  const action = target.action
   const [recType, setRecType] = useState<RecType>(initialType)
   const [recId, setRecId] = useState(initialId)
   const [reason, setReason] = useState('')
@@ -168,18 +162,18 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
     const event = current.event
     if (event.type === 'ESTRUS' && action === 'void') {
       const breeding = profile.events.find((item) => item.type === 'BREEDING' && item.status === 'VALID' && item.linkedEstrusId === event.id)
-      if (breeding) return `Bản ghi này đang được lần phối giống ${formatDateTime(breeding.occurredAt)} liên kết. Vẫn hủy?`
+      if (breeding) return `Bản ghi này đang được lần phối giống ${formatDateTime(breeding.occurredAt)} liên kết. Vẫn xóa?`
     }
     if (event.type === 'PREGNANCY_CHECK' && event.result === 'PREGNANT' && profile.openPregnancy && event.pregnancyId === profile.openPregnancy.id && (action === 'void' || get('result') !== 'PREGNANT')) {
-      return 'Kết quả khám này đang xác nhận thai kỳ hiện tại; sửa hoặc hủy có thể đổi trạng thái sinh sản. Vẫn tiếp tục?'
+      return 'Kết quả khám này đang xác nhận thai kỳ hiện tại; sửa hoặc xóa có thể đổi trạng thái sinh sản. Vẫn tiếp tục?'
     }
     return null
   }
 
   const submit = async (confirmed = false) => {
-    if (!current || !reason.trim()) return
+    if (!current) return
     const message = confirmed ? null : warning()
-    if (message) { setConfirm({ text: message, yes: action === 'void' ? 'Vẫn hủy' : 'Tiếp tục' }); return }
+    if (message) { setConfirm({ text: message, yes: action === 'void' ? 'Vẫn xóa' : 'Tiếp tục' }); return }
     setError(''); setConfirm(null); setFieldErrors({})
     // D51: cân bê gõ sai không được gửi đi (NaN qua JSON thành null âm thầm) – báo ngay dưới ô.
     const weight = current.kind === 'calf' && action === 'correct' ? parseDecimalText(get('weightKg')) : null
@@ -225,10 +219,11 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
 
   const eventHead = current?.kind === 'event' ? current.event : null
   const typeText = eventHead ? ({ ESTRUS: 'Động dục', BREEDING: 'Phối giống', PREGNANCY_CHECK: 'Khám thai', PREGNANCY_UPDATE: 'Diễn biến thai', CALVING: 'Sự kiện đẻ' }[eventHead.type]) : ''
-  const title = group === 'check' ? 'Sửa / hủy kết quả khám thai' : group === 'pc' ? 'Sửa / hủy bản ghi mang thai & sinh bê' : `Sửa / hủy bản ghi ${eventHead?.type === 'BREEDING' ? 'phối giống' : 'động dục'}`
+  const what = group === 'check' ? 'kết quả khám thai' : group === 'pc' ? 'bản ghi mang thai & sinh bê' : `bản ghi ${eventHead?.type === 'BREEDING' ? 'phối giống' : 'động dục'}`
+  const title = action === 'void' ? `Xóa ${what}?` : `Sửa ${what}`
   const sub = group === 'pc' ? `${profile.cattleCode} · thai kỳ ${profile.openPregnancy?.pregnancyNumber ?? profile.parity}`
     : eventHead ? (group === 'check' ? `${profile.cattleCode} · khám ${formatDateTime(eventHead.occurredAt)}` : `${profile.cattleCode} · ${formatDateTime(eventHead.occurredAt)}`) : profile.cattleCode
-  const width = group === 'pc' ? 720 : 700
+  const width = action === 'void' ? 560 : group === 'pc' ? 720 : 700
 
   const control = (row: Row): ReactNode => {
     const value = get(row.key)
@@ -270,10 +265,10 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
         ) : (
           <Field label="Bản ghi" id="rev-record"><input id="rev-record" aria-label="Bản ghi" readOnly className={inputCls} value={recordLine} /></Field>
         )}
-        <Field label="Hành động *">
-          <RadioRow name="Hành động" value={action} onChange={(value) => { setAction(value as typeof action); setConfirm(null) }} options={[['correct', 'Sửa bản ghi'], ['void', 'Hủy bản ghi']]} />
-        </Field>
-        {current ? (
+        {!correcting ? (current
+          ? <p className="m-0 text-sm text-ink">Bản ghi sẽ không còn trong dòng thời gian; trạng thái sinh sản và chỉ số được tính lại. Lịch sử thay đổi vẫn được lưu.</p>
+          : <Note tone="grey">Chưa có bản ghi loại này để xóa.</Note>
+        ) : current ? (
           <Table stack={false}>
             <thead><tr><Th className="w-[34%]">Trường thông tin</Th><Th className={correcting ? 'w-[30%]' : ''}>Giá trị hiện tại</Th>{correcting && <Th>Giá trị mới</Th>}</tr></thead>
             <tbody>
@@ -286,17 +281,19 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
               ))}
             </tbody>
           </Table>
-        ) : <Note tone="grey">Chưa có bản ghi loại này để sửa hoặc hủy.</Note>}
-        {current?.kind === 'calf' && current.calf.registrationStatus === 'REGISTERED' && <Note tone="warn">Bê này đã đăng ký thành bò: không sửa hoặc hủy ở đây. Sửa hồ sơ bê ở hồ sơ bò.</Note>}
-        <Field label="Lý do *" id="rev-reason" hint="Tối đa 500 ký tự">
-          <Textarea id="rev-reason" aria-label="Lý do" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
-        </Field>
-        {group === 'eb' && <Note tone="info">Bản ghi đang được liên kết sẽ được hỏi lại trước khi hủy.</Note>}
-        {group === 'pc' && <Note tone="info">Không hủy được sự kiện đẻ khi bê đã đăng ký.</Note>}
+        ) : <Note tone="grey">Chưa có bản ghi loại này để sửa.</Note>}
+        {current?.kind === 'calf' && current.calf.registrationStatus === 'REGISTERED' && <Note tone="warn">Bê này đã đăng ký thành bò: không sửa hoặc xóa ở đây. Sửa hồ sơ bê ở hồ sơ bò.</Note>}
+        {/* D69: như Cân nặng / Tiêm phòng – sửa có Ghi chú không bắt buộc; xóa chỉ xác nhận. */}
+        {correcting && (
+          <Field label="Ghi chú" id="rev-reason" hint="Không bắt buộc · tối đa 500 ký tự">
+            <Textarea id="rev-reason" aria-label="Ghi chú" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
+          </Field>
+        )}
+        {!correcting && group === 'pc' && <Note tone="info">Không xóa được sự kiện đẻ khi bê đã đăng ký.</Note>}
       </div>
       <ModalFooter>
         <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant={correcting ? 'primary' : 'danger'} disabled={busy || !current || !reason.trim() || !!confirm} onClick={() => void submit()}>{busy ? 'Đang lưu…' : correcting ? 'Lưu chỉnh sửa' : 'Hủy bản ghi'}</ModalButton>
+        <ModalButton variant={correcting ? 'primary' : 'danger'} disabled={busy || !current || !!confirm} onClick={() => void submit()}>{busy ? 'Đang lưu…' : correcting ? 'Lưu chỉnh sửa' : 'Xóa'}</ModalButton>
       </ModalFooter>
     </Modal>
   )

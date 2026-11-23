@@ -1017,3 +1017,39 @@ TuanPQ: màn danh sách rối, các khối giống nhau, màu không mang thông
 3. **Sửa lỗi:** tab Theo dõi dài hạn trước đây bị lọc theo kỳ – nay luôn hiện đủ như Đang mở.
 4. A1 `counts` (Map) thêm `treating`, `severe`, `moderate`, `mild`, `contagious` cho ca chưa đóng; không đổi schema OpenAPI, không migration.
 5. **Tiêm phòng (SCR-31):** giữ phần trên (thẻ lịch, nút); khối danh sách mũi làm cùng kiểu – tab gạch chân, bộ lọc, thanh "Ghi nhận n mũi đã chọn" và bảng trong một khối; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm (quá hạn đỏ, đến hạn vàng, đã tiêm xanh); trạng thái trống nằm trong khối.
+
+### D67 — FE-11 / FE-12: xác nhận có thai bằng quan sát, tiêu chí sau đẻ, gọn khung phối (24/11/2026)
+
+TuanPQ duyệt sau khi đánh giá bản nhận xét luồng Sinh sản. Trại nhỏ không có siêu âm nên bò phối xong kẹt ở "Đã phối", không có ngày đẻ dự kiến và không vào nhóm sắp đẻ.
+
+1. **Khám thai bằng quan sát:** thêm phương pháp `OBSERVATION` "Quan sát – không lên giống lại". Thẻ "Lần phối gần nhất" (bò Đã phối) có nút **"Xác nhận có thai (quan sát)"** từ ngày thứ 21 sau phối, mở popup Ghi khám thai điền sẵn Có thai + Quan sát + lần phối liên kết. Vẫn là một lần khám CÓ THAI nên đúng GBR-51 / R-11-06; không tự suy ra mang thai, không migration.
+2. **Điều kiện phối (GBR-55, chỉ cảnh báo):** bò đã từng đẻ thêm tiêu chí "Sau đẻ ≥ N ngày" (`POSTPARTUM_INTERVAL`, N = tham số Sau sinh, mặc định 45). Bò chỉ thiếu lần cân thì huy hiệu tổng "Cần cân lại" (vàng); quy tắc cân giữ như chốt 15/11/2026.
+3. **Lên giống giả khi mang thai:** R-11-04 giữ chặn; MSG-FE11-05 chỉ đường ghi ở Diễn biến thai (loại Theo dõi).
+4. **Khung phối:** giữ khung giờ theo tham số trại (REM-02), bỏ thanh 24 giờ, chỉ hiện một dòng chữ.
+5. Không làm: rút còn 3 trạng thái, nới quy tắc không làm mồ côi (sửa trường không gây mâu thuẫn vẫn làm được), gộp hai spec – thay bằng bảng tham chiếu chéo ở đầu FE-11 và FE-12.
+
+### D68 — FE-11 / FE-12: tab Sinh sản (SCR-39) theo Bento, tránh loạn thông tin (24/11/2026)
+
+TuanPQ: khối trạng thái là bảng số dày đặc, nhiều ô "—" và "0", thông tin lặp (ngày sau đẻ, cân gần nhất), không rõ việc tiếp theo.
+
+1. **Khối trạng thái (nổi bật, 7/12):** chỉ tên trạng thái (lớn), "từ ngày", một ô **việc tiếp theo** theo trạng thái – Chờ phối: theo dõi lên giống; Động dục: cửa sổ phối gợi ý; Đã phối: số ngày đã phối và ngày khám được; Mang thai: ngày dự kiến đẻ, còn n ngày (thanh tiến độ); Sau sinh: ngày n / 45 và ngày phối lại được (thanh tiến độ) – rồi các nút ghi.
+2. **Khối ngữ cảnh (5/12)** đổi theo trạng thái: Điều kiện xét phối (Chờ phối / Động dục / Sau sinh) dạng danh sách gọn, xanh nhạt khi đạt hết, vàng nhạt khi chỉ còn điều kiện "chờ được" (chưa cân lại, chưa đủ ngày sau đẻ), đỏ nhạt khi chưa đạt tuổi / cân / có ca bệnh; Lần phối gần nhất (Đã phối); Thai kỳ hiện tại (Mang thai).
+3. **Chỉ số sinh sản** thành khối trắng riêng, chỉ hiện chỉ số đã có giá trị (không "—"); đặt cạnh Lịch sử sinh bê khi bò đã đẻ. Bỏ khỏi khối trạng thái các ô lặp (ngày sau đẻ, cân gần nhất – cân nằm trong điều kiện phối). Khối Cửa sổ phối riêng gộp vào khối trạng thái.
+
+### D69 — FE-11 / FE-12: Sửa / Xóa bản ghi sinh sản tách riêng như Cân nặng và Tiêm phòng (24/11/2026)
+
+TuanPQ: dòng thời gian Sinh sản làm giống các phần khác (D43 FE-08, D53 FE-09).
+
+1. Dòng thời gian có hai nút riêng **Sửa** và **Xóa** (thay "Sửa · Hủy"); popup không còn ô chọn hành động.
+2. Popup **Sửa**: bảng giá trị hiện tại / mới; "Lý do *" → **Ghi chú** không bắt buộc (≤ 500).
+3. **Xóa**: popup xác nhận "Xóa … ?" kèm câu ảnh hưởng, không có ô lý do; vẫn hỏi lại khi bản ghi đang được liên kết (động dục có phối liên kết, khám đang xác nhận thai) và vẫn chặn khi làm mồ côi bản ghi sau (MSG-FE11-07). Phía máy chủ vẫn là xóa mềm (`VOIDED`) có Record Revision.
+4. Bản ghi `VOIDED` không hiện ở dòng thời gian sinh sản.
+5. Backend `ReproductionCommandService`: ghi chú trống lưu `null`, > 500 → MSG-COM-10; dùng `RecordRevisionService.recordWithOptionalNote`. Không migration (`status_reason` cho phép null), không đổi route.
+
+### D70 — FE-11 / FE-12: bỏ "Nguồn dữ liệu" khỏi giao diện Sinh sản (24/11/2026)
+
+TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lưu một sự kiện; phân biệt thêm chỉ tốn thời gian đọc và gây rối. Đã kiểm: `dataSource` không tham gia quy tắc, nhắc việc hay chỉ số nào (chỉ được lưu).
+
+1. Bỏ ô "Nguồn dữ liệu" ở popup Ghi phối, Ghi khám thai, Ghi diễn biến thai, màn Ghi đẻ và các popup Sửa; bỏ cột "Nguồn dữ liệu" ở dòng thời gian sinh sản.
+2. Mọi bản ghi mới lưu `DIRECT_OBSERVATION` (mặc định sẵn có của backend khi không gửi). Bản ghi cũ giữ giá trị đã lưu.
+3. Không đổi API / DB: `dataSource` vẫn là trường tùy chọn của A1–A8, không migration. Lệch SRS (Data source của các popup sinh sản) – ghi nhận tại đây.

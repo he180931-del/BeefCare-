@@ -11,6 +11,16 @@
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN theo Table 3.4-1 / 3.4-3 và Figma tab 05.
 > SCR-38 và SCR-39 dùng chung với FE-12 (khám thai, mang thai, đẻ). Spec này mô tả toàn bộ hai màn hình; các popup khám thai / cập nhật thai / đẻ ở spec FE-12.
 
+### Tham chiếu chéo FE-11 ↔ FE-12 (D67)
+
+| Muốn biết | Xem |
+|---|---|
+| Bảng trạng thái sinh sản, nút nào hiện ở trạng thái nào | FE-11 §3.3 |
+| Điều kiện phối (tuổi, cân, sức khỏe, sau đẻ) | FE-11 §3.4 |
+| Khám thai, mở / đóng thai, ngày đẻ dự kiến | FE-12 §4 (R-12-01 → R-12-05) |
+| Ghi đẻ, kết quả bê, đăng ký bê | FE-12 §4, SCR-40 |
+| Sửa / hủy bản ghi sinh sản (chung route `reproduction-events/{id}/correction`) | FE-11 R-11-11 và FE-12 R-12-15; thông báo MSG-FE11-07 |
+
 ---
 
 ## 1. Phạm vi
@@ -97,10 +107,10 @@
 
 ### 3.4 Điều kiện phối (GBR-55) – chỉ khuyến nghị
 
-"Đạt" khi đủ: tuổi tối thiểu (tham số, mặc định 13 tháng), cân tối thiểu (tham số, mặc định 230 kg, dùng cân VALID mới nhất), không có ca sức khỏe OPEN. Ngược lại "Chưa đạt" kèm điều kiện chưa đạt. Hiện cho Chờ phối, Động dục, Sau sinh. **Không chặn** việc ghi phối thật.
+"Đạt" khi đủ: tuổi tối thiểu (tham số, mặc định 13 tháng), cân tối thiểu (tham số, mặc định 230 kg, dùng cân VALID mới nhất), không có ca sức khỏe OPEN, và – với bò đã từng đẻ – đủ số ngày sau đẻ (tham số "Sau sinh", mặc định 45 ngày; tiêu chí `POSTPARTUM_INTERVAL`, D67). Bò chỉ thiếu lần cân thì huy hiệu tổng là "Cần cân lại" (vàng). Ngược lại "Chưa đạt" kèm điều kiện chưa đạt. Hiện cho Chờ phối, Động dục, Sau sinh. **Không chặn** việc ghi phối thật.
 
 ### 3.5 Khung phối (REM-02)
-Thời điểm động dục + 8 giờ → + 12 giờ (tham số trại). Thiếu tham số → MSG-FE11-08, không gợi ý.
+Thời điểm động dục + 8 giờ → + 12 giờ (tham số trại). Thiếu tham số → MSG-FE11-08, không gợi ý. Hiển thị bằng một dòng chữ (khung giờ + "Gợi ý theo tham số trại; thời điểm chịu đực thay đổi theo từng con"), không vẽ thanh 24 giờ (D67).
 
 ### 3.6 Chỉ số sinh sản từng con (GBR-106)
 Tuổi đẻ lứa đầu, khoảng cách lứa gần nhất, số ngày từ lần đẻ cuối, số ngày trống (chu kỳ hiện tại hoặc gần nhất), thành tích thụ thai (ví dụ "3 lần có thai / 5 lần phối"); huy hiệu "Quá hạn thụ thai" khi chưa có thai quá (khoảng sau sinh + 3 × chu kỳ động dục) ngày sau lần đẻ cuối (mặc định 108). Chưa áp dụng → "—". Chỉ dùng sự kiện VALID.
@@ -122,7 +132,7 @@ Tuổi đẻ lứa đầu, khoảng cách lứa gần nhất, số ngày từ l�
 | R-11-09 | Điều kiện phối "Chưa đạt" → cảnh báo MSG-FE11-09, vẫn lưu được. | GBR-55 |
 | R-11-09a | Cân dùng cho điều kiện phối chỉ lấy từ bản ghi cân VALID (GBR-39); cân lúc nhập đàn **không** tính. Chưa có lần cân → tiêu chí cân không đạt, hiện "Chưa có lần cân"; "Cân gần nhất" để trống; việc tiếp theo "Theo dõi cân" (chốt TuanPQ 15/11/2026). | GBR-39, GBR-55 |
 | R-11-10 | Nút ghi chỉ hiện theo trạng thái (§3.3); bò không thuộc diện → panel "Không áp dụng" kèm lý do và MSG-FE11-11, dòng thời gian vẫn xem được. | GBR-54 |
-| R-11-11 | Sửa / hủy: Owner hoặc Manager (D41), bắt buộc lý do, kèm version; giữ giá trị gốc (Record Revision). Không được làm mồ côi hay mâu thuẫn bản ghi sau (khám thai, thai, cập nhật thai, đẻ, bê đã đăng ký) → MSG-FE11-07 liệt kê các bản ghi đó; không bao giờ xóa dây chuyền. | GBR-59, BR-D15 |
+| R-11-11 | Sửa / xóa (D69: hai nút riêng **Sửa** và **Xóa**; xóa = popup xác nhận, bản ghi đã xóa không hiện ở dòng thời gian): Owner hoặc Manager (D41), ghi chú **không bắt buộc** (D69, như D43 / D53), kèm version; giữ giá trị gốc (Record Revision). Không được làm mồ côi hay mâu thuẫn bản ghi sau (khám thai, thai, cập nhật thai, đẻ, bê đã đăng ký) → MSG-FE11-07 liệt kê các bản ghi đó; không bao giờ xóa dây chuyền. | GBR-59, BR-D15 |
 | R-11-12 | Sau ghi / sửa / hủy: tính lại trạng thái, ngày dự kiến, nhắc việc (REM-02, REM-03, REM-07) qua JOB-01. | UC-02, 03, 04 |
 | R-11-13 | Chỉ số GBR-106: chỉ dùng sự kiện VALID; n < 3 → "Chưa đủ dữ liệu" (ở báo cáo đàn). | GBR-106 |
 
@@ -256,7 +266,7 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | MSG-FE11-02 | Toast thành công | Đã ghi phối giống cho {cattle_code}. Ngày đẻ dự kiến (tạm tính): {date}. |
 | MSG-FE11-03 | Hộp thoại xác nhận | Đã có {event_type} tương tự của {cattle_code} lúc {time}. Vẫn lưu? |
 | MSG-FE11-04 | Dưới trường | Đực giống phải là một bò đực khác của trại này. |
-| MSG-FE11-05 | Trong hộp thoại | {cattle_code} đang có thai đã xác nhận. Hãy xem lại trạng thái sinh sản trước khi ghi. |
+| MSG-FE11-05 | Trong hộp thoại | {cattle_code} đang có thai đã xác nhận nên không ghi động dục / phối. Nếu bò có biểu hiện lên giống khi đang mang thai, hãy ghi ở "Diễn biến thai" (loại Theo dõi). (D67) |
 | MSG-FE11-06 | Toast thành công | Bản ghi đã được {action}. Bản gốc được giữ trong lịch sử. |
 | MSG-FE11-07 | Hộp thoại | Bản ghi này đang được các bản ghi sau dùng ({records}). Hãy sửa hoặc hủy các bản ghi đó trước. |
 | MSG-FE11-08 | Trong panel | Chưa cấu hình tham số {parameter}, nên không có gợi ý hay ngày dự kiến. |
@@ -316,3 +326,7 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 15/11/2026 | 28/10/2026 | Việc 6a: A1–A6 đã nối đủ trường mục 7; chốt P1–P7 (D36): người quan sát / thực hiện có thể là thành viên hoặc tên ngoài, kiểm trùng 12 giờ cho cả động dục và phối (trừ cùng `linkedEstrusId`), phụ thuộc → MSG-FE11-07 `{records, dependents[]}`, thiếu tham số → `parameterMissing` (không mặc định 283 ngày) | Tuấn |
+| 24/11/2026 | 28/10/2026 | D67: điều kiện phối thêm tiêu chí sau đẻ (bò đã từng đẻ), "Cần cân lại" khi chỉ thiếu lần cân; khung phối hiện bằng chữ; MSG-FE11-05 chỉ đường ghi lên giống giả ở Diễn biến thai; bảng tham chiếu chéo FE-11 ↔ FE-12 | Tuấn |
+| 24/11/2026 | 28/10/2026 | D68: SCR-39 theo Bento – hàng 1: khối trạng thái (tên trạng thái, từ ngày, "việc tiếp theo" kèm thanh tiến độ khi có, nút ghi) cạnh khối ngữ cảnh (Điều kiện xét phối / Lần phối gần nhất / Thai kỳ hiện tại); hàng 2: Chỉ số sinh sản (chỉ chỉ số có giá trị) cạnh Lịch sử sinh bê; cửa sổ phối nằm trong khối trạng thái | Tuấn |
+| 24/11/2026 | 28/10/2026 | D69: dòng thời gian Sinh sản có hai nút Sửa / Xóa; popup Sửa bỏ ô chọn hành động, "Lý do *" → "Ghi chú" không bắt buộc; Xóa là popup xác nhận (vẫn hỏi lại khi bản ghi đang được liên kết); bản ghi đã xóa ẩn khỏi dòng thời gian; backend lưu ghi chú trống là null | Tuấn |
+| 24/11/2026 | 28/10/2026 | D70: bỏ trường "Nguồn dữ liệu" (Quan sát trực tiếp / Sổ trại / Báo cáo ngoài) khỏi các popup ghi / sửa, màn Ghi đẻ và cột của dòng thời gian; mọi bản ghi lưu Quan sát trực tiếp; API giữ `dataSource` tùy chọn | Tuấn |
