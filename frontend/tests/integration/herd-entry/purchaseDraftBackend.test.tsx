@@ -89,20 +89,19 @@ describe('purchase entry page in backend mode', () => {
     const comboBoxes = within(dialog).getAllByRole('combobox')
     await user.type(within(dialog).getAllByRole('textbox')[0], 'BC-BACKEND-001')
     await user.selectOptions(comboBoxes[0], 'Brahman lai')
-    const numberInputs = within(dialog).getAllByRole('spinbutton')
+    const numberInputs = [within(dialog).getByLabelText('Cân nhập (kg)')]
     await user.clear(numberInputs[0])
     await user.type(numberInputs[0], '236')
     // An entered weight needs a basis even when the voucher is priced per head (GBR-92).
-    await user.click(within(dialog).getByRole('radio', { name: 'Cân thực tế' }))
     // Per head: the line amount field replaces the per-kg unit price.
-    const amount = dialog.querySelector('#entry-cow-total-amount') as HTMLInputElement
+    const amount = dialog.querySelector('#entry-cow-unit-price') as HTMLInputElement
     await user.clear(amount)
     await user.type(amount, '85000')
     await user.selectOptions(comboBoxes[3], 'B1')
     const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
     await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
-    await user.selectOptions(selectWith('Bò sinh sản · loại Sinh sản'), 'Bò sinh sản · loại Sinh sản')
-    await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+    await user.selectOptions(selectWith('Vỗ béo · Vỗ béo'), '31')
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm con' }))
     const file = new File(['pdf'], 'purchase.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))

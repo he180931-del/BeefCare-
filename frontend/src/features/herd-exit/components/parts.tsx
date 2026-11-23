@@ -1,7 +1,6 @@
-import { Badge, type BadgeTone, Icon, type IconName, inputCls, KV, Table, Td, Th } from '../../../shared/ui'
+import { Badge, type BadgeTone, Icon, type IconName, KV, Table, Td, Th } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
-import type { ReactNode, ChangeEvent } from 'react'
-import { money } from '../../../shared/lib/format'
+import type { ReactNode } from 'react'
 
 export const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 // Khoảng cách giữa các cột 8px như Figma (ghi đè px của Th/Td trong ui.tsx).
@@ -67,20 +66,7 @@ export const CheckList = ({ rows }: { rows: Array<[string, ReactNode, boolean?]>
   </Table>
 )
 
-export const parseMoney = (s: string) => Number(String(s).replace(/\D/g, '')) || 0
-
-/** Ô số tiền: hiển thị 60.000.000, gõ số là tự định dạng. suffix = hậu tố "đ". */
-export const MoneyInput = ({ value, onChange, suffix, className }: { value: number; onChange: (value: number) => void; suffix?: string; className?: string }) => (
-  <div className={cx('relative', className)}>
-    <input
-      inputMode="numeric"
-      value={money(value)}
-      onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(parseMoney(e.target.value))}
-      className={cx(inputCls, suffix && 'pr-8')}
-    />
-    {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{suffix}</span>}
-  </div>
-)
+export { MoneyInput, parseMoney } from '../../../shared/ui'
 
 const EXIT_STATUS: Record<string, { tone?: BadgeTone; icon?: IconName }> = {
   'Nháp': { icon: 'pencil' },

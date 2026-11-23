@@ -1,6 +1,7 @@
 import { DateInput, Field, Info, inputCls, Modal, ModalButton, ModalFooter, Note, Radio } from '../../../shared/ui'
 import { money } from '../../../shared/lib/format'
-import { DocRow, MoneyInput } from './parts'
+import { DocRow } from './parts'
+import { MoneyInput } from '../../../shared/ui'
 import type { HerdExit } from '../types'
 import { useExitCollection } from '../hooks/useExitCollection'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
@@ -23,7 +24,7 @@ export default function CollectModal({ row, onClose, onSaved, onReload }: { row:
       <div className="grid grid-cols-2 gap-4 -mt-2">
         <Field label="Ngày thu *"><DateInput value={date} onChange={setDate} /></Field>
         <Field label="Số tiền (đ) *" hint={valid ? 'Không vượt số còn phải thu' : 'Số tiền phải lớn hơn 0 và không vượt số còn phải thu'}>
-          <MoneyInput value={amount} onChange={setAmount} />
+          <MoneyInput value={amount} onChange={setAmount} formatWhileTyping />
         </Field>
       </div>
       <div className="flex flex-col gap-2">

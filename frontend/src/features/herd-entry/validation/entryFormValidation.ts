@@ -12,9 +12,7 @@ const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con', forPost = tru
   const weight = Number(cow.weight)
   if (forPost && pricing === 'kg' && weight === 0) return 'cân nhập phải lớn hơn 0 kg.'
   if (!Number.isFinite(weight) || weight < 0 || (weight > 0 && (weight < 1 || weight > 1500))) return 'cân nhập phải từ 1 đến 1.500 kg.'
-  // Older local drafts only have `estimated`; an explicit null still means unselected.
-  const basis = cow.weightBasis === undefined ? (weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null) : cow.weightBasis
-  if (weight > 0 && !basis) return 'vui lòng chọn cơ sở cân.'
+  // Purchase form infers MEASURED; legacy / Excel ESTIMATED stays supported.
   return null
 }
 
@@ -48,6 +46,7 @@ export function validateEntryForPost(input: ValidationInput): string | null {
     if (!String(cow.stage ?? '').trim()) return `${line}: vui lòng chọn giai đoạn sinh trưởng.`
     if (!String(cow.barn ?? '').trim()) return `${line}: vui lòng chọn chuồng nhận.`
     if (input.type === 'Mua ngoài') {
+      if (typeof cow.quarantineUntil === 'string' && cow.quarantineUntil && cow.quarantineUntil < input.date) return `${line}: cách ly nhập đàn đến không được trước ngày nhập.`
       const weightError = purchaseWeightError(cow, input.pricing ?? cow.pricing ?? 'kg')
       if (weightError) return `${line}: ${weightError}`
     } else if ((cow.pricing ?? input.pricing ?? 'kg') === 'kg') {

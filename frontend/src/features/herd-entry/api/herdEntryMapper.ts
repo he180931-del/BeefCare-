@@ -15,6 +15,7 @@ export const birthAccuracy = (value: unknown) => value === 'Chính xác' || valu
 export { fullDate } from '../domain/entryDate'
 export const lifeStage = (value: unknown, farmBorn = false) => {
   const normalized = textValue(value).toLowerCase()
+  if (['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'].includes(textValue(value))) return textValue(value)
   if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
   if (normalized.includes('theo mẹ') || normalized.includes('sơ sinh')) return 'UNWEANED_CALF'
   if (normalized.includes('bê')) return 'WEANED_CALF'
@@ -138,10 +139,13 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         // drafts placed them under `data`; preserve both so reopening a row
         // does not turn a selected breed into a display-only label and then
         // submit a null breedId.
-        breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
-        dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
+        breed: textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(line.breedId ?? data.breedId)) || ((line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate ?? line.birthDate),
+        dobAccuracy: textValue(data.birthDateAccuracy ?? line.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
         weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
         barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: mapEntryHistory(line),
+        quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil),
+        colourMarkings: textValue(line.colourMarkings ?? data.colourMarkings),
+        warningReason: textValue(line.warningReason ?? data.warningReason),
       }
     }) }),
   } : undefined

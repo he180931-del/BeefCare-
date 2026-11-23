@@ -1,7 +1,7 @@
 import type { EntryCalf, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { getEntryDraftState, herdEntryApi, listEntryBreeds, listEntryPens, listEntrySellers, listEntryVaccines, listPendingEntryCalves, newEntryDefaults } from '../api'
+import { getEntryDraftState, herdEntryApi, listEntryBreeds, listEntryPens, listEntryPurposes, listEntrySellers, listEntryVaccines, listPendingEntryCalves, newEntryDefaults } from '../api'
 
 export function useEntryNewQueries({ draftId, editingIndex, isBuy }: { draftId?: string; editingIndex?: number; isBuy?: boolean }) {
   const { data } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
@@ -17,5 +17,7 @@ export function useEntryNewQueries({ draftId, editingIndex, isBuy }: { draftId?:
 export function useEntryCatalogues({ editingIndex, isBuy }: { editingIndex: number; isBuy: boolean }) {
   const { data: vaccines } = useQuery(() => editingIndex >= 0 ? listEntryVaccines() : Promise.resolve([]), [editingIndex])
   const { data: breeds } = useQuery(() => (editingIndex >= 0 || !isBuy) ? listEntryBreeds() : Promise.resolve([]), [editingIndex, isBuy])
-  return { vaccines, breeds }
+  const { data: purposes } = useQuery(() => editingIndex >= 0 ? listEntryPurposes() : Promise.resolve([]), [editingIndex])
+  // null is loading/failed backend data; undefined is the explicit legacy demo boundary.
+  return { vaccines, breeds, purposes: purposes === null ? [] : purposes }
 }

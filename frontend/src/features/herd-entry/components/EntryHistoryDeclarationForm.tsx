@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Field, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
+import { Field, NumberInput, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
 import { RadioRow } from './parts'
 import { entryToday } from '../validation/entryValidation'
 import type { EntryVaccineOption } from '../api/herdEntryBackendApi'
@@ -44,8 +44,12 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
     if (detailModal === 'repro') {
       const pregnantAtEntry = c.hist.pregnantAtEntry ?? 'UNKNOWN'
       const months = pregnantAtEntry === 'YES' && c.hist.pregnancyMonths != null ? Number(c.hist.pregnancyMonths) : undefined
+      const earlierCalvings = c.hist.earlierCalvings
+      if (earlierCalvings != null && (!Number.isInteger(earlierCalvings) || earlierCalvings < 0 || earlierCalvings > 15)) {
+        return setValidationError('Số lứa đã đẻ phải từ 0 đến 15.')
+      }
       if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) return setValidationError('Số tháng mang thai phải từ 1 đến 9.')
-      setHist({ pregnancyMonths: months, earlierCalvings: c.hist.earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
+      setHist({ pregnancyMonths: months, earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
     } else if (detailModal === 'vaccine') {
       if (detailDate && detailDate > entryToday()) return setValidationError('Ngày tiêm không được ở tương lai.')
       const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: item.date, vaccineSource: item.source }))
@@ -69,12 +73,12 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
               <tr>
                 <Td className={TH}>Tiêm phòng</Td>
                 <Td className={TH}><RadioRow name="vaccine" value={c.hist.vaccine} options={HIST_OPTIONS} onChange={(v) => setHist({ vaccine: v })} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết tiêm phòng" disabled={c.hist.vaccine !== 'Có'} onClick={() => openDetail('vaccine')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.vaccine === 'Có' && (c.hist.vaccineName?.trim() || c.hist.vaccineNote?.trim()) ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
+                <Td className={`${TH} max-w-[150px]`}>{c.hist.vaccine === 'Có' ? <button type="button" aria-label="Chi tiết tiêm phòng" disabled={c.hist.vaccine !== 'Có'} onClick={() => openDetail('vaccine')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.vaccine === 'Có' && (c.hist.vaccineName?.trim() || c.hist.vaccineNote?.trim()) ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button> : <span className="text-muted">—</span>}</Td>
               </tr>
               <tr>
                 <Td className={TH}>Bệnh đã biết</Td>
                 <Td className={TH}><RadioRow name="disease" value={c.hist.disease} options={HIST_OPTIONS} onChange={(v) => setHist({ disease: v })} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết bệnh đã biết" disabled={c.hist.disease !== 'Có'} onClick={() => openDetail('disease')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.disease === 'Có' && c.hist.diseaseNote?.trim() ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
+                <Td className={`${TH} max-w-[150px]`}>{c.hist.disease === 'Có' ? <button type="button" aria-label="Chi tiết bệnh đã biết" disabled={c.hist.disease !== 'Có'} onClick={() => openDetail('disease')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.disease === 'Có' && c.hist.diseaseNote?.trim() ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button> : <span className="text-muted">—</span>}</Td>
               </tr>
               {showReproduction && <>
               <tr>
@@ -88,7 +92,7 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
                     setHist({ repro: v, pregnantAtEntry: v === 'Không' ? 'NO' : 'UNKNOWN', earlierCalvings: undefined, pregnancyMonths: undefined, reproductionNote: undefined })
                   }
                 }} /></Td>
-                <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết sinh sản" disabled={c.hist.repro !== 'Có'} onClick={() => openDetail('repro')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.repro === 'Có' && c.hist.pregnancyMonths != null ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
+                <Td className={`${TH} max-w-[150px]`}>{c.hist.repro === 'Có' ? <button type="button" aria-label="Chi tiết sinh sản" disabled={c.hist.repro !== 'Có'} onClick={() => openDetail('repro')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.repro === 'Có' && c.hist.pregnancyMonths != null ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button> : <span className="text-muted">—</span>}</Td>
               </tr>
               </>}
             </tbody>
@@ -117,20 +121,19 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
           </Field>
           <p className="text-xs text-muted">Tối đa 1.000 ký tự.</p>
         </div> : detailModal === 'repro' ? <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Số lứa đã đẻ trước nhập đàn" id="entry-history-earlier-calvings"><input id="entry-history-earlier-calvings" aria-label="Số lứa đã đẻ trước nhập đàn" type="number" min={0} max={15} className={compactInputCls} value={c.hist.earlierCalvings ?? ''} onChange={(e) => setHist({ earlierCalvings: e.target.value === '' ? undefined : Number(e.target.value) })} /></Field>
+          <Field label="Số lứa đã đẻ trước nhập đàn" id="entry-history-earlier-calvings"><NumberInput decimals={0} id="entry-history-earlier-calvings" aria-label="Số lứa đã đẻ trước nhập đàn" min={0} max={15} className={compactInputCls} value={c.hist.earlierCalvings ?? null} onChange={value => setHist({earlierCalvings:value ?? undefined})} /></Field>
           <Field label="Đang mang thai" id="entry-history-pregnant"><select id="entry-history-pregnant" aria-label="Đang mang thai" className={compactInputCls} value={c.hist.pregnantAtEntry ?? 'UNKNOWN'} onChange={(e) => { const pregnantAtEntry = e.target.value; setHist({ pregnantAtEntry, ...(pregnantAtEntry !== 'YES' ? { pregnancyMonths: undefined } : {}) }) }}><option value="YES">Có</option><option value="NO">Không</option><option value="UNKNOWN">Không rõ</option></select></Field>
           <Field label="Số tháng mang thai" id="entry-history-pregnancy-months">
-            <input
+            <NumberInput decimals={0}
               id="entry-history-pregnancy-months"
               aria-label="Số tháng mang thai"
-              type="number"
               min={1}
               max={9}
               disabled={c.hist.pregnantAtEntry !== 'YES'}
               className={`${compactInputCls} disabled:cursor-not-allowed disabled:bg-page disabled:text-muted`}
-              value={c.hist.pregnancyMonths ?? ''}
+              value={c.hist.pregnancyMonths ?? null}
               placeholder={c.hist.pregnantAtEntry === 'YES' ? 'Nhập 1–9 tháng' : 'Chỉ nhập khi đang mang thai'}
-              onChange={(e) => setHist({ pregnancyMonths: e.target.value === '' ? undefined : Number(e.target.value) })}
+              onChange={value => setHist({pregnancyMonths:value ?? undefined})}
             />
           </Field>
           <Field label="Mô tả bổ sung" id="entry-history-repro-note"><textarea id="entry-history-repro-note" aria-label="Mô tả bổ sung" rows={3} maxLength={1000} className={`${compactInputCls} resize-y`} value={detailSource} placeholder="Thông tin sinh sản bổ sung" onChange={(e) => setDetailSource(e.target.value)} /></Field>
