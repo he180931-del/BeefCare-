@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Note, PageHeader, Panel, Radio, Select, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, NoticeDialog, PageHeader, Panel, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
 import { CareWriterOnly, DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
@@ -22,7 +22,7 @@ export default function RecordPage() {
       <Layout title={title}>
         {loading && !data ? <LoadingBlock />
           : error || !data ? <ErrorBlock message={userFacingError(error, 'Không tải được thông tin ghi nhận tiêm.')} onRetry={refetch} />
-          : data.rows.length === 0 ? <EmptyBlock title="Chưa chọn bò nào để ghi nhận" sub="Quay lại lịch tiêm phòng và chọn các mũi cần ghi nhận." action={<Link to={back} className="text-brand">Quay lại</Link>} />
+          : data.rows.length === 0 ? <EmptyBlock title="Chưa chọn bò nào để ghi nhận"  action={<Link to={back} className="text-brand">Quay lại</Link>} />
           : <RecordForm ctx={data} back={back} />}
       </Layout>
     </CareWriterOnly>
@@ -115,8 +115,8 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Ngưng sử dụng thịt" id="rv-wd" hint="Lấy từ danh mục, có thể sửa; để trống là 0 ngày">
-              <UnitInput id="rv-wd" unit="ngày" min={0} max={365} step={1} disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
+            <Field label="Ngưng sử dụng thịt" id="rv-wd" hint="Để trống là 0 ngày">
+              <UnitInput id="rv-wd" type="text" inputMode="numeric" unit="ngày" disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
               <FieldError>{errors.withdrawalDays}</FieldError>
             </Field>
             <Field label="Hết ngưng" id="rv-end"><input id="rv-end" readOnly value={endDate} className={`${inputCls} bg-page text-muted`} /></Field>
@@ -146,7 +146,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
               </div>
             ))}
           </dl>
-          {errors.form && <Note tone="err">{errors.form}</Note>}
+          {errors.form && <NoticeDialog message={errors.form} onClose={() => setErrors(({ form: _form, ...rest }) => rest)} />}
           <Button variant="onDarkPrimary" block disabled={saving} onClick={() => void submit()}>Lưu {vaccinated} mũi tiêm</Button>
           <Button variant="onDark" block onClick={() => navigate(back)}>Hủy</Button>
         </Panel>

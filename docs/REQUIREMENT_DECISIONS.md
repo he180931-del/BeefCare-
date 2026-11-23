@@ -813,7 +813,83 @@ TuanPQ (chủ FE-09) yêu cầu trong phiên: trang Tiêm phòng không có các
 
 Chỉ đổi frontend (lọc trên dữ liệu A2 đã đọc); không đổi backend, route hay DTO. Spec FE-09 SCR-31 đã cập nhật (mục 6a, 7).
 
-### D48 — Cài đặt tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
+### D48 — FE-09: lịch đã hoàn thành không chiếm trang Tiêm phòng (23/11/2026)
+
+TuanPQ (chủ FE-09) nêu trong phiên: để thẻ lịch đã hoàn thành ở trang Tiêm phòng thì sẽ "cộng dồn vô hạn"; đồng ý phương án chỉ đổi giao diện:
+
+1. Hàng thẻ SCR-31 chỉ hiện lịch đang chạy (còn mũi chờ tiêm); dòng phụ đếm đúng số lịch đang chạy.
+2. Lịch đã hoàn thành (D46) gom vào mục "Lịch đã hoàn thành (n)", mặc định đóng; mở ra và chọn thẻ để xem lại các mũi đã tiêm của lịch đó.
+3. Chưa chọn lịch nào thì danh sách mũi chỉ gồm lịch đang chạy; lịch sử tiêm đầy đủ vẫn ở SCR-35.
+4. SCR-32 theo ảnh mẫu TuanPQ duyệt: dropdown "Lịch tiêm" chia nhóm "Đang chạy" / "Đã hoàn thành" (chỉ hiện nhóm có lịch; chưa chọn hiện "Chọn lịch tiêm"), mặc định mở lịch đang chạy đầu tiên; nút "⊕ Tạo lịch mới" (cùng cỡ ô chọn) ngay bên phải mở form trống tiêu đề "Tạo lịch tiêm" (bỏ mục "+ Lịch mới" trong dropdown); nút lưu "Lưu lịch" khi tạo, "Lưu thay đổi" khi sửa, ẩn khi lịch đã hoàn thành; thẻ "Thông tin lịch" có nhãn "Đã hoàn thành".
+
+Không lưu trạng thái COMPLETED vào DB (vẫn suy ra như D46): không migration, không đổi API. Spec FE-09 SCR-31 mục 4 đã cập nhật.
+
+### D49 — Lỗi điều kiện nghiệp vụ hiện popup, lỗi nhập liệu hiện dưới ô (23/11/2026)
+
+TuanPQ chốt trong phiên: "tất cả các lỗi liên quan đến điều kiện bắt buộc phải hiện popup báo, chỉ các lỗi về validate dữ liệu hiện đỏ dưới trường dữ liệu". Phát hiện khi tạo lịch tiêm cho chuồng có bò đang chờ xác nhận chết: màn hình chỉ hiện "Không thể lưu dữ liệu…" dạng dòng đỏ, không nói lý do.
+
+1. **Lỗi điều kiện** (bò đang chờ xác nhận chết / mất MSG-COM-17, bò đã rời đàn MSG-COM-13, lịch đã khóa, dữ liệu vừa bị thay đổi MSG-COM-05, chưa chọn mũi, chọn lẫn vắc-xin…) hiện bằng popup `NoticeDialog` (component dùng chung mới trong `shared/ui`, nút "Đã hiểu"), nội dung nói rõ đối tượng và cách xử lý.
+2. **Lỗi nhập liệu** (bắt buộc, định dạng, giới hạn) giữ chữ đỏ dưới đúng ô.
+3. Đã áp cho FE-09: Quản lý lịch, Ghi nhận tiêm, popup Sửa / Hủy bản ghi tiêm, trang Tiêm phòng; MSG-COM-17 / COM-13 có câu tiếng Việt kèm mã bò và ngày.
+
+Phạm vi các feature khác (FE-08, FE-10 → FE-12 và của thành viên khác) chưa áp – cần thống nhất với nhóm trước khi đổi đồng loạt.
+
+### D50 — FE-09: "Ngày tiêm" và đọc nghiêm ô số (23/11/2026)
+
+TuanPQ yêu cầu trong phiên: đổi "Ngày bắt đầu" thành "Ngày tiêm" ở SCR-32; "tuyệt đối không tự ý lưu null khi không đọc được chữ, phải báo lỗi validate dưới các trường nhập".
+
+1. SCR-32 "Ngày bắt đầu" → **"Ngày tiêm"** (ngày dự kiến mũi 1); các câu báo lỗi / khóa D46 đổi theo. Trường API vẫn là `firstDueDate`.
+2. Lỗi phát hiện: ô Số mũi, Cách giữa mũi, Nhắc lại sau (SCR-32) và Ngưng thịt (SCR-33, popup Sửa) là ô số của trình duyệt – gõ chữ thì trình duyệt trả chuỗi rỗng, nên "Nhắc lại sau" bị lưu null và "Ngưng thịt" thành 0 ngày mà không báo. Đổi sang ô chữ bàn phím số và đọc nghiêm (`parseIntField`): để trống mới là không nhập; gõ chữ, số thập phân, số âm → chữ đỏ dưới ô ("… phải là số nguyên từ … đến …"), không gửi lên máy chủ.
+3. Backend vẫn kiểm lại: trường số nguyên nhận chữ hoặc số thập phân trả 400 (D45), không đổi thành null.
+
+### D51 — Rà phần nhập liệu chăm sóc theo D49 / D50 (FE-08, FE-10, FE-11/12) (23/11/2026)
+
+TuanPQ yêu cầu trong phiên: áp quy tắc D49 (lỗi điều kiện → popup, lỗi nhập liệu → chữ đỏ dưới ô) và D50 (không âm thầm lưu null / 0 khi gõ sai) cho cân nặng – thể trạng, sức khỏe – điều trị, sinh sản.
+
+1. **FE-08 cân nặng – thể trạng:** ô Cân nặng, Vòng ngực, Dài thân chéo đổi sang ô chữ bàn phím số, đọc nghiêm (nhận "325", "325,5", "325.5"); gõ sai → chữ đỏ dưới ô ("Cân nặng phải là số, ví dụ 325 hoặc 325,5."), không tự tính cân thước dây từ số đọc sai. Lỗi chung của popup Ghi nhận / Sửa / Xóa lần đo hiện bằng `NoticeDialog`.
+2. **FE-10 sức khỏe – điều trị:** ô số vốn đã đọc nghiêm; lỗi chung (không gắn ô) của 5 popup (mở ca, theo dõi, điều trị, cập nhật trạng thái, sửa bản ghi) chuyển sang `NoticeDialog`.
+3. **FE-11/12 sinh sản:** kiểm tra sự kiện trả lỗi theo ô (`reproductionIssues`, khóa trùng tên tham số backend); lỗi có ô hiện dưới ô trong popup ghi động dục / phối / khám thai / diễn biến, lỗi điều kiện (bò không còn nuôi, không phải bò cái, không có thai kỳ mở…) hiện popup. Ô Số tháng chửa, Cân sơ sinh (màn ghi đẻ) và Cân sơ sinh trong popup Sửa kết quả bê đổi sang ô chữ đọc nghiêm — sửa lỗi gõ chữ vào cân bê khi sửa bị gửi đi thành `null` (xóa cân) mà không báo. Màn ghi đẻ bỏ dòng tóm tắt đỏ: lỗi có ô đã đỏ dưới ô, lỗi không gắn ô hiện popup.
+4. **Backend:** các trường số nguyên người dùng nhập — `estimatedMonths` (khám thai, sửa sự kiện), `courseDays` / `withdrawalDays` (ghi và sửa điều trị), `doseCount` / `intervalDays` / `boosterIntervalMonths` (tạo và sửa lịch tiêm) — dùng `WholeNumberDeserializer`: gửi `2.7` hoặc `"3"` trả 400 thay vì bị cắt ngầm thành 2. Không đổi route, không migration.
+
+Feature của thành viên khác chưa áp (chờ nhóm thống nhất như ghi chú ở D49).
+
+### D52 — Rút gọn chú thích trong các tab chăm sóc; chốt hai câu hỏi còn mở (23/11/2026)
+
+TuanPQ chốt trong phiên:
+
+1. Quản lý lịch tiêm **không** tự bỏ qua bò đang chờ xác nhận chết / mất khi chọn theo chuồng: vẫn báo popup (D49) để người dùng tự bỏ con đó ra.
+2. Quy tắc popup / lỗi dưới ô (D49, D51) **không** tự áp cho feature của thành viên khác.
+3. Hạn chế chữ thừa: giữ gợi ý giúp nhập đúng (khoảng giá trị, đơn vị, khi nào bắt buộc); bỏ hoặc rút ngắn câu giải thích lặp lại tiêu đề hay nói cách hệ thống hoạt động. Áp cho FE-08 → FE-12, ví dụ:
+   - SCR-32: bỏ "Các điều kiện kết hợp với nhau (VÀ)"; dòng dưới tiêu đề từ "Lịch tiêm Tháng 11 · đang chạy từ 23/11/2026" thành "Đang chạy" / "Đã hoàn thành" (tên lịch đã ở ô chọn lịch); ghi chú khóa / sửa lịch rút còn một câu.
+   - FE-08: bỏ "Chỉ vẽ bản ghi hợp lệ", "thang trại v1", công thức cân thước dây trong gợi ý ô.
+   - FE-10: gợi ý số ngày điều trị còn "1 – 30 ngày"; bỏ "Lấy từ danh mục, có thể sửa", "Được lưu thành 1 lần theo dõi".
+   - FE-11/12: bỏ chú thích cách đọc dòng thời gian, cách tính cửa sổ phối, cơ sở ngày dự kiến; chế độ chỉ xem ghi "Chế độ chỉ xem."
+   - Trạng thái trống bỏ câu phụ khi tiêu đề đã đủ nghĩa.
+
+Chỉ đổi chữ hiển thị, không đổi dữ liệu, API hay quy tắc.
+
+### D53 — FE-09: Sửa / Xóa bản ghi tiêm tách như FE-08; bản ghi đã xóa không hiện (23/11/2026)
+
+TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì chẳng có ý nghĩa theo dõi gì"; "popup sửa và xóa cũng thể hiện tương tự như bên cân nặng, xóa thì chỉ hiện popup xác nhận tách hẳn không dùng chung với sửa". Làm theo D43 (FE-08), khác R-09-14 / UC-FE09-08 cũ:
+
+1. Tab Tiêm phòng (SCR-34) có hai nút riêng **Sửa** và **Xóa** thay cho "Sửa · Hủy" và ô chọn hành động trong popup.
+2. Popup **Sửa bản ghi tiêm** chỉ để sửa giá trị; "Lý do *" đổi thành **Ghi chú** không bắt buộc (≤ 500), điền sẵn ghi chú lần sửa gần nhất.
+3. **Xóa** là popup xác nhận "Xóa mũi tiêm?", không có ô lý do. Phía máy chủ vẫn là xóa mềm (`POST …/void`, trạng thái `VOIDED`): mũi theo lịch quay lại chưa tiêm (R-09-14), ngày hết ngưng thịt tính lại, Record Revision vẫn lưu trước / sau, người và thời điểm (BR-D15).
+4. Bản ghi `VOIDED` **không còn** trong lịch sử tiêm của bò (SCR-34) và lịch sử toàn đàn (SCR-35): `CareReadService.vaccinationHistory` lọc bỏ; không còn dòng mờ "(đã hủy)".
+
+Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
+
+### D54 — FE-19: vào thẳng Tổng quan sau khi thanh toán (23/11/2026)
+
+DucNV (chủ FE-19) chốt trong phiên: khi BeefCare nhận trạng thái PAID, chủ trại được đưa thẳng vào Tổng quan của đúng trại; popup "Thanh toán thành công" hiện một lần tại đó, kèm mã thanh toán và kỳ dịch vụ; bấm Tiếp tục để đóng popup và ở lại Tổng quan; áp dụng cho cả mua lần đầu và gia hạn. Nếu trại đang tạm ngưng hoặc chưa thể truy cập, popup vẫn xác nhận đã thanh toán, nêu lý do và cho thử vào lại. Làm khác SRS 28/10 (UC-FE19-02 AF4, SCR-59 "Enter farm / Back to subscription": gia hạn về SCR-57; MSG-FE19-06 kiểu Toast):
+
+1. SCR-59 bỏ nút "Vào trại" / "Về gói dịch vụ". Mỗi lần đọc được `PAID` (tự tải, Kiểm tra lại, tải lại sau hủy bị từ chối, mở lại hướng dẫn của yêu cầu đã PAID), màn hiện "Đang vào trại…" và kiểm trại một lần qua bước của SCR-09 (FE-02 A5). Trại `ACTIVE` → lưu trại cho tab và nạp lại vào SCR-48, thay SCR-59 trong lịch sử tab.
+2. MSG-FE19-06 đổi từ toast sang hộp thoại trên SCR-48 của đúng trại, chỉ cho Owner, một lần (giữ trong sessionStorage của tab, đọc xong thì xóa). Mở SCR-48 trực tiếp không hiện. Không lưu được xác nhận thì vẫn vào trại, chỉ thiếu hộp thoại.
+3. Không vào được → hộp thoại MSG-FE19-06 trên SCR-59 kèm nguyên nhân, [Thử vào trại lại] và [Đóng xác nhận] (về màn nguồn). Trại không `ACTIVE` (vd. đã thanh toán nhưng vẫn SUSPENDED theo R-19-11) → Owner đọc MSG-FE02-03; từ nay mọi chỗ dùng bước vào trại của SCR-09 với Owner (cả quét QR) đều hiện MSG-FE02-03 thay vì MSG-FE02-04 "Vui lòng liên hệ Chủ trại".
+
+Đi kèm: chỉ frontend; không đổi API, DTO, OpenAPI hay DB, không có lệnh ghi mới. Spec FE-19 (UC-FE19-02, SCR-59 #3 / #7 / #8 / #10, MSG-FE19-06, TC-19-108, TC-19-110 → 112) và FE-15 (SCR-48 #10) đã cập nhật; SRS chưa sửa.
+
+### D55 — Cài đặt tài khoản dùng chung và chuyển trại nhanh (23/11/2026)
 
 Chủ dự án xác nhận cập nhật tài liệu theo hành vi giao diện đã chốt, giữ nguyên hệ thống mã của SRS 28/10:
 
@@ -825,7 +901,7 @@ Chủ dự án xác nhận cập nhật tài liệu theo hành vi giao diện đ
 
 Ảnh hưởng: cập nhật SRS UC-FE01-04, UC-FE02-02, SCR-08, SCR-09, quy ước thanh trên cùng và chú thích Table III-2; cập nhật spec FE-01 / FE-02 và test case tương ứng. Đây là thay đổi điều hướng và trình bày quyền, không đổi schema dữ liệu hay hình dạng API hồ sơ / danh sách trại.
 
-### D49 — Tài khoản Google phải chấp thuận điều khoản BeefCare (23/11/2026)
+### D56 — Tài khoản Google phải chấp thuận điều khoản BeefCare (23/11/2026)
 
 Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google chỉ xác minh danh tính/email, không thay người dùng đồng ý Điều khoản sử dụng và Chính sách dữ liệu của BeefCare.
 

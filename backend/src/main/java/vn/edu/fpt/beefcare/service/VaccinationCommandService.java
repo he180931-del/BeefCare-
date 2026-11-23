@@ -602,8 +602,7 @@ public class VaccinationCommandService {
         Cattle cattle = cattleGuard.lockCattle(farmId, record.getCattle().getId()); cattleGuard.assertActive(cattle);
         VersionGuard.requireExpected(record.getVersion(), req == null ? null : req.expectedVersion());
         if (req == null || !"VALID".equalsIgnoreCase(record.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
-        if (req.reason() == null || req.reason().isBlank()) throw DomainException.required("reason");
-        if (req.reason().trim().length() > 500) throw DomainException.invalid("reason");
+        String note = optionalNote(req.reason());
         Map<String, Object> before = vaccinationSnapshot(record);
         if (req.vaccineId() != null && !req.vaccineId().equals(record.getVaccine().getId())) {
             Vaccine vaccine = em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
@@ -644,11 +643,32 @@ public class VaccinationCommandService {
             if (req.vaccinationDate() != null) { clock.assertNotFuture(req.vaccinationDate()); record.setVaccinationDate(req.vaccinationDate()); }
         }
         record.setCorrected(Boolean.TRUE); em.flush();
-        revisions.record(ctx, "Vaccination", vaccinationId, RecordRevisionService.CORRECT, req.reason(), before, vaccinationSnapshot(record));
+        revisions.recordWithOptionalNote(ctx, "Vaccination", vaccinationId, RecordRevisionService.CORRECT, note, before, vaccinationSnapshot(record));
         audit.log(ctx, "VACCINATION_CORRECT", "Vaccination", vaccinationId, Map.of("cattleId", cattle.getId()));
         return result(record, cattle);
     }
 
+    /**
+     * Ghi chú tùy chọn khi sửa / xóa bản ghi tiêm (D53, như FE-08 D43): để trống lưu {@code null}, tối đa 500 ký tự.
+     *
+     * @param text ghi chú người dùng nhập, có thể {@code null}
+     * @return ghi chú đã bỏ khoảng trắng hai đầu, hoặc {@code null} khi trống
+     */
+    private static String optionalNote(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String note = text.trim();
+        if (note.length() > 500) {
+            throw DomainException.invalid("reason");
+        }
+        return note;
+    }
+
+    /**
+     * Xóa một bản ghi tiêm (A9). Là xóa mềm: bản ghi chuyển {@code VOIDED}, không còn trong lịch sử tiêm (D53), mũi theo
+     * lịch quay lại chờ tiêm; giá trị trước / sau vẫn lưu trong Record Revision.
+     */
     public CareDtos.VaccinationResult voidRecord(Long farmId, Long vaccinationId, String key, CareDtos.VoidRecord request) {
         return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "VACCINATION_VOID", key,
             Map.of("vaccinationId", vaccinationId, "request", request), CareDtos.VaccinationResult.class,
@@ -661,11 +681,10 @@ public class VaccinationCommandService {
         Vaccination record = vaccinationForFarm(farmId, vaccinationId);
         Cattle cattle = cattleGuard.lockCattle(farmId, record.getCattle().getId()); cattleGuard.assertActive(cattle);
         VersionGuard.requireExpected(record.getVersion(), req == null ? null : req.expectedVersion());
-        if (req == null || req.reason() == null || req.reason().isBlank()) throw DomainException.required("reason");
-        if (req.reason().trim().length() > 500) throw DomainException.invalid("reason");
-        if (!"VALID".equalsIgnoreCase(record.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
+        if (req == null || !"VALID".equalsIgnoreCase(record.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
+        String note = optionalNote(req.reason());
         Map<String, Object> before = vaccinationSnapshot(record);
-        record.setStatus("VOIDED"); record.setStatusReason(req.reason().trim());
+        record.setStatus("VOIDED"); record.setStatusReason(note);
         ScheduledDose dose = record.getScheduledDose();
         if (dose != null) {
             // R-09-14: hủy bản ghi thì mũi quay về chờ tiêm (lịch còn chạy) hoặc bị hủy (lịch đã dừng). Không còn hoãn (D46).
@@ -675,7 +694,7 @@ public class VaccinationCommandService {
             record.setScheduledDose(null);
         }
         em.flush();
-        revisions.record(ctx, "Vaccination", vaccinationId, RecordRevisionService.VOID, req.reason(), before, vaccinationSnapshot(record));
+        revisions.recordWithOptionalNote(ctx, "Vaccination", vaccinationId, RecordRevisionService.VOID, note, before, vaccinationSnapshot(record));
         audit.log(ctx, "VACCINATION_VOID", "Vaccination", vaccinationId, Map.of("cattleId", cattle.getId()));
         return result(record, cattle);
     }

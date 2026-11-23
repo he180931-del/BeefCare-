@@ -28,7 +28,7 @@ export default function HistoryPage() {
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-5">
-        <PageHeader title={TITLE} sub="Tra cứu mũi tiêm của cả đàn · mặc định 3 tháng gần nhất" />
+        <PageHeader title={TITLE} sub="Mặc định 3 tháng gần nhất" />
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-full sm:w-[280px]"><SearchInput aria-label="Tìm mã hiển thị, số tai" placeholder="Tìm mã hiển thị, số tai" value={q} onChange={(e) => reset(setQ)(e.target.value)} /></div>
           <FilterSelect aria-label="Vắc-xin" value={vaccineId} onChange={(e) => reset(setVaccine)(e.target.value)}>
@@ -64,13 +64,12 @@ export default function HistoryPage() {
 }
 
 function Row({ r }: { r: HistoryRow }) {
-  const voided = r.status === 'VOIDED'
   const unknown = r.source === 'HISTORICAL'
   return (
-    <tr className={voided ? 'text-faint' : undefined}>
+    <tr>
       <Td className="font-medium">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</Td>
       <Td><Link to={profilePath(r.cattleCode)} className="text-inherit no-underline hover:underline">{r.cattleCode}{r.penCode && ` · ${r.penCode}`}</Link></Td>
-      <Td>{[r.vaccineLabel, r.doseText?.replace('mũi ', '')].filter(Boolean).join(' · ')}{voided && ' (đã hủy)'}</Td>
+      <Td>{[r.vaccineLabel, r.doseText?.replace('mũi ', '')].filter(Boolean).join(' · ')}</Td>
       <Td>{r.dose ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{SOURCE_LABEL[r.source]}</Td>
       <Td>{r.vaccinator ?? (unknown ? 'Không rõ' : '—')}</Td>

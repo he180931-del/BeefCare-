@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.service.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,7 +23,9 @@ public final class ReproductionDtos {
 
     /** FE-12 A2. */
     public record PregnancyCheckCommand(Integer expectedCattleVersion, Long linkedBreedingId, Instant checkedAt, String dataSource,
-                                        String result, String method, Integer estimatedMonths, Long examinerId, String examinerName,
+                                        String result, String method,
+                                        @JsonDeserialize(using = WholeNumberDeserializer.class) Integer estimatedMonths,
+                                        Long examinerId, String examinerName,
                                         String note) {}
 
     public record Window(Instant from, Instant to) {}
@@ -63,7 +66,8 @@ public final class ReproductionDtos {
                                String method, String sireSource, Long sireCattleId, Long sireBreedId, String sireBreed,
                                String semenCode, String semenSupplier, Long performerId, String performerName,
                                Long linkedEventId, Boolean unlinkEvent, String note,
-                               String result, Integer estimatedMonths, Long examinerId, String examinerName) {}
+                               String result, @JsonDeserialize(using = WholeNumberDeserializer.class) Integer estimatedMonths,
+                               Long examinerId, String examinerName) {}
     public record CorrectPregnancyUpdate(Integer expectedVersion, String reason, String type, Instant occurredAt,
                                          String dataSource, String details, Long healthCaseId, Boolean unlinkHealthCase) {}
     public record CorrectCalving(Integer expectedVersion, String reason, Instant birthAt, String dataSource, Long attendantId,

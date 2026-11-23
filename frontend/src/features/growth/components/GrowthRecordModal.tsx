@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Radio, Segmented, Select, Textarea } from '../../../shared/ui'
+import { ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Radio, Segmented, Select, Textarea } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
 import { fmtDec } from '../domain/growthFormat'
@@ -46,7 +46,8 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
 
   const g = parseNum(girth)
   const l = parseNum(length)
-  const autoWeight = method === 'TAPE' && g !== undefined && l !== undefined ? tapeWeightKg(g, l) : undefined
+  // Chỉ tự tính cân khi hai số đo thước dây đọc được; gõ sai thì để người dùng thấy lỗi dưới ô.
+  const autoWeight = method === 'TAPE' && Number.isFinite(g) && Number.isFinite(l) ? tapeWeightKg(g as number, l as number) : undefined
   const weightText = weightTouched || autoWeight === undefined ? weight : String(autoWeight)
 
   const submit = async (acknowledgedLargeChange = false) => {
@@ -103,11 +104,11 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
       </Field>
       {method === 'TAPE' && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Vòng ngực (cm)" id="gr-girth" hint="Khi dùng thước dây · 50 – 300 cm">
+          <Field label="Vòng ngực (cm)" id="gr-girth" hint="50 – 300 cm">
             <UnitInput id="gr-girth" unit="cm" min={50} max={300} step={0.1} value={girth} onChange={(e) => setGirth(e.target.value)} />
             <FieldError>{errors.heartGirthCm}</FieldError>
           </Field>
-          <Field label="Dài thân chéo (cm)" id="gr-length" hint="30 – 250 cm · cân = 88,4 × VN² × DTC (m), sửa được">
+          <Field label="Dài thân chéo (cm)" id="gr-length" hint="30 – 250 cm">
             <UnitInput id="gr-length" unit="cm" min={30} max={250} step={0.1} value={length} onChange={(e) => setLength(e.target.value)} />
             <FieldError>{errors.bodyLengthCm}</FieldError>
           </Field>
@@ -131,7 +132,7 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
         <Textarea id="gr-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
         <FieldError>{errors.note}</FieldError>
       </Field>
-      {errors.form && <Note tone="err">{errors.form}</Note>}
+      {errors.form && <NoticeDialog message={errors.form} onClose={() => setErrors(({ form: _form, ...rest }) => rest)} />}
       {largeChange ? (
         <>
           <Note tone="warn">{largeChange}</Note>

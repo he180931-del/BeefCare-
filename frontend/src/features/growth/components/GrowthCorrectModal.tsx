@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { inputCls, Field, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
@@ -98,7 +98,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
         <Textarea id="gc-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
         <FieldError>{errors.reason}</FieldError>
       </Field>
-      {errors.form && <Note tone="err">{errors.form}</Note>}
+      {errors.form && <NoticeDialog message={errors.form} onClose={() => setErrors(({ form: _form, ...rest }) => rest)} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving} onClick={() => void submit()}>Lưu chỉnh sửa</ModalButton>

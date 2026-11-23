@@ -36,7 +36,9 @@ public final class CareDtos {
      * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
      */
     public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
-                                   Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {}
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
+                                   Long performerId, String performerName, String veterinaryAdvice) {}
     /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
@@ -46,14 +48,18 @@ public final class CareDtos {
                                      String signs, String progress, Long observerId) {}
     /** A7: fields of a treatment to correct; null = unchanged. Same rules as {@link TreatmentCommand}. */
     public record CorrectTreatment(Integer expectedVersion, String reason, Long medicineId, Instant administeredAt,
-                                   String dose, String route, Integer courseDays, Integer withdrawalDays,
+                                   String dose, String route,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
+                                   @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
                                    Long performerId, String performerName, String veterinaryAdvice) {}
     /** A7 / A8 result: the cattle's withdrawal end before and after the change (MSG-FE10-12 when they differ) and the health state. */
     public record RecordStatus(Long id, String status, Integer version, String healthState, Long caseId, String caseStatus,
                                LocalDate withdrawalBefore, LocalDate withdrawalAfter) {}
-    public record CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate, Integer doseCount,
-                                            Integer intervalDays, Integer boosterIntervalMonths, List<Long> cattleIds,
-                                            List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> excludedCattleIds) {
+    public record CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer doseCount,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer intervalDays,
+                                            @JsonDeserialize(using = WholeNumberDeserializer.class) Integer boosterIntervalMonths,
+                                            List<Long> cattleIds, List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> excludedCattleIds) {
         public CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate, Integer doseCount,
                                          Integer intervalDays, Integer boosterIntervalMonths, List<Long> cattleIds) {
             this(name, vaccineId, firstDueDate, doseCount, intervalDays, boosterIntervalMonths, cattleIds, List.of(), List.of(), List.of(), List.of());
@@ -68,8 +74,10 @@ public final class CareDtos {
      * like A3 - added cattle get PLANNED doses, removed cattle lose their open doses, DONE doses never change (TC-09-09).
      */
     public record EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
-                                          Integer intervalDays, Integer boosterIntervalMonths, Integer doseCount, Boolean removeBooster,
-                                          ScheduleTarget target) {
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer intervalDays,
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer boosterIntervalMonths,
+                                          @JsonDeserialize(using = WholeNumberDeserializer.class) Integer doseCount,
+                                          Boolean removeBooster, ScheduleTarget target) {
         public EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
                                        Integer intervalDays, Integer boosterIntervalMonths) {
             this(expectedVersion, name, vaccineId, firstDueDate, intervalDays, boosterIntervalMonths, null, null, null);

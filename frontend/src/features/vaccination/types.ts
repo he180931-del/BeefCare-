@@ -148,7 +148,7 @@ export interface DoseFilters { scheduleId?: number; tab?: DoseTab; q?: string; p
 export interface DosePage { rows: DoseRow[]; total: number; page: number; size: number; counts: Record<DoseTab, number>; leadDays: number; selectable: Array<{ id: number; vaccineId: number }> }
 
 export interface PlannedDoseRow { label: string; date: string; count: number; badge: string; tone: 'ok' | 'warn' | 'outline' }
-/** {@code hasDoneDoses}: lịch đã có mũi được tiêm – khóa vắc-xin, ngày bắt đầu, khoảng cách giữa mũi (D46). */
+/** {@code hasDoneDoses}: lịch đã có mũi được tiêm – khóa vắc-xin, ngày tiêm, khoảng cách giữa mũi (D46). */
 export interface ScheduleDetail { schedule: Schedule; vaccine: VaccineItem; targetCount: number; plannedRows: PlannedDoseRow[]; hasDoneDoses: boolean }
 
 export interface ScheduleCommand {
@@ -192,9 +192,11 @@ export interface CorrectVaccinationCommand {
   routeOther?: string
   withdrawalDays?: number
   vaccinator?: string
-  reason: string
+  /** Ghi chú lần sửa, không bắt buộc, tối đa 500 ký tự (D53). Trường API vẫn là {@code reason}. */
+  note?: string
 }
-export interface VoidRecordCommand { expectedVersion: number; reason: string }
+/** Xóa bản ghi tiêm chỉ cần xác nhận, không có lý do (D53). */
+export interface VoidRecordCommand { expectedVersion: number }
 
 export interface HistoryFilters { q?: string; vaccineId?: number; source?: VaccinationSource; from?: string; to?: string; page?: number; size?: number }
 export interface HistoryRow extends VaccinationRecord { penCode: string }

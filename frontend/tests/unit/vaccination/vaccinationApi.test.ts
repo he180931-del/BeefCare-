@@ -112,14 +112,14 @@ describe('khóa sửa lịch (D46)', () => {
   })
 })
 
-describe('sửa hoặc hủy bản ghi tiêm', () => {
+describe('sửa hoặc xóa bản ghi tiêm', () => {
   const lmlm = async (api: ReturnType<typeof make>['api']) => (await api.getCattleVaccination('BC-000125')).records.find((r) => r.batchNo === 'AFT-2608-03')!
 
-  it('sửa giữ bản gốc, bắt buộc lý do và phát hiện xung đột phiên bản', async () => {
+  it('sửa giữ bản gốc, ghi chú không bắt buộc (D53) và phát hiện xung đột phiên bản', async () => {
     const { api } = make()
     const r = await lmlm(api)
-    const cmd = { expectedVersion: r.version, vaccineId: 1, administeredAt: r.administeredAt, dose: '2 ml', route: 'IM' as const, withdrawalDays: 7, vaccinator: 'Trần Quốc Long', reason: 'Ghi sai số ngày ngưng' }
-    await expect(api.correctRecord(r.id, { ...cmd, reason: '' })).rejects.toSatisfy(fieldOf('reason'))
+    const cmd = { expectedVersion: r.version, vaccineId: 1, administeredAt: r.administeredAt, dose: '2 ml', route: 'IM' as const, withdrawalDays: 7, vaccinator: 'Trần Quốc Long', note: '' }
+    await expect(api.correctRecord(r.id, { ...cmd, note: 'x'.repeat(501) })).rejects.toSatisfy(fieldOf('note'))
     const next = await api.correctRecord(r.id, cmd)
     // D44: sửa không gửi số lô nên số lô cũ của bản ghi giữ nguyên.
     expect(next).toMatchObject({ batchNo: 'AFT-2608-03', corrected: true, withdrawalEndDate: '2026-09-24', version: r.version + 1 })
@@ -127,15 +127,16 @@ describe('sửa hoặc hủy bản ghi tiêm', () => {
     await expect(api.correctRecord(r.id, cmd)).rejects.toThrow(/đã thay đổi/)
   })
 
-  it('hủy bản ghi trả mũi về chưa tiêm và gỡ mũi nhắc lại đã sinh ra', async () => {
+  it('xóa bản ghi trả mũi về chưa tiêm và gỡ mũi nhắc lại đã sinh ra', async () => {
     const { api } = make()
     const dose = (await overdueOf(api))[1]
     await api.recordVaccinations({ ...base, animals: [{ cattleCode: dose.cattleCode, scheduledDoseId: dose.id }] })
     const rec = (await api.getCattleVaccination(dose.cattleCode)).records[0]
-    await expect(api.voidRecord(rec.id, { expectedVersion: rec.version, reason: '' })).rejects.toSatisfy(fieldOf('reason'))
-    await api.voidRecord(rec.id, { expectedVersion: rec.version, reason: 'Ghi nhầm bò' })
+    // D53: xóa chỉ cần xác nhận, không có lý do.
+    await api.voidRecord(rec.id, { expectedVersion: rec.version })
     const after = await api.getCattleVaccination(dose.cattleCode)
-    expect(after.records.find((r) => r.id === rec.id)?.status).toBe('VOIDED')
+    // D53: bản ghi đã xóa không còn trong lịch sử tiêm của bò.
+    expect(after.records.find((r) => r.id === rec.id)).toBeUndefined()
     expect(after.doses.map((d) => d.kind)).toEqual(['DOSE'])
     expect((await overdueOf(api)).some((r) => r.id === dose.id)).toBe(true)
   })

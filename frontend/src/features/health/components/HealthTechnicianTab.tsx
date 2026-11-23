@@ -19,7 +19,7 @@ export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
   if (sourceId != null) return loading ? <LoadingBlock /> : <HealthTimelineSource profile={data} sourceId={sourceId} type={params.get('type')} caseId={caseId} technician />
-  if (data.activeCases.length === 0) return <EmptyBlock title="Chưa có ca sức khỏe đang mở" sub="Bò không có ca đang mở hoặc theo dõi mạn tính." />
+  if (data.activeCases.length === 0) return <EmptyBlock title="Chưa có ca sức khỏe đang mở"  />
 
   return (
     <div className="flex flex-col gap-3">
