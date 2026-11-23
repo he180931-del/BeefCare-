@@ -73,7 +73,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
         </div>
       </Field>
       {action === 'CORRECT' && (
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead><tr><Th>Trường thông tin</Th><Th>Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
           <tbody>
             <tr>

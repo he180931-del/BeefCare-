@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { Badge, Button, Card, Icon, Note, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, Icon, Note, Panel, Table, Td, Th } from '../../../shared/ui'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { BANK_NAMES, fmtAccount, fmtClock, fmtDateTime, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
-import { Facts, ICON_BTN, PaymentBadge } from './shared'
+import { Facts, PaymentBadge } from './shared'
 
 /** Không tạo VietQR thật: vùng QR là chỗ giữ chỗ ghi rõ là demo. */
 export function QrPlaceholder() {
   return (
-    <div role="img" aria-label="Mã VietQR minh họa (demo)" className="mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center">
+    <div role="img" aria-label="Mã VietQR minh họa (demo)" className="mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-lg bg-chip p-4 text-center">
       <div className="flex flex-col items-center gap-1.5">
         <Icon name="qrcode" size={56} className="text-faint" />
         <span className="text-xs text-muted">Mã thanh toán</span>
@@ -19,7 +19,7 @@ export function QrPlaceholder() {
 }
 
 // text-muted on bg-chip is 5.0:1; the former #8f8f8f was 2.8:1 for the "QR could not load" instruction.
-const QR_HIDDEN = 'mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center text-xs text-muted'
+const QR_HIDDEN = 'mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-lg bg-chip p-4 text-center text-xs text-muted'
 
 /** Reports "copied" only after the clipboard write succeeds; a refused write shows an error instead. */
 function useClipboard(value: string) {
@@ -42,7 +42,7 @@ const CopyError = () => <span role="status" className="block text-xs text-err-fg
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { done, error, copy } = useClipboard(value)
   return (
-    <span><button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="inline-flex min-h-8 cursor-pointer items-center whitespace-nowrap rounded border-0 bg-transparent px-2 text-xs font-semibold text-[#454545] hover:bg-chip">
+    <span><button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="inline-flex min-h-11 cursor-pointer focus-visible:outline-2 focus-visible:outline-brand items-center whitespace-nowrap rounded border-0 bg-transparent px-2 text-xs font-semibold text-[#454545] hover:bg-chip">
       {done ? 'Đã chép' : 'Sao chép'}
     </button>{error && <CopyError />}</span>
   )
@@ -62,15 +62,15 @@ function QrImage({ url, phone = false }: { url?: string | null; phone?: boolean 
 export function QrCard({ payment, now }: { payment: Payment; now: number }) {
   const pending = payment.state === 'PENDING' && remaining(payment, now) > 0
   return (
-    <Card title="Mã thanh toán" actions={<PaymentBadge state={payment.state} />}>
+    <Panel tone="emphasis" title="Mã thanh toán" actions={<PaymentBadge state={payment.state} />}>
       <div className="flex flex-col gap-4">
         {pending ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'PAID' ? 'Đã nhận thanh toán' : payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}
-        <Facts cols={2} items={[
+        <Facts cols={2} onDark items={[
           [pending ? 'Còn hiệu lực' : 'Trạng thái', pending ? <span key="c" className="tabular-nums" aria-live="off">{fmtClock(remaining(payment, now))}</span> : <PaymentBadge key="b" state={payment.state} />],
           ['Hết hạn lúc', fmtDateTime(payment.expiresAt)],
         ]} />
       </div>
-    </Card>
+    </Panel>
   )
 }
 
@@ -86,15 +86,15 @@ export function TransferInfoCard({ payment }: { payment: Payment }) {
   // D38: a cancelled request's details stay readable for reference, but nothing invites copying them into a transfer.
   const copyable = payment.state !== 'CANCELLED'
   return (
-    <Card title="Thông tin chuyển khoản">
-      <Table stack={false}>
+    <Card variant="panel" title="Thông tin chuyển khoản">
+      <Table variant="panel" stack={false}>
         <thead><tr><Th>Trường</Th><Th>Giá trị</Th><Th className="w-24"><span className="sr-only">Sao chép</span></Th></tr></thead>
         <tbody>
           {rows(payment).map(([k, v, raw]) => (
             <tr key={k}>
               <Td className="font-medium">{k}</Td>
               <Td>{v}</Td>
-              <Td>{copyable && <CopyButton value={raw} label={k.toLowerCase()} />}</Td>
+              <Td className="py-1!">{copyable && <CopyButton value={raw} label={k.toLowerCase()} />}</Td>
             </tr>
           ))}
         </tbody>
@@ -117,9 +117,9 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
   const received = payment.receivedAt
   const confirmed = payment.confirmedAt
   return (
-    <Card title="Tiến trình">
+    <Card variant="panel" title="Tiến trình">
       <div className="flex flex-col gap-4">
-        <Table stack={false}>
+        <Table variant="panel" stack={false}>
           <thead><tr><Th>Bước</Th><Th>Thời điểm</Th><Th>Trạng thái</Th></tr></thead>
           <tbody>
             <Step name="Đã tạo yêu cầu" time={fmtDateTime(payment.requestedAt)} badge="done" />
@@ -130,8 +130,8 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
           </tbody>
         </Table>
         <div className="flex flex-wrap gap-2.5">
-          <Button disabled={checking} onClick={onCheck}>{checking ? 'Đang kiểm tra…' : 'Kiểm tra lại'}</Button>
-          <Button onClick={onHistory}>Xem lịch sử</Button>
+          <Button size="bento" disabled={checking} onClick={onCheck}>{checking ? 'Đang kiểm tra…' : 'Kiểm tra lại'}</Button>
+          <Button size="bento" onClick={onHistory}>Xem lịch sử</Button>
         </div>
       </div>
     </Card>
@@ -141,21 +141,20 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
 /** Bố cục điện thoại 390: thẻ yêu cầu, mã QR, thông tin ngắn, ghi chú, hai nút (frame 2638:4108). */
 export function PhoneTransfer({ payment, now, checking, onCheck, onClose, onCancel }: { payment: Payment; now: number; checking: boolean; onCheck: () => void; onClose: () => void; onCancel?: () => void }) {
   const pending = payment.state === 'PENDING'
-  const box = 'rounded-lg border border-edge bg-white p-4'
   return (
     <div className="flex flex-col gap-3">
-      <div className={`${box} flex flex-col gap-1.5`}>
+      <Panel tone="emphasis" className="gap-1.5!">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-base font-bold text-brand">{payment.quoteRef}</span>
+          <span className="text-base font-bold text-white">{payment.quoteRef}</span>
           <PaymentBadge state={payment.state} icon={pending ? 'clock' : undefined} />
         </div>
-        <span className="text-[13px] font-medium text-ink">{termLabel(payment.durationYears)} · bảng giá {versionLabel(payment.priceVersionId)} · {fmtVnd(payment.amountVnd)}</span>
-        <span className="text-[11px] text-muted">
+        <span className="text-[13px] font-medium text-white">{termLabel(payment.durationYears)} · bảng giá {versionLabel(payment.priceVersionId)} · {fmtVnd(payment.amountVnd)}</span>
+        <span className="text-[11px] text-side-text">
           {pending ? `Còn hiệu lực · hết hạn ${fmtDateTime(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : payment.cancelledAt ? `Đã hủy ${fmtDateTime(payment.cancelledAt)}` : `Hết hạn ${fmtDateTime(payment.expiresAt)}`}
         </span>
-      </div>
-      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} phone /> :<div className={QR_HIDDEN}>{payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}</div>
-      <div className={`${box} flex flex-col gap-3`}>
+      </Panel>
+      <Panel>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} phone /> :<div className={QR_HIDDEN}>{payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}</Panel>
+      <Panel>
         <Facts cols={2} items={[
           ['Ngân hàng', `${payment.bankCode} · ${payment.accountNumber}`],
           ['Chủ tài khoản', payment.accountName],
@@ -163,13 +162,13 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose, onCanc
           ['Nội dung', payment.quoteRef],
         ]} />
         {payment.state !== 'CANCELLED' && <CopyWide value={payment.quoteRef} />}
-      </div>
+      </Panel>
       {payment.state !== 'CANCELLED' && <Note tone="info">Đóng màn này không hủy yêu cầu. Chỉ chứng từ ngân hàng hợp lệ mới cấp kỳ dịch vụ; không có nút tự đánh dấu đã trả.</Note>}
       <div className="grid grid-cols-2 gap-2.5">
-        <Button block onClick={onClose}>Đóng</Button>
-        <Button block variant="primary" disabled={checking} onClick={onCheck}>{checking ? 'Đang kiểm tra…' : 'Kiểm tra lại'}</Button>
+        <Button size="bento" block onClick={onClose}>Đóng</Button>
+        <Button size="bento" block variant="primary" disabled={checking} onClick={onCheck}>{checking ? 'Đang kiểm tra…' : 'Kiểm tra lại'}</Button>
       </div>
-      {onCancel && <Button block variant="link" onClick={onCancel}>Hủy yêu cầu</Button>}
+      {onCancel && <Button block variant="link" className="min-h-11" onClick={onCancel}>Hủy yêu cầu</Button>}
     </div>
   )
 }
@@ -179,7 +178,7 @@ function CopyWide({ value }: { value: string }) {
   const { done, error, copy } = useClipboard(value)
   return (
     <div className="flex flex-col gap-1">
-      <Button size="sm" block className={ICON_BTN} onClick={copy}>{done ? 'Đã chép nội dung chuyển khoản' : 'Sao chép nội dung chuyển khoản'}</Button>
+      <Button size="bento" block onClick={copy}>{done ? 'Đã chép nội dung chuyển khoản' : 'Sao chép nội dung chuyển khoản'}</Button>
       {error && <CopyError />}
     </div>
   )

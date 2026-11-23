@@ -148,13 +148,13 @@ export default function FeedStockPage() {
           </div>
 
           {stockQuery.loading && !stockQuery.data && (
-            <div role="status" aria-live="polite" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">
+            <div role="status" aria-live="polite" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">
               Đang tải tồn kho…
             </div>
           )}
 
           {errorMessage && (
-            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
               <span>{errorMessage}</span>
               <Button size="sm" disabled={stockQuery.loading} onClick={() => stockQuery.refetch()}>
                 {stockQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}

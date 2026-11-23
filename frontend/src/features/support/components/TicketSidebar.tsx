@@ -7,7 +7,7 @@ import { TicketStatusBadge } from './TicketStatusBadge'
 
 export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
   return (
-    <Card title="Thông tin yêu cầu">
+    <Card variant="panel" title="Thông tin yêu cầu">
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
         {[
           ['Trạng thái', <TicketStatusBadge ticket={ticket} />],
@@ -18,7 +18,7 @@ export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
           ['Cập nhật', formatDateTime(ticket.updatedAt)],
         ].map(([k, v]) => (
           <div key={String(k)} className="min-w-0">
-            <dt className="mb-[3px] text-[11px] text-faint">{k}</dt>
+            <dt className="mb-[3px] text-[11px] text-label">{k}</dt>
             <dd className="m-0 break-words text-[13px] font-medium">{v}</dd>
           </div>
         ))}
@@ -34,8 +34,8 @@ export function StatusHistoryCard({ ticket }: { ticket: Ticket }) {
   const safePage = Math.min(page, pageCount)
   const rows = ticket.history.slice((safePage - 1) * pageSize, safePage * pageSize)
   return (
-    <Card title="Lịch sử trạng thái">
-      <Table stack={false}>
+    <Card variant="panel" title="Lịch sử trạng thái">
+      <Table variant="panel" stack={false}>
         <thead>
           <tr>
             <Th>Thời điểm</Th>

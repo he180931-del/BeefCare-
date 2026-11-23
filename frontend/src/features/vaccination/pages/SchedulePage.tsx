@@ -71,15 +71,17 @@ export default function SchedulePage() {
 
 function ScheduleCardView({ card, active, onClick }: { card: ScheduleCard; active: boolean; onClick: () => void }) {
   const pct = card.targetCount ? Math.round((card.doneCount / card.targetCount) * 100) : 0
+  // Bento (Figma Tab 17 ②b): lịch đang chọn là khối xanh đậm; lịch đúng tiến độ nền xanh nhạt; nhãn chữ luôn đi kèm màu.
+  const surface = active ? 'border-brand-dark bg-brand-dark' : card.overdueCount > 0 ? 'border-field bg-white hover:bg-[#f4f8f5]' : 'border-ok-bg bg-ok-bg'
   return (
-    <button type="button" aria-pressed={active} onClick={onClick} className={`flex flex-col gap-2 rounded-md border bg-white p-4 text-left ${active ? 'border-brand' : 'border-edge'}`}>
+    <button type="button" aria-pressed={active} onClick={onClick} className={`flex min-w-0 cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${surface}`}>
       <span className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-ink">{card.schedule.name}</span>
-        {card.overdueCount > 0 ? <Badge tone="err" icon="alert-triangle">{card.overdueCount} quá hạn</Badge> : <Badge tone="ok">Đúng tiến độ</Badge>}
+        <span className={`text-sm font-semibold ${active ? 'text-white' : 'text-ink'}`}>{card.schedule.name}</span>
+        {card.overdueCount > 0 ? <Badge tone="err" icon="alert-triangle">{card.overdueCount} quá hạn</Badge> : <Badge tone="ok" className={active ? undefined : 'border-white! bg-white!'}>Đúng tiến độ</Badge>}
       </span>
-      <span className="text-xs text-muted">{cardInfo(card)}</span>
-      <span className="h-1.5 w-full overflow-hidden rounded-full bg-chip"><span className="block h-full rounded-full bg-brand" style={{ width: `${pct}%` }} /></span>
-      <span className="text-xs font-medium text-ink">Đã tiêm {card.doneCount} / {card.targetCount}</span>
+      <span className={`text-xs ${active ? 'text-side-text' : 'text-muted'}`}>{cardInfo(card)}</span>
+      <span className={`h-1.5 w-full overflow-hidden rounded-full ${active ? 'bg-white/20' : 'bg-chip'}`}><span className={`block h-full rounded-full ${active ? 'bg-white' : 'bg-brand'}`} style={{ width: `${pct}%` }} /></span>
+      <span className={`text-xs font-medium ${active ? 'text-white' : 'text-ink'}`}>Đã tiêm {card.doneCount} / {card.targetCount}</span>
     </button>
   )
 }
@@ -115,7 +117,7 @@ function DoseList({ scheduleId, tab, onTab, canWrite, picked, onPick, onRecordPi
       {rows.length === 0 ? (
         <EmptyBlock title="Không có mũi nào trong mục này" sub="Chọn tab hoặc lịch khác để xem các mũi còn lại." />
       ) : (
-        <div className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
+        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-field bg-white p-4">
           <Table>
             <thead>
               <tr>

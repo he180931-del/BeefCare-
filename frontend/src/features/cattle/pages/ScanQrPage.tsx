@@ -94,8 +94,8 @@ export default function ScanQrPage() {
       {scanSampleNotice && <Note tone="warn">{scanSampleNotice}</Note>}
       {camera && <QrCamera onCode={(value) => void lookup(() => value)} />}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={loading} onClick={() => { setError(''); setCamera(!camera) }}><Icon name="scan" />{camera ? 'Tắt camera' : 'Bật camera'}</Button>
-        <Button type="button" disabled={loading} onClick={() => fileInput.current?.click()}><Icon name="upload" />Quét từ ảnh</Button>
+        <Button type="button" size="bento" disabled={loading} onClick={() => { setError(''); setCamera(!camera) }}><Icon name="scan" />{camera ? 'Tắt camera' : 'Bật camera'}</Button>
+        <Button type="button" size="bento" disabled={loading} onClick={() => fileInput.current?.click()}><Icon name="upload" />Quét từ ảnh</Button>
         <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Chọn ảnh chứa mã QR" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {
           const file = e.currentTarget.files?.[0]
           e.currentTarget.value = ''
@@ -108,13 +108,13 @@ export default function ScanQrPage() {
           setPhase({ kind: 'idle' })
           setError('')
         }} />
-        <Button type="submit" variant="primary" disabled={loading || !code.trim()}>Tra cứu</Button>
+        <Button type="submit" variant="primary" size="bento" disabled={loading || !code.trim()}>Tra cứu</Button>
       </form>
       {phase.kind === 'busy' && <p className="m-0 text-xs text-muted">Đang tra cứu…</p>}
-      {error && <p role="alert" className="m-0 rounded-md bg-err-bg p-3 text-xs text-err-fg">{error}</p>}
-      {phase.kind === 'rejected' && <p role="alert" className="m-0 rounded-md bg-err-bg p-3 text-xs text-err-fg">{REJECTED[phase.code]}</p>}
+      {error && <p role="alert" className="m-0 rounded-xl bg-err-bg p-3 text-xs text-err-fg">{error}</p>}
+      {phase.kind === 'rejected' && <p role="alert" className="m-0 rounded-xl bg-err-bg p-3 text-xs text-err-fg">{REJECTED[phase.code]}</p>}
       {phase.kind === 'otherFarm' && (
-        <div role="alert" className="flex flex-col gap-2 rounded-md bg-warn-bg p-3 text-xs text-warn-fg">
+        <div role="alert" className="flex flex-col gap-2 rounded-xl bg-warn-bg p-3 text-xs text-warn-fg">
           <span>Bò này thuộc một trại khác mà bạn là thành viên{phase.farmId != null ? ` (trại #${phase.farmId})` : ''}.</span>
           <div className="flex gap-2">
             {phase.farmId != null && <Button small variant="primary" disabled={switching} onClick={() => void switchFarm()}>Chuyển trại và mở hồ sơ</Button>}
@@ -135,7 +135,8 @@ function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { k
   const { cow, replaced } = outcome
   const active = cow.status === 'ACTIVE'
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-edge bg-white p-4">
+    // Bento (Figma Tab 16/18 ⑤b): thẻ kết quả bo 16 px, nút chạm cao 44 px.
+    <div className="flex flex-col gap-2.5 rounded-2xl border border-field bg-white p-4">
       <div className="text-[11px] font-semibold text-brand">Đã nhận diện</div>
       <div className="text-base font-semibold text-[#212121]">{cow.code}{cow.name ? ` · “${cow.name}”` : ''}</div>
       <div className="text-xs text-muted">{[cow.tag ? `Số tai ${cow.tag}` : 'Gắn tai sau', cow.breed, cow.sex, cow.ageLong, cow.barn && `Chuồng ${cow.barn}`].filter(Boolean).join(' · ')}</div>
@@ -150,8 +151,8 @@ function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { k
         </p>
       )}
       {cow.status === 'EXITED' && <p className="m-0 text-xs text-muted">Bò đã xuất đàn: hồ sơ chỉ xem, không thêm được sự kiện.</p>}
-      <Button variant="primary" block onClick={() => onOpen(cow.code)}>Mở hồ sơ</Button>
-      <Button block onClick={onReset}><Icon name="scan" />Quét lại</Button>
+      <Button variant="primary" size="bento" block onClick={() => onOpen(cow.code)}>Mở hồ sơ</Button>
+      <Button size="bento" block onClick={onReset}><Icon name="scan" />Quét lại</Button>
     </div>
   )
 }

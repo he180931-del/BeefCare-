@@ -58,16 +58,17 @@ export default function GrowthHerdPage() {
             {[30, 90, 180].map((d) => <option key={d} value={d}>Kỳ ADG: {d} ngày</option>)}
           </FilterSelect>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric compact warn label="Quá hạn cân" value={tiles.overdue} sub="chu kỳ cân 30 ngày" />
-          <Metric compact warn label="ADG thấp hơn TB chuồng" value={tiles.lowAdg} sub={`trong kỳ ${windowDays} ngày`} />
-          <Metric compact label={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>BCS &lt; 2,5</span>} value={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>{tiles.lowBcs}</span>} sub="theo lần đo gần nhất" />
-          <Metric compact label="Lượt cân 30 ngày" value={tiles.weighings30} sub="bản ghi hợp lệ" />
+        {/* Bento (Figma Tab 17 ①b): khối nổi bật là số bò quá hạn cân; ADG thấp, BCS thấp vàng khi có; lượt cân xanh nhạt. */}
+        <div className="grid gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric surface="panel" tone="emphasis" label="Quá hạn cân" value={tiles.overdue} sub="chu kỳ cân 30 ngày" />
+          <Metric compact surface="panel" tone={tiles.lowAdg ? 'warn' : 'default'} warn={Boolean(tiles.lowAdg)} label="ADG thấp hơn TB chuồng" value={tiles.lowAdg} sub={`trong kỳ ${windowDays} ngày`} />
+          <Metric compact surface="panel" tone={tiles.lowBcs ? 'warn' : 'default'} label="BCS < 2,5" value={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>{tiles.lowBcs}</span>} sub="theo lần đo gần nhất" />
+          <Metric compact surface="panel" tone={tiles.weighings30 ? 'ok' : 'default'} label="Lượt cân 30 ngày" value={tiles.weighings30} sub="bản ghi hợp lệ" />
         </div>
         {rows.length === 0 ? (
           <EmptyBlock title="Không có bò phù hợp" sub="Thử đổi bộ lọc hoặc từ khóa tìm kiếm." />
         ) : (
-          <div className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
+          <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-field bg-white p-4">
             <Table>
               <thead>
                 <tr>

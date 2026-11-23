@@ -107,8 +107,8 @@ export default function TransferPage() {
         ) : (
           <PageHeader title={TITLE} sub={`Yêu cầu ${current.quoteRef} · ${termLabel(current.durationYears)} · ${farmName}`}>
             {/* SCR-59 #12: a secondary button (red text), not a solid red one beside "Đóng hướng dẫn". */}
-            {cancellable && <Button className="!text-err-fg" onClick={openCancel}>Hủy yêu cầu</Button>}
-            <Button onClick={close}>Đóng hướng dẫn</Button>
+            {cancellable && <Button size="bento" className="!text-err-fg" onClick={openCancel}>Hủy yêu cầu</Button>}
+            <Button size="bento" onClick={close}>Đóng hướng dẫn</Button>
           </PageHeader>
         )}
         {paid && (
@@ -147,9 +147,9 @@ export default function TransferPage() {
         {phone ? (
           <PhoneTransfer payment={current} now={now} checking={checking} onCheck={() => void check()} onClose={close} onCancel={cancellable ? openCancel : undefined} />
         ) : (
-          <div className="grid items-start gap-4 lg:grid-cols-[376px_minmax(0,1fr)]">
-            <QrCard payment={current} now={now} />
-            <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
+            <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4"><QrCard payment={current} now={now} /></div>
+            <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4 @min-[1024px]:gap-6">
               <TransferInfoCard payment={current} />
               <ProgressCard payment={current} checking={checking} onCheck={() => void check()} onHistory={() => navigate(to('/goi-dich-vu/lich-su'))} />
             </div>

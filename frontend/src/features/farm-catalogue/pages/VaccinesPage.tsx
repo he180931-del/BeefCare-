@@ -71,7 +71,7 @@ export default function VaccinesPage() {
                 const doseRoute = vaccineDoseRoute(v)
                 return (
                   <SelectableRow key={v.id} selected={item?.id === v.id} muted={!v.available} onSelect={() => page.select(v)}>
-                    <Td className="font-medium">{v.code}</Td>
+                    <Td className="whitespace-nowrap font-medium">{v.code}</Td>
                     <Td>{v.name}</Td>
                     <Td>{v.diseasePrevented}</Td>
                     <Td><span className={doseRoute.needsLabel ? 'text-[#b26b00]' : undefined}>{doseRoute.text}</span></Td>

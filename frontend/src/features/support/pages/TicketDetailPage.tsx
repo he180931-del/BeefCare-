@@ -31,13 +31,13 @@ export default function TicketDetailPage() {
   const { getMessages } = useSupportCommands()
   const actions = useTicketActions(ticket, { refetch, openModal })
 
-  if (loading && !ticket) return <Layout title={TITLE}><LoadingBlock /></Layout>
+  if (loading && !ticket) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
   if (error || !ticket) {
     return (
       <Layout title={TITLE}>
         <div className="flex flex-col items-start gap-4">
-          <ErrorBlock message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được yêu cầu hỗ trợ.')} onRetry={refetch} />
-          <Button onClick={() => navigate('/ho-tro')}>Về danh sách yêu cầu</Button>
+          <ErrorBlock variant="panel" message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được yêu cầu hỗ trợ.')} onRetry={refetch} />
+          <Button size="bento" onClick={() => navigate('/ho-tro')}>Về danh sách yêu cầu</Button>
         </div>
       </Layout>
     )
@@ -67,8 +67,8 @@ export default function TicketDetailPage() {
             </Button>
           </Note>
         )}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
-          <div className="flex min-w-0 flex-col gap-4">
+        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
+          <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4 @min-[1024px]:gap-6">
             <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => getMessages(ticket.id, beforeId)} />
             <ResolutionCard
               ticket={ticket}
@@ -79,7 +79,7 @@ export default function TicketDetailPage() {
             />
             <ReplyCard ticket={ticket} onSend={actions.reply} />
           </div>
-          <div className="flex min-w-0 flex-col gap-4">
+          <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4 flex flex-col gap-4 @min-[1024px]:gap-6">
             <TicketInfoCard ticket={ticket} />
             <StatusHistoryCard ticket={ticket} />
           </div>

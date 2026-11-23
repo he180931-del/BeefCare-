@@ -49,17 +49,17 @@ export default function SetupLayout({ eyebrow, heading, lines = [], badge, step,
         </div>
         <img src={farm} alt="" className="absolute inset-x-0 bottom-0 w-full" />
       </aside>
-      <div className="relative min-h-screen overflow-x-clip">
+      <div className="@container/setup relative min-h-screen overflow-x-clip">
         <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full object-cover opacity-80" />
         <header className="relative z-10 flex h-[72px] items-center justify-between gap-4 border-b border-rule bg-white px-5 sm:px-8">
           <Link to="/" className="flex items-center gap-2 text-base font-bold text-brand-dark no-underline lg:invisible"><img src={logo} alt="" className="size-8 rounded-lg object-cover" />BeefCare</Link>
           <div className="flex items-center gap-3">
             <Avatar name={user.fullName} size={32} />
             <div className="hidden text-xs sm:block"><div className="font-semibold text-[#212121]">{user.fullName}</div><div className="text-[11px] text-muted">{user.email}</div></div>
-            {session && <button type="button" onClick={() => void session.logout()} className="ml-1 inline-flex min-h-8 cursor-pointer items-center gap-1 rounded border-0 bg-transparent px-1.5 text-xs font-semibold text-brand hover:bg-page"><Icon name="logout" size={14} />Đăng xuất</button>}
+            {session && <button type="button" onClick={() => void session.logout()} className="ml-1 inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-lg border-0 bg-transparent px-2 text-xs font-semibold text-brand hover:bg-page focus-visible:outline-2 focus-visible:outline-brand"><Icon name="logout" size={14} />Đăng xuất</button>}
           </div>
         </header>
-        <main className={`relative mx-auto flex w-full flex-col gap-5 px-5 py-8 sm:px-8 ${narrow ? 'max-w-[784px]' : ''}`}>{children}</main>
+        <main className={`@container relative mx-auto flex w-full min-w-0 flex-col gap-4 px-4 py-8 @min-[640px]/setup:px-6 @min-[1024px]/setup:gap-6 @min-[1024px]/setup:px-8 ${narrow ? 'max-w-[784px]' : ''}`}>{children}</main>
       </div>
     </div>
   )

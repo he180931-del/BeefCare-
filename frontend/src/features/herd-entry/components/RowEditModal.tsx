@@ -241,7 +241,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
         {barn && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 
-      <ModalFooter compact className="min-[768px]:!px-3">
+      <ModalFooter>
         {(validationError || receptionError || criterionIssues.length > 0) && (
           <div className="min-w-0 basis-full min-[768px]:basis-auto min-[768px]:flex-1 [&>div]:text-sm [&>div]:font-medium">
             {validationError && <Note tone="err">{validationError}</Note>}

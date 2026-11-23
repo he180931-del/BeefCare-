@@ -282,10 +282,12 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       {hasUnavailableDraftLine
         ? <Note tone="warn">Phiếu nháp có mặt hàng đã ngưng hoạt động; dữ liệu được giữ nguyên và phiếu đang ở chế độ chỉ xem.</Note>
         : readOnly && <Note tone="info">Phiếu đã ghi nhận; thông tin đang ở chế độ chỉ xem.</Note>}
-      {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <Card title="Thông tin phiếu">
+      {/* Bento §1: form chính 8 cột, tóm tắt và kiểm tra 4 cột; vùng nội dung 880–1.023 px (laptop 1.280 px) chia 5+3. */}
+      <div className="@container">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <Card variant="panel" title="Thông tin phiếu">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Mã phiếu" id="feed-adjustment-code">
               <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? (feedStockAdjustmentServerBacked ? 'Tự sinh khi lưu' : nextCode)} className={inputCls} />
@@ -304,11 +306,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
           </div>
         </Card>
 
-        <Card>
-          <div className="flex items-center gap-2">
-            <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt điều chỉnh</h3>
-            <Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>
-          </div>
+        <Card variant="panel" title="Tóm tắt điều chỉnh" actions={<Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>}>
           <Info cols={2} items={[
             ['Thức ăn chênh lệch', `${changedFeeds} / ${lines.length}`],
             ['Tổng chênh lệch', totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg, 3)} kg`],
@@ -328,14 +326,15 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
           {readOnly && <Button block onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>}
         </Card>
       </div>
+      </div>
 
-      <Card title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
+      <Card variant="panel" title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
         <Note tone="info">Điều chỉnh không sửa phiếu nhập hay nhật ký cho ăn đã ghi; mỗi dòng chênh lệch tạo 1 bút toán kho kèm lý do, người lập và thời điểm. Tồn sau điều chỉnh không âm.</Note>
         {feedStockAdjustmentServerBacked && values.countDate !== currentRecord?.countDate && values.countDate !== localFeedDate() && <Note tone="warn">Máy chủ xác định lại tồn hệ thống tại ngày kiểm kê khi lưu phiếu.</Note>}
         <AdjustmentLinesTable lines={lines} readOnly={readOnly || saving} onChange={updateLine} totalDifferenceKg={totalDifferenceKg} totalValue={totalValue} />
       </Card>
 
-      <Card title="Chứng từ đính kèm">
+      <Card variant="panel" title="Chứng từ đính kèm">
         {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
           ? setNewFiles((current) => [...current, ...files])
           : setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}

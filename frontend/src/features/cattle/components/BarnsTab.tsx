@@ -8,6 +8,7 @@ export default function BarnsTab({ cow, barns, canWrite, onOpenModal }: { cow: C
   return (
     <>
       <Panel
+        tone="ok"
         title="Chuồng hiện tại"
         gap="gap-3"
         action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('move')}><Icon name="arrows-exchange" />Chuyển chuồng</Button>}

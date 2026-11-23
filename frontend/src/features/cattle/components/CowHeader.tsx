@@ -58,7 +58,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   const action = canWrite && canRecord ? TAB_ACTIONS[tab] : undefined
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
+      <div className="flex flex-wrap items-center gap-[18px] rounded-2xl border border-field bg-white p-4">
         <div className="flex shrink-0 flex-col items-center gap-1">
           <CowPhoto key={cow.code} code={cow.code} photoUrl={cow.photoUrl} />
           {canWrite && (

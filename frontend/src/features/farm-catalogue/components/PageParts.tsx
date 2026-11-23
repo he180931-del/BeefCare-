@@ -2,8 +2,14 @@ import type { ReactNode } from 'react'
 import { Button, Icon, Note } from '../../../shared/ui'
 import { HeaderActions } from './CatalogueShell'
 
+/**
+ * Danh sách + vùng biên tập (docs/BeefCare-Bento-Grid.md §1, Figma Tab 19 ①b): chia 7+5 khi vùng nội dung từ 1.024 px,
+ * hẹp hơn thì xếp dọc (bảng vắc-xin 7 cột cần ~600 px). Đo theo vùng nội dung sau sidebar, không theo màn hình.
+ */
 export const SplitLayout = ({ children }: { children: ReactNode }) => (
-  <div className="grid items-start gap-4 min-[1360px]:grid-cols-[minmax(675px,1fr)_minmax(340px,410px)]">{children}</div>
+  <div className="@container">
+    <div className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @min-[1024px]:gap-6">{children}</div>
+  </div>
 )
 
 export const SavedNotice = ({ text }: { text: string | null }) =>

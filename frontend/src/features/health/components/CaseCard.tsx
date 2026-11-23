@@ -36,7 +36,7 @@ export default function CaseCard({ card, rows, canAdd, canEdit, onAction, onEdit
   onEdit: (row: HealthTimelineRow) => void
 }) {
   return (
-    <Card
+    <Card variant="panel"
       title={`Ca ${card.caseCode} · ${card.signs}`}
       sub={card.status === 'OPEN' ? 'Ca đang mở' : 'Ca theo dõi mạn tính'}
       actions={<>

@@ -54,7 +54,7 @@ function Shell({ title, sub, width, saveLabel, onClose, onSave, state, children 
         </Note>
       )}
       {children}
-      <ModalFooter className="-mx-6 !px-6 !pb-0 !pt-2">
+      <ModalFooter>
         <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={busy || !!confirm} onClick={() => onSave()}>{busy ? 'Đang lưu…' : saveLabel}</ModalButton>
       </ModalFooter>
