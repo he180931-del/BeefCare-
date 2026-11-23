@@ -16,9 +16,10 @@
 | 2 | `efc82f9c`, `96ef8455` | Đã lên `dev` |
 | 3 | `9b2b64ae` (tab 18, 19, 21), nhánh `feature/bento-grid` | Chưa lên `dev` |
 | 4 | `9b2b64ae`: hộp thoại chung, hồ sơ bò, nhập/xuất đàn, chuồng trại (tab 16); tăng trưởng, tiêm phòng, sức khỏe (tab 17); nhắc việc, thông báo trại, kỹ thuật viên (tab 15) | Chưa lên `dev` |
-| 5 | nhánh `feature/bento-grid` (tab 13 và sáu trạng thái xác thực tab 12) | Chưa commit |
-| 6 | nhánh `feature/bento-grid` (hai khung cuối tab 15) | Chưa commit |
-| 7 | nhánh `feature/bento-grid` (17 hộp thoại và trang còn lại của tab 16, 17) | Chưa commit |
+| 5 | `93d190fa`, `fdaf07fa` (tab 13 và sáu trạng thái xác thực tab 12), nhánh `feature/bento-grid` | Chưa lên `dev` |
+| 6 | `7581d1b3` (hai khung cuối tab 15) | Chưa lên `dev` |
+| 7 | `7581d1b3` (17 hộp thoại và trang còn lại của tab 16, 17) | Chưa lên `dev` |
+| 8 | nhánh `feature/bento-grid` (chân hộp thoại dùng chung cho mọi hộp thoại) | Chưa commit |
 
 ## Tổng hợp
 
@@ -36,9 +37,10 @@
 
 Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento từ đợt 3 nằm chung nhánh `feature/bento-grid`.
 
-**Thay đổi dùng chung ở đợt 5** (ảnh hưởng cả các tab đã xong):
+**Thay đổi dùng chung từ đợt 5** (ảnh hưởng cả các tab đã xong):
 
 - Nút Đóng của mọi hộp thoại có vùng chạm 44 px, tâm biểu tượng giữ nguyên vị trí.
+- Chân hộp thoại (`ModalFooter`, đợt 8): hộp thoại tự giữ khoảng cách ngoài 24 px, kể cả vùng an toàn phía dưới trên điện thoại. Chân không còn padding riêng, nên nút sát mép nội dung và cách nội dung phía trên 16 px như Figma (trước đó nút thụt 24 px và thừa 24 px phía dưới). Mọi nút trong chân cao tối thiểu 46 px, chữ dài xuống dòng, có viền focus bên trong nút. Bỏ khoảng 40 chỗ ghi đè riêng và prop `compact`; áp dụng cho mọi hộp thoại, kể cả trang Nền tảng.
 - Tiêu đề trên thanh trên xuống dòng thay vì bị cắt. Thanh cao tối thiểu 72 px.
 - `Note` xám đặt chữ `text-ink` để đọc được cả trong khối xanh đậm.
 - `Button size="bento"`: nút thao tác của các trang trong ứng dụng (cao tối thiểu 44 px, bo 8 px, chữ dài xuống dòng). Hộp thoại và các trang thiết lập ban đầu giữ `size="lg"` (46 px, bo 12) như các trang cùng luồng. Màn quét QR (tab 16) cũng dùng cỡ này.
