@@ -19,7 +19,7 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
   const me = useCurrentMember(options.members)
   const [performer, setPerformer] = useState(me?.name ?? '')
   const [advice, setAdvice] = useState('')
-  // D55: ca theo dõi dài hạn mặc định về Đang mở như GBR-45; bỏ chọn khi chỉ là điều trị duy trì.
+  // D59: ca theo dõi dài hạn mặc định về Đang mở như GBR-45; bỏ chọn khi chỉ là điều trị duy trì.
   const longTerm = card.status === 'CHRONIC'
   const [returnToOpen, setReturnToOpen] = useState(true)
   const form = useDialogSave()

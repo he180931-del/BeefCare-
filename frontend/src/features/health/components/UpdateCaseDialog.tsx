@@ -18,7 +18,7 @@ interface Props {
 }
 
 /**
- * Popup "Cập nhật ca bệnh" (D54): gộp ghi theo dõi và đổi trạng thái ca thành một lần cập nhật, cùng một thời điểm.
+ * Popup "Cập nhật ca bệnh" (D58): gộp ghi theo dõi và đổi trạng thái ca thành một lần cập nhật, cùng một thời điểm.
  * Giữ trạng thái thì phần theo dõi bắt buộc; đổi trạng thái thì phần theo dõi tùy chọn (có nhập ô nào thì cần đủ diễn
  * biến và mô tả). Lỗi nhập liệu hiện dưới ô, lỗi điều kiện hiện popup (D49).
  */

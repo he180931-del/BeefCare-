@@ -13,13 +13,13 @@ interface Props {
   options: HealthFormOptions
   onClose: () => void
   onSaved: (message: string) => void
-  /** Chuyển sang "Cập nhật ca bệnh" của một ca đang có (D54). */
+  /** Chuyển sang "Cập nhật ca bệnh" của một ca đang có (D58). */
   onUpdateCase: (caseCode: string) => void
 }
 
 /**
  * Popup Mở ca: luôn mở ca mới cho một vấn đề mới (một con bò có thể có nhiều ca – GBR-45). Diễn biến của ca đang có
- * ghi qua "Cập nhật ca bệnh"; popup chỉ nhắc và dẫn sang đó (D54).
+ * ghi qua "Cập nhật ca bệnh"; popup chỉ nhắc và dẫn sang đó (D58).
  */
 export default function OpenCaseDialog({ cattle, activeCases, options, onClose, onSaved, onUpdateCase }: Props) {
   const { now, openCase } = useHealthCaseCommands()

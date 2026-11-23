@@ -15,7 +15,7 @@ export function useCanRecord() {
   return useCanRecordCare()
 }
 
-/** Chủ trại (D58: mở lại ca Chết / Mất tích vì phải bác phiếu xuất); không có phiên thì không áp quyền theo vai trò. */
+/** Chủ trại (D62: mở lại ca Chết / Mất tích vì phải bác phiếu xuất); không có phiên thì không áp quyền theo vai trò. */
 export function useIsFarmOwner() {
   const session = useSession()
   return session == null || session.role === 'OWNER'
@@ -78,7 +78,7 @@ export function useDialogSave() {
 }
 
 /**
- * D57: thân nhiệt ngoài 35–43 °C chưa chặn, mà hỏi xác nhận trước khi lưu. {@code guard} gọi {@code save} ngay khi số đo
+ * D61: thân nhiệt ngoài 35–43 °C chưa chặn, mà hỏi xác nhận trước khi lưu. {@code guard} gọi {@code save} ngay khi số đo
  * bình thường hoặc để trống; ngược lại giữ lệnh lưu đến khi người dùng bấm "Xác nhận lưu".
  */
 export function useTemperatureCheck() {

@@ -7,7 +7,7 @@ import type { HealthCaseCard } from '../types'
 import { hint, useDialogSave } from './healthUi'
 
 /**
- * Popup "Mở lại ca" (D58) cho ca đã đóng Khỏi / Chết / Mất tích: lý do bắt buộc, ca về Đang mở. Ca Chết / Mất tích thì phiếu
+ * Popup "Mở lại ca" (D62) cho ca đã đóng Khỏi / Chết / Mất tích: lý do bắt buộc, ca về Đang mở. Ca Chết / Mất tích thì phiếu
  * xuất chờ Chủ trại xác nhận bị bác cùng lúc. Lỗi nhập liệu hiện dưới ô, lỗi điều kiện hiện popup.
  */
 export default function ReopenCaseDialog({ card, cattleCode, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; onClose: () => void; onSaved: (message: string) => void }) {

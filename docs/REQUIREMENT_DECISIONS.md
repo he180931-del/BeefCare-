@@ -879,7 +879,7 @@ TuanPQ chốt trong phiên: "bản ghi đã hủy thật ra cũng là xóa vì c
 
 Backend: `VaccinationCommandService` sửa / xóa dùng `RecordRevisionService.recordWithOptionalNote`; `reason` trống lưu `null`, > 500 vẫn trả MSG-COM-10. Không migration (`status_reason`, `record_revision.reason` đã cho phép null), không đổi route; `reason` trong OpenAPI vốn không đánh dấu bắt buộc. Dừng lịch (A5) vẫn bắt buộc lý do.
 
-### D54 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
+### D58 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
 
 TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:
 
@@ -891,7 +891,7 @@ TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân
 
 Spec FE-10 đã cập nhật: UC-FE10-02/03, R-10-01, SCR-37 dòng 7, popup Mở ca dòng 8, popup Cập nhật ca bệnh (thay popup Ghi theo dõi và Cập nhật / Đóng ca), A3–A5, TC-10-04/05/07/27/29.
 
-### D55 — FE-10: ghi điều trị cho ca theo dõi dài hạn có thể giữ trạng thái (23/11/2026)
+### D59 — FE-10: ghi điều trị cho ca theo dõi dài hạn có thể giữ trạng thái (23/11/2026)
 
 TuanPQ duyệt đợt 2 của bản đánh giá FE-10. GBR-45 cho ca CHRONIC tự về OPEN mỗi khi ghi điều trị, khiến điều trị duy trì (vitamin, thuốc bổ, kháng viêm định kỳ) đẩy ca về Đang mở và người dùng phải chuyển lại.
 
@@ -899,7 +899,7 @@ TuanPQ duyệt đợt 2 của bản đánh giá FE-10. GBR-45 cho ca CHRONIC t�
 2. Bỏ chọn → ca giữ CHRONIC; sức khỏe của bò là "Theo dõi" (không phải "Đang điều trị"); ngày ngưng thịt vẫn tính từ điều trị (GBR-46 không phụ thuộc trạng thái ca).
 3. A6 thêm `returnToOpen?` (thiếu = `true`); không migration, phản hồi `returnedToOpen` giữ nguyên. Thay MSG-FE10-10 bằng ô chọn này.
 
-### D56 — FE-10: trạng thái ca hiển thị bằng tiếng Việt, "Theo dõi dài hạn" thay "mạn tính" (23/11/2026)
+### D60 — FE-10: trạng thái ca hiển thị bằng tiếng Việt, "Theo dõi dài hạn" thay "mạn tính" (23/11/2026)
 
 TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn toàn tiếng Việt. SRS định nghĩa CHRONIC là *long-term monitoring* – trạng thái quản lý ca, không phải chẩn đoán "bệnh mạn tính".
 
@@ -907,7 +907,7 @@ TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn
 2. Hành động: "Chuyển theo dõi dài hạn", "Chuyển về đang mở" (không dùng "Mở lại" để dành cho việc mở lại ca đã đóng ở đợt 4).
 3. Mã trong DB / API / code giữ nguyên `OPEN`, `CHRONIC`, `CLOSED`; chỉ đổi chữ hiển thị (một nguồn `CASE_STATUS_LABEL`). Spec FE-10 đổi theo, gồm các chỗ viết "mãn tính".
 
-### D57 — FE-10: thân nhiệt ngoài 35–43 °C hỏi xác nhận thay vì chặn (23/11/2026)
+### D61 — FE-10: thân nhiệt ngoài 35–43 °C hỏi xác nhận thay vì chặn (23/11/2026)
 
 TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải giới hạn sinh lý; bò hạ thân nhiệt hoặc sốt cao vẫn phải ghi được.
 
@@ -916,7 +916,7 @@ TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải 
 3. Để trống → vẫn lưu. Sửa ô thân nhiệt thì lỗi cũ của ô biến mất (trước đây lỗi đỏ còn sau khi xóa trống ô).
 4. Áp dụng ở Mở ca sức khỏe, Cập nhật ca bệnh, Sửa bản ghi theo dõi. Không làm khoảng tham chiếu theo nhóm bò.
 
-### D58 — FE-10 / FE-13: mở lại ca sức khỏe đã đóng; bác phiếu chết / mất thì mở lại ca (23/11/2026)
+### D62 — FE-10 / FE-13: mở lại ca sức khỏe đã đóng; bác phiếu chết / mất thì mở lại ca (23/11/2026)
 
 TuanPQ duyệt đợt 4 của bản đánh giá FE-10; chủ FE-13 đồng ý. Trước đây ca đã đóng không mở lại được (đóng nhầm phải mở ca mới, lịch sử bị tách), và bác phiếu chết / mất để bò ACTIVE nhưng ca vẫn ghi "Chết".
 

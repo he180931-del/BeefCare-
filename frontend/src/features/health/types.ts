@@ -159,7 +159,7 @@ export interface HealthCaseFilters {
   dir?: 'asc' | 'desc'
 }
 
-/** Popup Mở ca: luôn mở ca mới; diễn biến của ca cũ ghi qua "Cập nhật ca bệnh" (D54). */
+/** Popup Mở ca: luôn mở ca mới; diễn biến của ca cũ ghi qua "Cập nhật ca bệnh" (D58). */
 export interface OpenCaseCommand {
   observedAt: string
   /** Thành viên quan sát; null thì backend ghi người đang đăng nhập. */
@@ -181,11 +181,11 @@ export interface TreatmentCommand {
   withdrawalDays: number | null
   performer: string
   veterinaryAdvice: string
-  /** Chỉ với ca theo dõi dài hạn (D55): false giữ trạng thái (điều trị duy trì); thiếu hoặc true đưa ca về Đang mở. */
+  /** Chỉ với ca theo dõi dài hạn (D59): false giữ trạng thái (điều trị duy trì); thiếu hoặc true đưa ca về Đang mở. */
   returnToOpen?: boolean
 }
 
-/** Popup "Cập nhật ca bệnh" (A5, D54): một lần cập nhật gồm phần theo dõi và trạng thái ca. */
+/** Popup "Cập nhật ca bệnh" (A5, D58): một lần cập nhật gồm phần theo dõi và trạng thái ca. */
 export interface StatusCommand {
   expectedVersion?: number
   action: StatusAction
@@ -222,7 +222,7 @@ export interface CorrectEntryCommand {
 }
 
 export interface VoidEntryCommand { expectedVersion?: number; reason: string }
-/** D58: mở lại ca đã đóng Khỏi / Chết / Mất tích; lý do bắt buộc. */
+/** D62: mở lại ca đã đóng Khỏi / Chết / Mất tích; lý do bắt buộc. */
 export interface ReopenCaseCommand { expectedVersion?: number; reason: string }
 
 export type CaseResultKind = 'OPENED' | 'KEPT' | 'CHRONIC' | 'REOPENED' | 'CLOSED' | 'RESUMED'

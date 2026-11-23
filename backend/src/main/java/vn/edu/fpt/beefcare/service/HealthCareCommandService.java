@@ -171,7 +171,7 @@ public class HealthCareCommandService {
         assertActionAllowed(action, upper(healthCase.getStatus()));
         String outcome = "CLOSE".equals(action) ? upper(req.outcome()) : null;
         if ("CLOSE".equals(action) && !OUTCOMES.contains(outcome)) throw DomainException.required("outcome");
-        // D54: một mốc thời gian cho cả lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca); BR-D33 / R-10-05 về thứ tự.
+        // D58: một mốc thời gian cho cả lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca); BR-D33 / R-10-05 về thứ tự.
         Instant at = updateTime(req);
         clock.assertNotFuture(at);
         assertAfterHerdEntry(farmId, cattle, at);
@@ -207,7 +207,7 @@ public class HealthCareCommandService {
         return result(healthCase, cattle, observationId, pendingVoucherId);
     }
 
-    // ------------------------------------------------------------------ A5b mở lại ca đã đóng (D58)
+    // ------------------------------------------------------------------ A5b mở lại ca đã đóng (D62)
 
     public CareDtos.HealthCaseResult reopen(Long farmId, Long caseId, String key, CareDtos.ReopenCase request) {
         return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "HEALTH_CASE_REOPEN", key,
@@ -215,7 +215,7 @@ public class HealthCareCommandService {
     }
 
     /**
-     * D58: ca đóng Khỏi mở lại khi bò còn ghi nhận được; ca đóng Chết / Mất tích chỉ mở lại khi bò còn trong đàn (phiếu
+     * D62: ca đóng Khỏi mở lại khi bò còn ghi nhận được; ca đóng Chết / Mất tích chỉ mở lại khi bò còn trong đàn (phiếu
      * chết / mất còn chờ xác nhận thì bác phiếu cùng giao dịch) và chỉ Chủ trại được làm (như bác phiếu, GBR-34); ca đóng
      * do xuất đàn không bao giờ mở lại.
      */
@@ -283,7 +283,7 @@ public class HealthCareCommandService {
         treatment.setWithdrawalEndDate(withdrawalEnd(time, cattle, courseDays, withdrawalDays));
         em.persist(treatment);
         // R-10-06 / R-10-09: điều trị đưa ca CHRONIC về OPEN trong cùng giao dịch, trừ khi người dùng chọn giữ mạn tính
-        // cho điều trị duy trì (D55).
+        // cho điều trị duy trì (D59).
         boolean returnedToOpen = "CHRONIC".equals(upper(healthCase.getStatus())) && !Boolean.FALSE.equals(req.returnToOpen());
         if (returnedToOpen) { healthCase.setStatus("OPEN"); healthCase.setChronicSince(null); }
         em.flush();
@@ -425,7 +425,7 @@ public class HealthCareCommandService {
         return recordStatus(treatmentId, treatment.getStatus(), treatment.getVersion(), healthCase, cattle, withdrawalBefore);
     }
 
-    // ------------------------------------------------------------------ A5 helpers (D54)
+    // ------------------------------------------------------------------ A5 helpers (D58)
 
     /** Phần theo dõi của một lần cập nhật ca: mô tả và diễn biến đã chuẩn hóa. */
     private record FollowUpPart(String description, String progress) {}
@@ -464,7 +464,7 @@ public class HealthCareCommandService {
     }
 
     /**
-     * Đọc phần theo dõi của lệnh A5 (D54, D35). Ghi theo dõi khi Giữ trạng thái hoặc khi có nhập mô tả, diễn biến hay thân
+     * Đọc phần theo dõi của lệnh A5 (D58, D35). Ghi theo dõi khi Giữ trạng thái hoặc khi có nhập mô tả, diễn biến hay thân
      * nhiệt; khi đó cần cả mô tả và diễn biến – không bao giờ tự điền diễn biến.
      *
      * @return phần theo dõi cần ghi, hoặc {@code null} khi lệnh chỉ đổi trạng thái
@@ -645,7 +645,7 @@ public class HealthCareCommandService {
         m.put("withdrawalEndDate", t.getWithdrawalEndDate()); m.put("performer", t.getPerformer()); m.put("veterinaryAdvice", t.getVeterinaryAdvice()); return m;
     }
     /**
-     * R-10-04 (D57): ngoài 30,0–45,0 °C là số gõ nhầm → MSG-FE10-06 (trường temperatureC). Số đo ngoài 35,0–43,0 °C
+     * R-10-04 (D61): ngoài 30,0–45,0 °C là số gõ nhầm → MSG-FE10-06 (trường temperatureC). Số đo ngoài 35,0–43,0 °C
      * vẫn lưu được sau khi người dùng xác nhận trên giao diện.
      */
     private void requireTemperature(BigDecimal t) {

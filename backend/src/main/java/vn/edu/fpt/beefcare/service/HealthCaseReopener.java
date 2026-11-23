@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.HealthCase;
 
 /**
- * Mở lại ca sức khỏe đã đóng (D58), dùng chung cho FE-10 (nút "Mở lại ca") và FE-13 (bác phiếu chết / mất chờ xác nhận).
+ * Mở lại ca sức khỏe đã đóng (D62), dùng chung cho FE-10 (nút "Mở lại ca") và FE-13 (bác phiếu chết / mất chờ xác nhận).
  *
  * <p>Ca về trạng thái Đang mở; kết quả, ngày đóng, lúc đóng, người xác nhận và ngày theo dõi dài hạn được xóa. Giá trị
  * trước / sau cùng lý do được lưu thành một bản ghi lịch sử (BR-D15) trong cùng giao dịch với thay đổi.

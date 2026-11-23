@@ -49,7 +49,7 @@ export interface HealthStatusRequestDto {
   suspectedContagious: boolean
   outcome: string | null
   confirmedById: number | null
-  /** D54: thời điểm của lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca). */
+  /** D58: thời điểm của lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca). */
   observedAt: string
   temperatureC: number | null
 }

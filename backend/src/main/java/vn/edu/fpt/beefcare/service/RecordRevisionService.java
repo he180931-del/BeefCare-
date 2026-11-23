@@ -15,7 +15,7 @@ public class RecordRevisionService {
 
     public static final String CORRECT = "CORRECT";
     public static final String VOID = "VOID";
-    /** D58: mở lại ca sức khỏe đã đóng. */
+    /** D62: mở lại ca sức khỏe đã đóng. */
     public static final String REOPEN = "REOPEN";
     private static final int MAX_REASON_LENGTH = 500;
 

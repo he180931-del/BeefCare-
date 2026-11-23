@@ -7,7 +7,7 @@ export const ROUTE_LABEL: Record<TreatmentRoute, string> = {
   INTRAMUSCULAR: 'Tiêm bắp', SUBCUTANEOUS: 'Tiêm dưới da', INTRAVENOUS: 'Tiêm tĩnh mạch', ORAL: 'Uống', TOPICAL: 'Bôi ngoài da', OTHER: 'Khác',
 }
 export const OUTCOME_LABEL: Record<CaseOutcome, string> = { RECOVERED: 'Khỏi', DIED: 'Chết', MISSING: 'Mất tích', CLOSED_BY_EXIT: 'Đã xuất' }
-/** Trạng thái ca hiển thị tiếng Việt (D56). CHRONIC là "long-term monitoring" trong SRS → "Theo dõi dài hạn". */
+/** Trạng thái ca hiển thị tiếng Việt (D60). CHRONIC là "long-term monitoring" trong SRS → "Theo dõi dài hạn". */
 export const CASE_STATUS_LABEL: Record<CaseStatus, string> = { OPEN: 'Đang mở', CHRONIC: 'Theo dõi dài hạn', CLOSED: 'Đã đóng' }
 export const HEALTH_STATE_LABEL: Record<HealthState, string> = { HEALTHY: 'Khỏe mạnh', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
 export const ENTRY_LABEL: Record<EntryType, string> = { OPENING: 'Mở ca', OBSERVATION: 'Ghi nhận', FOLLOW_UP: 'Theo dõi', TREATMENT: 'Điều trị' }

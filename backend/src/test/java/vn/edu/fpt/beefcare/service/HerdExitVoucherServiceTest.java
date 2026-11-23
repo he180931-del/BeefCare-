@@ -384,7 +384,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss(" ", null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
         expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("mistake", 99)), MessageCodes.COM_05, HttpStatus.CONFLICT);
         ExitVoucherDTO.DismissResult dismissed = dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("Found alive", null));
-        // D58: bò không chết / mất nên ca nguồn mở lại cùng lúc bác phiếu.
+        // D62: bò không chết / mất nên ca nguồn mở lại cùng lúc bác phiếu.
         assertThat(dismissed.message().code()).isEqualTo("MSG-FE13-10");
         assertThat(dismissed.voucher().status()).isEqualTo(ExitVoucherStatus.DISMISSED);
         assertThat(dismissed.voucher().closeReason()).isEqualTo("Found alive");

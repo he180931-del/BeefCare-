@@ -151,7 +151,7 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.pendingExit").doesNotExist());
     }
 
-    /** D57: chỉ chặn số gõ nhầm ngoài 30–45 °C; 34,9 hay 45,0 °C lưu được sau khi người dùng xác nhận trên giao diện. */
+    /** D61: chỉ chặn số gõ nhầm ngoài 30–45 °C; 34,9 hay 45,0 °C lưu được sau khi người dùng xác nhận trên giao diện. */
     @Test
     void tc10_01_temperatureOutside30To45Is422FE1006() throws Exception {
         for (String bad : List.of("29.9", "45.1")) {
@@ -321,9 +321,9 @@ class HealthCaseResourceTest extends DomainTestSupport {
         assertThat(em.find(HealthCase.class, opened.id()).getChronicSince()).isNull();
     }
 
-    /** D55: điều trị duy trì cho ca mạn tính – bỏ chọn "Chuyển ca về Đang mở" thì ca giữ CHRONIC, ngưng thịt vẫn tính. */
+    /** D59: điều trị duy trì cho ca mạn tính – bỏ chọn "Chuyển ca về Đang mở" thì ca giữ CHRONIC, ngưng thịt vẫn tính. */
     @Test
-    void d55_aMaintenanceTreatmentKeepsTheCaseChronic() throws Exception {
+    void d59_aMaintenanceTreatmentKeepsTheCaseChronic() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         health.updateStatus(farm.getId(), opened.id(), key(), new CareDtos.CaseStatus(opened.version(), "TO_CHRONIC", null, null, null, null, null, null, null));
         LocalDate chronicSince = em.find(HealthCase.class, opened.id()).getChronicSince();
@@ -395,11 +395,11 @@ class HealthCaseResourceTest extends DomainTestSupport {
     }
 
     /**
-     * D54: popup "Cập nhật ca bệnh" gộp ghi theo dõi và đổi trạng thái. Lần theo dõi dùng thời điểm và thân nhiệt người
+     * D58: popup "Cập nhật ca bệnh" gộp ghi theo dõi và đổi trạng thái. Lần theo dõi dùng thời điểm và thân nhiệt người
      * dùng nhập; có thân nhiệt mà thiếu mô tả thì báo thiếu; thời điểm trước bản ghi mới nhất của ca bị MSG-FE10-07.
      */
     @Test
-    void d54_oneUpdateWritesTheFollowUpWithItsTimeAndTemperature() throws Exception {
+    void d58_oneUpdateWritesTheFollowUpWithItsTimeAndTemperature() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(5));
         String base = "/health-cases/" + opened.id() + "/status";
         postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"temperatureC\":39.1}")
@@ -492,9 +492,9 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.withdrawalAfter").value(TODAY.minusDays(5).plusDays(14).toString()));
     }
 
-    /** D58: ca đóng Khỏi mở lại với lý do bắt buộc, lưu lịch sử; mở lại lần nữa (ca không còn đóng) → MSG-COM-05. */
+    /** D62: ca đóng Khỏi mở lại với lý do bắt buộc, lưu lịch sử; mở lại lần nữa (ca không còn đóng) → MSG-COM-05. */
     @Test
-    void d58_aRecoveredCaseReopensWithAReasonAndKeepsTheRevision() throws Exception {
+    void d62_aRecoveredCaseReopensWithAReasonAndKeepsTheRevision() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"RECOVERED\",\"closedAt\":\"" + hoursAgo(1) + "\"}")
             .andExpect(status().isOk());
@@ -517,9 +517,9 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
     }
 
-    /** D58: chỉ Chủ trại mở lại ca đóng Chết; phiếu chết chờ xác nhận bị bác, REM-12 được giải quyết cùng giao dịch; bò lại nhận sự kiện mới. */
+    /** D62: chỉ Chủ trại mở lại ca đóng Chết; phiếu chết chờ xác nhận bị bác, REM-12 được giải quyết cùng giao dịch; bò lại nhận sự kiện mới. */
     @Test
-    void d58_reopeningADiedCaseDismissesItsPendingVoucher() throws Exception {
+    void d62_reopeningADiedCaseDismissesItsPendingVoucher() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"DIED\"}")
             .andExpect(status().isOk());
@@ -536,9 +536,9 @@ class HealthCaseResourceTest extends DomainTestSupport {
         postJson("/health-cases", manager, openBody(hoursAgo(1), "")).andExpect(status().isCreated());
     }
 
-    /** D58: Chủ trại bác phiếu chết chờ xác nhận thì ca nguồn mở lại (bò không chết / mất), thông báo MSG-FE13-10. */
+    /** D62: Chủ trại bác phiếu chết chờ xác nhận thì ca nguồn mở lại (bò không chết / mất), thông báo MSG-FE13-10. */
     @Test
-    void d58_dismissingThePendingVoucherReopensTheSourceCase() throws Exception {
+    void d62_dismissingThePendingVoucherReopensTheSourceCase() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"MISSING\"}")
             .andExpect(status().isOk());
@@ -553,9 +553,9 @@ class HealthCaseResourceTest extends DomainTestSupport {
         assertThat(reopened.getOutcome()).isNull();
     }
 
-    /** D58 / R-10-13: ca đóng do xuất đàn không bao giờ mở lại. */
+    /** D62 / R-10-13: ca đóng do xuất đàn không bao giờ mở lại. */
     @Test
-    void d58_aCaseClosedByExitNeverReopens() throws Exception {
+    void d62_aCaseClosedByExitNeverReopens() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         HealthCase c = em.find(HealthCase.class, opened.id());
         c.setStatus("CLOSED"); c.setOutcome("CLOSED_BY_EXIT"); c.setClosedDate(TODAY);

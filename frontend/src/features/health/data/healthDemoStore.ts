@@ -183,7 +183,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const errors: Record<string, string> = {}
       const medicine = treatmentErrors(cmd as never, { cattle, openedAt: c.openedAt }, errors)
       throwIf(errors)
-      // D55: ca theo dõi dài hạn về Đang mở, trừ khi người dùng giữ trạng thái cho điều trị duy trì.
+      // D59: ca theo dõi dài hạn về Đang mở, trừ khi người dùng giữ trạng thái cho điều trị duy trì.
       const returnedToOpen = c.status === 'CHRONIC' && cmd.returnToOpen !== false
       const row = addEntry({
         caseId, type: 'TREATMENT', occurredAt: cmd.treatmentTime, recordedBy: cmd.performer.trim() || 'Quản lý', temperatureC: null, medicineId: medicine!.id, medicineName: medicine!.name,
@@ -208,7 +208,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
 
       c.diagnosis = cmd.diagnosis.trim()
       c.suspectedContagious = cmd.suspectedContagious
-      // D54: phần theo dõi và trạng thái là một lần cập nhật, cùng một thời điểm.
+      // D58: phần theo dõi và trạng thái là một lần cập nhật, cùng một thời điểm.
       const observationId = hasFollowUp(cmd)
         ? addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: memberName(cmd.confirmedById) || 'Quản lý', observerId: cmd.confirmedById ?? undefined, temperatureC: cmd.temperatureC, progress: cmd.progress as Progress, description: cmd.description.trim() }).id
         : null
@@ -237,7 +237,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const cattle = cattleOf(c.cattleCode)
       assertExitedFree(cattle)
       throwIf(reasonErrors(cmd.reason))
-      // D58: ca Chết / Mất tích mở lại thì phiếu chờ xác nhận của ca đó bị bác.
+      // D62: ca Chết / Mất tích mở lại thì phiếu chờ xác nhận của ca đó bị bác.
       if (c.outcome === 'DIED' || c.outcome === 'MISSING') db.vouchers = db.vouchers.filter((v) => v.caseCode !== c.caseCode)
       else assertCanAdd(cattle)
       Object.assign(c, { status: 'OPEN', outcome: undefined, closedAt: undefined, closedBy: undefined, chronicSince: undefined })

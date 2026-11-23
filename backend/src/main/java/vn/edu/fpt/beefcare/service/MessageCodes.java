@@ -134,7 +134,7 @@ public final class MessageCodes {
     public static final String FE13_07 = "MSG-FE13-07";
     public static final String FE13_08 = "MSG-FE13-08";
     public static final String FE13_09 = "MSG-FE13-09";
-    /** D58: bác phiếu chết / mất chờ xác nhận và mở lại ca sức khỏe nguồn. */
+    /** D62: bác phiếu chết / mất chờ xác nhận và mở lại ca sức khỏe nguồn. */
     public static final String FE13_10 = "MSG-FE13-10";
 
     public static final String FE23_03 = "MSG-FE23-03";

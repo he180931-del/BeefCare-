@@ -68,7 +68,7 @@ describe('hồ sơ sức khỏe của bò', () => {
   })
 })
 
-describe('mở ca và cập nhật ca bệnh (D54)', () => {
+describe('mở ca và cập nhật ca bệnh (D58)', () => {
   it('kiểm tra thân nhiệt, dấu hiệu, mức độ và thời điểm tương lai', async () => {
     const { api } = setup()
     const e = await rejection(api.openCase('BC-000231', { observedAt: '2026-10-21T08:00', observerId: 1, temperatureC: 46, signs: '', diagnosis: '', suspectedContagious: false, severity: '' }))
@@ -112,7 +112,7 @@ describe('điều trị và ngưng sử dụng thịt', () => {
     expect(r).toMatchObject({ caseStatus: 'OPEN', returnedToOpen: true, withdrawalEndDate: '2026-11-06', healthState: 'UNDER_TREATMENT' })
   })
 
-  it('D55: điều trị duy trì giữ ca theo dõi dài hạn, bò vẫn ở trạng thái Theo dõi', async () => {
+  it('D59: điều trị duy trì giữ ca theo dõi dài hạn, bò vẫn ở trạng thái Theo dõi', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000125')).activeCases[0]
     const r = await api.recordTreatment(card.id, treatment({ expectedVersion: card.version, returnToOpen: false }))
@@ -168,7 +168,7 @@ describe('đóng ca', () => {
     await api.correctEntry(row.id, { expectedVersion: row.version, reason: 'Sửa liều', dose: '25 ml' })
   })
 
-  it('TC-10-27 / D54 chế độ local: phần theo dõi bắt buộc khi Giữ trạng thái hoặc có nhập ô nào; lưu đúng diễn biến đã chọn', async () => {
+  it('TC-10-27 / D58 chế độ local: phần theo dõi bắt buộc khi Giữ trạng thái hoặc có nhập ô nào; lưu đúng diễn biến đã chọn', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]
     const keep = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'KEEP' })))
@@ -182,7 +182,7 @@ describe('đóng ca', () => {
     expect(row).toMatchObject({ type: 'FOLLOW_UP', progress: 'UNCHANGED' })
   })
 
-  it('D58: mở lại ca đóng Chết bác phiếu chờ xác nhận, bò lại nhận sự kiện mới; lý do bắt buộc', async () => {
+  it('D62: mở lại ca đóng Chết bác phiếu chờ xác nhận, bò lại nhận sự kiện mới; lý do bắt buộc', async () => {
     const { api } = setup()
     const card = (await api.getProfile('BC-000203')).activeCases[0]
     const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED' }))

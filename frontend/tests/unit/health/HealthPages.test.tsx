@@ -63,7 +63,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(screen.getByText('Khỏi · 05/2026')).toBeInTheDocument()
   })
 
-  it('D54: thẻ ca chỉ còn "Ghi điều trị" và "Cập nhật ca bệnh"; cập nhật báo lỗi dưới ô, rồi lưu thân nhiệt và diễn biến', async () => {
+  it('D58: thẻ ca chỉ còn "Ghi điều trị" và "Cập nhật ca bệnh"; cập nhật báo lỗi dưới ô, rồi lưu thân nhiệt và diễn biến', async () => {
     const user = userEvent.setup()
     renderTab('BC-000203')
     expect(await screen.findByRole('button', { name: /Ghi điều trị/ })).toBeInTheDocument()
@@ -83,7 +83,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('D58: mở lại ca đã đóng từ bảng Các ca trước, lý do bắt buộc', async () => {
+  it('D62: mở lại ca đã đóng từ bảng Các ca trước, lý do bắt buộc', async () => {
     const user = userEvent.setup()
     renderTab('BC-000154')
     await user.click(await screen.findByRole('button', { name: 'Mở lại ca' }))
@@ -107,7 +107,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(within(dialog).queryByRole('radio', { name: /Nối vào ca/ })).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Mở ca' }))
     expect(await within(dialog).findByText('Thân nhiệt phải trong khoảng 30,0 – 45,0 °C.')).toBeInTheDocument()
-    // D57: xóa trống ô thì lỗi đỏ cũ biến mất; 44 °C hỏi xác nhận rồi mới lưu.
+    // D61: xóa trống ô thì lỗi đỏ cũ biến mất; 44 °C hỏi xác nhận rồi mới lưu.
     await user.clear(temp)
     expect(within(dialog).queryByText('Thân nhiệt phải trong khoảng 30,0 – 45,0 °C.')).not.toBeInTheDocument()
     await user.type(temp, '44')
@@ -118,7 +118,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(await screen.findByText('Ca HC-0419 · Ho, bú kém')).toBeInTheDocument()
   })
 
-  it('D54: bò đang có ca thì popup Mở ca nhắc và dẫn sang "Cập nhật ca bệnh" của ca đó', async () => {
+  it('D58: bò đang có ca thì popup Mở ca nhắc và dẫn sang "Cập nhật ca bệnh" của ca đó', async () => {
     const user = userEvent.setup()
     renderTab('BC-000203', '&m=open-case')
     const dialog = await screen.findByRole('dialog', { name: 'Mở ca sức khỏe' })
@@ -166,7 +166,7 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(within(row).getByText(/Xấu hơn/)).toBeInTheDocument()
   })
 
-  it('TC-10-27 / D54 Đóng ca: phần theo dõi tùy chọn, có nhập mô tả thì cần diễn biến', async () => {
+  it('TC-10-27 / D58 Đóng ca: phần theo dõi tùy chọn, có nhập mô tả thì cần diễn biến', async () => {
     const user = userEvent.setup()
     renderTab('BC-000203')
     await user.click(await screen.findByRole('button', { name: /Cập nhật ca bệnh/ }))

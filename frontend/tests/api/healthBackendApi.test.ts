@@ -137,14 +137,14 @@ test('formOptions: thuốc từ danh mục, tên thành viên ACTIVE và gợi �
   assert.deepEqual(o.diagnoses, ['Tiêu chảy', 'Viêm phổi'])
 })
 
-/** Lệnh "Cập nhật ca bệnh" mặc định (D54); test chỉ ghi đè trường cần kiểm. */
+/** Lệnh "Cập nhật ca bệnh" mặc định (D58); test chỉ ghi đè trường cần kiểm. */
 const update = (over: Partial<StatusCommand>): StatusCommand => ({
   action: 'KEEP', observedAt: '2026-11-05T09:00', temperatureC: null, progress: '', description: '', diagnosis: '', suspectedContagious: false, confirmedById: null, ...over,
 })
 
 // ------------------------------------------------------------------ A3 / A5
 
-test('TC-10-03 / D54: mở ca gửi cattleId, giờ trại có offset, observerId theo thành viên đã chọn; không còn nối vào ca đang có', async () => {
+test('TC-10-03 / D58: mở ca gửi cattleId, giờ trại có offset, observerId theo thành viên đã chọn; không còn nối vào ca đang có', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases': { id: 419, caseCode: 'HC-000419', status: 'OPEN', version: 1, cattleId: 101, cattleCode: 'BC-101', observationId: 60, healthState: 'MONITORING', outcome: null } })
   const r = await a.openCase('BC-101', { observedAt: '2026-11-05T08:30', observerId: 8, temperatureC: 39.6, signs: ' Ho, chảy nước mũi ', diagnosis: '', suspectedContagious: false, severity: 'MILD' })
   assert.deepEqual(post(calls, '/health-cases'), { cattleId: 101, observedAt: '2026-11-05T08:30:00+07:00', observerId: 8, temperatureC: 39.6, signs: 'Ho, chảy nước mũi', diagnosis: null, suspectedContagious: false, severity: 'MILD' })
@@ -176,7 +176,7 @@ test('TC-10-01/02/07: lỗi backend hiện dưới đúng ô bằng tiếng Vi�
   assert.equal(mapHealthError(plain), plain)
 })
 
-test('TC-10-07 / D54 (adapter): cập nhật ca trước lần ghi gần nhất → lỗi FE10-07 dưới ô Thời điểm', async () => {
+test('TC-10-07 / D58 (adapter): cập nhật ca trước lần ghi gần nhất → lỗi FE10-07 dưới ô Thời điểm', async () => {
   const { api: a } = api({
     ...baseRoutes(),
     '/api/farms/1/health-cases/412/status': (body: unknown) => {
@@ -206,7 +206,7 @@ test('TC-10-08/09/10: điều trị gửi administeredAt giờ trại, người 
   assert.deepEqual([second.performerId, second.performerName, second.withdrawalDays, second.veterinaryAdvice], [undefined, 'BS. Hùng', null, 'Uống nhiều nước'])
 })
 
-test('D58: mở lại ca đã đóng gửi version và lý do tới /reopen; thiếu lý do báo dưới ô, không gọi API', async () => {
+test('D62: mở lại ca đã đóng gửi version và lý do tới /reopen; thiếu lý do báo dưới ô, không gọi API', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/331/reopen': { id: 331, caseCode: 'HC-000331', status: 'OPEN', version: 3, cattleCode: 'BC-101', healthState: 'MONITORING' } })
   const empty = await rejection(a.reopenCase(331, { expectedVersion: 2, reason: '' }))
   assert.deepEqual((empty as HealthValidationError).errors, { reason: 'Lý do là bắt buộc.' })
@@ -238,7 +238,7 @@ test('TC-10-25: thuốc ngưng → lỗi ở ô Thuốc; thời điểm trước
 
 // ------------------------------------------------------------------ A5
 
-test('TC-10-11/12/13 / D54: cập nhật ca gửi action, thời điểm, thân nhiệt, mô tả, diễn biến, chẩn đoán, người xác nhận; kind theo action', async () => {
+test('TC-10-11/12/13 / D58: cập nhật ca gửi action, thời điểm, thân nhiệt, mô tả, diễn biến, chẩn đoán, người xác nhận; kind theo action', async () => {
   const statusRoute = (status: string, extra: Record<string, unknown> = {}) => ({ id: 412, caseCode: 'HC-000412', status, version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: 62, healthState: 'MONITORING', outcome: null, ...extra })
   let answer = statusRoute('CHRONIC', { chronicSince: '2026-11-05' })
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/412/status': () => answer })

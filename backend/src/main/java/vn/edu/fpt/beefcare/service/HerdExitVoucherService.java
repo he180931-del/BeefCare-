@@ -574,7 +574,7 @@ public class HerdExitVoucherService {
     // ================================================================== dismiss
 
     /**
-     * Bác phiếu chết / mất PENDING: bò vẫn ACTIVE (GBR-95). D58: bò không chết / mất nên ca sức khỏe nguồn (đóng Chết /
+     * Bác phiếu chết / mất PENDING: bò vẫn ACTIVE (GBR-95). D62: bò không chết / mất nên ca sức khỏe nguồn (đóng Chết /
      * Mất tích) được mở lại trong cùng giao dịch, cùng lý do bác.
      */
     @Transactional
@@ -602,7 +602,7 @@ public class HerdExitVoucherService {
     }
 
     /**
-     * D58: mở lại ca đóng Chết / Mất tích từ FE-10 thì bác phiếu PENDING của ca đó (nếu còn) trong cùng giao dịch, bỏ
+     * D62: mở lại ca đóng Chết / Mất tích từ FE-10 thì bác phiếu PENDING của ca đó (nếu còn) trong cùng giao dịch, bỏ
      * nhắc REM-12. Phiếu đã xác nhận thì bò đã rời đàn, bên gọi đã chặn trước.
      *
      * @param ctx        người mở lại ca

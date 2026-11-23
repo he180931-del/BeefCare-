@@ -211,7 +211,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       const closing = cmd.action === 'CLOSE'
       return run(async () => {
         assertValid(statusErrors(cmd, caseContext(caseId)))
-        // D35 / D54: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu phần theo dõi thiếu mô tả hoặc diễn biến.
+        // D35 / D58: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu phần theo dõi thiếu mô tả hoặc diễn biến.
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest(cmd)))
         const kind: CaseResultKind = cmd.action === 'TO_CHRONIC' ? 'CHRONIC' : cmd.action === 'TO_OPEN' ? 'REOPENED' : closing ? 'CLOSED' : 'KEPT'
         const ref = cases.get(caseId)
@@ -249,7 +249,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     },
 
     // A7 / A8 hủy.
-    // A5b (D58): mở lại ca đã đóng; ca Chết / Mất tích thì backend bác luôn phiếu chờ xác nhận.
+    // A5b (D62): mở lại ca đã đóng; ca Chết / Mất tích thì backend bác luôn phiếu chờ xác nhận.
     async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
       assertValid(reasonErrors(cmd.reason))
       return run(async () => result(await transport.command(path(`/health-cases/${caseId}/reopen`), toVoidRequest(cmd)), 'RESUMED', cases.get(caseId)))

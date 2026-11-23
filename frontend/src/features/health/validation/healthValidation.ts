@@ -4,7 +4,7 @@ import { dateOf } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import type { CorrectEntryCommand } from '../types'
 
-/** D57: ngoài 30–45 °C là gõ nhầm (chặn); ngoài 35–43 °C chỉ cần người dùng xác nhận lại số đo. */
+/** D61: ngoài 30–45 °C là gõ nhầm (chặn); ngoài 35–43 °C chỉ cần người dùng xác nhận lại số đo. */
 export const TEMP_MIN = 30
 export const TEMP_MAX = 45
 export const TEMP_CHECK_MIN = 35
@@ -33,7 +33,7 @@ export function temperatureError(value: number | null | undefined): string | nul
   return ok ? null : MSG.temperature
 }
 
-/** Số đo hợp lệ nhưng nằm ngoài 35–43 °C: hỏi xác nhận trước khi lưu (D57). */
+/** Số đo hợp lệ nhưng nằm ngoài 35–43 °C: hỏi xác nhận trước khi lưu (D61). */
 export function temperatureNeedsCheck(value: number | null | undefined): boolean {
   return value !== null && value !== undefined && temperatureError(value) === null && (value < TEMP_CHECK_MIN || value > TEMP_CHECK_MAX)
 }
@@ -106,13 +106,13 @@ export function treatmentErrors(
 
 type CaseUpdateInput = { action: string; observedAt: string; temperatureC: number | null; progress: string; description: string; diagnosis: string; outcome?: string }
 
-/** Lần cập nhật có ghi theo dõi không (D54): Giữ trạng thái, hoặc có nhập mô tả, diễn biến hay thân nhiệt. */
+/** Lần cập nhật có ghi theo dõi không (D58): Giữ trạng thái, hoặc có nhập mô tả, diễn biến hay thân nhiệt. */
 export function hasFollowUp(cmd: Pick<CaseUpdateInput, 'action' | 'description' | 'progress' | 'temperatureC'>): boolean {
   return cmd.action === 'KEEP' || cmd.description.trim() !== '' || cmd.progress !== '' || cmd.temperatureC !== null
 }
 
 /**
- * Popup "Cập nhật ca bệnh" (D54). Thời điểm dùng chung cho lần theo dõi, ngày mạn tính và lúc đóng ca nên luôn được
+ * Popup "Cập nhật ca bệnh" (D58). Thời điểm dùng chung cho lần theo dõi, ngày mạn tính và lúc đóng ca nên luôn được
  * kiểm (không tương lai, không trước bản ghi mới nhất của ca). Có phần theo dõi thì cần cả diễn biến và mô tả (D35).
  */
 export function statusErrors(cmd: CaseUpdateInput, ctx: { now: string; entryDate?: string; latestAt?: string }): FieldErrors {

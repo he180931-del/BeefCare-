@@ -21,7 +21,7 @@ public final class CareDtos {
     /** FE-10 A4: one follow-up of an OPEN / CHRONIC case; {@code progress} IMPROVED / UNCHANGED / WORSENED (required). */
     public record FollowUp(Integer expectedVersion, Instant observedAt, BigDecimal temperatureC, String progress, String description, Long observerId) {}
     /**
-     * FE-10 A5 – popup "Cập nhật ca bệnh" (D54): một lần cập nhật gồm phần theo dõi và trạng thái ca, lưu trong một giao dịch.
+     * FE-10 A5 – popup "Cập nhật ca bệnh" (D58): một lần cập nhật gồm phần theo dõi và trạng thái ca, lưu trong một giao dịch.
      *
      * <p>{@code action}: KEEP (chỉ ghi theo dõi), TO_CHRONIC (OPEN → CHRONIC), TO_OPEN (CHRONIC → OPEN), CLOSE (kết quả
      * RECOVERED / DIED / MISSING, {@code confirmedById} là thành viên ACTIVE, mặc định người thao tác).
@@ -34,7 +34,7 @@ public final class CareDtos {
     public record CaseStatus(Integer expectedVersion, String action, String latestProgress, String progress, String suspectedDiagnosis,
                              Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById,
                              Instant observedAt, BigDecimal temperatureC) {
-        /** Bản trước D54: không có thời điểm và thân nhiệt của lần theo dõi. */
+        /** Bản trước D58: không có thời điểm và thân nhiệt của lần theo dõi. */
         public CaseStatus(Integer expectedVersion, String action, String latestProgress, String progress, String suspectedDiagnosis,
                           Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById) {
             this(expectedVersion, action, latestProgress, progress, suspectedDiagnosis, suspectedContagious, outcome, closedAt, confirmedById, null, null);
@@ -45,14 +45,14 @@ public final class CareDtos {
      * INTRAMUSCULAR / SUBCUTANEOUS / INTRAVENOUS / ORAL / TOPICAL / OTHER, {@code courseDays} 1–30 (default 1),
      * {@code withdrawalDays} 0–365 (default: the medicine's), {@code performerId} an ACTIVE member or
      * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
-     * {@code returnToOpen} (D55): với ca CHRONIC, {@code false} giữ ca mạn tính (điều trị duy trì); thiếu hoặc
+     * {@code returnToOpen} (D59): với ca CHRONIC, {@code false} giữ ca mạn tính (điều trị duy trì); thiếu hoặc
      * {@code true} đưa ca về OPEN như GBR-45. Bỏ qua với ca OPEN.
      */
     public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
                                    Long performerId, String performerName, String veterinaryAdvice, Boolean returnToOpen) {
-        /** Bản trước D55: ca CHRONIC luôn về OPEN khi ghi điều trị. */
+        /** Bản trước D59: ca CHRONIC luôn về OPEN khi ghi điều trị. */
         public TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
                                 Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {
             this(expectedVersion, medicineId, administeredAt, dose, route, courseDays, withdrawalDays, performerId, performerName, veterinaryAdvice, null);
@@ -62,7 +62,7 @@ public final class CareDtos {
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
     public record VoidRecord(Integer expectedVersion, String reason) {}
-    /** D58: mở lại ca đã đóng (Khỏi / Chết / Mất tích); lý do bắt buộc, tối đa 500 ký tự. */
+    /** D62: mở lại ca đã đóng (Khỏi / Chết / Mất tích); lý do bắt buộc, tối đa 500 ký tự. */
     public record ReopenCase(Integer expectedVersion, String reason) {}
     /** A8: fields of a follow-up (or the opening observation) to correct; null = unchanged. */
     public record CorrectObservation(Integer expectedVersion, String reason, Instant observedAt, BigDecimal temperatureC,

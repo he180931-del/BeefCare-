@@ -53,7 +53,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const saved = (message: string) => { showToast(message); dialog.close(); refetch() }
 
   const target: HealthCaseCard | undefined = activeCases.find((c) => c.caseCode === dialog.caseCode) ?? activeCases[0]
-  // D58: ca Khỏi mở lại khi bò còn nhận sự kiện; ca Chết / Mất tích chỉ Chủ trại mở lại, khi bò còn trong đàn (phiếu chờ xác nhận bị bác).
+  // D62: ca Khỏi mở lại khi bò còn nhận sự kiện; ca Chết / Mất tích chỉ Chủ trại mở lại, khi bò còn trong đàn (phiếu chờ xác nhận bị bác).
   const canReopen = (c: HealthCaseCard) => canEdit && !!c.outcome && c.outcome !== 'CLOSED_BY_EXIT' && (c.outcome === 'RECOVERED' ? !pendingExit : owner)
   const reopening = previousCases.find((c) => c.caseCode === dialog.caseCode)
   const entry: HealthTimelineRow | undefined = timeline.find((r) => String(r.id) === dialog.entryId) ?? timeline.find((r) => r.type === 'TREATMENT' && r.status === 'VALID')

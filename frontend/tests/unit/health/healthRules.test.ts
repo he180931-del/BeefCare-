@@ -17,7 +17,7 @@ const treatment = {
 
 describe('FE-10 – quy tắc trường dùng chung', () => {
   it('TC-10-01: thân nhiệt 34,9 / 35,0 / 43,0 / 43,1 và tối đa 1 chữ số thập phân', () => {
-    // D57: chỉ chặn số gõ nhầm ngoài 30–45 °C; ngoài 35–43 °C thì hỏi xác nhận.
+    // D61: chỉ chặn số gõ nhầm ngoài 30–45 °C; ngoài 35–43 °C thì hỏi xác nhận.
     expect(temperatureError(29.9)).not.toBeNull()
     expect(temperatureError(30)).toBeNull()
     expect(temperatureError(45)).toBeNull()
@@ -50,13 +50,13 @@ describe('FE-10 – quy tắc trường dùng chung', () => {
     expect(openCaseErrors({ ...openCase, observedAt: '2026-09-30T23:00' }, ctx).observedAt).toBeDefined()
   })
 
-  it('TC-10-07 / D54: cập nhật ca trước lần ghi gần nhất bị chặn', () => {
+  it('TC-10-07 / D58: cập nhật ca trước lần ghi gần nhất bị chặn', () => {
     const cmd = { action: 'KEEP', observedAt: '2026-11-01T09:00', temperatureC: null, progress: 'IMPROVED', description: 'Ăn tốt hơn', diagnosis: '' }
     expect(statusErrors(cmd, { ...ctx, latestAt: '2026-11-01T10:00' }).observedAt).toContain('lần ghi gần nhất')
     expect(statusErrors({ ...cmd, observedAt: '2026-11-01T10:00' }, { ...ctx, latestAt: '2026-11-01T10:00' })).toEqual({})
   })
 
-  it('D54: có phần theo dõi khi Giữ trạng thái hoặc khi nhập mô tả, diễn biến hay thân nhiệt', () => {
+  it('D58: có phần theo dõi khi Giữ trạng thái hoặc khi nhập mô tả, diễn biến hay thân nhiệt', () => {
     const change = { action: 'TO_CHRONIC', description: '', progress: '', temperatureC: null }
     expect(hasFollowUp({ ...change, action: 'KEEP' })).toBe(true)
     expect(hasFollowUp(change)).toBe(false)
