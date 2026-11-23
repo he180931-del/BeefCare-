@@ -15,7 +15,7 @@ export default function EntryHistoryDemoModal({ record, line, onClose, onSaved }
   const female = line.sexCode === 'FEMALE' || /Cái/.test(line.sex ?? line.breed ?? '')
   return <Modal width={720} title="Sửa khai báo lịch sử" sub={line.code} onClose={() => { if (!busy) onClose() }}>
     <fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
-      <EntryHistoryDeclarationForm value={history} sex={female ? 'Cái' : 'Đực'} showReproduction={female} vaccines={vaccines.data ?? []}
+      <EntryHistoryDeclarationForm value={history} sex={female ? 'Cái' : 'Đực'} entryDate={record.date} showReproduction={female} vaccines={vaccines.data ?? []}
         onError={setError} onChange={patch => { setHistory(current => ({ ...current, ...patch })); setError(null) }} />
       <Field label="Lý do" id="entry-demo-history-reason"><Textarea id="entry-demo-history-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} /></Field>
     </fieldset>

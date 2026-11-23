@@ -4,6 +4,8 @@ import { RadioRow } from './parts'
 import { entryToday } from '../validation/entryValidation'
 import type { EntryVaccineOption } from '../api/herdEntryBackendApi'
 import type { EntryHistory } from '../domain/entryHistory'
+import { businessDate } from '../../../shared/lib/date/farmTime'
+import { displayHistoryDate, parseHistoryDate } from '../domain/entryDate'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const compactInputCls = 'box-border min-w-0 w-full rounded-lg border border-field bg-white px-1.5 py-1.5 text-[12px] text-ink outline-none focus:border-brand read-only:bg-page read-only:text-muted sm:px-2 sm:py-2 sm:text-[13px]'
@@ -11,8 +13,8 @@ const HIST_OPTIONS = ['Có', 'Không', 'Không rõ']
 type HistoryDetail = 'vaccine' | 'disease' | 'repro'
 
 /** Shared declaration controls for draft rows and posted-entry corrections. */
-export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [], showReproduction = true, onChange, onError }: {
-  value: EntryHistory; sex: string; vaccines?: EntryVaccineOption[]; showReproduction?: boolean;
+export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [], showReproduction = true, entryDate = businessDate(), onChange, onError }: {
+  value: EntryHistory; sex: string; vaccines?: EntryVaccineOption[]; showReproduction?: boolean; entryDate?: string;
   onChange: (patch: Partial<EntryHistory>) => void; onError?: (message: string | null) => void
 }) {
   const c = { hist: value, sex }
@@ -20,20 +22,18 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
   const setValidationError = (message: string | null) => { setError(message); onError?.(message) }
   const [detailModal, setDetailModal] = useState<HistoryDetail | null>(null)
   const [detailDraft, setDetailDraft] = useState('')
-  const [detailDate, setDetailDate] = useState('')
   const [detailSource, setDetailSource] = useState('')
   const [vaccineRows, setVaccineRows] = useState<Array<{ vaccineId?: number; vaccineName: string; date: string; source: string }>>([])
   const setHist = onChange
   const detailMeta: Record<HistoryDetail, { title: string; label: string; placeholder: string; value: string; type?: 'number' }> = {
-    vaccine: { title: 'Chi tiết tiêm phòng', label: 'Loại vaccine', placeholder: 'Nhập tên vaccine nếu chưa có trong danh mục', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
+    vaccine: { title: 'Chi tiết tiêm phòng', label: '', placeholder: '', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
     disease: { title: 'Chi tiết bệnh đã biết', label: 'Mô tả bệnh', placeholder: 'Nhập mô tả bệnh đã biết', value: c.hist.diseaseNote ?? '' },
     repro: { title: 'Chi tiết sinh sản', label: 'Số tháng mang thai', placeholder: 'Nhập số tháng nếu đang mang thai', value: c.hist.pregnancyMonths == null ? '' : String(c.hist.pregnancyMonths), type: 'number' },
   }
   const openDetail = (kind: HistoryDetail) => {
     setDetailDraft(detailMeta[kind].value)
-    setDetailDate(kind === 'vaccine' ? c.hist.vaccineDate ?? '' : '')
     setDetailSource(kind === 'vaccine' ? c.hist.vaccineSource ?? '' : kind === 'repro' ? c.hist.reproductionNote ?? '' : '')
-    if (kind === 'vaccine') setVaccineRows((c.hist.vaccineItems?.length ? c.hist.vaccineItems : [{ vaccineId: c.hist.vaccineId, vaccineName: c.hist.vaccineName ?? c.hist.vaccineNote ?? '', vaccineDate: c.hist.vaccineDate ?? '', vaccineSource: c.hist.vaccineSource ?? '' }]).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName ?? '', date: item.vaccineDate ?? '', source: item.vaccineSource ?? '' })))
+    if (kind === 'vaccine') setVaccineRows((c.hist.vaccineItems?.length ? c.hist.vaccineItems : [{ vaccineId: c.hist.vaccineId, vaccineName: c.hist.vaccineName ?? c.hist.vaccineNote ?? '', vaccineDate: c.hist.vaccineDate ?? '', vaccineSource: c.hist.vaccineSource ?? '' }]).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName ?? '', date: displayHistoryDate(item.vaccineDate), source: item.vaccineSource ?? '' })))
     // The backend contract stores one disease declaration description string
     // (max 1,000 characters), so keep this editor as one textarea rather than
     // presenting a UI-only list that would be re-joined before submission.
@@ -51,8 +51,13 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
       if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) return setValidationError('Số tháng mang thai phải từ 1 đến 9.')
       setHist({ pregnancyMonths: months, earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
     } else if (detailModal === 'vaccine') {
-      if (detailDate && detailDate > entryToday()) return setValidationError('Ngày tiêm không được ở tương lai.')
-      const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: item.date, vaccineSource: item.source }))
+      const rowsToSave = vaccineRows.map((item, index) => ({ item, index })).filter(({ item }) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source)
+      const parsedDates = rowsToSave.map(({ item, index }) => ({ index, date: parseHistoryDate(item.date) }))
+      const invalid = parsedDates.find(({ index, date }) => vaccineRows[index].date.trim() && !date)
+      if (invalid) return setValidationError(`Dòng ${invalid.index + 1}: ngày tiêm không hợp lệ. Nhập DD/MM/YYYY hoặc MM/YYYY.`)
+      const afterEntry = parsedDates.find(({ date }) => date && (date > entryDate || date > entryToday()))
+      if (afterEntry) return setValidationError(`Dòng ${afterEntry.index + 1}: ngày tiêm không được sau ngày nhập hoặc ở tương lai.`)
+      const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: parseHistoryDate(item.date) ?? '', vaccineSource: item.source }))
       setHist({ vaccineDeclarationSource: c.hist.vaccineDeclarationSource ?? c.hist.vaccineSource ?? c.hist.vaccineNote ?? '', vaccineItems: items, vaccineId: items[0]?.vaccineId, vaccineName: items[0]?.vaccineName, vaccineDate: items[0]?.vaccineDate, vaccineSource: items[0]?.vaccineSource, vaccineNote: items[0]?.vaccineSource || items[0]?.vaccineName })
     } else setHist({ diseaseNote: detailDraft.trim().slice(0, 1000) })
     setValidationError(null)
@@ -103,12 +108,11 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
         {detailModal === 'vaccine' ? <div className="flex min-h-0 flex-col gap-2">
           <div aria-label="Danh sách vaccine" role="region" className="max-h-[220px] min-h-0 overflow-y-auto overscroll-contain pr-1">
           <div className="flex flex-col gap-2">
-          {vaccineRows.map((item, index) => <div key={index} className="grid items-end gap-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
-            <Field label={index === 0 ? 'Loại vaccine' : undefined} id={`entry-history-vaccine-name-${index}`}>
-              <input id={`entry-history-vaccine-name-${index}`} aria-label={index === 0 ? 'Tên vaccine tự do' : `Tên vaccine tự do ${index + 1}`} className={compactInputCls} maxLength={255} value={item.vaccineName} placeholder="Ví dụ: LMLM" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, vaccineId: undefined, vaccineName: e.target.value }; setVaccineRows(next) }} />
+          {vaccineRows.map((item, index) => <div key={index} className="grid items-end gap-2 sm:grid-cols-[1.2fr_1fr_1fr_auto]">
+            <Field label={index === 0 ? 'Vắc-xin' : undefined} id={`entry-history-vaccine-catalogue-${index}`}>
+              {vaccines.length > 0 ? <select id={`entry-history-vaccine-catalogue-${index}`} aria-label={`Chọn vaccine trong danh mục ${index + 1}`} className={compactInputCls} value={item.vaccineId == null ? '' : `id:${item.vaccineId}`} onChange={(e) => { const value = e.target.value; const next = [...vaccineRows]; const option = vaccines.find((entry) => String(entry.id) === value.slice(3)); next[index] = value ? { ...item, vaccineId: option?.id, vaccineName: option?.name ?? item.vaccineName } : { ...item, vaccineId: undefined }; setVaccineRows(next) }}><option value="">{item.vaccineName ? `${item.vaccineName} · giữ tên cũ` : 'Chọn vắc-xin'}</option>{item.vaccineId != null && !vaccines.some(vaccine => vaccine.id === item.vaccineId) && <option value={`id:${item.vaccineId}`}>{item.vaccineName} · Đã ngưng</option>}{vaccines.map((entry) => <option key={entry.id} value={`id:${entry.id}`}>{entry.code} · {entry.name}</option>)}</select> : <span className="block rounded-lg border border-field bg-page px-2 py-2 text-xs text-ink">{item.vaccineName || 'Chọn vắc-xin'}</span>}
             </Field>
-            {vaccines.length > 0 ? <Field label={index === 0 ? 'Chọn trong danh mục' : undefined} id={`entry-history-vaccine-catalogue-${index}`}><select id={`entry-history-vaccine-catalogue-${index}`} aria-label={`Chọn vaccine trong danh mục ${index + 1}`} className={compactInputCls} value={item.vaccineId == null ? '' : `id:${item.vaccineId}`} onChange={(e) => { const value = e.target.value; const next = [...vaccineRows]; const option = vaccines.find((entry) => String(entry.id) === value.slice(3)); next[index] = value ? { ...item, vaccineId: option?.id, vaccineName: option?.name ?? item.vaccineName } : { ...item, vaccineId: undefined }; setVaccineRows(next) }}><option value="">Không chọn</option>{item.vaccineId != null && !vaccines.some(vaccine => vaccine.id === item.vaccineId) && <option value={`id:${item.vaccineId}`}>{item.vaccineName} · Đã ngưng</option>}{vaccines.map((entry) => <option key={entry.id} value={`id:${entry.id}`}>{entry.code} · {entry.name}</option>)}</select></Field> : <span aria-hidden="true" />}
-            <Field label={index === 0 ? 'Ngày tiêm' : undefined}><input aria-label={`Ngày tiêm ${index + 1}`} type="text" maxLength={10} placeholder="2026-03-01 hoặc 03/2026" className={compactInputCls} value={item.date} onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, date: e.target.value }; setVaccineRows(next) }} /></Field>
+            <Field label={index === 0 ? 'Ngày tiêm' : undefined}><input aria-label={`Ngày tiêm ${index + 1}`} type="text" maxLength={10} placeholder="DD/MM/YYYY hoặc MM/YYYY" className={compactInputCls} value={item.date} onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, date: e.target.value }; setVaccineRows(next) }} /></Field>
             <Field label={index === 0 ? 'Nguồn thông tin' : undefined}><input aria-label={`Nguồn thông tin ${index + 1}`} className={compactInputCls} maxLength={255} value={item.source} placeholder="Ví dụ: sổ tiêm cũ" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, source: e.target.value }; setVaccineRows(next) }} /></Field>
             <button type="button" aria-label={`Xóa vaccine ${index + 1}`} className="h-8 cursor-pointer rounded border border-field px-2 text-xs text-danger hover:border-danger" onClick={() => setVaccineRows((rows) => rows.length > 1 ? rows.filter((_, rowIndex) => rowIndex !== index) : [{ vaccineName: '', date: '', source: '' }])}>Xóa</button>
           </div>)}

@@ -114,7 +114,7 @@ it('draft row without a cattle code can be removed after confirmation', async ()
 
 it('cho nhập chi tiết lịch sử theo từng khai báo', async () => {
   const user = userEvent.setup()
-  renderModal(completeCow)
+  renderModal(completeCow, vi.fn(), [{ id: 55, code: 'LMLM', name: 'Lở mồm long móng', available: true }])
 
   expect(screen.queryByLabelText('Chi tiết tiêm phòng')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Chi tiết bệnh đã biết')).not.toBeInTheDocument()
@@ -132,7 +132,7 @@ it('cho nhập chi tiết lịch sử theo từng khai báo', async () => {
   expect(reproductionDetail).toBeEnabled()
 
   await user.click(vaccineDetail)
-  await user.type(screen.getByLabelText('Tên vaccine tự do'), 'LMLM 03/2026')
+  await user.selectOptions(screen.getByLabelText('Chọn vaccine trong danh mục 1'), 'id:55')
   await user.click(screen.getByRole('button', { name: 'Lưu chi tiết' }))
   expect(vaccineDetail).toHaveTextContent('Chi tiết (đã nhập)')
 
@@ -196,9 +196,11 @@ it('cho thêm và xóa từng dòng vaccine, nhưng bệnh chỉ có một mô t
   renderModal({ ...completeCow, hist: { ...completeCow.hist, vaccine: 'Có', disease: 'Có' } }, vi.fn(), [{ id: 55, code: 'LMLM', name: 'Lở mồm long móng', available: true }])
   await user.click(screen.getByRole('button', { name: 'Chi tiết tiêm phòng' }))
   await user.click(screen.getByRole('button', { name: '+ Thêm vaccine' }))
-  expect(screen.getByLabelText('Tên vaccine tự do 2')).toBeInTheDocument()
+  expect(screen.getByLabelText('Chọn vaccine trong danh mục 2')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Chọn vaccine trong danh mục 2'), 'id:55')
+  expect(screen.getByLabelText('Chọn vaccine trong danh mục 2')).toHaveValue('id:55')
   await user.click(screen.getByRole('button', { name: 'Xóa vaccine 2' }))
-  expect(screen.queryByLabelText('Tên vaccine tự do 2')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Chọn vaccine trong danh mục 2')).not.toBeInTheDocument()
   await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
   await user.click(screen.getByRole('button', { name: 'Chi tiết bệnh đã biết' }))
   expect(screen.getByLabelText('Mô tả bệnh')).toBeInTheDocument()

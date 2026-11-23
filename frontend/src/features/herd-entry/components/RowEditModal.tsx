@@ -216,7 +216,7 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
           <div aria-invalid={invalidField === 'entry-cow-quarantine'} className="rounded-lg aria-invalid:ring-1 aria-invalid:ring-err-fg"><DateInput id="entry-cow-quarantine" label="Cách ly nhập đàn đến" value={String(c.quarantineUntil ?? '')} onChange={quarantineUntil => set({quarantineUntil})} className="[&>div]:h-[34px] [&>div]:rounded-lg [&>div]:py-1 [&>div]:text-[12px]" /></div>
           <div className="flex gap-2"><ModalButton onClick={() => quarantineShortcut(14)}>+14 ngày</ModalButton><ModalButton onClick={() => quarantineShortcut(21)}>+21 ngày</ModalButton></div>
         </Field>
-        <div id="entry-cow-history" tabIndex={-1} aria-invalid={invalidField === 'entry-cow-history'} className="min-w-0 rounded-lg aria-invalid:ring-1 aria-invalid:ring-err-fg"><EntryHistoryDeclarationForm value={c.hist} sex={c.sex} vaccines={vaccines} onChange={setHist} onError={setValidationError} /></div>
+        <div id="entry-cow-history" tabIndex={-1} aria-invalid={invalidField === 'entry-cow-history'} className="min-w-0 rounded-lg aria-invalid:ring-1 aria-invalid:ring-err-fg"><EntryHistoryDeclarationForm value={c.hist} sex={c.sex} entryDate={dateIso} vaccines={vaccines} onChange={setHist} onError={setValidationError} /></div>
         {barn && c.sex && c.stage && c.purpose && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 

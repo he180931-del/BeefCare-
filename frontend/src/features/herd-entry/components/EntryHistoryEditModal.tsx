@@ -11,7 +11,7 @@ export default function EntryHistoryEditModal({ initial, female, date, vaccines,
   const [draft, setDraft] = useState(() => structuredClone(initial))
   const [error, setError] = useState<string | null>(null)
   return <Modal width={720} title="Khai báo lịch sử trước nhập" onClose={onClose}>
-    <EntryHistoryDeclarationForm value={draft} sex={female ? 'Cái' : 'Đực'} showReproduction={female} vaccines={vaccines}
+    <EntryHistoryDeclarationForm value={draft} sex={female ? 'Cái' : 'Đực'} entryDate={date} showReproduction={female} vaccines={vaccines}
       onError={setError} onChange={patch => { setDraft(current => ({ ...current, ...patch })); setError(null) }} />
     {!female && <Note>Khai báo sinh sản sẽ bị bỏ vì bò là đực.</Note>}
     {error && <Note tone="err">{error}</Note>}
