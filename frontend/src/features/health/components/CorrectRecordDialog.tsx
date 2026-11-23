@@ -1,11 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { DateTimeInput, DoseInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
+import { joinDose, splitDose, type DoseUnit } from '../../../shared/lib/dose'
 import { hint, MemberSelect, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave, useTemperatureCheck } from './healthUi'
 
 function Row({ label, current, error, children }: { label: string; current: ReactNode; error?: string; children: ReactNode }) {
@@ -24,7 +25,11 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
   const [action, setAction] = useState<'correct' | 'void'>('correct')
   const [time, setTime] = useState(row.occurredAt)
   const [medicineId, setMedicineId] = useState(String(row.medicineId ?? ''))
-  const [dose, setDose] = useState(row.dose ?? '')
+  // D65: liều số + đơn vị; liều cũ không theo chuẩn thì để trống ô số, hiện nguyên văn ở cột "Hiện tại".
+  const initialDose = splitDose(row.dose)
+  const [amount, setAmount] = useState(initialDose.amount)
+  const [unit, setUnit] = useState<DoseUnit>(initialDose.unit)
+  const dose = joinDose(amount, unit)
   const [route, setRoute] = useState<TreatmentRoute | ''>(row.route ?? '')
   const [course, setCourse] = useState(String(row.courseDays ?? 1))
   const [wd, setWd] = useState(String(row.withdrawalDays ?? 0))
@@ -58,7 +63,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
     const result = voiding
       ? await voidEntry(row.id, { expectedVersion: row.version, reason })
       : await correctEntry(row.id, treatment
-        ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
+        ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose: dose === (row.dose ?? '') || (!amount && initialDose.legacy) ? undefined : dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
         : { expectedVersion: row.version, reason, observedAt: time, temperatureC: parseTemperature(temp), progress: row.type === 'FOLLOW_UP' ? progress : undefined, description, observerId })
     onSaved(recordToast(result))
   })
@@ -81,9 +86,9 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
                 <Row label="Thuốc" current={row.medicineName} error={errors.medicineId}>
                   <Select aria-label="Thuốc" value={medicineId} onChange={(e) => setMedicineId(e.target.value)}>{medicines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>
                 </Row>
-                <Row label="Liệu trình (ngày)" current={row.courseDays} error={errors.courseDays}><input aria-label="Liệu trình (ngày)" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
+                <Row label="Số ngày dùng" current={row.courseDays} error={errors.courseDays}><input aria-label="Số ngày dùng" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
                 <Row label="Thời điểm bắt đầu" current={fmtDateTime(row.occurredAt)} error={errors.treatmentTime}><DateTimeInput value={time} onChange={setTime} /></Row>
-                <Row label="Liều" current={row.dose} error={errors.dose}><input aria-label="Liều" maxLength={50} value={dose} onChange={(e) => setDose(e.target.value)} className={inputCls} /></Row>
+                <Row label="Liều mỗi lần" current={row.dose} error={errors.dose}><DoseInput label="Liều mỗi lần" amount={amount} unit={unit} invalid={!!errors.dose} onAmount={setAmount} onUnit={setUnit} /></Row>
                 <Row label="Đường dùng" current={row.route ? ROUTE_LABEL[row.route] : ''} error={errors.route}>
                   <Select aria-label="Đường dùng" value={route} onChange={(e) => setRoute(e.target.value as TreatmentRoute)}>{ROUTES.map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select>
                 </Row>

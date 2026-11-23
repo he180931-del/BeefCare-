@@ -42,3 +42,9 @@ export function statusText(status: CaseStatus, day: number, chronicSince?: strin
   if (status === 'CHRONIC') return `${CASE_STATUS_LABEL.CHRONIC} · từ ${fmtDate(chronicSince)}`
   return `${CASE_STATUS_LABEL.CLOSED} · ${outcome ? OUTCOME_LABEL[outcome] : '—'}`
 }
+
+/**
+ * Tên ngắn của ca (SCR-36 "Suspected diagnosis · signs"): chẩn đoán nghi ngờ người dùng nhập, chưa có thì dấu hiệu chính.
+ * Chỉ hiện một trong hai để tiêu đề không lặp; dấu hiệu đầy đủ vẫn nằm ở lần ghi mở ca.
+ */
+export const caseLabel = (c: { diagnosis?: string | null; signs: string }): string => c.diagnosis?.trim() || c.signs

@@ -75,7 +75,7 @@ Trại ACTIVE (PRE-1).
 |---|---|---|---|
 | Mã | Chuỗi | Có | Như giống |
 | Tên thuốc | Chuỗi | Có | ≤ 150 (Q2) |
-| Liều tham chiếu | Chuỗi | Không | ≤ 100 (ví dụ "1 ml/10 kg thể trọng") |
+| Liều tham chiếu | Chuỗi | Không | ≤ 50, số + đơn vị, ví dụ "30 ml"; liều theo thể trọng ghi ở Ghi chú (D65) |
 | Đường dùng | Enum | Không | Tiêm bắp / Tiêm dưới da / Tiêm tĩnh mạch / Uống / Bôi ngoài da / Khác |
 | Ngưng thịt (ngày) | Số nguyên | **Có** | 0–365 |
 | Ghi chú | Chuỗi dài | Không | ≤ 500 |
@@ -260,8 +260,8 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 | 1 | Add medicine / Thêm thuốc | Nút (O, M) | — | — | — | — |
 | 2 | Cột danh sách | Cột | — | Mã, Tên thuốc, Liều tham chiếu, Đường dùng, Ngưng thịt (ngày), Trạng thái | — | — |
 | 3 | Code / Mã | Ô chữ | * | Như giống | — | MSG-FE18-02 |
-| 4 | Medicine name / Tên thuốc | Ô chữ | * | ≤ 150 (Q2) | — | MSG-COM-06 |
-| 5 | Reference dose / Liều tham chiếu | Ô chữ | — | ≤ 100 | — | MSG-COM-10 |
+| 4 | Medicine name / Tên thuốc | Ô chữ | * | ≤ 150 (Q2); gợi ý: thuốc nhiều dạng (tiêm / uống) tạo mỗi dạng một mục vì liều và ngưng thịt khác nhau (D65) | — | MSG-COM-06 |
+| 5 | Reference dose / Liều tham chiếu | Số + đơn vị | — | Số > 0; đơn vị ml / lít / mg / g / viên / gói / liều; liều theo thể trọng ghi ở Ghi chú. Liều cũ không theo chuẩn hiện nguyên văn, giữ nguyên nếu không nhập lại (D65) | — | MSG-COM-10 |
 | 6 | Route / Đường dùng | Dropdown | — | Tiêm bắp / Dưới da / Tĩnh mạch / Uống / Bôi / Khác | — | — |
 | 7 | Meat withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | * | 0–365 | — | MSG-COM-06, MSG-COM-10 |
 | 8 | Notes / Ghi chú | Ô chữ dài | — | ≤ 500 | — | MSG-COM-10 |
@@ -390,3 +390,4 @@ Không hỗ trợ DELETE `/catalogues/breeds/{id}`, `/catalogues/production-purp
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 22/11/2026 | 28/10/2026 + D42 | AnNT xác nhận chính sách vòng đời: chỉ xóa vắc-xin chưa dùng; làm rõ tham chiếu lịch sử, ngưng / dùng lại, mặc định ACTIVE, version / khóa và ca nghiệm thu trước khi sửa code | AnNT / Codex |
+| 24/11/2026 | 28/10/2026 + D65 | Chủ FE-18 đồng ý: liều tham chiếu của thuốc nhập số + đơn vị, ≤ 50; liều theo thể trọng ghi ở Ghi chú như ô Liều khi ghi điều trị; gợi ý tạo mỗi dạng thuốc một mục | Tuấn |

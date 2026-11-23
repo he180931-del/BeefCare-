@@ -71,6 +71,12 @@ public class CodeSequenceService {
         return String.format("ĐCK-%d-%04d", year, next(farmId, CodeType.STOCK_ADJUSTMENT, year));
     }
 
+    /** HC-nnnn (mã ca sức khỏe, D64): một bộ đếm theo trại, không đặt lại theo năm; quá 9999 thì dài thêm. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String nextHealthCaseCode(Long farmId) {
+        return String.format("HC-%04d", next(farmId, CodeType.HEALTH_CASE, 0));
+    }
+
     /** BC-nnnnnn (cattle display code, one farm sequence). */
     @Transactional(propagation = Propagation.MANDATORY)
     public String nextCattleCode(Long farmId) {

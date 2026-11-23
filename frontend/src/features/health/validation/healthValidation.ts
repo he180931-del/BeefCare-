@@ -2,6 +2,7 @@
 // business policy stays in the domain file.
 import { dateOf } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
+import { DOSE_FORMAT_MESSAGE, DOSE_MAX_LENGTH, isStandardDose } from '../../../shared/lib/dose'
 import type { CorrectEntryCommand } from '../types'
 
 /** D61: ngoài 30–45 °C là gõ nhầm (chặn); ngoài 35–43 °C chỉ cần người dùng xác nhận lại số đo. */
@@ -92,15 +93,17 @@ export function treatmentErrors(
 ): FieldErrors {
   const errors: FieldErrors = {}
   if (!v.medicineId) errors.medicineId = MSG.required('Thuốc')
-  put(errors, 'dose', textError('Liều', v.dose, { required: true, max: 50 }))
+  put(errors, 'dose', textError('Liều', v.dose, { required: true, max: DOSE_MAX_LENGTH }))
+  // D65: liều là số + đơn vị chuẩn (ml, mg, g, viên, gói, liều).
+  if (!errors.dose && !isStandardDose(v.dose)) errors.dose = DOSE_FORMAT_MESSAGE
   if (!v.route) errors.route = MSG.required('Đường dùng')
   else if (!TREATMENT_ROUTES.includes(v.route)) errors.route = 'Đường dùng không hợp lệ.'
   put(errors, 'treatmentTime', timeError('Thời điểm bắt đầu', v.treatmentTime, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.openedAt, minWhat: 'lúc mở ca' }))
   // Spec FE-10 mục 6: liệu trình (mặc định 1) và ngày ngưng (điền sẵn từ thuốc) không bắt buộc; có nhập thì phải đúng khoảng.
-  if (v.courseDays !== null && v.courseDays !== undefined) put(errors, 'courseDays', intError('Liệu trình (ngày)', v.courseDays, 1, 30))
+  if (v.courseDays !== null && v.courseDays !== undefined) put(errors, 'courseDays', intError('Số ngày dùng', v.courseDays, 1, 30))
   if (v.withdrawalDays !== null && v.withdrawalDays !== undefined) put(errors, 'withdrawalDays', intError('Số ngày ngưng', v.withdrawalDays, 0, 365))
   put(errors, 'performer', textError('Người thực hiện', v.performer, { max: 100 }))
-  put(errors, 'veterinaryAdvice', textError('Lời khuyên thú y', v.veterinaryAdvice, { max: 500 }))
+  put(errors, 'veterinaryAdvice', textError('Ghi chú', v.veterinaryAdvice, { max: 500 }))
   return errors
 }
 
@@ -141,7 +144,7 @@ export function textFieldErrors(key: string, label: string, value: string, max: 
 /** Sửa điều trị: chỉ kiểm các trường có trong lệnh (cùng thông báo như popup ghi điều trị). */
 export function correctionTreatmentErrors(cmd: CorrectEntryCommand, ctx: { now: string; entryDate?: string; openedAt?: string }): Record<string, string> {
   return treatmentErrors({
-    medicineId: cmd.medicineId === undefined ? 1 : cmd.medicineId, treatmentTime: cmd.treatmentTime ?? ctx.now, dose: cmd.dose ?? '-', route: cmd.route === undefined ? 'OTHER' : cmd.route,
+    medicineId: cmd.medicineId === undefined ? 1 : cmd.medicineId, treatmentTime: cmd.treatmentTime ?? ctx.now, dose: cmd.dose ?? '1 ml', route: cmd.route === undefined ? 'OTHER' : cmd.route,
     courseDays: cmd.courseDays === undefined ? 1 : cmd.courseDays, withdrawalDays: cmd.withdrawalDays === undefined ? 0 : cmd.withdrawalDays, performer: cmd.performer ?? '',
   }, cmd.treatmentTime === undefined ? { now: ctx.now } : ctx)
 }

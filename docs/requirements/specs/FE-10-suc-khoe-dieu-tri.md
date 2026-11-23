@@ -74,7 +74,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 |---|---|---|---|---|
 | Ca | Tham chiếu | Có | OPEN hoặc CHRONIC | UC-04 |
 | Thuốc + tên snapshot | Danh mục | Có | ACTIVE | Popup |
-| Liều | Chuỗi | Có | ≤ 50 (ví dụ "30 ml"); gợi ý từ liều tham chiếu | Popup |
+| Liều | Chuỗi | Có | ≤ 50, số > 0 + đơn vị (ml, lít, mg, g, viên, gói, liều), lưu "30 ml"; lượng cho mỗi lần dùng; gợi ý từ liều tham chiếu (D65) | Popup |
 | Đường dùng | Enum | Có | Tiêm bắp / Tiêm dưới da / Tĩnh mạch / Uống / Bôi / Khác | Popup |
 | Thời điểm dùng lần đầu | Ngày giờ | Có | Không tương lai, không trước thời điểm mở ca | Popup |
 | Số ngày liệu trình | Số nguyên | Không | 1–30, mặc định 1 | Popup |
@@ -101,7 +101,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | Mã | Quy tắc | Nguồn |
 |---|---|---|
 | R-10-01 | Quan sát bất thường mở **ca mới** (một bò có thể có nhiều ca cho các vấn đề khác nhau). Diễn biến của ca OPEN / CHRONIC ghi qua "Cập nhật ca bệnh"; ca đã CLOSED → MSG-COM-05 (D58). | GBR-45, UC-02 E5 |
-| R-10-02 | Mở ca tạo mã HC-nnnn + quan sát mở ca trong một transaction; sức khỏe ít nhất là Theo dõi. | UC-02 |
+| R-10-02 | Mở ca tạo mã HC-nnnn (bộ đếm riêng theo trại, không đặt lại theo năm; ca cũ giữ mã cũ – D64) + quan sát mở ca trong một transaction; sức khỏe ít nhất là Theo dõi. | UC-02 |
 | R-10-03 | Phản ứng sau tiêm: mở ca từ bản ghi tiêm → liên kết bản ghi đó với ca. | GBR-47 |
 | R-10-04 | Thân nhiệt ngoài 30,0–45,0 → MSG-FE10-06 (chặn, dưới ô). Trong 30,0–45,0 nhưng ngoài 35,0–43,0 → popup MSG-FE10-06a, bấm "Xác nhận lưu" thì lưu. Để trống vẫn lưu (D61). | Popup |
 | R-10-05 | Thời gian: không tương lai (MSG-COM-07); mở ca không trước ngày nhập đàn (MSG-COM-15); theo dõi / điều trị không trước lúc mở ca hoặc bản ghi mới nhất của ca → MSG-FE10-07; đóng ca không trước bản ghi mới nhất. | UC-02, 03, 04 |
@@ -152,18 +152,18 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 
 | # | Trường | Loại | Nội dung |
 |---|---|---|---|
-| 1 | Tabs | Tab | Đang mở (n), Mãn tính (n), Đã đóng (n), Tất cả |
+| 1 | KPI blocks / Khối chỉ số (D66) | Bento 5 + 4 + 3 | Ca chưa đóng (nổi bật; đang mở, đang điều trị, thanh tỷ lệ theo mức độ) · Cảnh báo (xanh nhạt / đỏ nhạt khi có ca nặng hoặc nghi truyền nhiễm; ca nặng có nút Xem) · Theo dõi dài hạn; đếm theo cùng bộ lọc tìm / mức độ / chuồng |
 | 2 | Search / Tìm | Ô chữ | Mã hiển thị hoặc mã ca |
 | 3 | Severity, Pen / Mức độ, Chuồng | Dropdown | — |
-| 4 | Period / Khoảng | Khoảng ngày mở ca | Mặc định 30 ngày gần nhất; tab Đang mở bỏ qua khoảng |
-| 5 | Case code / Mã ca | Cột | HC-nnnn, sắp xếp được |
-| 6 | Cattle / Bò | Cột | Mã hiển thị, giống, giới tính |
-| 7 | Pen / Chuồng | Cột | Mã – tên |
-| 8 | Suspected diagnosis · signs / Chẩn đoán nghi ngờ · dấu hiệu | Cột | Chẩn đoán nghi ngờ, hoặc dấu hiệu chính khi không có; huy hiệu "Truyền nhiễm" |
-| 9 | Severity / Mức độ | Cột | Nhẹ / Vừa / Nặng |
+| 4 | Tabs | Tab | Đang mở (n), Theo dõi dài hạn (n), Đã đóng (n), Tất cả (n) |
+| 5 | Period / Khoảng | Khoảng ngày mở ca | Chỉ hiện ở tab Đã đóng / Tất cả; chỉ lọc ca đã đóng; mặc định 30 ngày gần nhất. Ca Đang mở và Theo dõi dài hạn luôn hiện đủ (D66) |
+| 6 | Case code / Mã ca | Cột | HC-nnnn, sắp xếp được |
+| 7 | Cattle / Bò | Cột | Mã hiển thị; dòng phụ: giống · giới tính · chuồng (gộp cột Chuồng – D66) |
+| 8 | Suspected diagnosis · signs / Chẩn đoán / dấu hiệu | Cột | Chẩn đoán nghi ngờ, hoặc dấu hiệu chính khi không có; huy hiệu "Nghi truyền nhiễm" |
+| 9 | Severity / Mức độ | Cột | Nhẹ / Trung bình / Nặng |
 | 10 | Opened at / Ngày mở | Cột | Sắp xếp được |
-| 11 | Status / Trạng thái | Cột | OPEN · ngày n / CHRONIC · từ dd/mm/yyyy / CLOSED · kết quả |
-| 12 | Open / Mở | Thao tác dòng | Mở SCR-37 tại ca đó |
+| 11 | Status / Trạng thái | Cột | Đang mở · ngày n / Theo dõi dài hạn · từ dd/mm/yyyy / Đã đóng · kết quả |
+| 12 | Open / Mở | Cả dòng | Nhấn (hoặc Enter) mở SCR-37 – tab Sức khỏe của bò |
 
 ### SCR-37 Tab Sức khỏe (hồ sơ bò)
 
@@ -208,15 +208,15 @@ Gộp vào popup Cập nhật ca bệnh (D58).
 |---|---|---|---|---|---|---|
 | 1 | Health case / Ca | Chỉ đọc | — | — | — | — |
 | 2 | Medicine / Thuốc | Dropdown | * | Thuốc ACTIVE | — | MSG-COM-06, MSG-FE18-08 |
-| 3 | Dose / Liều | Ô chữ | * | ≤ 50 | Gợi ý từ liều tham chiếu | MSG-COM-06, MSG-COM-10 |
-| 4 | Route / Đường dùng | Dropdown | * | Tiêm bắp / Tiêm dưới da / Tĩnh mạch / Uống / Bôi / Khác | Từ thuốc | MSG-COM-06 |
+| 3 | Dose / Liều mỗi lần | Số + đơn vị | * | Số > 0; đơn vị ml / lít / mg / g / viên / gói / liều (D65) | Từ liều tham chiếu khi đường dùng trùng đường của thuốc; đổi đường khác thì bỏ, hiện "Liều tham chiếu chỉ áp cho …" | MSG-COM-06, MSG-COM-10 |
+| 4 | Route / Đường dùng | Dropdown | * | Tiêm bắp / Tiêm dưới da / Tĩnh mạch / Uống / Bôi / Khác | Từ thuốc; thuốc chưa có đường dùng thì để trống (không tự điền "Khác") | MSG-COM-06 |
 | 5 | Administered at / Thời điểm dùng lần đầu | Ngày giờ | * | Không tương lai, không trước lúc mở ca | Bây giờ | MSG-COM-07, MSG-FE10-07 |
-| 6 | Course (days) / Liệu trình (ngày) | Số nguyên | — | 1–30 | 1 | MSG-COM-10 |
+| 6 | Course (days) / Số ngày dùng (mỗi ngày 1 lần) | Số nguyên | — | 1–30; cùng thuốc, liều, đường mỗi ngày một lần; hiện "Tổng: liều × số ngày" (D65) | 1 | MSG-COM-10 |
 | 7 | Withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | — | 0–365 | Từ thuốc | MSG-COM-10 |
 | 8 | Withdrawal end / Hết ngưng thịt | Chỉ đọc | — | (ngày dùng đầu + số ngày − 1) + ngày ngưng | — | — |
 | 9 | Return to open / Chuyển ca về Đang mở | Checkbox | — | Chỉ hiện khi ca CHRONIC; bỏ chọn khi chỉ điều trị duy trì (ca giữ theo dõi dài hạn) – D59 | Chọn | — |
 | 10 | Performed by / Người thực hiện | Dropdown hoặc chữ | — | Thành viên ACTIVE hoặc tên ngoài ≤ 100 | — | MSG-COM-10 |
-| 11 | Veterinary advice / Tư vấn thú y | Ô chữ dài | — | ≤ 500 | — | MSG-COM-10 |
+| 11 | Veterinary advice / Ghi chú | Ô chữ dài | — | ≤ 500; gợi ý "lời dặn của thú y, phản ứng sau dùng thuốc" (D65; API giữ `veterinaryAdvice`) | — | MSG-COM-10 |
 | 12 | Cancel / Save treatment | Nút | — | — | — | MSG-COM-05, MSG-COM-13, MSG-COM-02; thành công MSG-FE10-03 |
 
 ### Popup Cập nhật ca bệnh (D58)
@@ -352,3 +352,6 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 23/11/2026 | 28/10/2026 | D59: ghi điều trị cho ca CHRONIC có ô "Chuyển ca về Đang mở" (mặc định chọn; bỏ chọn = điều trị duy trì, ca giữ CHRONIC) – R-10-06, R-10-09, popup Ghi điều trị dòng 9, MSG-FE10-10, TC-10-10. D60: giao diện tiếng Việt cho trạng thái ca – Đang mở / Theo dõi dài hạn / Đã đóng (thay OPEN / CHRONIC / CLOSED và "mạn tính"); hành động "Chuyển theo dõi dài hạn", "Chuyển về đang mở" | Tuấn |
 | 23/11/2026 | 28/10/2026 | D61: thân nhiệt chặn ngoài 30,0–45,0 °C (số gõ nhầm); ngoài 35,0–43,0 °C hỏi xác nhận (MSG-FE10-06a); áp dụng Mở ca, Cập nhật ca bệnh, Sửa bản ghi theo dõi – R-10-04, MSG-FE10-06, TC-10-01 | Tuấn |
 | 23/11/2026 | 28/10/2026 | D62: "Mở lại ca" cho ca đã đóng Khỏi / Chết / Mất tích (nút ở bảng "Các ca trước", popup lý do bắt buộc) – R-10-15, A5b, MSG-FE10-14, TC-10-30..33; ca đã đóng trả `version` trong A2 | Tuấn |
+| 24/11/2026 | 28/10/2026 | D64: mã ca HC-nnnn đếm theo trại (trước lấy theo ID toàn hệ thống HC-nnnnnn) – R-10-02 | Tuấn |
+| 24/11/2026 | 28/10/2026 | D65: popup Ghi điều trị – liều số + đơn vị, số ngày dùng (mỗi ngày 1 lần) kèm tổng, "Ngày dùng cuối", "Ghi chú" thay "Lời khuyên thú y"; ghi chú thuốc hiện dưới ô Thuốc – dòng 3, 4, 6, 11 | Tuấn |
+| 24/11/2026 | 28/10/2026 | D66: SCR-36 theo Bento – khối chỉ số, bảng vạch màu theo mức độ, bộ lọc, tab, kỳ chỉ ở tab Đã đóng / Tất cả, gộp cột Chuồng vào Bò, cả dòng mở hồ sơ; tab Theo dõi dài hạn không còn lọc theo kỳ; A1 `counts` thêm `treating`, `severe`, `moderate`, `mild`, `contagious` | Tuấn |

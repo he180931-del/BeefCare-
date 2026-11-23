@@ -70,12 +70,12 @@ test('A1 / TC-10-26: danh sách ca gửi tab, kỳ, chuồng theo id và đọc 
     ...baseRoutes(),
     '/api/farms/1/health-cases': {
       items: [{ id: 412, caseCode: 'HC-000412', cattleId: 101, cattleCode: 'BC-101', breed: 'Brahman', sex: 'FEMALE', penId: 11, penCode: 'A1', penName: 'Chuồng A1', diagnosis: 'Viêm phổi', signs: 'Sốt', suspectedContagious: true, severity: 'MODERATE', openedDate: '2026-10-13', openedAt: '2026-10-13T00:00:00Z', dayN: 24, status: 'OPEN', chronicSince: null, outcome: null, closedDate: null, treatmentCount: 1, version: 2 }],
-      total: 1, page: 0, size: 200, counts: { open: 3, chronic: 1, closed: 0, all: 4 },
+      total: 1, page: 0, size: 200, counts: { open: 3, chronic: 1, closed: 0, all: 4, treating: 2, severe: 1, moderate: 2, mild: 1, contagious: 1 },
     },
   })
   const list = await a.listCases({ tab: 'closed', penCode: 'B1', from: '2026-10-01', to: '2026-11-05', severity: 'SEVERE', search: ' bc ', sort: 'caseCode', dir: 'asc' })
   assert.equal(calls.find((c) => c.path.startsWith('/api/farms/1/health-cases?'))!.path, '/api/farms/1/health-cases?tab=CLOSED&search=bc&severity=SEVERE&penId=12&from=2026-10-01&to=2026-11-05&sort=caseCode&dir=asc&page=0&size=200')
-  assert.deepEqual(list.counts, { open: 3, chronic: 1, closed: 0, all: 4 })
+  assert.deepEqual(list.counts, { open: 3, chronic: 1, closed: 0, all: 4, treating: 2, severe: 1, moderate: 2, mild: 1, contagious: 1 })
   assert.deepEqual(list.pens, [{ id: 11, code: 'A1', name: 'Chuồng A1' }, { id: 12, code: 'B1', name: 'Chuồng B1' }])
   assert.deepEqual(list.rows[0], {
     id: 412, caseCode: 'HC-000412', cattleCode: 'BC-101', cattleName: '', breed: 'Brahman', sex: 'Cái', penCode: 'A1', penName: 'Chuồng A1', diagnosis: 'Viêm phổi', signs: 'Sốt', suspectedContagious: true,
@@ -204,6 +204,19 @@ test('TC-10-08/09/10: điều trị gửi administeredAt giờ trại, người 
   await a.recordTreatment(412, { expectedVersion: 3, medicineId: 3, treatmentTime: '2026-11-05T08:00', dose: '30 ml', route: 'ORAL', courseDays: 1, withdrawalDays: null, performer: 'BS. Hùng', veterinaryAdvice: ' Uống nhiều nước ' })
   const second = calls.filter((c) => c.path.endsWith('/412/treatments'))[1].body as Record<string, unknown>
   assert.deepEqual([second.performerId, second.performerName, second.withdrawalDays, second.veterinaryAdvice], [undefined, 'BS. Hùng', null, 'Uống nhiều nước'])
+})
+
+test('Xem ca đã đóng: tải hồ sơ với historyCaseId, ca đã đóng có diễn biến, thuốc, người xác nhận và ngày ngưng', async () => {
+  const closedProfile = { ...profile, previousCases: [{ ...profile.previousCases[0], version: 4, timeline: [
+    { id: 61, caseId: 331, type: 'OPENING', occurredAt: '2026-09-01T01:00:00Z', observer: 'Lê Quản Lý', status: 'VALID', corrected: false, version: 0, temperatureC: null, description: 'Ho' },
+    { id: 62, caseId: 331, type: 'TREATMENT', occurredAt: '2026-09-02T01:00:00Z', status: 'VALID', corrected: false, version: 0, medicineId: 3, medicineName: 'Oxytetracycline 20% LA', dose: '30 ml', route: 'INTRAMUSCULAR', courseDays: 1, withdrawalDays: 28, withdrawalEndDate: '2026-09-30', performer: 'Lê Quản Lý' },
+  ] }] }
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/cattle/101?historyCaseId=331': closedProfile })
+  const p = await a.getProfile('BC-101', '331')
+  assert.ok(calls.some((c) => c.path === '/api/farms/1/health-cases/cattle/101?historyCaseId=331'))
+  const closed = p.previousCases[0]
+  assert.deepEqual([closed.closedBy, closed.treatmentCount, closed.withdrawalEndDate, closed.version], ['Lê Quản Lý', 1, '2026-09-30', 4])
+  assert.deepEqual(p.timeline.filter((r) => r.caseId === 331).map((r) => r.type).sort(), ['OPENING', 'TREATMENT'])
 })
 
 test('D62: mở lại ca đã đóng gửi version và lý do tới /reopen; thiếu lý do báo dưới ô, không gọi API', async () => {

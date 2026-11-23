@@ -76,7 +76,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     const first = db.entries.find((e) => e.caseId === c.id && e.type === 'OPENING')
     return {
       id: c.id, caseCode: c.caseCode, status: c.status, severity: c.severity, diagnosis: c.diagnosis, signs: c.signs, openingSigns: first?.description ?? c.signs,
-      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt,
+      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt, closedBy: c.closedBy,
       treatmentCount: valid.filter((e) => e.type === 'TREATMENT').length, day: caseDay(c.openedAt, now()),
       withdrawalEndDate: latestWithdrawalEnd(valid), latestEntryAt: valid.reduce((m, e) => (e.occurredAt > m ? e.occurredAt : m), c.openedAt), version: c.version,
     }
@@ -130,11 +130,17 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const sign = dir === 'asc' ? 1 : -1
       rows.sort((a, b) => sign * (sort === 'caseCode' ? a.caseCode.localeCompare(b.caseCode) : a.openedAt.localeCompare(b.openedAt) || a.caseCode.localeCompare(b.caseCode)))
       const count = (s: string) => db.cases.filter((c) => c.status === s).length
+      const active = db.cases.filter((c) => c.status !== 'CLOSED')
       const pens = new Map<string, string>()
       for (const c of db.cases) { const k = cattleOf(c.cattleCode); if (k.penCode) pens.set(k.penCode, k.penName) }
       return structuredClone({
         rows,
-        counts: { open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length },
+        counts: {
+          open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length,
+          treating: active.filter((c) => c.status === 'OPEN' && validOf(c.id).some((e) => e.type === 'TREATMENT')).length,
+          severe: active.filter((c) => c.severity === 'SEVERE').length, moderate: active.filter((c) => c.severity === 'MODERATE').length,
+          mild: active.filter((c) => c.severity === 'MILD').length, contagious: active.filter((c) => c.suspectedContagious).length,
+        },
         pens: [...pens].map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code)),
       })
     },

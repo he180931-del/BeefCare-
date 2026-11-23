@@ -37,7 +37,8 @@ export interface Medicine {
   /** Liều tham chiếu đề xuất ("30 ml"), ghi chú tham chiếu ("1 ml / 10 kg"), đường dùng và số ngày ngưng đề xuất. */
   defaultDose: string
   doseNote: string
-  route: TreatmentRoute
+  /** Trống khi danh mục chưa chọn đường dùng: popup để trống cho người dùng chọn (D65). */
+  route: TreatmentRoute | ''
   withdrawalDays: number
 }
 
@@ -92,6 +93,8 @@ export interface HealthCaseCard {
   chronicSince?: string
   outcome?: CaseOutcome
   closedAt?: string
+  /** Người xác nhận đóng ca (chỉ ca đã đóng). */
+  closedBy?: string
   treatmentCount: number
   day: number
   /** Ngày hết ngưng sử dụng thịt lớn nhất trong các điều trị hợp lệ của ca. */
@@ -140,7 +143,12 @@ export interface HealthProfile {
   timeline: HealthTimelineRow[]
 }
 
-export interface HealthCaseCounts { open: number; chronic: number; closed: number; all: number }
+/** Số ca theo tab; `treating`, `severe`, `contagious` là ca chưa đóng cho các ô chỉ số (D66). */
+export interface HealthCaseCounts {
+  open: number; chronic: number; closed: number; all: number
+  /** Ca chưa đóng (D66). */
+  treating: number; severe: number; moderate: number; mild: number; contagious: number
+}
 export interface HealthCaseList {
   rows: HealthCaseRow[]
   counts: HealthCaseCounts

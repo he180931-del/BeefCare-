@@ -71,9 +71,9 @@ export function mapCattle(raw: unknown, today: string): HealthCattle {
   }
 }
 
-export function mapMedicine(raw: unknown): { id: number; name: string; active: boolean; defaultDose: string; doseNote: string; route: TreatmentRoute; withdrawalDays: number } {
+export function mapMedicine(raw: unknown): { id: number; name: string; active: boolean; defaultDose: string; doseNote: string; route: TreatmentRoute | ''; withdrawalDays: number } {
   const m = asRecord(raw)
-  return { id: num(m.id) ?? 0, name: textValue(m.name), active: m.available === true, defaultDose: textValue(m.dose), doseNote: textValue(m.description), route: toRoute(m.route) ?? 'OTHER', withdrawalDays: num(m.withdrawalDays) ?? 0 }
+  return { id: num(m.id) ?? 0, name: textValue(m.name), active: m.available === true, defaultDose: textValue(m.dose), doseNote: textValue(m.description), route: toRoute(m.route) ?? '', withdrawalDays: num(m.withdrawalDays) ?? 0 }
 }
 
 /** Dòng mô tả dựng sẵn cho bảng dòng thời gian (SCR-37 #8). */
@@ -124,7 +124,7 @@ export function mapHealthCaseCard(raw: unknown, cattleCode: string, now: string,
   const card: HealthCaseCard = closed ? {
     id, caseCode, status: 'CLOSED', severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns, suspectedContagious: false,
     openedAt: `${textValue(c.openedDate)}T00:00`, openedDate: textValue(c.openedDate), outcome: pickOptional(OUTCOMES, c.outcome), closedAt: text(c.closedDate) ? `${textValue(c.closedDate)}T00:00` : undefined,
-    treatmentCount: 0, day: 0, withdrawalEndDate: null, latestEntryAt: `${textValue(c.openedDate)}T00:00`, version: num(c.version) ?? 0,
+    closedBy: text(c.confirmedBy), treatmentCount: rows.filter((r) => r.type === 'TREATMENT' && r.status === 'VALID').length, day: 0, withdrawalEndDate: latestWithdrawalEnd(rows), latestEntryAt: `${textValue(c.openedDate)}T00:00`, version: num(c.version) ?? 0,
   } : {
     id, caseCode, status: pick(STATUSES, c.status, 'OPEN'), severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns,
     suspectedContagious: c.suspectedContagious === true, openedAt, openedDate: textValue(c.openedDate, dateOf(openedAt)), chronicSince: text(c.chronicSince),

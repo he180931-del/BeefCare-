@@ -50,13 +50,16 @@ public class HealthCareCommandService {
     private final CattleStateService cattleState;
     private final HerdExitVoucherService exits;
     private final HealthCaseReopener reopener;
+    private final CodeSequenceService codes;
 
     public HealthCareCommandService(FarmAccessService access, CattleGuardService cattleGuard, IdempotencyCommandService idempotency,
                                    AuditService audit, RecordRevisionService revisions, FarmClock clock,
-                                   CattleStateService cattleState, HerdExitVoucherService exits, HealthCaseReopener reopener) {
+                                   CattleStateService cattleState, HerdExitVoucherService exits, HealthCaseReopener reopener,
+                                   CodeSequenceService codes) {
         this.access = access; this.cattleGuard = cattleGuard; this.idempotency = idempotency;
         this.audit = audit; this.revisions = revisions; this.clock = clock; this.cattleState = cattleState; this.exits = exits;
         this.reopener = reopener;
+        this.codes = codes;
     }
 
     // ------------------------------------------------------------------ A3 open / add an observation
@@ -90,9 +93,10 @@ public class HealthCareCommandService {
             healthCase.setSuspectedDiagnosis(diagnosis);
             healthCase.setIsSuspectedContagious(Boolean.TRUE.equals(req.suspectedContagious()));
             healthCase.setReactionVaccination(vaccination);
+            // D64 / §3.2: mã ca HC-nnnn duy nhất trong trại, lấy từ bộ đếm theo trại (không dùng ID toàn hệ thống).
+            healthCase.setCaseCode(nextCaseCode(farmId));
             em.persist(healthCase);
             em.flush();
-            healthCase.setCaseCode("HC-" + String.format("%06d", healthCase.getId()));
         } else {
             // R-10-01: an observation added to an OPEN / CHRONIC case of the same cattle; a CLOSED case → MSG-COM-05.
             healthCase = caseForFarm(farmId, req.existingCaseId());
@@ -499,6 +503,19 @@ public class HealthCareCommandService {
         em.persist(observation);
         em.flush();
         return observation;
+    }
+
+    /**
+     * Mã ca kế tiếp của trại. Ca tạo trước D64 mang mã theo ID (HC-nnnnnn) và được giữ nguyên; nếu số mới tình cờ trùng
+     * một mã cũ trong trại thì lấy số kế tiếp, để mã luôn duy nhất trong trại.
+     */
+    private String nextCaseCode(Long farmId) {
+        String code = codes.nextHealthCaseCode(farmId);
+        while (em.createQuery("select count(h) from HealthCase h where h.cattle.farm.id=:farm and h.caseCode=:code", Long.class)
+            .setParameter("farm", farmId).setParameter("code", code).getSingleResult() > 0) {
+            code = codes.nextHealthCaseCode(farmId);
+        }
+        return code;
     }
 
     private void assertWritable(HealthCase healthCase) {

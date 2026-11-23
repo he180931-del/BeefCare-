@@ -1,7 +1,6 @@
 package vn.edu.fpt.beefcare.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -128,11 +127,22 @@ class HealthCaseResourceTest extends DomainTestSupport {
 
     // ------------------------------------------------------------------ A3 open / add
 
+    /** D64: mã ca đếm theo trại HC-0001, HC-0002…; trùng mã cũ trong trại thì lấy số kế tiếp. */
+    @Test
+    void d64_caseCodesCountPerFarmAndSkipAnExistingCode() throws Exception {
+        CareDtos.HealthCaseResult first = open(hoursAgo(5));
+        assertThat(first.caseCode()).isEqualTo("HC-0001");
+        HealthCase legacy = em.find(HealthCase.class, first.id());
+        legacy.setCaseCode("HC-0002");
+        em.flush();
+        assertThat(open(hoursAgo(4)).caseCode()).isEqualTo("HC-0003");
+    }
+
     @Test
     void tc10_03_openingACaseGivesACodeAndMonitoring() throws Exception {
         postJson("/health-cases", manager, openBody(hoursAgo(3), ""))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.caseCode").value(startsWith("HC-")))
+            .andExpect(jsonPath("$.caseCode").value("HC-0001"))
             .andExpect(jsonPath("$.status").value("OPEN"))
             .andExpect(jsonPath("$.healthState").value("MONITORING"))
             .andExpect(jsonPath("$.cattleCode").value(cow.getDisplayCode()))
@@ -720,14 +730,28 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$..timeline[?(@.recordedBy=='" + owner.getFullName() + "')]").isNotEmpty());
     }
 
+    /** D66: các ô chỉ số đếm ca chưa đóng đang điều trị, mức độ nặng và nghi truyền nhiễm. */
+    @Test
+    void d66_listCountsTreatingSevereAndContagiousActiveCases() throws Exception {
+        CareDtos.HealthCaseResult severe = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(5), null, null, "Sốt cao", null, true, "SEVERE", null));
+        treat(severe, hoursAgo(4), 1, 7);
+        mvc.perform(get(url("/health-cases")).with(as(owner.getEmail())))
+            .andExpect(jsonPath("$.counts.treating").value(1))
+            .andExpect(jsonPath("$.counts.severe").value(1))
+            .andExpect(jsonPath("$.counts.contagious").value(1))
+            .andExpect(jsonPath("$.counts.moderate").value(0))
+            .andExpect(jsonPath("$.counts.mild").value(0));
+    }
+
     @Test
     void tc10_26_a1_listCountsPagesSortsAndIgnoresThePeriodForOpenCases() throws Exception {
         var breed = breed(farm); var purpose = purpose(farm, PurposeType.FATTENING);
         List<Cattle> herd = List.of(cow, cattle(farm, breed, purpose, Sex.FEMALE, LifeStage.ADULT), cattle(farm, breed, purpose, Sex.MALE, LifeStage.YOUNG_STOCK),
             cattle(farm, breed, purpose, Sex.MALE, LifeStage.ADULT), cattle(farm, breed, purpose, Sex.FEMALE, LifeStage.ADULT), cattle(farm, breed, purpose, Sex.MALE, LifeStage.ADULT));
-        // 3 OPEN (one opened 40 days ago: outside the default period, still listed on the OPEN tab), 1 CHRONIC, 2 CLOSED opened last month.
+        // 3 OPEN (one opened 40 days ago: outside the default period, still listed on the OPEN tab), 1 CHRONIC opened 45 days ago
+        // (D66: also always listed), 2 CLOSED opened last month.
         open(herd.get(0), hoursAgo(3)); open(herd.get(1), hoursAgo(2)); open(herd.get(2), daysAgo(40));
-        CareDtos.HealthCaseResult chronic = open(herd.get(3), daysAgo(10));
+        CareDtos.HealthCaseResult chronic = open(herd.get(3), daysAgo(45));
         health.updateStatus(farm.getId(), chronic.id(), key(), new CareDtos.CaseStatus(chronic.version(), "TO_CHRONIC", null, null, null, null, null, null, null));
         close(open(herd.get(4), daysAgo(40)), "RECOVERED");
         close(open(herd.get(5), daysAgo(35)), "RECOVERED");
@@ -739,7 +763,10 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.counts.open").value(3))
             .andExpect(jsonPath("$.counts.chronic").value(1))
             .andExpect(jsonPath("$.counts.closed").value(0))
-            .andExpect(jsonPath("$.counts.all").value(3))
+            .andExpect(jsonPath("$.counts.all").value(4))
+            .andExpect(jsonPath("$.counts.treating").value(0))
+            .andExpect(jsonPath("$.counts.severe").value(0))
+            .andExpect(jsonPath("$.counts.contagious").value(0))
             .andExpect(jsonPath("$.items[0].cattleCode").value(herd.get(1).getDisplayCode()))
             .andExpect(jsonPath("$.items[0].dayN").value(1))
             .andExpect(jsonPath("$.items[0].signs").value("Sốt, bỏ ăn"))
@@ -750,9 +777,11 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.items[0].outcome").value("RECOVERED"))
             .andExpect(jsonPath("$.items[0].closedDate").value(TODAY.toString()));
         mvc.perform(get(url("/health-cases")).param("tab", "ALL").param("size", "2").param("page", "1").param("sort", "caseCode").param("dir", "asc").with(as(owner.getEmail())))
-            .andExpect(jsonPath("$.total").value(3))
+            .andExpect(jsonPath("$.total").value(4))
             .andExpect(jsonPath("$.page").value(1))
             .andExpect(jsonPath("$.size").value(2))
+            .andExpect(jsonPath("$.items.length()").value(2));
+        mvc.perform(get(url("/health-cases")).param("tab", "CHRONIC").with(as(owner.getEmail())))
             .andExpect(jsonPath("$.items.length()").value(1));
         mvc.perform(get(url("/health-cases")).param("tab", "CHRONIC").param("severity", "SEVERE").with(as(owner.getEmail())))
             .andExpect(jsonPath("$.items.length()").value(0))

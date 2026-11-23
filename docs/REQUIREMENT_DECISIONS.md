@@ -972,10 +972,10 @@ TuanPQ duyß╗çt: 35ÔÇô43 ┬░C l├á ngã░ß╗íng cß║ºn kiß╗
 
 TuanPQ duyß╗çt ─æß╗út 4 cß╗ºa bß║ún ─æ├ính gi├í FE-10; chß╗º FE-13 ─æß╗ông ├¢. Trã░ß╗øc ─æ├óy ca ─æ├ú ─æ├│ng kh├┤ng mß╗ƒ lß║íi ─æã░ß╗úc (─æ├│ng nhß║ºm phß║úi mß╗ƒ ca mß╗øi, lß╗ïch sß╗¡ bß╗ï t├ích), v├á b├íc phiß║┐u chß║┐t / mß║Ñt ─æß╗â b├▓ ACTIVE nhã░ng ca vß║½n ghi "Chß║┐t".
 
-1. **Mß╗ƒ lß║íi ca** (FE-10, n├║t ß╗ƒ bß║úng "C├íc ca trã░ß╗øc", popup l├¢ do bß║»t buß╗Öc Ôëñ 500): ca vß╗ü ─Éang mß╗ƒ, x├│a kß║┐t quß║ú / ng├áy ─æ├│ng / ngã░ß╗Øi x├íc nhß║¡n / "theo d├Ái d├ái hß║ín tß╗½"; lã░u Record Revision h├ánh ─æß╗Öng `REOPEN` v├á nhß║¡t k├¢ `HEALTH_CASE_REOPEN`.
-2. ─Éiß╗üu kiß╗çn: **Khß╗Åi** ÔåÆ b├▓ c├▓n nhß║¡n sß╗▒ kiß╗çn; **Chß║┐t / Mß║Ñt t├¡ch** ÔåÆ b├▓ c├▓n trong ─æ├án, phiß║┐u PENDING cß╗ºa ca bß╗ï b├íc (l├¢ do = l├¢ do mß╗ƒ lß║íi, REM-12 giß║úi quyß║┐t) trong c├╣ng transaction; phiß║┐u ─æ├ú x├íc nhß║¡n ÔåÆ b├▓ EXITED ÔåÆ MSG-COM-13; **CLOSED_BY_EXIT** ÔåÆ kh├┤ng bao giß╗Ø (MSG-COM-05). Ca Khß╗Åi: Owner v├á Manager (MANAGE_HEALTH); ca Chß║┐t / Mß║Ñt t├¡ch: **chß╗ë Owner** v├¼ phß║úi b├íc phiß║┐u xuß║Ñt (MANAGE_EXIT_VOUCHERS, GBR-34) ÔÇô TuanPQ chß╗æt.
-3. **B├íc phiß║┐u chß║┐t / mß║Ñt PENDING** (FE-13) ÔåÆ ca nguß╗ôn mß╗ƒ lß║íi c├╣ng l├¢ do, th├┤ng b├ío MSG-FE13-10. Thay "ca giß╗» kß║┐t quß║ú" cß╗ºa GBR-95 / R-13-09.
-4. API `POST ÔÇª/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trß║ú th├¬m `version` cho ca ─æ├ú ─æ├│ng. Kh├┤ng migration. Mß╗Öt lß╗øp d├╣ng chung `HealthCaseReopener` cho cß║ú hai ─æã░ß╗Øng.
+1. **Mở lại ca** (FE-10, nút ở bảng "Các ca trước", popup lý do bắt buộc ≤ 500): ca về Đang mở, xóa kết quả / ngày đóng / người xác nhận / "theo dõi dài hạn từ"; lưu Record Revision hành động `REOPEN` và nhật ký `HEALTH_CASE_REOPEN`.
+2. Điều kiện: **Khỏi** → bò còn nhận sự kiện; **Chết / Mất tích** → bò còn trong đàn, phiếu PENDING của ca bị bác (lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận → bò EXITED → MSG-COM-13; **CLOSED_BY_EXIT** → không bao giờ (MSG-COM-05). Ca Khỏi: Owner và Manager (MANAGE_HEALTH); ca Chết / Mất tích: **chỉ Owner** vì phải bác phiếu xuất (MANAGE_EXIT_VOUCHERS, GBR-34) – TuanPQ chốt.
+3. **Bác phiếu chết / mất PENDING** (FE-13) → ca nguồn mở lại cùng lý do, thông báo MSG-FE13-10. Thay "ca giữ kết quả" của GBR-95 / R-13-09.
+4. API `POST …/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trả thêm `version` cho ca đã đóng. Không migration. Một lớp dùng chung `HealthCaseReopener` cho cả hai đường.
 
 ### D63 ÔÇö Dß╗ìn form nhß║¡p b├▓ mua ngo├ái SCR-24 (23/11/2026)
 
@@ -989,3 +989,31 @@ An chß╗æt theo brief PR-K, ├íp dß╗Ñng cho popup th├¬m / sß╗¡a 
 6. Mß╗Ñc ─æ├¡ch nu├┤i lß║Ñy danh mß╗Ñc ACTIVE theo ID v├á purposeType, giß╗øi hß║ín SIRE cho ─æß╗▒c v├á BREEDING cho c├íi. C├ích ly nhß║¡p ─æ├án l├á ng├áy theo d├Ái ri├¬ng sau mua, kh├íc c├ích ly thß╗ït; kh├┤ng trã░ß╗øc ng├áy nhß║¡p, c├│ +14/+21 ng├áy, phß║úi giß╗» qua mß╗ƒ lß║íi nh├íp v├á hiß╗çn tr├¬n hß╗ô sãí khi c├▓n hiß╗çu lß╗▒c.
 
 Kh├┤ng ─æß╗òi backend, OpenAPI, migration, nhß║¡p Excel, sß╗¡a hß╗ô sãí FE-05 hay nghiß╗çp vß╗Ñ b├¬ sinh tß║íi trß║íi. C├íc ─æiß╗üu kiß╗çn backend v├á giß╗øi hß║ín field hiß╗çn h├ánh tiß║┐p tß╗Ñc ├íp dß╗Ñng.
+
+### D64 — FE-10: mã ca sức khỏe đếm theo trại (24/11/2026)
+
+SRS §3.2 và spec FE-10: mã ca `HC-nnnn`, duy nhất trong trại. Code cũ lấy ID toàn hệ thống (`HC-` + 6 chữ số), nên trại mới có vài ca đã thấy HC-008001 và số nhảy cóc theo các trại khác.
+
+1. Mã ca lấy từ bộ đếm theo trại như các mã nghiệp vụ khác (`CodeSequenceService`, loại `HEALTH_CASE`, BR-D34): `HC-0001`, `HC-0002`…; không đặt lại theo năm; quá 9999 thì dài thêm.
+2. Ca tạo trước giữ nguyên mã (đã hiện ở phiếu xuất, nhắc việc, lịch sử). Số mới trùng một mã cũ trong trại thì lấy số kế tiếp.
+3. Không migration: `code_sequence.code_type` là chuỗi, không có ràng buộc danh sách.
+
+### D65 — FE-10 / FE-18: liều thuốc số + đơn vị; số ngày dùng; "Ghi chú" thay "Lời khuyên thú y" (24/11/2026)
+
+TuanPQ duyệt, chủ FE-18 đồng ý. Liều là chữ tự do ("30ml", "30 cc", "3 ống"), liều tham chiếu của thuốc dài tới 100 ký tự trong khi ô Liều khi ghi điều trị chỉ 50, thuốc chưa có đường dùng bị tự điền "Khác", ghi chú chung của thuốc hiện như "Tham chiếu" liều, và Tiêm phòng đã nhập số + đơn vị.
+
+1. **Liều = số + đơn vị** (ml, lít, mg, g, viên, gói, liều) cho ghi / sửa điều trị và liều tham chiếu của thuốc; vẫn lưu một chuỗi ("30 ml", tối đa 50) nên không đổi API / DB. Không làm liều theo thể trọng trong ô liều (TuanPQ chốt): ghi ở Ghi chú của thuốc; liều điều trị là lượng thực tế mỗi lần. Liều cũ không theo chuẩn hiện nguyên văn và giữ nguyên nếu người dùng không nhập lại.
+2. Liều tham chiếu chỉ điền sẵn khi đường dùng trùng đường của thuốc; đổi đường khác thì bỏ liều điền sẵn và báo "Liều tham chiếu chỉ áp cho …". Thuốc chưa có đường dùng thì để trống.
+3. "Liệu trình (ngày)" → **"Số ngày dùng (mỗi ngày 1 lần)"** kèm "Tổng: liều × số ngày"; "Mũi cuối" → **"Ngày dùng cuối"** (đúng GBR-46: một đợt cùng thuốc, liều, đường mỗi ngày một lần).
+4. "Lời khuyên thú y" → **"Ghi chú"** (gợi ý: lời dặn của thú y, phản ứng sau dùng thuốc); API giữ `veterinaryAdvice`. Ghi chú của thuốc hiện "Ghi chú thuốc: …" dưới ô Thuốc.
+5. Danh mục thuốc gợi ý: thuốc nhiều dạng (tiêm / uống) tạo mỗi dạng một mục, vì liều và ngày ngưng thịt khác nhau.
+
+### D66 — FE-10 / FE-09: màn danh sách Sức khỏe & Điều trị và bảng mũi Tiêm phòng theo Bento (24/11/2026)
+
+TuanPQ: màn danh sách rối, các khối giống nhau, màu không mang thông tin, bo góc không thống nhất, rời rạc. Màn Sức khỏe để **xem ca nào cần chú ý và đi tới hồ sơ bò**; không ghi nhận trực tiếp.
+
+1. **SCR-36** một hàng 3 khối (5 + 4 + 3): **Ca chưa đóng** (khối nổi bật, số đang mở / đang điều trị, thanh tỷ lệ theo mức độ Nặng · Trung bình · Nhẹ); **khối cảnh báo** xanh nhạt "Không có ca cần xử lý gấp" hoặc đỏ nhạt "Cần chú ý ngay" khi có ca nặng / nghi truyền nhiễm, ba dòng ca nặng (nút Xem lọc ngay) · nghi truyền nhiễm · đang điều trị; **Theo dõi dài hạn**. Không có ô "Đã đóng trong kỳ" (không giúp việc trước mắt).
+2. Tab gạch chân, bộ lọc (tìm, mức độ, chuồng – cùng kiểu ô) và bảng gom trong **một khối**. Kỳ chỉ hiện ở tab Đã đóng / Tất cả. Bảng gộp cột Chuồng vào dòng phụ của Bò, vạch màu đầu dòng theo mức độ, nền đỏ nhạt khi nghi truyền nhiễm, cả dòng bấm được (chuột, Enter / Space) mở tab Sức khỏe của bò. Mọi khối bo 16, ô điều khiển bo 12.
+3. **Sửa lỗi:** tab Theo dõi dài hạn trước đây bị lọc theo kỳ – nay luôn hiện đủ như Đang mở.
+4. A1 `counts` (Map) thêm `treating`, `severe`, `moderate`, `mild`, `contagious` cho ca chưa đóng; không đổi schema OpenAPI, không migration.
+5. **Tiêm phòng (SCR-31):** giữ phần trên (thẻ lịch, nút); khối danh sách mũi làm cùng kiểu – tab gạch chân, bộ lọc, thanh "Ghi nhận n mũi đã chọn" và bảng trong một khối; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm (quá hạn đỏ, đến hạn vàng, đã tiêm xanh); trạng thái trống nằm trong khối.

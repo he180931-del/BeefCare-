@@ -127,7 +127,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         const penList = await pens()
         const penId = filters.penCode ? penList.find((p) => p.code === filters.penCode)?.id : undefined
-        if (filters.penCode && penId === undefined) return { rows: [], counts: { open: 0, chronic: 0, closed: 0, all: 0 }, pens: penList }
+        if (filters.penCode && penId === undefined) return { rows: [], counts: { open: 0, chronic: 0, closed: 0, all: 0, treating: 0, severe: 0, moderate: 0, mild: 0, contagious: 0 }, pens: penList }
         const body = asRecord(await transport.get(path(`/health-cases${query({
           tab: (filters.tab ?? 'open').toUpperCase(), search: filters.search?.trim(), severity: filters.severity || undefined, penId, from: filters.from, to: filters.to,
           sort: filters.sort, dir: filters.dir, page: 0, size: LIST_SIZE,
@@ -135,7 +135,11 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         const counts = asRecord(body.counts)
         return {
           rows: asRows(body.items).map(mapRow),
-          counts: { open: num(counts.open) ?? 0, chronic: num(counts.chronic) ?? 0, closed: num(counts.closed) ?? 0, all: num(counts.all) ?? 0 },
+          counts: {
+            open: num(counts.open) ?? 0, chronic: num(counts.chronic) ?? 0, closed: num(counts.closed) ?? 0, all: num(counts.all) ?? 0,
+            treating: num(counts.treating) ?? 0, severe: num(counts.severe) ?? 0, moderate: num(counts.moderate) ?? 0, mild: num(counts.mild) ?? 0,
+            contagious: num(counts.contagious) ?? 0,
+          },
           pens: penList,
         }
       })

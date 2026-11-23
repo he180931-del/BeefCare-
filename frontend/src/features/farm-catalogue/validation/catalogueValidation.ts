@@ -35,7 +35,8 @@ export const validateVaccine = (c: VaccineCommand): FieldErrorMap => compact({
 export const validateMedicine = (c: MedicineCommand): FieldErrorMap => compact({
   code: checkCode(c.code, 'Mã'),
   name: checkText(c.name, 'Tên thuốc', 150, true),
-  dose: checkText(c.dose, 'Liều tham chiếu', 100),
+  // D65: cùng giới hạn 50 ký tự với ô Liều khi ghi điều trị (liều tham chiếu được điền sẵn vào đó).
+  dose: checkText(c.dose, 'Liều tham chiếu', 50),
   route: !c.route || MEDICINE_ROUTES.includes(c.route) ? undefined : 'Đường dùng không hợp lệ.',
   withdrawalDays: checkNumber(c.withdrawalDays, 'Ngưng sử dụng thịt', 0, 365),
   description: checkText(c.description, 'Ghi chú', 500),
