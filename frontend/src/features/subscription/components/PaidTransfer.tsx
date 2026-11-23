@@ -4,25 +4,36 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { LoadingBlock } from '../../../shared/ui'
 import { STORAGE_BLOCKED, enterFarm, farmWorkspaceError } from '../../farm-workspace'
+import { subscriptionApi } from '../api/subscriptionApi'
 import { fmtPeriod } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
-import { PaymentSuccessDialog, rememberPaymentSuccess } from './PaymentSuccessDialog'
+import { PaymentSuccessDialog, rememberPaymentSuccess, type Confirmation } from './PaymentSuccessDialog'
 
-export default function PaidTransfer({ farmId, payment, checkAccess, onClose }: {
+export default function PaidTransfer({ farmId, farmName, payment, checkAccess, onClose }: {
   farmId: number
+  farmName?: string
   payment: Payment
   checkAccess: boolean
   onClose: () => void
 }) {
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const { quoteRef, purchasedStart, purchasedEnd } = payment
-  const period = purchasedStart && purchasedEnd ? fmtPeriod(purchasedStart, purchasedEnd) : null
+  // This component is keyed by the paid request and keeps its receipt during farm entry and retry.
+  const [confirmation] = useState<Confirmation>(() => ({
+    paymentRouteId: subscriptionApi.paymentRouteId(payment),
+    quoteRef: payment.quoteRef,
+    amountVnd: payment.amountVnd,
+    durationYears: payment.durationYears,
+    period: payment.purchasedStart && payment.purchasedEnd ? fmtPeriod(payment.purchasedStart, payment.purchasedEnd) : '',
+    bankPaidAt: payment.bankPaidAt ?? '',
+    confirmedAt: payment.confirmedAt ?? '',
+    receiptCode: payment.receiptCode ?? '',
+  }))
 
   useEffect(() => {
     const controller = new AbortController()
     const load = (target: string) => {
-      rememberPaymentSuccess(farmId, { quoteRef, period })
+      rememberPaymentSuccess(farmId, confirmation)
       pageLoader.replace(target)
     }
 
@@ -47,10 +58,10 @@ export default function PaidTransfer({ farmId, payment, checkAccess, onClose }: 
 
     queueMicrotask(() => void openFarm())
     return () => controller.abort()
-  }, [farmId, quoteRef, period, checkAccess, attempt])
+  }, [farmId, confirmation, checkAccess, attempt])
 
   if (error) {
-    return <PaymentSuccessDialog confirmation={{ quoteRef, period }} error={error} onClose={onClose} onRetry={() => {
+    return <PaymentSuccessDialog confirmation={confirmation} farmName={farmName} error={error} onClose={onClose} onRetry={() => {
       setError(null)
       setAttempt((value) => value + 1)
     }} />
