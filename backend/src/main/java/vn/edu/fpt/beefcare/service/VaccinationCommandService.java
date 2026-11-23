@@ -3,12 +3,15 @@ package vn.edu.fpt.beefcare.service;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.Cattle;
@@ -24,11 +27,34 @@ import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 import vn.edu.fpt.beefcare.service.RecordRevisionService;
 import vn.edu.fpt.beefcare.service.dto.CareDtos;
 
-/** Business commands for vaccination schedules and dose deferrals (UC-FE09-02/06, GBR-41/43). */
+/** FE-09 – lệnh lịch tiêm phòng và ghi tiêm (UC-FE09-02 → 05, GBR-41/43). Không còn hoãn mũi (D46). */
 @Service
 public class VaccinationCommandService {
     /** Độ dài tối đa của số lô khi client cũ vẫn gửi lên (cột {@code batch_no} varchar(50)). */
     private static final int MAX_BATCH_NO_LENGTH = 50;
+    /** Độ dài tối đa của liều, đường tiêm và tên người tiêm (cột varchar(255)). */
+    private static final int MAX_TEXT_LENGTH = 255;
+    /** Số ngày ngưng sử dụng thịt cho phép: số nguyên 0 – 365 (spec FE-09, D45). */
+    private static final int MAX_WITHDRAWAL_DAYS = 365;
+    /** Mã đường tiêm "Khác": phải kèm mô tả, không được lưu trơn (D45). */
+    private static final String ROUTE_OTHER = "OTHER";
+    /**
+     * Liều = số dương (dấu chấm hoặc phẩy thập phân) + đơn vị tùy chọn bắt đầu bằng chữ cái,
+     * ví dụ "2", "2,5 ml", "1 liều" (D45). Không nhận khoảng như "1-2 ml".
+     */
+    private static final Pattern DOSE_PATTERN = Pattern.compile("^(\\d+(?:[.,]\\d+)?)\\s*(\\p{L}.*)?$");
+
+    // ---- Trạng thái lịch và mũi (D46: không còn trạng thái hoãn DEFERRED) ----
+    private static final String SCHEDULE_ACTIVE = "ACTIVE";
+    private static final String DOSE_PLANNED = "PLANNED";
+    private static final String DOSE_DONE = "DONE";
+    private static final String DOSE_CANCELLED = "CANCELLED";
+
+    // ---- Giới hạn của lịch tiêm (spec FE-09 SCR-32) ----
+    private static final int MAX_SCHEDULE_NAME_LENGTH = 100;
+    private static final int MAX_DOSE_COUNT = 10;
+    private static final int MAX_INTERVAL_DAYS = 365;
+    private static final int MAX_BOOSTER_MONTHS = 60;
 
     @PersistenceContext private EntityManager em;
     private final FarmAccessService access;
@@ -48,102 +74,365 @@ public class VaccinationCommandService {
             CareDtos.VaccinationScheduleResult.class, () -> createScheduleInCommand(farmId, request));
     }
 
+    /**
+     * A2 – danh sách lịch tiêm của trại kèm từng mũi. {@code completed} cho biết lịch đang chạy đã không còn mũi chờ
+     * tiêm (D46).
+     */
     @Transactional(readOnly = true)
     public List<CareDtos.VaccinationScheduleView> schedules(Long farmId) {
         access.require(farmId, FarmAction.VIEW_HEALTH);
-        return em.createQuery("select s from VaccinationSchedule s where s.farm.id=:farm order by s.id desc", VaccinationSchedule.class)
-            .setParameter("farm", farmId).getResultList().stream().map(s -> {
-                List<CareDtos.ScheduledDoseView> doses = em.createQuery("select d from ScheduledDose d where d.schedule.id=:id order by d.dueDate,d.cattle.displayCode,d.doseNo", ScheduledDose.class)
-                    .setParameter("id", s.getId()).getResultList().stream().map(d -> new CareDtos.ScheduledDoseView(d.getId(),d.getCattle().getId(),d.getCattle().getDisplayCode(),
-                        d.getDoseNo(),d.getDueDate(),d.getNewExpectedDate(),d.getStatus(),d.getDeferralReason(),d.getVersion())).toList();
-                return new CareDtos.VaccinationScheduleView(s.getId(),s.getScheduleName(),s.getTargetGroup(),s.getVaccine().getId(),s.getVaccine().getName(),
-                    s.getFirstDueDate(),s.getDoseCount(),s.getIntervalDays(),s.getBoosterIntervalMonths(),s.getStatus(),s.getVersion(),doses,s.getStopReason(),
-                    targetView(farmId,s.getTargetCriteria()));
-            }).toList();
+        List<VaccinationSchedule> schedules = em
+            .createQuery("select s from VaccinationSchedule s where s.farm.id=:farm order by s.id desc", VaccinationSchedule.class)
+            .setParameter("farm", farmId)
+            .getResultList();
+        List<CareDtos.VaccinationScheduleView> views = new ArrayList<>();
+        for (VaccinationSchedule s : schedules) {
+            List<ScheduledDose> doses = em
+                .createQuery("select d from ScheduledDose d where d.schedule.id=:id order by d.dueDate,d.cattle.displayCode,d.doseNo", ScheduledDose.class)
+                .setParameter("id", s.getId())
+                .getResultList();
+            List<CareDtos.ScheduledDoseView> doseViews = doses
+                .stream()
+                .map(d -> new CareDtos.ScheduledDoseView(
+                    d.getId(), d.getCattle().getId(), d.getCattle().getDisplayCode(), d.getDoseNo(), d.getDueDate(), d.getStatus(), d.getVersion()))
+                .toList();
+            boolean completed = SCHEDULE_ACTIVE.equalsIgnoreCase(s.getStatus()) && isCompleted(doses);
+            views.add(new CareDtos.VaccinationScheduleView(
+                s.getId(),
+                s.getScheduleName(),
+                s.getTargetGroup(),
+                s.getVaccine().getId(),
+                s.getVaccine().getName(),
+                s.getFirstDueDate(),
+                s.getDoseCount(),
+                s.getIntervalDays(),
+                s.getBoosterIntervalMonths(),
+                s.getStatus(),
+                completed,
+                s.getVersion(),
+                doseViews,
+                s.getStopReason(),
+                targetView(farmId, s.getTargetCriteria())
+            ));
+        }
+        return views;
     }
 
     public CareDtos.VaccinationScheduleResult editSchedule(Long farmId, Long scheduleId, String key, CareDtos.EditVaccinationSchedule request) {
-        return idempotency.execute(farmId,FarmAction.MANAGE_HEALTH,"VACCINATION_SCHEDULE_EDIT",key,Map.of("scheduleId",scheduleId,"request",request),
-            CareDtos.VaccinationScheduleResult.class,()->editScheduleInCommand(farmId,scheduleId,request));
+        return idempotency.execute(
+            farmId,
+            FarmAction.MANAGE_HEALTH,
+            "VACCINATION_SCHEDULE_EDIT",
+            key,
+            Map.of("scheduleId", scheduleId, "request", request),
+            CareDtos.VaccinationScheduleResult.class,
+            () -> editScheduleInCommand(farmId, scheduleId, request)
+        );
     }
 
+    /**
+     * A4 – sửa một lịch tiêm (UC-FE09-03, R-09-05). Trường để {@code null} giữ nguyên giá trị cũ.
+     *
+     * <p>Quy tắc khóa (D46):
+     * <ul>
+     *   <li>Lịch đã dừng hoặc đã hoàn thành (không còn mũi chờ tiêm): không sửa được gì.</li>
+     *   <li>Lịch đã có mũi tiêm: không đổi vắc-xin, ngày bắt đầu, khoảng cách giữa mũi; số mũi không giảm dưới mũi đã
+     *       tiêm; không đổi số mũi khi đã bắt đầu loạt nhắc lại.</li>
+     *   <li>Bò thêm vào lịch: mũi 1 có hạn từ hôm nay nếu ngày bắt đầu của lịch đã qua.</li>
+     *   <li>Bò bị bỏ khỏi lịch: mũi chờ tiêm bị hủy, mũi đã tiêm giữ nguyên (thay cho việc hoãn).</li>
+     * </ul>
+     * Mũi đã tiêm (DONE) không bao giờ thay đổi.
+     */
     @Transactional
-    CareDtos.VaccinationScheduleResult editScheduleInCommand(Long farmId,Long scheduleId,CareDtos.EditVaccinationSchedule req) {
-        FarmContext ctx=access.require(farmId,FarmAction.MANAGE_HEALTH);
-        if(req==null)throw DomainException.required("schedule");
-        VaccinationSchedule s=em.createQuery("select s from VaccinationSchedule s where s.id=:id and s.farm.id=:farm",VaccinationSchedule.class)
-            .setParameter("id",scheduleId).setParameter("farm",farmId).getResultStream().findFirst().orElseThrow(()->DomainException.notFound(MessageCodes.COM_08,"scheduleId",scheduleId));
-        VersionGuard.requireExpected(s.getVersion(),req.expectedVersion());
-        if(!"ACTIVE".equalsIgnoreCase(s.getStatus()))throw DomainException.conflict(MessageCodes.COM_05);
-        List<ScheduledDose> all=em.createQuery("select d from ScheduledDose d where d.schedule.id=:id order by d.cattle.id,d.doseNo,d.id",ScheduledDose.class).setParameter("id",scheduleId).getResultList();
-        boolean anyDone=all.stream().anyMatch(d->"DONE".equalsIgnoreCase(d.getStatus()));
-        Map<String,Object> changes=new java.util.LinkedHashMap<>();
-        if(req.name()!=null){String n=trim(req.name());if(n==null||n.length()>100)throw DomainException.invalid("name");
-            if(!n.equalsIgnoreCase(s.getScheduleName())&&em.createQuery("select count(x) from VaccinationSchedule x where x.farm.id=:farm and x.id<>:id and upper(x.status)='ACTIVE' and lower(x.scheduleName)=lower(:name)",Long.class)
-                .setParameter("farm",farmId).setParameter("id",scheduleId).setParameter("name",n).getSingleResult()>0)throw DomainException.conflict(MessageCodes.COM_05,"reason","active_schedule_name_exists");
-            s.setScheduleName(n);changes.put("name",n);}
-        if(req.vaccineId()!=null&&!req.vaccineId().equals(s.getVaccine().getId())){
-            // FE-09 Q3: a schedule with given doses keeps its vaccine; stop it and create a new one instead.
-            if(anyDone)throw DomainException.conflict(MessageCodes.COM_05,"reason","vaccine_change_after_done");
-            Vaccine v=em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm",Vaccine.class).setParameter("id",req.vaccineId()).setParameter("farm",farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst().orElseThrow(()->DomainException.notFound(MessageCodes.COM_08,"vaccineId",req.vaccineId()));
-            if(!Boolean.TRUE.equals(v.getAvailable()))throw DomainException.unprocessable(MessageCodes.FE18_08,"field","vaccineId");s.setVaccine(v);changes.put("vaccineId",v.getId());}
-        boolean redate=false;
-        if(req.intervalDays()!=null&&!req.intervalDays().equals(s.getIntervalDays())){if(req.intervalDays()<1||req.intervalDays()>365)throw DomainException.invalid("intervalDays");s.setIntervalDays(req.intervalDays());redate=true;changes.put("intervalDays",req.intervalDays());}
-        if(req.firstDueDate()!=null&&!req.firstDueDate().equals(s.getFirstDueDate())){if(req.firstDueDate().isBefore(clock.today()))throw DomainException.invalid("firstDueDate");s.setFirstDueDate(req.firstDueDate());redate=true;changes.put("firstDueDate",req.firstDueDate());}
-        int oldCount=s.getDoseCount();
-        if(Boolean.TRUE.equals(req.removeBooster())){
-            if(req.boosterIntervalMonths()!=null)throw DomainException.invalid("boosterIntervalMonths");
-            s.setBoosterIntervalMonths(null);changes.put("removeBooster",true);
-            for(ScheduledDose d:all)if(d.getDoseNo()>oldCount&&isOpen(d))d.setStatus("CANCELLED");
-        }else if(req.boosterIntervalMonths()!=null){if(req.boosterIntervalMonths()<1||req.boosterIntervalMonths()>60)throw DomainException.invalid("boosterIntervalMonths");s.setBoosterIntervalMonths(req.boosterIntervalMonths());changes.put("boosterIntervalMonths",req.boosterIntervalMonths());}
-        int count=oldCount;
-        if(req.doseCount()!=null&&req.doseCount()!=oldCount){
-            count=req.doseCount();if(count<1||count>10)throw DomainException.invalid("doseCount");
-            // A booster series already started is numbered after the last dose; renumbering it would mix boosters and doses.
-            if(all.stream().anyMatch(d->d.getDoseNo()>oldCount))throw DomainException.conflict(MessageCodes.COM_05,"reason","booster_started");
-            final int newCount=count;
-            // R-09-05: a given dose never changes, so the count cannot drop below a dose already given.
-            if(all.stream().anyMatch(d->d.getDoseNo()>newCount&&"DONE".equalsIgnoreCase(d.getStatus())))throw DomainException.conflict(MessageCodes.COM_05,"reason","dose_count_below_done");
-            for(ScheduledDose d:all)if(d.getDoseNo()>newCount&&isOpen(d))d.setStatus("CANCELLED");
-            s.setDoseCount(count);changes.put("doseCount",count);
+    CareDtos.VaccinationScheduleResult editScheduleInCommand(Long farmId, Long scheduleId, CareDtos.EditVaccinationSchedule req) {
+        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_HEALTH);
+        if (req == null) {
+            throw DomainException.required("schedule");
         }
-        java.util.LinkedHashSet<Long> current=new java.util.LinkedHashSet<>();for(ScheduledDose d:all)if(!"CANCELLED".equalsIgnoreCase(d.getStatus()))current.add(d.getCattle().getId());
-        java.util.LinkedHashSet<Long> targets=new java.util.LinkedHashSet<>(current);
-        if(req.target()!=null){
-            List<Long> chosen=resolveTargets(farmId,clock.today(),req.target());
-            if(chosen.isEmpty())throw DomainException.invalid("targetCattle");
-            targets=new java.util.LinkedHashSet<>(chosen);
-            // R-09-05 / TC-09-09: a removed animal loses its open doses; its given doses stay DONE.
-            for(ScheduledDose d:all)if(!targets.contains(d.getCattle().getId())&&isOpen(d))d.setStatus("CANCELLED");
-            s.setTargetCriteria(JsonSupport.toJson(req.target()));s.setTargetGroup(targetDescription(req.target()));
-            List<Long> added=chosen.stream().filter(id->!current.contains(id)).toList();List<Long> removed=current.stream().filter(id->!chosen.contains(id)).toList();
-            changes.put("addedCattle",added);changes.put("removedCattle",removed);
+        VaccinationSchedule schedule = scheduleForFarm(farmId, scheduleId);
+        VersionGuard.requireExpected(schedule.getVersion(), req.expectedVersion());
+        if (!SCHEDULE_ACTIVE.equalsIgnoreCase(schedule.getStatus())) {
+            throw DomainException.conflict(MessageCodes.COM_05);
         }
-        // Every target animal has one open or given dose per number (BR-D17): new animals and new numbers get PLANNED doses.
-        int created=0;
-        for(Long cattleId:targets){
-            Cattle cattle=null;
-            for(int doseNo=1;doseNo<=count;doseNo++){
-                final int no=doseNo;
-                boolean exists=all.stream().anyMatch(d->d.getCattle().getId().equals(cattleId)&&d.getDoseNo()==no&&!"CANCELLED".equalsIgnoreCase(d.getStatus()));
-                if(exists)continue;
-                if(cattle==null)cattle=cattleGuard.lockWritable(farmId,cattleId);
-                ScheduledDose dose=new ScheduledDose();dose.setSchedule(s);dose.setCattle(cattle);dose.setDoseNo(doseNo);
-                dose.setDueDate(s.getFirstDueDate().plusDays((long)(doseNo-1)*s.getIntervalDays()));dose.setStatus("PLANNED");em.persist(dose);created++;
+        List<ScheduledDose> all = em
+            .createQuery("select d from ScheduledDose d where d.schedule.id=:id order by d.cattle.id,d.doseNo,d.id", ScheduledDose.class)
+            .setParameter("id", scheduleId)
+            .getResultList();
+        if (isCompleted(all)) {
+            throw DomainException.conflict(MessageCodes.COM_05, "reason", "schedule_completed");
+        }
+        boolean anyDone = all.stream().anyMatch(this::isDone);
+        Map<String, Object> changes = new java.util.LinkedHashMap<>();
+
+        applyName(farmId, schedule, req.name(), changes);
+        applyVaccine(farmId, schedule, req.vaccineId(), anyDone, changes);
+        boolean redate = applyDates(schedule, req, anyDone, changes);
+        int oldCount = schedule.getDoseCount();
+        applyBooster(schedule, req, all, oldCount, changes);
+        int count = applyDoseCount(schedule, req.doseCount(), all, oldCount, changes);
+        java.util.Set<Long> targets = applyTarget(farmId, schedule, req.target(), all, changes);
+        int created = planMissingDoses(farmId, schedule, targets, all, count);
+
+        // TC-09-08: đổi ngày bắt đầu / khoảng cách (chỉ được khi chưa ai tiêm) dời mọi mũi chờ tiêm; mũi nhắc lại giữ ngày riêng.
+        if (redate) {
+            for (ScheduledDose dose : all) {
+                if (isOpen(dose) && dose.getDoseNo() <= count) {
+                    dose.setDueDate(dueDateOf(schedule.getFirstDueDate(), dose.getDoseNo(), schedule.getIntervalDays()));
+                }
             }
         }
-        // TC-09-08: a new start date or interval moves every dose not yet given (boosters keep their own date).
-        if(redate)for(ScheduledDose d:all)if(isOpen(d)&&d.getDoseNo()<=count)d.setDueDate(s.getFirstDueDate().plusDays((long)(d.getDoseNo()-1)*s.getIntervalDays()));
         em.flush();
-        // MSG-FE09-01 counts the animals now targeted (a removed animal keeps its given doses but is no longer a target).
-        int targetCount=targets.size();
-        Long remaining=em.createQuery("select count(d) from ScheduledDose d where d.schedule.id=:id and d.status in ('PLANNED','DEFERRED')",Long.class).setParameter("id",scheduleId).getSingleResult();
-        changes.put("createdDoses",created);changes.put("version",s.getVersion());
-        audit.log(ctx,"VACCINATION_SCHEDULE_EDIT","VaccinationSchedule",scheduleId,changes);
-        return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),targetCount,remaining.intValue());
+
+        // MSG-FE09-01 đếm số bò đang thuộc lịch (bò bị bỏ vẫn giữ mũi đã tiêm nhưng không còn là đối tượng).
+        Long remaining = em
+            .createQuery("select count(d) from ScheduledDose d where d.schedule.id=:id and d.status=:planned", Long.class)
+            .setParameter("id", scheduleId)
+            .setParameter("planned", DOSE_PLANNED)
+            .getSingleResult();
+        changes.put("createdDoses", created);
+        changes.put("version", schedule.getVersion());
+        audit.log(ctx, "VACCINATION_SCHEDULE_EDIT", "VaccinationSchedule", scheduleId, changes);
+        return new CareDtos.VaccinationScheduleResult(
+            schedule.getId(), schedule.getScheduleName(), schedule.getStatus(), schedule.getVersion(), targets.size(), remaining.intValue());
     }
 
-    private boolean isOpen(ScheduledDose d){return "PLANNED".equalsIgnoreCase(d.getStatus())||"DEFERRED".equalsIgnoreCase(d.getStatus());}
+    /** Đổi tên lịch: tối đa 100 ký tự, không trùng tên một lịch đang chạy khác (R-09-03, MSG-FE09-10). */
+    private void applyName(Long farmId, VaccinationSchedule schedule, String requestedName, Map<String, Object> changes) {
+        if (requestedName == null) {
+            return;
+        }
+        String name = trim(requestedName);
+        if (name == null || name.length() > MAX_SCHEDULE_NAME_LENGTH) {
+            throw DomainException.invalid("name");
+        }
+        if (!name.equalsIgnoreCase(schedule.getScheduleName()) && activeNameTaken(farmId, schedule.getId(), name)) {
+            throw DomainException.conflict(MessageCodes.COM_05, "reason", "active_schedule_name_exists");
+        }
+        schedule.setScheduleName(name);
+        changes.put("name", name);
+    }
+
+    private boolean activeNameTaken(Long farmId, Long scheduleId, String name) {
+        Long count = em
+            .createQuery(
+                "select count(x) from VaccinationSchedule x where x.farm.id=:farm and x.id<>:id " +
+                "and upper(x.status)='ACTIVE' and lower(x.scheduleName)=lower(:name)",
+                Long.class
+            )
+            .setParameter("farm", farmId)
+            .setParameter("id", scheduleId)
+            .setParameter("name", name)
+            .getSingleResult();
+        return count > 0;
+    }
+
+    /** Đổi vắc-xin: chỉ khi chưa có mũi nào được tiêm (FE-09 Q3); vắc-xin phải còn dùng được (MSG-FE18-08). */
+    private void applyVaccine(Long farmId, VaccinationSchedule schedule, Long vaccineId, boolean anyDone, Map<String, Object> changes) {
+        if (vaccineId == null || vaccineId.equals(schedule.getVaccine().getId())) {
+            return;
+        }
+        if (anyDone) {
+            throw DomainException.conflict(MessageCodes.COM_05, "reason", "vaccine_change_after_done");
+        }
+        Vaccine vaccine = em
+            .createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
+            .setParameter("id", vaccineId)
+            .setParameter("farm", farmId)
+            .setLockMode(LockModeType.PESSIMISTIC_READ)
+            .getResultStream()
+            .findFirst()
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", vaccineId));
+        if (!Boolean.TRUE.equals(vaccine.getAvailable())) {
+            throw DomainException.unprocessable(MessageCodes.FE18_08, "field", "vaccineId");
+        }
+        schedule.setVaccine(vaccine);
+        changes.put("vaccineId", vaccine.getId());
+    }
+
+    /**
+     * Đổi khoảng cách giữa mũi và ngày bắt đầu. Khi đã có mũi tiêm thì cả hai bị khóa (D46), vì các mũi sau phải bám
+     * theo mốc đã tiêm thật.
+     *
+     * @return {@code true} nếu cần dời ngày các mũi chờ tiêm
+     */
+    private boolean applyDates(VaccinationSchedule schedule, CareDtos.EditVaccinationSchedule req, boolean anyDone, Map<String, Object> changes) {
+        boolean redate = false;
+        if (req.intervalDays() != null && !req.intervalDays().equals(schedule.getIntervalDays())) {
+            if (anyDone) {
+                throw DomainException.conflict(MessageCodes.COM_05, "reason", "interval_locked_after_done");
+            }
+            if (req.intervalDays() < 1 || req.intervalDays() > MAX_INTERVAL_DAYS) {
+                throw DomainException.invalid("intervalDays");
+            }
+            schedule.setIntervalDays(req.intervalDays());
+            changes.put("intervalDays", req.intervalDays());
+            redate = true;
+        }
+        if (req.firstDueDate() != null && !req.firstDueDate().equals(schedule.getFirstDueDate())) {
+            if (anyDone) {
+                throw DomainException.conflict(MessageCodes.COM_05, "reason", "start_date_locked_after_done");
+            }
+            if (req.firstDueDate().isBefore(clock.today())) {
+                throw DomainException.invalid("firstDueDate");
+            }
+            schedule.setFirstDueDate(req.firstDueDate());
+            changes.put("firstDueDate", req.firstDueDate());
+            redate = true;
+        }
+        return redate;
+    }
+
+    /** Đặt / bỏ nhắc lại. Bỏ nhắc lại thì hủy các mũi nhắc lại chưa tiêm (số mũi lớn hơn số mũi của loạt). */
+    private void applyBooster(VaccinationSchedule schedule, CareDtos.EditVaccinationSchedule req, List<ScheduledDose> all, int oldCount, Map<String, Object> changes) {
+        if (Boolean.TRUE.equals(req.removeBooster())) {
+            if (req.boosterIntervalMonths() != null) {
+                throw DomainException.invalid("boosterIntervalMonths");
+            }
+            schedule.setBoosterIntervalMonths(null);
+            changes.put("removeBooster", true);
+            for (ScheduledDose dose : all) {
+                if (dose.getDoseNo() > oldCount && isOpen(dose)) {
+                    dose.setStatus(DOSE_CANCELLED);
+                }
+            }
+        } else if (req.boosterIntervalMonths() != null) {
+            if (req.boosterIntervalMonths() < 1 || req.boosterIntervalMonths() > MAX_BOOSTER_MONTHS) {
+                throw DomainException.invalid("boosterIntervalMonths");
+            }
+            schedule.setBoosterIntervalMonths(req.boosterIntervalMonths());
+            changes.put("boosterIntervalMonths", req.boosterIntervalMonths());
+        }
+    }
+
+    /**
+     * Đổi số mũi (1 – 10). Không đổi khi đã bắt đầu loạt nhắc lại; không giảm dưới mũi đã tiêm (R-09-05). Mũi chờ tiêm
+     * vượt số mới bị hủy.
+     *
+     * @return số mũi sau khi sửa
+     */
+    private int applyDoseCount(VaccinationSchedule schedule, Integer requested, List<ScheduledDose> all, int oldCount, Map<String, Object> changes) {
+        if (requested == null || requested == oldCount) {
+            return oldCount;
+        }
+        if (requested < 1 || requested > MAX_DOSE_COUNT) {
+            throw DomainException.invalid("doseCount");
+        }
+        // Loạt nhắc lại đã bắt đầu được đánh số sau mũi cuối; đánh số lại sẽ lẫn mũi nhắc với mũi thường.
+        if (all.stream().anyMatch(d -> d.getDoseNo() > oldCount)) {
+            throw DomainException.conflict(MessageCodes.COM_05, "reason", "booster_started");
+        }
+        if (all.stream().anyMatch(d -> d.getDoseNo() > requested && isDone(d))) {
+            throw DomainException.conflict(MessageCodes.COM_05, "reason", "dose_count_below_done");
+        }
+        for (ScheduledDose dose : all) {
+            if (dose.getDoseNo() > requested && isOpen(dose)) {
+                dose.setStatus(DOSE_CANCELLED);
+            }
+        }
+        schedule.setDoseCount(requested);
+        changes.put("doseCount", requested);
+        return requested;
+    }
+
+    /**
+     * Đổi đối tượng lịch (GBR-41): bò bị bỏ mất các mũi chờ tiêm, mũi đã tiêm giữ nguyên (TC-09-09).
+     *
+     * @return danh sách bò thuộc lịch sau khi sửa
+     */
+    private java.util.Set<Long> applyTarget(Long farmId, VaccinationSchedule schedule, CareDtos.ScheduleTarget target, List<ScheduledDose> all, Map<String, Object> changes) {
+        java.util.Set<Long> current = new java.util.LinkedHashSet<>();
+        for (ScheduledDose dose : all) {
+            if (!DOSE_CANCELLED.equalsIgnoreCase(dose.getStatus())) {
+                current.add(dose.getCattle().getId());
+            }
+        }
+        if (target == null) {
+            return current;
+        }
+        List<Long> chosen = resolveTargets(farmId, clock.today(), target);
+        if (chosen.isEmpty()) {
+            throw DomainException.invalid("targetCattle");
+        }
+        for (ScheduledDose dose : all) {
+            if (!chosen.contains(dose.getCattle().getId()) && isOpen(dose)) {
+                dose.setStatus(DOSE_CANCELLED);
+            }
+        }
+        schedule.setTargetCriteria(JsonSupport.toJson(target));
+        schedule.setTargetGroup(targetDescription(target));
+        changes.put("addedCattle", chosen.stream().filter(id -> !current.contains(id)).toList());
+        changes.put("removedCattle", current.stream().filter(id -> !chosen.contains(id)).toList());
+        return new java.util.LinkedHashSet<>(chosen);
+    }
+
+    /**
+     * Mỗi bò thuộc lịch có đúng một mũi (chờ tiêm hoặc đã tiêm) cho mỗi số mũi (BR-D17): bò mới và số mũi mới được tạo mũi
+     * chờ tiêm. Bò mới thêm vào lịch đã bắt đầu thì tính hạn từ hôm nay, để không bị quá hạn ngay khi thêm (D46).
+     *
+     * @return số mũi mới tạo
+     */
+    private int planMissingDoses(Long farmId, VaccinationSchedule schedule, java.util.Set<Long> targets, List<ScheduledDose> all, int count) {
+        LocalDate today = clock.today();
+        int created = 0;
+        for (Long cattleId : targets) {
+            boolean newToSchedule = all.stream()
+                .noneMatch(d -> d.getCattle().getId().equals(cattleId) && !DOSE_CANCELLED.equalsIgnoreCase(d.getStatus()));
+            LocalDate start = newToSchedule && schedule.getFirstDueDate().isBefore(today) ? today : schedule.getFirstDueDate();
+            Cattle cattle = null;
+            for (int doseNo = 1; doseNo <= count; doseNo++) {
+                final int number = doseNo;
+                boolean exists = all.stream()
+                    .anyMatch(d -> d.getCattle().getId().equals(cattleId) && d.getDoseNo() == number && !DOSE_CANCELLED.equalsIgnoreCase(d.getStatus()));
+                if (exists) {
+                    continue;
+                }
+                if (cattle == null) {
+                    cattle = cattleGuard.lockWritable(farmId, cattleId);
+                }
+                ScheduledDose dose = new ScheduledDose();
+                dose.setSchedule(schedule);
+                dose.setCattle(cattle);
+                dose.setDoseNo(doseNo);
+                dose.setDueDate(dueDateOf(start, doseNo, schedule.getIntervalDays()));
+                dose.setStatus(DOSE_PLANNED);
+                em.persist(dose);
+                created++;
+            }
+        }
+        return created;
+    }
+
+    /** Hạn của mũi thứ {@code doseNo}: ngày bắt đầu + (doseNo − 1) × khoảng cách giữa mũi. */
+    private static LocalDate dueDateOf(LocalDate start, int doseNo, int intervalDays) {
+        return start.plusDays((long) (doseNo - 1) * intervalDays);
+    }
+
+    private VaccinationSchedule scheduleForFarm(Long farmId, Long scheduleId) {
+        return em
+            .createQuery("select s from VaccinationSchedule s where s.id=:id and s.farm.id=:farm", VaccinationSchedule.class)
+            .setParameter("id", scheduleId)
+            .setParameter("farm", farmId)
+            .getResultStream()
+            .findFirst()
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "scheduleId", scheduleId));
+    }
+
+    /** Mũi chờ tiêm (không còn trạng thái hoãn – D46). */
+    private boolean isOpen(ScheduledDose dose) {
+        return DOSE_PLANNED.equalsIgnoreCase(dose.getStatus());
+    }
+
+    private boolean isDone(ScheduledDose dose) {
+        return DOSE_DONE.equalsIgnoreCase(dose.getStatus());
+    }
+
+    /**
+     * Lịch "đã hoàn thành" khi không còn mũi chờ tiêm nào (D46). Lịch có nhắc lại thì sau mỗi lần tiêm mũi cuối lại sinh
+     * mũi nhắc tiếp theo, nên chỉ hoàn thành khi bị dừng.
+     */
+    private boolean isCompleted(List<ScheduledDose> doses) {
+        return doses.stream().noneMatch(this::isOpen);
+    }
 
     public CareDtos.VaccinationScheduleResult stopSchedule(Long farmId,Long scheduleId,String key,Integer expectedVersion,String reason){
         Map<String,Object> fingerprint=new java.util.HashMap<>();fingerprint.put("scheduleId",scheduleId);fingerprint.put("expectedVersion",expectedVersion);fingerprint.put("reason",reason);
@@ -157,7 +446,18 @@ public class VaccinationCommandService {
         VersionGuard.requireExpected(s.getVersion(),expectedVersion);if("STOPPED".equalsIgnoreCase(s.getStatus()))return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),0,0);
         // R-09-06 / SCR-32 #11: a stop always records its reason (≤ 500, Q1).
         String why=trim(reason);if(why==null)throw DomainException.required("reason");if(why.length()>500)throw DomainException.invalid("reason");
-        s.setStatus("STOPPED");s.setStopReason(why);List<ScheduledDose> ds=em.createQuery("select d from ScheduledDose d where d.schedule.id=:id and d.status in ('PLANNED','DEFERRED')",ScheduledDose.class).setParameter("id",scheduleId).getResultList();for(ScheduledDose d:ds)d.setStatus("CANCELLED");em.flush();
+        s.setStatus("STOPPED");
+        s.setStopReason(why);
+        // R-09-06: dừng lịch thì mọi mũi chờ tiêm bị hủy; mũi đã tiêm giữ nguyên.
+        List<ScheduledDose> ds = em
+            .createQuery("select d from ScheduledDose d where d.schedule.id=:id and d.status=:planned", ScheduledDose.class)
+            .setParameter("id", scheduleId)
+            .setParameter("planned", DOSE_PLANNED)
+            .getResultList();
+        for (ScheduledDose d : ds) {
+            d.setStatus(DOSE_CANCELLED);
+        }
+        em.flush();
         Long targets=em.createQuery("select count(distinct d.cattle.id) from ScheduledDose d where d.schedule.id=:id",Long.class).setParameter("id",scheduleId).getSingleResult();audit.log(ctx,"VACCINATION_SCHEDULE_STOP","VaccinationSchedule",scheduleId,Map.of("cancelledDoses",ds.size(),"reason",why));
         return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),targets.intValue(),0);
     }
@@ -284,11 +584,6 @@ public class VaccinationCommandService {
         return "OTHER";
     }
 
-    public CareDtos.DoseResult deferDose(Long farmId, Long doseId, String key, CareDtos.DeferDose request) {
-        return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "VACCINATION_DOSE_DEFER", key,
-            Map.of("doseId", doseId, "request", request), CareDtos.DoseResult.class, () -> deferDoseInCommand(farmId, doseId, request));
-    }
-
     public CareDtos.VaccinationBatchResult record(Long farmId, String key, CareDtos.RecordVaccinations request) {
         return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "VACCINATION_RECORD_BATCH", key, request,
             CareDtos.VaccinationBatchResult.class, () -> recordInCommand(farmId, request));
@@ -317,9 +612,19 @@ public class VaccinationCommandService {
             if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.unprocessable(MessageCodes.FE18_08, "field", "vaccineId");
             record.setVaccine(vaccine); record.setVaccineNameSnapshot(vaccine.getName());
         }
-        if (req.dose() != null) record.setDose(requireMax(req.dose(), "dose", 255));
-        if (req.route() != null) record.setRoute(requireMax(req.route(), "route", 255));
-        if (req.vaccinator() != null) record.setVaccinator(requireMax(req.vaccinator(), "vaccinator", 255));
+        if (req.dose() != null) {
+            String dose = requireMax(req.dose(), "dose", MAX_TEXT_LENGTH);
+            requireValidDose(dose);
+            record.setDose(dose);
+        }
+        if (req.route() != null) {
+            String route = requireMax(req.route(), "route", MAX_TEXT_LENGTH);
+            requireRouteDescription(route);
+            record.setRoute(route);
+        }
+        if (req.vaccinator() != null) {
+            record.setVaccinator(requireMax(req.vaccinator(), "vaccinator", MAX_TEXT_LENGTH));
+        }
         if (record.getSource() != null && "ON_FARM".equalsIgnoreCase(record.getSource())) {
             if (req.batchNo() != null) record.setBatchNo(requireMax(req.batchNo(), "batchNo", 50));
             if (req.administeredAt() != null) {
@@ -328,7 +633,7 @@ public class VaccinationCommandService {
             }
             // GAP-FE09-04 / TC-09-27: the withdrawal period can be corrected (0-365); the end date is always recalculated.
             if (req.withdrawalDays() != null) {
-                if (req.withdrawalDays() < 0 || req.withdrawalDays() > 365) throw DomainException.invalid("withdrawalDays");
+                requireWithdrawalDays(req.withdrawalDays());
                 record.setWithdrawalDays(req.withdrawalDays());
             }
             int days = record.getWithdrawalDays() == null ? 0 : record.getWithdrawalDays();
@@ -363,10 +668,11 @@ public class VaccinationCommandService {
         record.setStatus("VOIDED"); record.setStatusReason(req.reason().trim());
         ScheduledDose dose = record.getScheduledDose();
         if (dose != null) {
-            if ("ACTIVE".equalsIgnoreCase(dose.getSchedule().getStatus())) {
-                dose.setStatus(dose.getNewExpectedDate() != null || trim(dose.getDeferralReason()) != null ? "DEFERRED" : "PLANNED");
-            } else dose.setStatus("CANCELLED");
-            dose.setVaccination(null); record.setScheduledDose(null);
+            // R-09-14: hủy bản ghi thì mũi quay về chờ tiêm (lịch còn chạy) hoặc bị hủy (lịch đã dừng). Không còn hoãn (D46).
+            boolean scheduleActive = SCHEDULE_ACTIVE.equalsIgnoreCase(dose.getSchedule().getStatus());
+            dose.setStatus(scheduleActive ? DOSE_PLANNED : DOSE_CANCELLED);
+            dose.setVaccination(null);
+            record.setScheduledDose(null);
         }
         em.flush();
         revisions.record(ctx, "Vaccination", vaccinationId, RecordRevisionService.VOID, req.reason(), before, vaccinationSnapshot(record));
@@ -401,16 +707,40 @@ public class VaccinationCommandService {
         LocalDate date = source.equals("ON_FARM") ? clock.toFarmDate(administeredAt) : req.vaccinationDate();
         if (date == null) throw DomainException.required("vaccinationDate");
         clock.assertNotFuture(date);
-        int withdrawalDays = source.equals("HISTORICAL") ? 0 : req.withdrawalDays() == null ? parseDays(vaccine.getWithdrawalInfo()) : req.withdrawalDays();
-        if (withdrawalDays < 0 || withdrawalDays > 365) throw DomainException.invalid("withdrawalDays");
-        String doseText = trim(req.dose()) == null ? vaccine.getDose() : req.dose().trim();
-        String route = trim(req.route()) == null ? vaccine.getRoute() : req.route().trim();
+        // Nhập lịch sử không có ngưng thịt (R-09-08); tiêm tại trại không gửi số ngày thì lấy theo danh mục vắc-xin.
+        int withdrawalDays;
+        if (source.equals("HISTORICAL")) {
+            withdrawalDays = 0;
+        } else if (req.withdrawalDays() == null) {
+            withdrawalDays = parseDays(vaccine.getWithdrawalInfo());
+        } else {
+            withdrawalDays = req.withdrawalDays();
+        }
+        requireWithdrawalDays(withdrawalDays);
+
+        // Liều không bắt buộc (spec FE-09 §3.3): không gửi thì lấy liều tham chiếu của vắc-xin, vắc-xin không có thì để trống.
+        String requestDose = trim(req.dose());
+        if (requestDose != null) {
+            if (requestDose.length() > MAX_TEXT_LENGTH) {
+                throw DomainException.invalid("dose");
+            }
+            requireValidDose(requestDose);
+        }
+        String doseText = requestDose != null ? requestDose : trim(vaccine.getDose());
+
+        String requestRoute = trim(req.route());
+        if (requestRoute != null) {
+            requireRouteDescription(requestRoute);
+        }
+        String route = requestRoute != null ? requestRoute : vaccine.getRoute();
+        if (route == null || route.isBlank() || route.length() > MAX_TEXT_LENGTH) {
+            throw DomainException.required("route");
+        }
+
         String vaccinator = trim(req.vaccinator()) == null ? ctx.user().getFullName() : req.vaccinator().trim();
-        // FE-09 spec §3.3: the dose is optional (prefilled from the vaccine); a vaccine without a reference dose records none.
-        if (doseText != null && doseText.isBlank()) doseText = null;
-        if (doseText != null && doseText.length() > 255) throw DomainException.invalid("dose");
-        if (route == null || route.isBlank() || route.length() > 255) throw DomainException.required("route");
-        if (vaccinator == null || vaccinator.isBlank() || vaccinator.length() > 255) throw DomainException.required("vaccinator");
+        if (vaccinator == null || vaccinator.isBlank() || vaccinator.length() > MAX_TEXT_LENGTH) {
+            throw DomainException.required("vaccinator");
+        }
         List<Long> ids = animals.stream().map(CareDtos.VaccinationAnimal::cattleId).distinct().sorted().toList();
         if (ids.size() != animals.size() || ids.stream().anyMatch(java.util.Objects::isNull)) throw DomainException.invalid("animals");
         var cattleById = new java.util.LinkedHashMap<Long, Cattle>();
@@ -423,31 +753,22 @@ public class VaccinationCommandService {
             cattleGuard.assertWritable(cattle);
             cattleById.put(id, cattle);
         }
-        int vaccinated = 0; int deferred = 0; List<Long> vaccinationIds = new ArrayList<>();
+        int vaccinated = 0;
+        List<Long> vaccinationIds = new ArrayList<>();
         for (CareDtos.VaccinationAnimal item : animals) {
-            if (skippedIds.contains(item.cattleId())) continue;
-            Cattle cattle = cattleById.get(item.cattleId());
-            String decision = upper(item.decision());
-            if (decision.equals("DEFER")) {
-                if (item.scheduledDoseId() == null) throw DomainException.required("scheduledDoseId");
-                ScheduledDose scheduled = doseForFarm(farmId, item.scheduledDoseId());
-                if (!scheduled.getCattle().getId().equals(cattle.getId())) throw DomainException.invalid("scheduledDoseId");
-                if (alreadyGiven(scheduled, cattle, skipped)) continue;
-                VersionGuard.requireExpected(scheduled.getVersion(), item.expectedDoseVersion());
-                if (!java.util.Set.of("PLANNED", "DEFERRED").contains(upper(scheduled.getStatus()))) throw DomainException.conflict(MessageCodes.COM_05);
-                if (item.deferralReason() == null || item.deferralReason().isBlank()) throw DomainException.required("deferralReason");
-                if (item.newExpectedDate() != null && item.newExpectedDate().isBefore(clock.today())) throw DomainException.invalid("newExpectedDate");
-                scheduled.setStatus("DEFERRED"); scheduled.setDeferralReason(item.deferralReason().trim()); scheduled.setNewExpectedDate(item.newExpectedDate()); scheduled.setDeferredBy(ctx.user());
-                deferred++; continue;
+            if (skippedIds.contains(item.cattleId())) {
+                continue;
             }
-            if (!decision.equals("VACCINATE")) throw DomainException.invalid("decision");
-            assertAfterHerdEntry(farmId,cattle,date);
+            Cattle cattle = cattleById.get(item.cattleId());
+            assertAfterHerdEntry(farmId, cattle, date);
             ScheduledDose scheduled = item.scheduledDoseId() == null || source.equals("HISTORICAL") ? null : doseForFarm(farmId, item.scheduledDoseId());
             if (scheduled != null) {
                 if (!scheduled.getCattle().getId().equals(cattle.getId()) || !scheduled.getSchedule().getVaccine().getId().equals(vaccine.getId())) throw DomainException.invalid("scheduledDoseId");
                 if (alreadyGiven(scheduled, cattle, skipped)) continue;
                 VersionGuard.requireExpected(scheduled.getVersion(), item.expectedDoseVersion());
-                if (!java.util.Set.of("PLANNED", "DEFERRED").contains(upper(scheduled.getStatus()))) throw DomainException.conflict(MessageCodes.COM_05);
+                if (!isOpen(scheduled)) {
+                    throw DomainException.conflict(MessageCodes.COM_05);
+                }
             }
             Vaccination record = new Vaccination(); record.setCattle(cattle); record.setVaccine(vaccine); record.setSource(source);
             record.setVaccinationDate(date); record.setAdministeredAt(administeredAt); record.setEntryTime(clock.now());
@@ -460,10 +781,15 @@ public class VaccinationCommandService {
             if (scheduled != null) planBooster(scheduled, date);
             vaccinationIds.add(record.getId()); vaccinated++;
         }
-        // A batch with only deferrals or skipped animals creates no vaccination: the audit row then points at the first animal.
-        audit.log(ctx, "VACCINATION_RECORD_BATCH", vaccinationIds.isEmpty() ? "Cattle" : "Vaccination", vaccinationIds.isEmpty() ? ids.get(0) : vaccinationIds.get(0),
-            Map.of("vaccinatedCount", vaccinated, "deferredCount", deferred, "source", source, "skippedCount", skipped.size()));
-        return new CareDtos.VaccinationBatchResult(vaccinated, deferred, List.copyOf(vaccinationIds), List.copyOf(skipped));
+        // Lô mà mọi con đều bị bỏ qua thì không có bản ghi tiêm: dòng audit trỏ vào con đầu tiên.
+        audit.log(
+            ctx,
+            "VACCINATION_RECORD_BATCH",
+            vaccinationIds.isEmpty() ? "Cattle" : "Vaccination",
+            vaccinationIds.isEmpty() ? ids.get(0) : vaccinationIds.get(0),
+            Map.of("vaccinatedCount", vaccinated, "source", source, "skippedCount", skipped.size())
+        );
+        return new CareDtos.VaccinationBatchResult(vaccinated, List.copyOf(vaccinationIds), List.copyOf(skipped));
     }
 
     /** R-09-10 / TC-09-17: a dose already given (by another batch meanwhile) skips this animal with MSG-FE09-09. */
@@ -471,25 +797,6 @@ public class VaccinationCommandService {
         if (!"DONE".equalsIgnoreCase(scheduled.getStatus())) return false;
         skipped.add(new CareDtos.SkippedAnimal(cattle.getId(), cattle.getDisplayCode(), MessageCodes.FE09_09, scheduled.getDoseNo()));
         return true;
-    }
-
-    @Transactional
-    CareDtos.DoseResult deferDoseInCommand(Long farmId, Long doseId, CareDtos.DeferDose req) {
-        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_HEALTH);
-        ScheduledDose dose = em.createQuery("select d from ScheduledDose d where d.id=:id and d.schedule.farm.id=:farm", ScheduledDose.class)
-            .setParameter("id", doseId).setParameter("farm", farmId).getResultStream().findFirst()
-            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "doseId", doseId));
-        cattleGuard.lockWritable(farmId, dose.getCattle().getId());
-        VersionGuard.requireExpected(dose.getVersion(), req == null ? null : req.expectedVersion());
-        if (!java.util.Set.of("PLANNED", "DEFERRED").contains(upper(dose.getStatus()))) throw DomainException.conflict(MessageCodes.COM_05);
-        if (req.reason() == null || req.reason().isBlank()) throw DomainException.required("reason");
-        if (req.reason().trim().length() > 500) throw DomainException.invalid("reason");
-        if (req.newExpectedDate() != null && req.newExpectedDate().isBefore(clock.today())) throw DomainException.invalid("newExpectedDate");
-        dose.setStatus("DEFERRED"); dose.setDeferralReason(req.reason().trim()); dose.setNewExpectedDate(req.newExpectedDate());
-        dose.setDeferralNote(trim(req.note())); dose.setDeferredBy(ctx.user());
-        em.flush(); // the answer carries the new version, so the next action on this dose is not refused as stale
-        audit.log(ctx, "VACCINATION_DOSE_DEFER", "ScheduledDose", doseId, Map.of("newExpectedDate", req.newExpectedDate() == null ? "" : req.newExpectedDate(), "reason", req.reason().trim()));
-        return new CareDtos.DoseResult(dose.getId(), dose.getStatus(), dose.getVersion(), dose.getDeferralReason(), dose.getNewExpectedDate());
     }
 
     private ScheduledDose doseForFarm(Long farmId, Long doseId) {
@@ -525,7 +832,7 @@ public class VaccinationCommandService {
         Integer interval = schedule.getBoosterIntervalMonths();
         if (!"ACTIVE".equalsIgnoreCase(schedule.getStatus()) || interval == null || interval < 1 || completed.getDoseNo() < schedule.getDoseCount()) return;
         int nextNo = completed.getDoseNo() + 1;
-        Long existing = em.createQuery("select count(d) from ScheduledDose d where d.schedule.id=:schedule and d.cattle.id=:cattle and d.doseNo=:no and upper(d.status) in ('PLANNED','DEFERRED')", Long.class)
+        Long existing = em.createQuery("select count(d) from ScheduledDose d where d.schedule.id=:schedule and d.cattle.id=:cattle and d.doseNo=:no and upper(d.status)='PLANNED'", Long.class)
             .setParameter("schedule", schedule.getId()).setParameter("cattle", completed.getCattle().getId()).setParameter("no", nextNo).getSingleResult();
         if (existing > 0) return;
         ScheduledDose booster = new ScheduledDose(); booster.setSchedule(schedule); booster.setCattle(completed.getCattle()); booster.setDoseNo(nextNo);
@@ -534,6 +841,40 @@ public class VaccinationCommandService {
     private int parseDays(String value) {
         if (value == null || value.isBlank()) return 0;
         try { return Integer.parseInt(value.trim()); } catch (NumberFormatException ex) { throw DomainException.invalid("withdrawalDays"); }
+    }
+
+    /**
+     * Liều phải là một <b>số dương</b>, có thể kèm đơn vị: "2", "2,5", "2 ml", "1 liều" (D45).
+     * Từ chối 0, số âm, chữ hoặc khoảng ("1-2 ml").
+     *
+     * @param dose liều đã bỏ khoảng trắng hai đầu, không rỗng
+     */
+    private void requireValidDose(String dose) {
+        Matcher matcher = DOSE_PATTERN.matcher(dose);
+        if (!matcher.matches()) {
+            throw DomainException.invalid("dose");
+        }
+        BigDecimal amount = new BigDecimal(matcher.group(1).replace(',', '.'));
+        if (amount.signum() <= 0) {
+            throw DomainException.invalid("dose");
+        }
+    }
+
+    /**
+     * Đường tiêm "Khác" phải gửi kèm mô tả cụ thể thay cho mã {@code OTHER} (D45), để bản ghi cho biết thực tế tiêm
+     * đường nào. Mô tả được lưu thẳng vào cột {@code route}.
+     */
+    private void requireRouteDescription(String route) {
+        if (ROUTE_OTHER.equalsIgnoreCase(route.trim())) {
+            throw DomainException.required("routeOther");
+        }
+    }
+
+    /** Số ngày ngưng sử dụng thịt: số nguyên từ 0 đến {@value #MAX_WITHDRAWAL_DAYS}. */
+    private void requireWithdrawalDays(int days) {
+        if (days < 0 || days > MAX_WITHDRAWAL_DAYS) {
+            throw DomainException.invalid("withdrawalDays");
+        }
     }
 
     private String trim(String value) { return value == null || value.isBlank() ? null : value.trim(); }

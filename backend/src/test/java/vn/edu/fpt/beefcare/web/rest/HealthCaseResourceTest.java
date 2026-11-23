@@ -200,7 +200,7 @@ class HealthCaseResourceTest extends DomainTestSupport {
         CareDtos.CatalogueItem vaccine = catalogue.saveVaccine(farm.getId(), null, key(),
             new CareDtos.VaccineCommand(null, "FMD" + next(), "LMLM", "Lở mồm long móng", "Navetco", "2 ml", "SC", 0, 6, true));
         Long vaccinationId = vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null, hoursAgo(6), "LOT-1", "2 ml", "SC", 0, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null)))).vaccinationIds().get(0);
         postJson("/health-cases", manager, openBody(hoursAgo(3), ",\"vaccinationId\":" + vaccinationId)).andExpect(status().isCreated());
         mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(manager.getEmail())))
             .andExpect(jsonPath("$.openCases[0].linkedVaccinationId").value(vaccinationId))

@@ -73,9 +73,9 @@ function buildPool(): VaccCattle[] {
 }
 
 const SCHEDULES: Schedule[] = [
-  { id: 1, name: 'LMLM 2026 – Đàn sinh sản', vaccineId: 1, firstDueDate: '2026-09-17', doseCount: 2, intervalDays: 28, boosterIntervalMonths: 6, status: 'ACTIVE', version: 1, target: { penCodes: ['A1', 'A2', 'D'], herdGroups: ['BREEDING_FEMALES'], lifeStages: ['ADULT'], excluded: [], added: ['BC-000061'] } },
-  { id: 2, name: 'Tụ huyết trùng – Toàn đàn', vaccineId: 2, firstDueDate: '2026-07-25', doseCount: 1, boosterIntervalMonths: 6, status: 'ACTIVE', version: 1, target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: [] } },
-  { id: 3, name: 'Viêm da nổi cục – Vỗ béo', vaccineId: 3, firstDueDate: '2026-10-27', doseCount: 1, status: 'ACTIVE', version: 1, target: { penCodes: ['B1'], herdGroups: ['FATTENING'], lifeStages: [], excluded: [], added: [] } },
+  { id: 1, name: 'LMLM 2026 – Đàn sinh sản', vaccineId: 1, firstDueDate: '2026-09-17', doseCount: 2, intervalDays: 28, boosterIntervalMonths: 6, status: 'ACTIVE', completed: false, version: 1, target: { penCodes: ['A1', 'A2', 'D'], herdGroups: ['BREEDING_FEMALES'], lifeStages: ['ADULT'], excluded: [], added: ['BC-000061'] } },
+  { id: 2, name: 'Tụ huyết trùng – Toàn đàn', vaccineId: 2, firstDueDate: '2026-07-25', doseCount: 1, boosterIntervalMonths: 6, status: 'ACTIVE', completed: false, version: 1, target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: [] } },
+  { id: 3, name: 'Viêm da nổi cục – Vỗ béo', vaccineId: 3, firstDueDate: '2026-10-27', doseCount: 1, status: 'ACTIVE', completed: false, version: 1, target: { penCodes: ['B1'], herdGroups: ['FATTENING'], lifeStages: [], excluded: [], added: [] } },
 ]
 
 function buildSeed() {
@@ -103,12 +103,11 @@ function buildSeed() {
     d.status = 'DONE'
     d.vaccinationId = r.id
     d.doneAt = r.administeredAt
-    d.prior = { status: 'PLANNED' }
     r.scheduledDoseId = d.id
   }
   const pad = (n: number) => String(n).padStart(2, '0')
 
-  // LMLM: mũi 1 đã tiêm cả 86 con; mũi 2 gồm 61 đã tiêm, 12 quá hạn, 4 hoãn, 9 chưa đến hạn.
+  // LMLM: mũi 1 đã tiêm cả 86 con; mũi 2 gồm 61 đã tiêm, 12 quá hạn, 13 chưa đến hạn (4 con hẹn lại 25–28/10 – D46 bỏ hoãn).
   const [lmlm, pas, lsd] = SCHEDULES
   const first = ['BC-000125', 'BC-000131', 'BC-000154', 'BC-000061', 'BC-000092', 'BC-000110']
   const members = resolveTarget(cattle, lmlm.target)
@@ -119,7 +118,7 @@ function buildSeed() {
     const d1 = dose(lmlm, c.code, 1, doseDate(lmlm, 1))
     done(d1, rec(c.code, `2026-09-17T08:${pad(20 + (i % 40))}`, 1, 'mũi 1/2', { batchNo: 'AFT-2608-03', reactionCaseCode: c.code === 'BC-000154' ? 'HC-0418' : undefined, reactionNote: c.code === 'BC-000154' ? 'sưng' : undefined }))
     if (i < 12) dose(lmlm, c.code, 2, i < 6 ? namedDue[i] : '2026-10-19')
-    else if (i < 16) dose(lmlm, c.code, 2, '2026-10-15', { status: 'DEFERRED', newExpectedDate: addDays('2026-10-25', i - 12), deferralReason: 'Bò yếu sau sốt nhẹ' })
+    else if (i < 16) dose(lmlm, c.code, 2, addDays('2026-10-25', i - 12))
     else if (i < 25) dose(lmlm, c.code, 2, futureDue[i - 16])
     else done(dose(lmlm, c.code, 2, doseDate(lmlm, 2)), rec(c.code, `2026-10-${15 + (i % 5)}T08:${pad(10 + (i % 40))}`, 1, 'mũi 2/2', { batchNo: 'AFT-2609-17' }))
   })
