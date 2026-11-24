@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Panel, Select, Table } from '../../../shared/ui'
+import {
+  activateTableRow, activateTableRowByKey, Button, ErrorBlock, Foot, Icon, interactiveRowClass, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs,
+} from '../../../shared/ui'
+import { cx } from '../../../shared/ui/cx'
 import { dm } from '../../../shared/lib/format'
 import { useSession } from '../../../app/session/sessionContext'
 import { LIFE_STAGE_OPTIONS, useCattleListQueries } from '../hooks/useCattleQueries'
@@ -20,7 +23,9 @@ const TAB_HERD_GROUP = Object.fromEntries(Object.entries(GROUP_TAB).map(([group,
 const STATUS_OPTIONS = [['ACTIVE', 'Đang nuôi'], ['EXIT_PENDING', 'Chờ xuất'], ['EXITED', 'Đã xuất'], ['VOIDED', 'Đã hủy'], ['ALL', 'Tất cả']] as const
 const HEALTH_OPTIONS = [['HEALTHY', 'Khỏe'], ['MONITORING', 'Theo dõi'], ['UNDER_TREATMENT', 'Đang điều trị'], ['MEAT_WITHDRAWAL', 'Ngưng sử dụng thịt']] as const
 const LOCAL_HEALTH: Record<string, string> = { HEALTHY: 'Khỏe', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
-const SELECT_CLS = 'col-span-2 min-w-0 [&_select]:!leading-[normal]'
+/** 10 con mỗi trang (D75), cả máy chủ thật lẫn bản mô phỏng. */
+const PAGE_SIZE = 10
+const SELECT_CLS = 'w-full min-w-0 sm:w-[180px] [&_select]:!leading-[normal]'
 const SORT_FIELDS = {
   displayCode: ['Mã bò', (cow: CowSeed) => cow.code],
   name: ['Tên bò', (cow: CowSeed) => cow.name],
@@ -36,43 +41,63 @@ const SORT_OPTIONS = Object.entries(SORT_FIELDS).flatMap(([key, [label]]) =>
 )
 const textOrder = new Intl.Collator('vi', { sensitivity: 'base', numeric: true })
 
-const chip = (h?: StatusChip | null) => (h ? <Chip tone={h.tone} icon={chipIcon(h.label)}>{h.label}</Chip> : '—')
 const withdrawalLabel = (until?: string) => (until ? `Cách ly thịt đến ${/^\d{4}-/.test(until) ? dm(until) : until}` : '')
+const HEALTHY = new Set(['Khỏe', 'Khỏe mạnh'])
+/** Đang điều trị luôn đỏ, kể cả khi nhãn gộp với ngưng thịt ("Đang điều trị · Ngưng sử dụng thịt"). */
+const healthTone = (c: CowSeed) => (c.health?.label.startsWith('Đang điều trị') ? 'err' : c.health?.tone)
 
-function statusCell(c: CowSeed) {
-  if (c.status === 'EXITED') return { text: 'Đã xuất', detail: c.exitStatusLabel?.replace('Đã xuất · ', ''), tone: '' }
-  if (c.status === 'VOIDED') return { text: 'Đã hủy', detail: undefined, tone: '' }
-  if (c.status === 'EXIT_PENDING' || c.exitPending) return { text: 'Chờ xuất', detail: undefined, tone: 'text-[#b26b00]' }
-  if (c.status === 'ACTIVE') return { text: 'Đang nuôi', detail: undefined, tone: '' }
-  return { text: '—', detail: undefined, tone: '' }
+/** Trạng thái đàn chỉ hiện khi khác "Đang nuôi" (D75): đang nuôi là mặc định, lặp lại ở mọi dòng chỉ thêm chữ. */
+function exitStatus(c: CowSeed): { text: string; detail?: string; tone: string } | null {
+  if (c.status === 'EXITED') return { text: 'Đã xuất', detail: c.exitStatusLabel?.replace('Đã xuất · ', ''), tone: 'text-muted' }
+  if (c.status === 'VOIDED') return { text: 'Đã hủy', tone: 'text-muted' }
+  if (c.status === 'EXIT_PENDING' || c.exitPending) return { text: 'Chờ xuất', tone: 'font-semibold text-warn-fg' }
+  return null
 }
 
-// Dòng bảng danh sách theo Figma (cột: Bò · Giống · Giới tính · Tuổi · Chuồng · Mục đích · Cân · Trạng thái · Sức khỏe · Sinh sản).
-function CowRow({ c, barnTag, onOpen }: { c: CowSeed; barnTag: string; onOpen: (code: string) => void }) {
-  const weight = c.weight != null ? `${c.weight} kg${c.weightEst ? '*' : ''} · ${c.weightDate}` : '—'
-  const status = statusCell(c)
+/** Vạch đầu dòng: đỏ khi sức khỏe cần xử lý, vàng khi theo dõi / ngưng thịt / chờ xuất, không tô khi bình thường. */
+function edgeOf(c: CowSeed): string {
+  if (healthTone(c) === 'err') return 'border-l-[#cc6b5c]'
+  if (healthTone(c) === 'warn' || c.withdrawalUntil || c.status === 'EXIT_PENDING' || c.exitPending) return 'border-l-[#d6a34d]'
+  return 'border-l-transparent'
+}
+
+/** Sức khỏe: "Khỏe" là chữ xám thường, chỉ tô màu khi có chuyện (Bento §3). */
+function HealthCell({ c }: { c: CowSeed }) {
   const withdrawal = withdrawalLabel(c.withdrawalUntil)
+  if (!c.health) return <span className="text-muted">—</span>
   return (
-    <tr
-      tabIndex={0}
-      onClick={() => onOpen(c.code)}
-      onKeyDown={(e) => e.key === 'Enter' && onOpen(c.code)}
-      className="cursor-pointer hover:bg-page focus:bg-page focus:outline-none"
-    >
-      <Td className="font-medium"><span>{c.code}</span>{c.name && <span> “{c.name}”</span>}</Td>
-      <Td>{c.breed || '—'}</Td>
-      <Td>{c.sex} · {c.ageShort}</Td>
-      <Td>{c.barn ? `${c.barn}${barnTag ? ` · ${barnTag}` : ''}` : '—'}</Td>
-      <Td>{c.purpose} · {c.stage}</Td>
-      <Td>{weight}</Td>
-      <Td className={status.tone}>{status.text}{status.detail && !status.detail.includes('· —') && <div className="text-[11px] text-muted">{status.detail}</div>}</Td>
-      <Td>
-        <div className="flex flex-col items-start gap-1">
-          {chip(c.health)}
-          {withdrawal && <span className="text-[11px] font-medium text-[#995e00]">{withdrawal}</span>}
-        </div>
+    <div className="flex flex-col items-start gap-1">
+      {HEALTHY.has(c.health.label) ? <span className="text-muted">{c.health.label}</span> : <Chip tone={healthTone(c)} icon={chipIcon(c.health.label)}>{c.health.label}</Chip>}
+      {withdrawal && <span className="text-[11px] font-medium text-warn-fg">{withdrawal}</span>}
+    </div>
+  )
+}
+
+/** Một dòng đàn bò (D75): giống · giới tính · tuổi gộp vào dòng phụ của Bò; cả dòng mở hồ sơ. */
+function CowRow({ c, barnTag, onOpen }: { c: CowSeed; barnTag: string; onOpen: (code: string) => void }) {
+  const status = exitStatus(c)
+  const open = () => onOpen(c.code)
+  const weighed = c.weightDate && c.weightDate !== '—' ? c.weightDate : ''
+  return (
+    <tr tabIndex={0} aria-label={`Mở hồ sơ ${c.code}`} className={interactiveRowClass}
+      onClick={(event) => activateTableRow(event, open)} onKeyDown={(event) => activateTableRowByKey(event, open)}>
+      <Td className={cx('border-l-4', edgeOf(c))}>
+        <span className="font-medium"><span>{c.code}</span>{c.name && <span> “{c.name}”</span>}</span>
+        <span className="block text-[11px] text-muted">{[c.breed, c.sex, c.ageShort !== '—' && c.ageShort].filter(Boolean).join(' · ')}</span>
       </Td>
-      <Td>{chip(c.repro)}</Td>
+      <Td>{c.barn ? `${c.barn}${barnTag ? ` · ${barnTag}` : ''}` : '—'}</Td>
+      <Td>{c.purpose}<span className="block text-[11px] text-muted">{c.stage}</span></Td>
+      <Td className="whitespace-nowrap">
+        {c.weight != null ? `${c.weight} kg${c.weightEst ? '*' : ''}` : '—'}
+        {weighed && <span className="block text-[11px] text-muted">{weighed}</span>}
+      </Td>
+      <Td>
+        {status && <div className={status.tone}>{status.text}{status.detail && !status.detail.includes('· —') && <span className="block text-[11px] font-normal text-muted">{status.detail}</span>}</div>}
+        {!status && <HealthCell c={c} />}
+        {status && status.text === 'Chờ xuất' && <HealthCell c={c} />}
+      </Td>
+      <Td>{c.repro && c.repro.label !== 'Không áp dụng' ? <Chip tone={c.repro.tone} icon={chipIcon(c.repro.label)}>{c.repro.label}</Chip> : null}</Td>
+      <Td><Icon name="chevron-right" size={14} /></Td>
     </tr>
   )
 }
@@ -83,7 +108,6 @@ export default function CowList() {
   const [params, setParams] = useSearchParams()
   const herdGroupParam = params.get('nhom') ?? ''
   const skipGroupUrlSync = useRef(false)
-  const searchRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState(params.get('q') ?? '')
   const [debouncedQ, setDebouncedQ] = useState(q)
   const [breed, setBreed] = useState('')
@@ -98,6 +122,7 @@ export default function CowList() {
   const [page, setPage] = useState(0)
   const [sort, setSort] = useState('displayCode')
   const [weightFilter, setWeightFilter] = useState('')
+  const [moreFilters, setMoreFilters] = useState(false)
   const sortField = sort.replace(/^-/, '') as SortField
   const descending = sort.startsWith('-')
 
@@ -130,6 +155,7 @@ export default function CowList() {
     herdStatus: status,
     herdGroup: group,
     page,
+    size: PAGE_SIZE,
     sort,
     weightFilter,
   })
@@ -213,8 +239,10 @@ export default function CowList() {
   }, [cows, debouncedQ, breed, sex, barn, purpose, health, status, stageSel, tab, weightFilter, sortField, descending])
 
   const barnTagOf = (c: CowSeed) => c.barnTag || barnsByCode[c.barn]?.tag || ''
-  const size = listQuery.data?.size || rows.length || 1
+  const size = backend ? listQuery.data?.size || PAGE_SIZE : PAGE_SIZE
   const grandTotal = backend ? listQuery.data?.total ?? 0 : rows.length
+  // Máy chủ thật đã phân trang; bản mô phỏng cắt trang tại trình duyệt.
+  const pageRows = backend ? rows : rows.slice(page * size, (page + 1) * size)
   const pageCount = Math.max(1, Math.ceil(grandTotal / size))
   const canEnter = session?.role !== 'TECHNICIAN'
   const initialLoad = listQuery.loading && !listQuery.data
@@ -225,19 +253,23 @@ export default function CowList() {
   const purposeOptions = backend ? (purposesQuery.data ?? []).filter((p) => p.available).map((p) => [String(p.id), p.name]) : [...new Set(cows.map((c) => c.purpose))].map((p) => [p, p])
   const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => [o.value, o.label]) : (local?.stages ?? []).map((s) => [s, s])
 
-  const filterSelect = (label: string, value: string, onChange: (value: string) => void, options: ReadonlyArray<ReadonlyArray<string>>, all = 'Tất cả', allValue = '', wide = false) => (
-    <Select className={`${SELECT_CLS} ${wide ? '@min-[1024px]:col-span-3' : ''}`} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
+  // Bộ lọc ít dùng gom sau nút "Bộ lọc khác"; số trên nút là số bộ lọc đang áp (D75). Sắp xếp không tính là lọc.
+  const extraActive = [breed, sex, stageSel !== 'ALL', purpose, weightFilter].filter(Boolean).length
+  const showMore = moreFilters || extraActive > 0
+  const filterSelect = (label: string, value: string, onChange: (value: string) => void, options: ReadonlyArray<ReadonlyArray<string>>, all = 'Tất cả', allValue = '') => (
+    <Select className={SELECT_CLS} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value={allValue}>{label}: {all}</option>
       {options.map(([v, text]) => <option key={v} value={v}>{label}: {text}</option>)}
     </Select>
   )
-  const sortableHeader = (field: SortField, label: string, className: string) => (
-    <Th className={className} aria-sort={sortField === field ? (descending ? 'descending' : 'ascending') : undefined}>
-      <button type="button" className="cursor-pointer hover:underline" onClick={() => changeSort(sort === field ? `-${field}` : field)}>
+  const sortableHeader = (field: SortField, label: string) => (
+    <Th aria-sort={sortField === field ? (descending ? 'descending' : 'ascending') : undefined}>
+      <button type="button" className="cursor-pointer font-semibold hover:underline" onClick={() => changeSort(sort === field ? `-${field}` : field)}>
         {label} <span aria-hidden="true">{sortField === field ? (descending ? '↓' : '↑') : '↕'}</span>
       </button>
     </Th>
   )
+  const first = grandTotal === 0 ? 0 : page * size + 1
 
   return (
     <Layout title="Đàn bò – Danh sách" user="manager">
@@ -247,100 +279,71 @@ export default function CowList() {
           {canEnter && <Button variant="primary" className="gap-1.5 leading-[normal]" onClick={() => nav('/herd-entry/new', { state: { from: '/cattle' } })}><Icon name="circle-plus" />Nhập đàn</Button>}
         </PageHeader>
 
-        {/*
-          Trạng thái đàn chọn phạm vi (đang nuôi / đã xuất) nên đứng ngay sau ô tìm và rộng cả hàng trên điện thoại: chữ
-          "Trạng thái đàn: Đang nuôi" không bị cắt, 7 bộ lọc + Sắp xếp xếp kín 4 hàng đôi. Lưới 8 cột: 2 + 4 + 4 ô;
-          lưới 12 cột: tìm 3 + trạng thái 3 + 3 bộ lọc, rồi 4 bộ lọc + Sắp xếp (Dữ liệu cân, Sắp xếp rộng 3 cột).
-        */}
-        <section aria-label="Bộ lọc đàn bò" className="grid grid-cols-4 gap-3 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12">
-          <input
-            ref={searchRef}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Mã hiển thị, số tai, tên gọi…"
-            aria-label="Tìm bò"
-            className={`${inputCls} col-span-4 min-w-0 !leading-[normal] @min-[1024px]:col-span-3`}
-          />
-          <Select className="col-span-4 min-w-0 [&_select]:!leading-[normal] @min-[1024px]:col-span-3" aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
-            {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
-          </Select>
-          {filterSelect('Giống', breed, setBreed, breedOptions)}
-          {filterSelect('Giới tính', sex, setSex, sexOptions)}
-          {filterSelect('Chuồng', barn, setBarn, barnOptions)}
-          {filterSelect('Giai đoạn', stageSel, setStageSel, stageOptions, 'Tất cả', 'ALL')}
-          {filterSelect('Mục đích', purpose, setPurpose, purposeOptions)}
-          {filterSelect('Sức khỏe', health, setHealth, HEALTH_OPTIONS.map(([v, t]) => [v, t]))}
-          {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']], 'Tất cả', '', true)}
-          <Select className={`${SELECT_CLS} @min-[1024px]:col-span-3`} aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
-            {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>Sắp xếp: {label}</option>)}
-          </Select>
-        </section>
-
-        <div role="group" aria-label="Nhóm đàn" className="flex max-w-full flex-wrap gap-1 self-start rounded-lg bg-chip p-1">
-          {tabs.map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={v === tab}
-              onClick={() => onTab(v)}
-              className={`cursor-pointer rounded-md border px-2.5 py-[7px] text-xs leading-[normal] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand @min-[1024px]:px-3.5 ${
-                v === tab ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {listQuery.error ? (
-          <ErrorBlock message="Không tải được danh sách đàn bò." onRetry={listQuery.refetch} />
-        ) : (
-          <Panel className="overflow-hidden p-2! gap-0!">
-            <Table wide bordered={false}>
-              <thead>
-                <tr className="bg-chip">
-                  {sortableHeader('displayCode', 'Bò', 'w-[150px]')}
-                  {sortableHeader('breedName', 'Giống', 'w-[90px]')}
-                  {sortableHeader('birthDate', 'Giới tính · Tuổi', 'w-[110px]')}
-                  {sortableHeader('penCode', 'Chuồng', 'w-[100px]')}
-                  {sortableHeader('purposeName', 'Mục đích · Giai đoạn', 'w-[140px]')}
-                  {sortableHeader('latestWeightKg', 'Cân gần nhất', 'w-[110px]')}
-                  <Th className="w-[92px]">Trạng thái</Th>
-                  <Th className="w-[100px]">Sức khỏe</Th>
-                  <Th className="w-[100px]">Sinh sản</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {initialLoad && (
-                  <tr>
-                    <Td colSpan={9} className="!py-6 text-center !text-[12px] text-muted">Đang tải dữ liệu…</Td>
-                  </tr>
-                )}
-                {!initialLoad && rows.map((c) => (
-                  <CowRow key={c.code} c={c} barnTag={barnTagOf(c)} onOpen={(code: string) => nav(`/cattle/${code}`)} />
-                ))}
-                {!initialLoad && rows.length === 0 && (
-                  <tr>
-                    <Td colSpan={9} className="!py-6 text-center !text-[12px] text-muted">
-                      Không có bò nào khớp bộ lọc
-                    </Td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-            <div className="px-3 py-3">
-              <Pagination
-                page={page + 1}
-                pageCount={pageCount}
-                onChange={(next) => setPage(next - 1)}
-              />
+        {/* Bento (D75): một khối gồm tab nhóm đàn (gạch chân), bộ lọc và bảng – như Sức khỏe, Sinh sản, Cân nặng. */}
+        <Panel className="gap-0 overflow-hidden p-0!">
+          <section aria-label="Bộ lọc đàn bò" className="flex flex-col gap-3 border-b border-rule px-4 pt-3 @min-[1024px]:px-6">
+            <div role="group" aria-label="Nhóm đàn"><Tabs value={tab} onChange={onTab} tabs={tabs.map(([value, label]) => ({ value, label }))} /></div>
+            <div className="flex flex-wrap items-center gap-2.5 pb-4">
+              <SearchInput className="w-full sm:w-[260px]" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã hiển thị, số tai, tên gọi…" aria-label="Tìm bò" />
+              <Select className="w-full min-w-0 sm:w-[230px] [&_select]:!leading-[normal]" aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
+                {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
+              </Select>
+              {filterSelect('Chuồng', barn, setBarn, barnOptions)}
+              {filterSelect('Sức khỏe', health, setHealth, HEALTH_OPTIONS.map(([v, t]) => [v, t]))}
+              <Button type="button" aria-expanded={showMore} onClick={() => setMoreFilters((v) => !v)} className="gap-1.5 leading-[normal]">
+                <Icon name="adjustments" size={16} />Bộ lọc khác{extraActive > 0 && ` (${extraActive})`}
+              </Button>
             </div>
-          </Panel>
-        )}
+            {showMore && (
+              <div className="flex flex-wrap items-center gap-2.5 pb-4">
+                {filterSelect('Giống', breed, setBreed, breedOptions)}
+                {filterSelect('Giới tính', sex, setSex, sexOptions)}
+                {filterSelect('Giai đoạn', stageSel, setStageSel, stageOptions, 'Tất cả', 'ALL')}
+                {filterSelect('Mục đích', purpose, setPurpose, purposeOptions)}
+                {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']])}
+                <Select className={SELECT_CLS} aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
+                  {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>Sắp xếp: {label}</option>)}
+                </Select>
+              </div>
+            )}
+          </section>
 
-        <Foot>
-          Bấm một dòng để mở hồ sơ bò. Các tab nhóm đàn cộng lại bằng tổng bò đang nuôi; tab Khác luôn hiện kể cả khi bằng 0.
-        </Foot>
+          {listQuery.error ? (
+            <div className="p-4"><ErrorBlock message="Không tải được danh sách đàn bò." onRetry={listQuery.refetch} /></div>
+          ) : initialLoad ? (
+            <p className="m-0 px-4 py-10 text-center text-xs text-muted">Đang tải dữ liệu…</p>
+          ) : pageRows.length === 0 ? (
+            // Trống nằm ngay trong khối, không lồng khung thứ hai.
+            <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
+              <p className="m-0 text-sm font-semibold text-ink">Không có bò nào khớp bộ lọc</p>
+              <p className="m-0 text-xs text-muted">Thử đổi tab, bộ lọc hoặc từ khóa tìm kiếm.</p>
+            </div>
+          ) : (
+            <>
+              <Table wide bordered={false}>
+                <thead>
+                  <tr>
+                    {sortableHeader('displayCode', 'Bò')}
+                    {sortableHeader('penCode', 'Chuồng')}
+                    {sortableHeader('purposeName', 'Mục đích · Giai đoạn')}
+                    {sortableHeader('latestWeightKg', 'Cân gần nhất')}
+                    <Th>Tình trạng</Th>
+                    <Th>Sinh sản</Th>
+                    <Th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((c) => <CowRow key={c.code} c={c} barnTag={barnTagOf(c)} onOpen={(code: string) => nav(`/cattle/${code}`)} />)}
+                </tbody>
+              </Table>
+              <div className="border-t border-rule px-4 py-3">
+                <Pagination page={page + 1} pageCount={pageCount} onChange={(next) => setPage(next - 1)} summary={`Hiển thị ${first}–${first + pageRows.length - 1} / ${grandTotal} con`} />
+              </div>
+            </>
+          )}
+        </Panel>
+
+        <Foot>Nhấn một dòng để mở hồ sơ bò. Các tab nhóm đàn cộng lại bằng tổng bò đang nuôi.</Foot>
       </div>
     </Layout>
   )
