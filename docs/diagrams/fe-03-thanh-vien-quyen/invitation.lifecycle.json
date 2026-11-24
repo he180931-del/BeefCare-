@@ -35,7 +35,8 @@
       "items": [
         "Tối đa 1 lời mời PENDING mỗi trại + email (BR-D05)",
         "Hiệu lực 3, 7 (mặc định) hoặc 14 ngày",
-        "ACCEPTED, CANCELLED, EXPIRED là trạng thái cuối → MSG-FE03-08"
+        "CANCELLED hoặc EXPIRED → MSG-FE03-08",
+        "Mở lại ACCEPTED: đúng email và membership ACTIVE → Đã tham gia; membership đã ngưng → MSG-FE03-08 (ACCEPTED)"
       ]
     }
   ]

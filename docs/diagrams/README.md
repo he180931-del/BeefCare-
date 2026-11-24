@@ -35,8 +35,8 @@ Một trang chứa tối đa 4 sơ đồ, nên các UC cùng màn hình được
 - Mỗi trang mở đầu bằng kết luận, sau đó là các panel. Bấm **Open interactive
   view** để mở sơ đồ toàn màn hình; **Step through** đi qua từng bước và tô sáng
   phần tương ứng trên sơ đồ.
-- Số mũ nhỏ sau câu là nguồn: đoạn spec trong `docs/requirements/specs/` hoặc
-  file code. Nguồn được ghim theo commit `fbbe942` (nhánh `dev`, 18/11/2026).
+- Số mũ nhỏ sau câu dẫn tới spec trong `docs/requirements/specs/` hoặc mã nguồn.
+  Nội dung sơ đồ được đối chiếu với `dev` tại commit `703f90e0` (24/11/2026).
 - ERD trong trang tổng quan chỉ giữ khóa và cột trạng thái; file `*-erd.html`
   có đủ cột theo entity JPA và migration Liquibase.
 - Giao diện viewer (nút, menu) là tiếng Anh vì Archify chưa có bản tiếng Việt;

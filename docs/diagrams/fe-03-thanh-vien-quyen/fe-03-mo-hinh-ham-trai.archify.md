@@ -7,17 +7,19 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 - Chấp nhận lời mời không dùng `Idempotency-Key`; token là khóa ý định.[](source:svc-accept)
 - Email không gửi ngay: `MailService` lưu ý định gửi trong cùng transaction, JOB-07 gửi sau.[](source:mail-queue)
 
-@answer scope="Code nhánh dev, commit fbbe942 · UC-FE03-01 → 06"
-@meta locale=en
-@source fe-invite title="InviteDialog.submit" path=frontend/src/features/farm-workspace/components/InviteDialog.tsx lines=64:86
-@source fe-invitations title="InvitationsPage: tải danh sách, run(resend / cancel)" path=frontend/src/features/farm-workspace/pages/InvitationsPage.tsx lines=63:113
-@source fe-accept title="AcceptInvitationPage: preview, accept, open" path=frontend/src/features/farm-workspace/pages/AcceptInvitationPage.tsx lines=63:97
-@source fe-members title="MembersPage: listMembers" path=frontend/src/features/farm-workspace/pages/MembersPage.tsx lines=60:60
-@source fe-member-change title="MemberChangeDialog.save" path=frontend/src/features/farm-workspace/components/MemberChangeDialog.tsx lines=64:84
-@source fe-api-members title="farmWorkspaceApi: listMembers / changeMember" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=209:217
-@source fe-api-invites title="farmWorkspaceApi: listInvitations / inviteMember / resend / cancel" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=218:238
-@source fe-api-accept title="farmWorkspaceApi: previewInvitation / acceptInvitation" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=239:261
-@source fe-enter title="enterFarm" path=frontend/src/features/farm-workspace/components/enterFarm.ts lines=13:22
+@answer scope="Code dev 703f90e0 · UC-FE03-01 → 06"
+@meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
+@source fe-invite title="useInviteDialog" path=frontend/src/features/farm-workspace/hooks/useInviteDialog.ts lines=6:12
+@source fe-invitations title="useInvitationsPage: danh sách, gửi lại, hủy" path=frontend/src/features/farm-workspace/hooks/useInvitationsPage.ts lines=11:17
+@source fe-accept title="AcceptInvitationPage: preview, accept, open" path=frontend/src/features/farm-workspace/pages/AcceptInvitationPage.tsx lines=53:86
+@source fe-members title="useMembersPage: danh sách thành viên" path=frontend/src/features/farm-workspace/hooks/useMembersPage.ts lines=13:18
+@source fe-member-change title="MemberChangeDialog.save" path=frontend/src/features/farm-workspace/components/MemberChangeDialog.tsx lines=55:75
+@source fe-api-members title="farmWorkspaceApi: listMembers / changeMember" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=215:222
+@source fe-api-invites title="farmWorkspaceApi: listInvitations / inviteMember / resend / cancel" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=223:244
+@source fe-api-accept title="farmWorkspaceApi: previewInvitation / acceptInvitation" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=245:265
+@source fe-enter title="enterFarm" path=frontend/src/features/farm-workspace/components/enterFarm.ts lines=14:28
+@source fe-workspace title="useFarmWorkspaceUseCase" path=frontend/src/features/farm-workspace/hooks/useFarmWorkspaceUseCase.ts lines=91:115
+@source svc-replay title="FarmMembershipService.activeMembershipOfCaller" path=backend/src/main/java/vn/edu/fpt/beefcare/service/FarmMembershipService.java lines=272:277
 @source res-members title="FarmMembershipResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/FarmMembershipResource.java lines=84:147
 @source idem-execute title="IdempotencyCommandService.execute" path=backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java lines=101:107
 @source svc-list-members title="FarmMembershipService.listMembers" path=backend/src/main/java/vn/edu/fpt/beefcare/service/FarmMembershipService.java lines=75:94
@@ -44,7 +46,7 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 | actor svc | MembershipService | backend | source:svc-invite |
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | inviteMember(farmId, input, key) |
+| page | feapi | useInviteDialog → inviteMember(farmId, input, key) |
 | feapi | rest | POST …/invitations |
 | rest | idem | execute(INVITE_SEND) |
 | idem | svc | invite(farmId, request) |
@@ -81,14 +83,14 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
 | phase | UC-02 Danh sách |
-| page | feapi | listInvitations(status, page, dir) |
+| page | feapi | useInvitationsPage → listInvitations |
 | feapi | rest | GET …/invitations |
 | rest | svc | listInvitations(...) |
 | svc | access | require(VIEW_FARM_INFORMATION) | security |
 | svc | db | trang 20 dòng + đếm 4 trạng thái |
 | svc | feapi | InvitationPage | return |
 | phase | UC-03 Gửi lại / Hủy |
-| page | feapi | resendInvitation / cancelInvitation |
+| page | feapi | useInvitationsPage → gửi lại / hủy |
 | feapi | rest | POST …/{id}/resend · /cancel |
 | rest | idem | execute(INVITE_RESEND / CANCEL) |
 | idem | svc | resend / cancel |
@@ -113,26 +115,28 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
 | phase | Xem lời mời (A7) |
-| page | feapi | previewInvitation(token) |
+| page | feapi | useFarmWorkspaceUseCase → previewInvitation(token) |
 | feapi | rest | GET /api/invitations/accept |
 | rest | svc | preview(token) |
 | svc | db | findInviteForCaller: hash token |
 | svc | access | currentActiveUser(), so email | security |
+| svc | db | ACCEPTED: membership ACTIVE. PENDING: hạn và trại ACTIVE |
 | svc | feapi | InvitationAcceptance | return |
 | phase | Chấp nhận (A8) |
-| page | feapi | acceptInvitation(token) |
+| page | feapi | useFarmWorkspaceUseCase → acceptInvitation(token) |
 | feapi | rest | POST /api/invitations/accept |
 | rest | svc | accept(token) |
 | svc | db | lockByTokenHash, lockById(farm) | security |
-| svc | db | saveAndFlush membership, ACCEPTED | emphasis |
-| svc | db | audit MEMBER_ACCEPT, queueMemberJoined |
+| svc | feapi | Nếu đã ACCEPTED: trả membership ACTIVE đã có | return |
+| svc | db | Nếu PENDING: kiểm hạn, trại ACTIVE và tạo membership | emphasis |
+| svc | db | Với lần chấp nhận mới: audit, queueMemberJoined |
 | svc | feapi | AcceptedInvitation | return |
 | feapi | page | enterFarm(farmId) | return |
 
 @steps id=f3-uc04-steps
-| c1-page | SCR-15 Chấp nhận | `accept` hiện MSG-FE03-10, rồi `open` gọi `enterFarm` để mở trang chủ theo vai trò mới.[](source:fe-accept) `enterFarm` dùng chung với SCR-09.[](source:fe-enter) | f3-uc04-seq | page |
-| c1-find | MembershipService | `findInviteForCaller`: token trống / sai → MSG-FE03-08 `INVALID`; email khác → MSG-FE03-09; hết hạn hoặc không còn PENDING → MSG-FE03-08.[](source:svc-find-token) | f3-uc04-seq | svc |
-| c1-db | Cơ sở dữ liệu | `accept`: đã ACCEPTED thì trả membership cũ; trại không ACTIVE → MSG-FE03-04; đã có membership → MSG-COM-05. Membership mới có `joinedAt` = now.[](source:svc-accept) | f3-uc04-seq | db |
+| c1-page | SCR-15 Chấp nhận | `useFarmWorkspaceUseCase` đọc và gửi xác nhận lời mời.[](source:fe-workspace) `accept` hiện MSG-FE03-10, rồi `open` gọi `enterFarm` để mở trang chủ theo vai trò mới.[](source:fe-accept) `enterFarm` dùng chung với SCR-09.[](source:fe-enter) | f3-uc04-seq | page |
+| c1-find | MembershipService | Token trống hoặc sai → MSG-FE03-08 `INVALID`. Email khác → MSG-FE03-09. Ngoài nhánh mở lại ACCEPTED, lời mời phải PENDING và còn hạn.[](source:svc-find-token) | f3-uc04-seq | svc |
+| c1-db | Cơ sở dữ liệu | Mở lại ACCEPTED với đúng email và membership ACTIVE thì trả membership đã có. Nếu membership đã ngưng, trả MSG-FE03-08 (ACCEPTED).[](source:svc-replay) Với lời mời PENDING, trại phải ACTIVE và người được mời chưa có membership.[](source:svc-accept) | f3-uc04-seq | db |
 
 ## UC-05, UC-06 Xem và đổi thành viên gọi những hàm nào? {#uc05-06}
 
@@ -145,7 +149,7 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
 | phase | UC-05 Danh sách |
-| page | feapi | listMembers(farmId) |
+| page | feapi | useMembersPage → listMembers(farmId) |
 | feapi | rest | GET …/members |
 | rest | svc | listMembers(farmId) |
 | svc | access | require(VIEW_MEMBERS) | security |

@@ -6,19 +6,22 @@ Mỗi UC của FE-02 đi theo một chuỗi hàm cố định: **trang → hàm 
 - Kiểm quyền trong trại nằm ở `FarmAccessService.require`; kiểm vai trò PM nằm ở `PlatformAccessService.requireRole`.[](source:access-require)
 - Cùng khóa, cùng dữ liệu trả lại kết quả cũ; cùng khóa, khác dữ liệu trả MSG-COM-19.[](source:idem-execute)
 
-@answer scope="Code nhánh dev, commit fbbe942 · UC-FE02-01 → 05"
-@meta locale=en
-@source fe-reg-page title="FarmRegistrationPage.submit" path=frontend/src/features/farm-workspace/pages/FarmRegistrationPage.tsx lines=43:60
-@source fe-select-page title="FarmSelectPage.open" path=frontend/src/features/farm-workspace/pages/FarmSelectPage.tsx lines=48:66
-@source fe-enter title="enterFarm" path=frontend/src/features/farm-workspace/components/enterFarm.ts lines=13:22
-@source fe-info-page title="FarmInformationPage.submit" path=frontend/src/features/farm-workspace/pages/FarmInformationPage.tsx lines=59:76
-@source fe-ws-api-list title="farmWorkspaceApi.listFarms / selectFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=176:182
-@source fe-ws-api-farm title="farmWorkspaceApi.getFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=183:187
-@source fe-ws-api-register title="farmWorkspaceApi.registerFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=188:194
-@source fe-ws-api-update title="farmWorkspaceApi.updateFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=195:208
-@source fe-pm-routes title="FarmServiceRoutes: listFarms" path=frontend/src/features/platform-service/pages/FarmServiceRoutes.tsx lines=42:42
-@source fe-pm-dialog title="ServiceChangeDialog.submit" path=frontend/src/features/platform-service/components/ServiceChangeDialog.tsx lines=38:64
-@source fe-pm-api title="platformServiceApi: listFarms / getFarmService / suspendFarm / restoreFarm" path=frontend/src/features/platform-service/api/platformServiceApi.ts lines=121:147
+@answer scope="Code dev 703f90e0 · UC-FE02-01 → 05 · D54, D56"
+@meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
+@source fe-reg-page title="useFarmRegistration.submit" path=frontend/src/features/farm-workspace/hooks/useFarmRegistration.ts lines=11:20
+@source fe-select-page title="useFarmSelect.open" path=frontend/src/features/farm-workspace/hooks/useFarmSelect.ts lines=12:16
+@source fe-enter title="enterFarm" path=frontend/src/features/farm-workspace/components/enterFarm.ts lines=14:28
+@source fe-info-page title="useFarmInformationForm.submit" path=frontend/src/features/farm-workspace/hooks/useFarmInformationForm.ts lines=23:40
+@source fe-return title="RequireFarm: lưu mục cần quay lại" path=frontend/src/app/routes/RequireFarm.tsx lines=12:22
+@source fe-switch title="FarmPlatformLayout.switchFarm" path=frontend/src/app/layouts/FarmPlatformLayout.tsx lines=109:121
+@source fe-ws-api-list title="farmWorkspaceApi.listFarms / selectFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=181:187
+@source fe-ws-api-farm title="farmWorkspaceApi.getFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=188:192
+@source fe-ws-api-register title="farmWorkspaceApi.registerFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=193:199
+@source fe-ws-api-update title="farmWorkspaceApi.updateFarm" path=frontend/src/features/farm-workspace/api/farmWorkspaceApi.ts lines=200:213
+@source fe-pm-routes title="FarmServiceRoutes: lọc và phân trang" path=frontend/src/features/platform-service/pages/FarmServiceRoutes.tsx lines=29:47
+@source fe-pm-dialog title="ServiceChangeDialog.submit" path=frontend/src/features/platform-service/components/ServiceChangeDialog.tsx lines=35:66
+@source fe-pm-api title="platformServiceApi: listFarms / getFarmService / suspendFarm / restoreFarm" path=frontend/src/features/platform-service/api/platformServiceApi.ts lines=126:161
+@source fe-pm-hooks title="useFarmList / useFarmServicePreview" path=frontend/src/features/platform-service/hooks/usePlatformServiceUseCase.ts lines=10:16
 @source res-ws title="FarmWorkspaceResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/FarmWorkspaceResource.java lines=19:28
 @source res-pm title="PlatformFarmResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/PlatformFarmResource.java lines=27:56
 @source idem-execute title="IdempotencyCommandService.execute / executePlatform" path=backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java lines=101:121
@@ -98,12 +101,16 @@ Mỗi UC của FE-02 đi theo một chuỗi hàm cố định: **trang → hàm 
 | svc | access | require(SELECT_FARM) | security |
 | access | svc | FarmContext | return |
 | svc | feapi | Summary | return |
-| feapi | page | writeCurrentFarmId, mở trang chủ | return |
+| feapi | page | Trả ngữ cảnh. Trại ACTIVE được lưu theo tab | return |
 
 @steps id=uc02-steps
-| u2-page | SCR-09 Chọn trại | `open` gọi `selectFarm`, rồi `farmAction` chọn đích: SCR-48 / SCR-74, SCR-58 hoặc SCR-65.[](source:fe-select-page) Hàm `enterFarm` dùng lại luồng này sau khi chấp nhận lời mời.[](source:fe-enter) | uc02-seq | page |
+| u2-page | SCR-09 Chọn trại | `useFarmSelect.open` lấy ngữ cảnh rồi chọn đích. Với trại `ACTIVE`, hook lưu trại theo tab và tải lại vào đích, ưu tiên mục được yêu cầu nếu có. Tự vào dùng `replace`.[](source:fe-select-page)[](source:fe-return) | uc02-seq | page |
 | u2-svc | WorkspaceService | `list` lấy membership ACTIVE ở mọi trạng thái dịch vụ; `context` kiểm lại trước khi đặt trại hiện tại.[](source:svc-list) | uc02-seq | svc |
 | u2-access | FarmAccessService | `require(SELECT_FARM)`: không có membership ACTIVE → MSG-COM-01; Quản lý / Kỹ thuật viên ở trại không ACTIVE → MSG-FE02-04.[](source:access-require) | uc02-seq | access |
+
+Menu chuyển trại nhanh nằm ở thanh trên của khu vực làm việc. Menu lưu trại `ACTIVE` theo tab và mở trang chủ theo vai trò. Menu dẫn về SCR-09 khi chọn trại chưa `ACTIVE`, khi trình duyệt chặn lưu trại theo tab hoặc khi chọn **Quản lý trang trại**.[](source:fe-switch)
+
+Hàm `enterFarm` được dùng sau khi chấp nhận lời mời và sau thanh toán.[](source:fe-enter)
 
 ## UC-03 Cập nhật thông tin trại gọi những hàm nào? {#uc03}
 
@@ -177,7 +184,7 @@ Mỗi UC của FE-02 đi theo một chuỗi hàm cố định: **trang → hàm 
 | feapi | page | MSG-FE02-08 | return |
 
 @steps id=uc0405-steps
-| u4-page | SCR-12 (PM) | `FarmServiceRoutes` gọi `listFarms` (tối đa 100 dòng).[](source:fe-pm-routes) Popup `ServiceChangeDialog.submit` tạo khóa theo dữ liệu, gọi `suspendFarm` hoặc `restoreFarm`.[](source:fe-pm-dialog) | uc0405-seq | page |
+| u4-page | SCR-12 (PM) | `useFarmList` gọi API danh sách, 20 dòng mỗi trang.[](source:fe-pm-routes)[](source:fe-pm-hooks) Popup xem trước thay đổi rồi gọi lệnh tạm ngưng hoặc khôi phục với khóa theo dữ liệu.[](source:fe-pm-dialog) | uc0405-seq | page |
 | u4-overview | PlatformFarmSvc | `overview` lọc theo tên trại / email Chủ trại, sắp xếp, tính ô đếm trên mọi trại.[](source:pm-overview) `preview` trả kỳ đã mua, lần tạm ngưng cuối, trạng thái sau khôi phục.[](source:pm-preview) | uc0405-seq | svc |
 | u4-access | PlatformAccess | `requireRole(PM)`: chỉ PM có quyền nền tảng ACTIVE; CS / SA → MSG-COM-01.[](source:platform-role) | uc0405-seq | access |
 | u5-change | Cơ sở dữ liệu | `suspend` / `restore`: khóa dòng, đã ở trạng thái yêu cầu → MSG-FE02-09, kiểm version; khôi phục tính lại từ `latestEnd`.[](source:pm-change) `recordAndNotify` ghi audit và thông báo Chủ trại.[](source:pm-notify) | uc0405-seq | db |

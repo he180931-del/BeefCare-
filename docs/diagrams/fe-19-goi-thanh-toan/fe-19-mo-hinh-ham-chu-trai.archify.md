@@ -6,14 +6,17 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 - Webhook trả 200 ngay sau khi lưu chứng từ và job; JOB-06 mới là bước đối chiếu và xác nhận.[](source:hook-receive)
 - `requestPayment` và `cancelPayment` đều khóa dòng trại trước, cùng thứ tự với `confirm`, nên hủy và xác nhận không chạy chồng nhau.[](source:svc-cancel)
 
-@answer scope="Code nhánh dev, commit fbbe942 · UC-FE19-01, 02, 03, 08"
-@meta locale=en
-@source fe-overview title="useOverview" path=frontend/src/features/subscription/pages/useOverview.ts lines=1:20
-@source fe-request title="usePaymentRequest" path=frontend/src/features/subscription/pages/usePaymentRequest.ts lines=1:23
-@source fe-status title="usePaymentStatus: tải lại mỗi 5 giây" path=frontend/src/features/subscription/pages/usePaymentStatus.ts lines=1:58
-@source fe-cancel title="CancelRequestDialog: hủy yêu cầu" path=frontend/src/features/subscription/components/CancelRequestDialog.tsx lines=25:45
-@source fe-history title="HistoryPage: listPayments / getPayment" path=frontend/src/features/subscription/pages/HistoryPage.tsx lines=117:120
-@source fe-sub-api title="subscriptionApi" path=frontend/src/features/subscription/api/subscriptionApi.ts lines=52:131
+@answer scope="Code dev 703f90e0 · UC-FE19-01, 02, 03, 08 · D54"
+@meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
+@source fe-overview title="useOverview" path=frontend/src/features/subscription/hooks/useOverview.ts lines=7:19
+@source fe-request title="usePaymentRequest" path=frontend/src/features/subscription/hooks/usePaymentRequest.ts lines=7:23
+@source fe-status title="usePaymentStatus: tải lại mỗi 5 giây" path=frontend/src/features/subscription/hooks/usePaymentStatus.ts lines=21:56
+@source fe-cancel title="CancelRequestDialog: hủy yêu cầu" path=frontend/src/features/subscription/components/CancelRequestDialog.tsx lines=27:47
+@source fe-history title="useSubscriptionUseCase: listPayments / getPayment" path=frontend/src/features/subscription/hooks/useSubscriptionUseCase.ts lines=27:41
+@source fe-paid title="PaidTransfer: kiểm tra trại và điều hướng" path=frontend/src/features/subscription/components/PaidTransfer.tsx lines=33:67
+@source res-context title="FarmWorkspaceResource.context (FE-02)" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/FarmWorkspaceResource.java lines=24:30
+@source fe-receipt title="PaymentSuccessOnArrival: đọc xác nhận theo tab" path=frontend/src/features/subscription/components/PaymentSuccessDialog.tsx lines=95:126
+@source fe-sub-api title="subscriptionApi: đọc, tạo và hủy yêu cầu" path=frontend/src/features/subscription/api/subscriptionApi.ts lines=58:149
 @source res-sub title="SubscriptionPaymentResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/SubscriptionPaymentResource.java lines=34:90
 @source idem-execute title="IdempotencyCommandService.execute" path=backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java lines=101:107
 @source access-require title="FarmAccessService.require" path=backend/src/main/java/vn/edu/fpt/beefcare/service/FarmAccessService.java lines=45:71
@@ -38,7 +41,7 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 | actor svc | SubPaymentService | backend | source:svc-overview |
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | getOverview(farmId) |
+| page | feapi | useOverview → getOverview(farmId) |
 | feapi | rest | GET …/subscription |
 | rest | svc | overview(farmId) |
 | svc | access | require(MANAGE_FARM_INFORMATION) | security |
@@ -54,14 +57,15 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 
 @sequence id=f19-uc02-seq title="UC-FE19-02 Tạo / chờ / hủy yêu cầu thanh toán"
 | actor page | SCR-58 / SCR-59 | frontend | source:fe-request |
-| actor feapi | subscriptionApi | frontend | source:fe-sub-api |
-| actor rest | Subscription REST | backend | source:res-sub |
+| actor feapi | API gói (FE) | frontend | source:fe-sub-api |
+| actor rest | Payment REST | backend | source:res-sub |
 | actor idem | Idempotency | security | source:idem-execute |
-| actor svc | SubPaymentService | backend | source:svc-request |
-| actor access | FarmAccessService | security | source:access-require |
+| actor svc | Payment Svc | backend | source:svc-request |
+| actor access | Quyền trại | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
+| actor farmapi | API trại | backend | source:res-context |
 | phase | Tạo yêu cầu |
-| page | feapi | createPayment(term, priceVersion) |
+| page | feapi | usePaymentRequest → createPayment |
 | feapi | rest | POST …/subscription/payments |
 | rest | idem | execute(PAYMENT_REQUEST) |
 | idem | svc | requestPayment(farmId, request) |
@@ -71,12 +75,15 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 | svc | db | Subscription + Payment PENDING | emphasis |
 | svc | feapi | PaymentDTO (quoteRef, QR) | return |
 | phase | Chờ (SCR-59) |
-| page | feapi | refreshPayment mỗi 5 giây |
+| page | feapi | usePaymentStatus → refreshPayment |
 | feapi | rest | GET …/payments/{id} |
 | rest | svc | paymentDetails(farmId, id) |
 | svc | feapi | state, receivedAt | return |
+| phase | Đã thanh toán (D54) |
+| page | farmapi | PaidTransfer → enterFarm → GET …/context |
+| farmapi | page | Ngữ cảnh trại hoặc lỗi truy cập | return |
 | phase | Hủy (D38) |
-| page | feapi | cancelPayment(payment, reason, key) |
+| page | feapi | cancelPayment + khóa yêu cầu |
 | feapi | rest | POST …/{id}/cancel |
 | rest | idem | execute(PAYMENT_CANCEL) |
 | idem | svc | cancelPayment(...) |
@@ -86,9 +93,10 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 
 @steps id=f19-uc02-steps
 | p2-page | SCR-58 / SCR-59 | `usePaymentRequest` gửi kỳ hạn và phiên bản giá đã xem.[](source:fe-request) `usePaymentStatus` tải lại mỗi 5 giây khi PENDING, dừng khi PAID / EXPIRED / rời màn.[](source:fe-status) Hộp thoại hủy giữ khóa theo lý do.[](source:fe-cancel) | f19-uc02-seq | page |
-| p2-svc | SubPaymentService | `requestPayment`: đã có PENDING còn hạn thì trả lại (`reopened`); SUSPENDED → MSG-FE19-09; ngoài cửa sổ → MSG-FE19-03; thiếu giá / TK → MSG-FE19-04; giá đổi → MSG-FE19-02.[](source:svc-request) | f19-uc02-seq | svc |
+| p2-paid | SCR-58 / SCR-59 | `PaidTransfer` gọi bước vào trại khi nhận PAID. API ngữ cảnh thuộc `FarmWorkspaceResource` của FE-02.[](source:res-context) Khi vào được, frontend lưu xác nhận theo tab và thay trang bằng Tổng quan. Nếu chưa vào được, biên nhận kèm lý do và nút thử lại ở SCR-59.[](source:fe-paid) `PaymentSuccessOnArrival` đọc và xóa bản xác nhận ở Tổng quan của đúng trại.[](source:fe-receipt) | f19-uc02-seq | page |
+| p2-svc | Payment Svc | `requestPayment`: đã có PENDING còn hạn thì trả lại (`reopened`); SUSPENDED → MSG-FE19-09; ngoài cửa sổ → MSG-FE19-03; thiếu giá / TK → MSG-FE19-04; giá đổi → MSG-FE19-02.[](source:svc-request) | f19-uc02-seq | svc |
 | p2-db | Cơ sở dữ liệu | Tạo Subscription nếu chưa có; `quoteRef` = "BC" + 12 ký tự; hết hạn sau 24 giờ; chốt TK nhận; audit `PAYMENT_REQUEST`. JOB-03 chuyển PENDING quá hạn sang EXPIRED mỗi 5 phút.[](source:job-expire) | f19-uc02-seq | db |
-| p2-cancel | SubPaymentService | `cancelPayment`: không còn PENDING còn hạn → MSG-COM-05; đã nhận giao dịch → MSG-FE19-19; lý do quá 1.000 ký tự → MSG-COM-10.[](source:svc-cancel) | f19-uc02-seq | svc |
+| p2-cancel | Payment Svc | `cancelPayment`: không còn PENDING còn hạn → MSG-COM-05; đã nhận giao dịch → MSG-FE19-19; lý do quá 1.000 ký tự → MSG-COM-10.[](source:svc-cancel) | f19-uc02-seq | svc |
 
 ## UC-03 Xem lịch sử thanh toán gọi những hàm nào? {#uc03}
 
@@ -99,7 +107,7 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 | actor svc | SubPaymentService | backend | source:svc-history |
 | actor access | FarmAccessService | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | listPayments(q, state, from, to) |
+| page | feapi | useSubscriptionUseCase → listPayments |
 | feapi | rest | GET …/subscription/payments |
 | rest | svc | history(farmId, q, status, ...) |
 | svc | access | require(MANAGE_FARM_INFORMATION) | security |

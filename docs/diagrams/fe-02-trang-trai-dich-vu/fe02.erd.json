@@ -45,6 +45,14 @@
           "type": "varchar(30)"
         },
         {
+          "name": "effective_date",
+          "type": "date"
+        },
+        {
+          "name": "change_reason",
+          "type": "varchar(500)"
+        },
+        {
           "name": "joined_at",
           "type": "timestamp"
         },

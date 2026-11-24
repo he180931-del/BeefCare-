@@ -5313,8 +5313,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <path data-er-trunk="" data-composition-points="792,98;792,592" d="M 792 98 L 792 592" class="a-default" stroke-width="1.5"/>
 
         <!-- Relationship paths (before entities for correct z-order) -->
-        <path data-edge-from="farm_membership" data-edge-to="farm" data-edge-label="thuộc trại" data-edge-key="0" data-edge-id="farm-membership-farm-0" data-er-ends="many one" data-composition-points="324,128;385,128;385,238;446,238" d="M 324 128 L 377 128 Q 385 128 385 136 L 385 230 Q 385 238 393 238 L 446 238" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="farm_membership" data-edge-to="app_user" data-edge-label="tài khoản" data-edge-key="1" data-edge-id="farm-membership-app-user-1" data-er-ends="many one" data-composition-points="178,216;178,474" d="M 178 216 L 178 474" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="farm_membership" data-edge-to="farm" data-edge-label="thuộc trại" data-edge-key="0" data-edge-id="farm-membership-farm-0" data-er-ends="many one" data-composition-points="324,148;385,148;385,238;446,238" d="M 324 148 L 377 148 Q 385 148 385 156 L 385 230 Q 385 238 393 238 L 446 238" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="farm_membership" data-edge-to="app_user" data-edge-label="tài khoản" data-edge-key="1" data-edge-id="farm-membership-app-user-1" data-er-ends="many one" data-composition-points="178,256;178,474" d="M 178 256 L 178 474" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="farm_main_breed" data-edge-to="farm" data-edge-label="giống chính" data-edge-key="2" data-edge-id="farm-main-breed-farm-2" data-er-ends="many one" data-composition-points="611,474;611,436" d="M 611 474 L 611 436" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="farm_main_breed" data-edge-to="breed" data-edge-label="giống" data-edge-key="3" data-edge-id="farm-main-breed-breed-3" data-er-ends="many one" data-composition-points="611,550;611,748" d="M 611 550 L 611 748" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-start="url(#er-many-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="subscription" data-edge-to="farm" data-edge-label="gói của trại" data-edge-key="4" data-edge-id="subscription-farm-4" data-er-ends="one" data-composition-points="926,98;792,98;792,226;776,226" d="M 926 98 L 792 98 M 792 226 L 776 226" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-start="url(#er-one-start)" marker-end="url(#er-one-end)"/>
@@ -5323,8 +5323,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Entities -->
         <g id="node-farm_membership" data-node-id="farm_membership" data-node-label="farm_membership" tabindex="0" role="button" aria-label="Focus farm_membership, Entity" aria-pressed="false" data-node-kind="database" data-node-tag="Thành viên" data-node-context="Entity" class="er-hue-database">
           <title>farm_membership · Entity · Thành viên</title>
-          <rect x="32" y="40" width="292" height="176" rx="8" class="c-mask"/>
-          <rect x="32" y="40" width="292" height="176" rx="8" class="c-database er-table" data-animate="node" style="--step:0" stroke-width="1.2"/>
+          <rect x="32" y="40" width="292" height="216" rx="8" class="c-mask"/>
+          <rect x="32" y="40" width="292" height="216" rx="8" class="c-database er-table" data-animate="node" style="--step:0" stroke-width="1.2"/>
           <path class="er-table-header" d="M 40 40 H 316 A 8 8 0 0 1 324 48 V 70 H 32 V 48 A 8 8 0 0 1 40 40 Z"/>
           <path class="er-table-cap" d="M 44 41.4 H 312" stroke-width="2.6" stroke-linecap="round" fill="none"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(40 47) scale(0.875)">
@@ -5372,15 +5372,29 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <line x1="32" y1="170" x2="324" y2="170" class="c-grid er-row-rule" stroke-width="0.5"/>
             <rect x="36" y="171" width="284" height="18" rx="4" class="er-zebra"/>
 
-            <text data-detail="context" x="74" y="185" class="t-primary" font-size="11">joined_at</text>
-            <text data-detail="context" x="312" y="185" class="er-type" font-size="10.5" text-anchor="end">timestamp</text>
+            <text data-detail="context" x="74" y="185" class="t-primary" font-size="11">effective_date</text>
+            <text data-detail="context" x="312" y="185" class="er-type" font-size="10.5" text-anchor="end">date</text>
           </g>
           <g data-detail="context" data-er-row="6">
             <line x1="32" y1="190" x2="324" y2="190" class="c-grid er-row-rule" stroke-width="0.5"/>
 
 
-            <text data-detail="context" x="74" y="205" class="t-primary" font-size="11">version</text>
-            <text data-detail="context" x="312" y="205" class="er-type" font-size="10.5" text-anchor="end">int</text>
+            <text data-detail="context" x="74" y="205" class="t-primary" font-size="11">change_reason</text>
+            <text data-detail="context" x="312" y="205" class="er-type" font-size="10.5" text-anchor="end">varchar(500)</text>
+          </g>
+          <g data-detail="context" data-er-row="7">
+            <line x1="32" y1="210" x2="324" y2="210" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="36" y="211" width="284" height="18" rx="4" class="er-zebra"/>
+
+            <text data-detail="context" x="74" y="225" class="t-primary" font-size="11">joined_at</text>
+            <text data-detail="context" x="312" y="225" class="er-type" font-size="10.5" text-anchor="end">timestamp</text>
+          </g>
+          <g data-detail="context" data-er-row="8">
+            <line x1="32" y1="230" x2="324" y2="230" class="c-grid er-row-rule" stroke-width="0.5"/>
+
+
+            <text data-detail="context" x="74" y="245" class="t-primary" font-size="11">version</text>
+            <text data-detail="context" x="312" y="245" class="er-type" font-size="10.5" text-anchor="end">int</text>
           </g>
         </g>
 
@@ -5771,12 +5785,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <!-- Relationship labels -->
         <g data-detail="context" data-edge-from="farm_membership" data-edge-to="farm" data-edge-label="thuộc trại" data-edge-key="0" data-edge-id="farm-membership-farm-0" data-er-ends="many one">
-          <rect x="352.1" y="163" width="65.8" height="14" rx="3" class="c-mask"/>
-          <text x="385" y="173" class="t-muted" font-size="9" text-anchor="middle">thuộc trại</text>
+          <rect x="352.1" y="173" width="65.8" height="14" rx="3" class="c-mask"/>
+          <text x="385" y="183" class="t-muted" font-size="9" text-anchor="middle">thuộc trại</text>
         </g>
         <g data-detail="context" data-edge-from="farm_membership" data-edge-to="app_user" data-edge-label="tài khoản" data-edge-key="1" data-edge-id="farm-membership-app-user-1" data-er-ends="many one">
-          <rect x="111.77999999999999" y="338" width="60.22" height="14" rx="3" class="c-mask"/>
-          <text x="141.89" y="348" class="t-muted" font-size="9" text-anchor="middle">tài khoản</text>
+          <rect x="111.77999999999999" y="358" width="60.22" height="14" rx="3" class="c-mask"/>
+          <text x="141.89" y="368" class="t-muted" font-size="9" text-anchor="middle">tài khoản</text>
         </g>
         <g data-detail="context" data-edge-from="farm_main_breed" data-edge-to="farm" data-edge-label="giống chính" data-edge-key="2" data-edge-id="farm-main-breed-farm-2" data-er-ends="many one">
           <rect x="525.6199999999999" y="448" width="71.38" height="14" rx="3" class="c-mask"/>

@@ -105,7 +105,8 @@
       "dot": "rose",
       "title": "Tạm ngưng độc lập với thanh toán",
       "items": [
-        "Thanh toán và job kiểm kỳ bỏ qua trại SUSPENDED",
+        "Thanh toán vẫn ghi nhận PAID, kỳ đã mua và biên lai khi trại SUSPENDED",
+        "Xác nhận thanh toán và job kiểm kỳ giữ nguyên trạng thái dịch vụ SUSPENDED",
         "Khôi phục không tạo, không kéo dài kỳ dịch vụ",
         "Sau khôi phục, trạng thái tính lại theo kỳ đã mua"
       ]

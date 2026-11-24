@@ -6,27 +6,27 @@ Phía PM của FE-19 chia thành **hai service đọc** (`PlatformSubscriptionQu
 - Tra cứu SePay theo mã giao dịch không dùng `Idempotency-Key`: mã giao dịch là khóa yêu cầu.[](source:hook-lookup)
 - Ở chế độ backend, màn đối soát dùng `PaymentReadPage` với `platformPaymentReadApi` và `platformReconciliationApi`; `platformServiceApi` chỉ phục vụ bản demo cho phần này.[](source:fe-read-page)
 
-@answer scope="Code nhánh dev, commit fbbe942 · UC-FE19-04 → 07"
-@meta locale=en
-@source fe-sub-routes title="PlatformSubscriptionRoutes: getSubscription / listSubscriptions" path=frontend/src/features/platform-service/pages/PlatformSubscriptionRoutes.tsx lines=36:100
-@source fe-platform-api title="platformServiceApi: listSubscriptions / getSubscription / getPayment" path=frontend/src/features/platform-service/api/platformServiceApi.ts lines=148:190
+@answer scope="Code dev 703f90e0 · UC-FE19-04 → 07"
+@meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
+@source fe-sub-routes title="useSubscriptionList / useSubscriptionDetail" path=frontend/src/features/platform-service/hooks/usePlatformServiceUseCase.ts lines=18:24
+@source fe-platform-api title="platformServiceApi: listSubscriptions / getSubscription / getPayment" path=frontend/src/features/platform-service/api/platformServiceApi.ts lines=162:204
 @source res-sub-pm title="PlatformSubscriptionResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/PlatformSubscriptionResource.java lines=29:48
 @source svc-sub-query title="PlatformSubscriptionQueryService.subscriptions / subscription" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/PlatformSubscriptionQueryService.java lines=60:172
-@source fe-read-page title="PaymentReadPage: chứng từ, yêu cầu, chi tiết" path=frontend/src/features/platform-service/pages/PaymentReadPage.tsx lines=50:160
-@source fe-read-api title="platformPaymentReadApi" path=frontend/src/features/platform-service/api/platformPaymentReadApi.ts lines=152:191
+@source fe-read-page title="Hook đọc chứng từ, yêu cầu và chi tiết" path=frontend/src/features/platform-service/hooks/usePlatformServiceUseCase.ts lines=44:65
+@source fe-read-api title="platformPaymentReadApi" path=frontend/src/features/platform-service/api/platformPaymentReadApi.ts lines=153:192
 @source res-pay title="PlatformPaymentResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/PlatformPaymentResource.java lines=35:104
 @source svc-pay-query title="PlatformPaymentQueryService: tiles / evidence / candidates / payments" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/PlatformPaymentQueryService.java lines=66:210
 @source fe-evidence-actions title="EvidenceActions: review / lock / record / unlock" path=frontend/src/features/platform-service/components/EvidenceActions.tsx lines=90:126
 @source fe-lookup title="SePayLookup: lookupById / lookupPeriod" path=frontend/src/features/platform-service/components/SePayLookup.tsx lines=20:55
-@source fe-reconcile-api title="platformReconciliationApi" path=frontend/src/features/platform-service/api/platformReconciliationApi.ts lines=92:117
+@source fe-reconcile-api title="platformReconciliationApi" path=frontend/src/features/platform-service/api/platformReconciliationApi.ts lines=93:118
 @source idem-platform title="IdempotencyCommandService.executePlatform" path=backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java lines=109:121
 @source platform-role title="PlatformAccessService.requireRole" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformAccessService.java lines=24:32
 @source hook-lookup title="SePayWebhookService.lookupAndImport / lookupPeriod" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=206:230
 @source hook-review title="SePayWebhookService.review" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=237:287
 @source hook-return title="SePayWebhookService.lockForReturn / recordReturn / unlockReturn" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=288:342
 @source hook-confirm title="SePayWebhookService.confirm" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=631:699
-@source fe-price-page title="PlanPriceRoutes: list / publish / withdraw" path=frontend/src/features/platform-service/pages/PlanPriceRoutes.tsx lines=40:135
-@source fe-price-api title="planPriceApi" path=frontend/src/features/platform-service/api/planPriceApi.ts lines=46:53
+@source fe-price-page title="usePlanPriceList / usePlanPriceCommands" path=frontend/src/features/platform-service/hooks/usePlatformServiceUseCase.ts lines=67:85
+@source fe-price-api title="planPriceApi" path=frontend/src/features/platform-service/api/planPriceApi.ts lines=48:55
 @source res-price title="PlatformPlanPriceResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/PlatformPlanPriceResource.java lines=17:29
 @source svc-price title="PlanPriceService.history / publish / withdraw" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlanPriceService.java lines=39:100
 
@@ -52,7 +52,7 @@ Phía PM của FE-19 chia thành **hai service đọc** (`PlatformSubscriptionQu
 
 @steps id=f19-uc04-steps
 | q4-svc | SubQueryService | `subscriptions` lọc theo bao phủ, trạng thái dịch vụ, khoảng ngày kết thúc, sắp theo ngày xác nhận; `subscription` trả các kỳ CURRENT / FUTURE / PAST cùng một đồng hồ.[](source:svc-sub-query) | f19-uc04-seq | svc |
-| q4-page | SCR-61 Gói các trại | Danh sách gọi `listSubscriptions`; chọn trại gọi `getSubscription`.[](source:fe-sub-routes) | f19-uc04-seq | page |
+| q4-page | SCR-61 Gói các trại | `useSubscriptionList` gọi `listSubscriptions`; `useSubscriptionDetail` gọi `getSubscription` cho trại được chọn.[](source:fe-sub-routes) | f19-uc04-seq | page |
 
 ## UC-05 Xem yêu cầu và chứng từ gọi những hàm nào? {#uc05}
 
@@ -80,7 +80,7 @@ Phía PM của FE-19 chia thành **hai service đọc** (`PlatformSubscriptionQu
 
 @steps id=f19-uc05-steps
 | q5-svc | PaymentQuerySvc | Chỉ trả mã giao dịch đã che trong danh sách; chi tiết có lịch sử REVIEW / EVENT và yêu cầu liên quan của từng quyết định.[](source:svc-pay-query) | f19-uc05-seq | svc |
-| q5-page | SCR-62 Đối soát | Chi tiết chứng từ tải song song với ứng viên; mã chính xác của một yêu cầu chỉ cho ứng viên cùng trại (D22).[](source:fe-read-page) | f19-uc05-seq | page |
+| q5-page | SCR-62 Đối soát | Các hook phía frontend gọi API đọc tổng quan, chứng từ và yêu cầu. Chi tiết chứng từ có thể tải cùng ứng viên; mã khớp chính xác chỉ cho ứng viên cùng trại (D22).[](source:fe-read-page) | f19-uc05-seq | page |
 
 ## UC-06 Đối soát gọi những hàm nào? {#uc06}
 
@@ -147,6 +147,6 @@ Phía PM của FE-19 chia thành **hai service đọc** (`PlatformSubscriptionQu
 | svc | feapi | PublishedPrice | return |
 
 @steps id=f19-uc07-steps
-| p7-page | SCR-63 Bảng giá | Giữ nội dung khi lỗi; khóa yêu cầu theo dữ liệu; tải lại khi tới mốc hiệu lực.[](source:fe-price-page) | f19-uc07-seq | page |
+| p7-page | SCR-63 Bảng giá | `usePlanPriceList` đọc danh sách. `usePlanPriceCommands` gọi lệnh công bố và rút phiên bản.[](source:fe-price-page) | f19-uc07-seq | page |
 | p7-svc | PlanPriceService | `publish`: thời điểm quá khứ → MSG-FE19-14; trùng lịch → MSG-FE19-15; giá sai → MSG-FE19-13. `withdraw`: lý do 5–1.000 ký tự, chỉ phiên bản SCHEDULED, đúng `expectedVersion`.[](source:svc-price) | f19-uc07-seq | svc |
 | p7-db | Cơ sở dữ liệu | `lockPublications` tuần tự hóa mọi lần công bố / rút, nên hai PM không tạo lịch trùng nhau.[](source:svc-price) | f19-uc07-seq | db |

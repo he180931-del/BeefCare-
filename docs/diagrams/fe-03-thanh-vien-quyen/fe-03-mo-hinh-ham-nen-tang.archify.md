@@ -1,17 +1,18 @@
 # FE-03 – Mô hình hàm phía nền tảng (UC-07 → UC-09) {#fe03-platform-functions}
 
-Phía nền tảng của FE-03 dồn vào `PlatformAccountAdministrationService`. Mọi hàm bắt đầu bằng `requireRole(SA)`; lệnh ghi **khóa cả dòng đích và dòng của SA đang thao tác theo thứ tự id** để hai SA không chặn nhau.
+Phía nền tảng của FE-03 dùng `PlatformAccountAdministrationService` để đọc tài khoản, đổi trạng thái và cấp hoặc thu hồi quyền. Service kiểm quyền SA trước khi thao tác. Tạm ngưng và đổi quyền khóa cả tài khoản đích lẫn SA đang thao tác. Khôi phục chỉ khóa tài khoản đích.
 
 - Frontend gọi qua `platformAdminApi`; lệnh ghi gửi `version` và `Idempotency-Key`.[](source:fe-admin-api)
-- Tạm ngưng và đổi quyền đều kiểm lại "còn SA ACTIVE khác" ngay trước khi ghi.[](source:svc-sa-left)
+- Điều kiện còn SA ACTIVE khác áp dụng khi tạm ngưng một SA ACTIVE hoặc khi thu hồi hay đổi quyền làm mất vai trò SA đang hoạt động.[](source:svc-status)[](source:svc-access)
 - Lý do chỉ lưu ở bảng lịch sử (`app_user_status_change`, `platform_access_change`), không vào audit.[](source:svc-status)
 
-@answer scope="Code nhánh dev, commit fbbe942 · UC-FE03-07 → 09"
-@meta locale=en
-@source fe-accounts title="AccountsPage: listAccounts / getAccount" path=frontend/src/features/platform-admin/pages/AccountsPage.tsx lines=57:68
-@source fe-status-dialog title="AccountStatusDialog.submit" path=frontend/src/features/platform-admin/components/AccountStatusDialog.tsx lines=29:52
-@source fe-access-dialog title="AccessDialog: lịch sử, submit" path=frontend/src/features/platform-admin/components/AccessDialog.tsx lines=39:70
-@source fe-admin-api title="platformAdminApi: tài khoản và quyền" path=frontend/src/features/platform-admin/api/platformAdminApi.ts lines=258:290
+@answer scope="Code dev 703f90e0 · UC-FE03-07 → 09"
+@meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
+@source fe-accounts title="useAccounts: danh sách và chi tiết tài khoản" path=frontend/src/features/platform-admin/hooks/useAccounts.ts lines=9:31
+@source fe-status-dialog title="AccountStatusDialog.submit" path=frontend/src/features/platform-admin/components/AccountStatusDialog.tsx lines=26:47
+@source fe-access-dialog title="AccessDialog: lịch sử, submit" path=frontend/src/features/platform-admin/components/AccessDialog.tsx lines=35:60
+@source fe-admin-api title="platformAdminApi: tài khoản và quyền" path=frontend/src/features/platform-admin/api/platformAdminApi.ts lines=261:292
+@source fe-staff title="useStaffAccess: lịch sử và lệnh thay đổi" path=frontend/src/features/platform-admin/hooks/useStaffAccess.ts lines=11:25
 @source res-accounts title="PlatformAccountAdministrationResource" path=backend/src/main/java/vn/edu/fpt/beefcare/web/rest/PlatformAccountAdministrationResource.java lines=81:146
 @source idem-platform title="IdempotencyCommandService.executePlatform" path=backend/src/main/java/vn/edu/fpt/beefcare/service/IdempotencyCommandService.java lines=109:121
 @source platform-role title="PlatformAccessService.requireRole" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformAccessService.java lines=24:32
@@ -35,19 +36,19 @@ Phía nền tảng của FE-03 dồn vào `PlatformAccountAdministrationService`
 | actor access | PlatformAccess | security | source:platform-role |
 | actor db | Cơ sở dữ liệu | database |
 | phase | Danh sách (A9) |
-| page | feapi | listAccounts(filters) |
+| page | feapi | useAccounts → listAccounts(filters) |
 | feapi | rest | GET /api/platform/accounts |
 | rest | svc | search(q, status, role, ...) |
 | svc | access | requireRole(SA) | security |
 | svc | db | lọc, sắp theo tên tiếng Việt |
 | svc | feapi | AccountPage | return |
 | phase | Chi tiết (A10) và lịch sử (A11) |
-| page | feapi | getAccount(id) |
+| page | feapi | useAccounts → getAccount(id) |
 | feapi | rest | GET …/accounts/{id} |
 | rest | svc | get(id) → detail() |
 | svc | db | quyền, trại tham gia, actions |
 | svc | feapi | AccountDetail | return |
-| page | feapi | accountHistory(id) |
+| page | feapi | useStaffAccess → accountHistory(id) |
 | feapi | rest | GET …/{id}/history |
 | rest | svc | history(id) |
 | svc | feapi | tối đa 100 dòng, mới nhất trước | return |
@@ -67,22 +68,23 @@ Phía nền tảng của FE-03 dồn vào `PlatformAccountAdministrationService`
 | actor svc | AccountAdminSvc | backend | source:svc-status |
 | actor access | PlatformAccess | security | source:platform-role |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | suspendAccount / restoreAccount |
+| page | feapi | useStaffAccess → suspendAccount / restoreAccount |
 | feapi | rest | POST …/{id}/suspend · /restore |
 | rest | idem | executePlatform(SA) |
 | idem | svc | suspend / restore → changeStatus |
 | svc | access | requireRole(SA) | security |
-| svc | db | lockWithActor (theo thứ tự id) | security |
-| svc | db | lý do, chính mình, trạng thái, version |
+| svc | db | Tạm ngưng: lockWithActor theo id | security |
+| svc | db | Khôi phục: loadForUpdate tài khoản đích | security |
+| svc | db | Kiểm lý do, trạng thái và version |
 | svc | db | account_status + status_change + audit | emphasis |
-| svc | db | hết hạn phiên, trả phiếu về hàng đợi |
+| svc | db | Khi tạm ngưng: hết hạn phiên, đưa phiếu về hàng đợi |
 | svc | feapi | AccountDetail | return |
 | feapi | page | MSG-FE03-16, tải lại A9 + A10 | return |
 
 @steps id=f3-uc08-steps
-| g1-page | SCR-16 Tài khoản | Hộp thoại kiểm lý do, xác nhận MSG-FE03-14 / 15, gửi `{reason, version}` kèm khóa.[](source:fe-status-dialog) | f3-uc08-seq | page |
-| g1-svc | AccountAdminSvc | `changeStatus` kiểm theo thứ tự: lý do 5–500 ký tự → tự ngưng mình (MSG-FE03-17) → đã ở trạng thái (MSG-FE03-20) → version (MSG-COM-05) → SA đang thao tác còn ACTIVE → còn SA khác (MSG-FE03-17).[](source:svc-status) | f3-uc08-seq | svc |
-| g1-lock | Cơ sở dữ liệu | `lockWithActor` khóa dòng id nhỏ trước, nên hai SA tạm ngưng nhau chạy lần lượt.[](source:svc-lock) Tạm ngưng gọi `expireSessions` và `requeueTicketsOf`.[](source:svc-sa-left) | f3-uc08-seq | db |
+| g1-page | SCR-16 Tài khoản | Hộp thoại kiểm lý do và xác nhận MSG-FE03-14 / 15. Hook gửi `{reason, version}` kèm khóa.[](source:fe-status-dialog)[](source:fe-staff) | f3-uc08-seq | page |
+| g1-svc | AccountAdminSvc | `changeStatus` kiểm lý do, trạng thái và version. Khi tạm ngưng, service chặn tự ngưng mình và kiểm lại quyền SA của người thao tác. Nếu tài khoản đích có quyền SA ACTIVE, hệ thống yêu cầu còn một SA ACTIVE khác.[](source:svc-status) | f3-uc08-seq | svc |
+| g1-lock | Cơ sở dữ liệu | Tạm ngưng dùng `lockWithActor`, rồi kết thúc phiên và trả phiếu hỗ trợ về hàng đợi. Khôi phục dùng `loadForUpdate` và ghi trạng thái, lịch sử cùng audit.[](source:svc-lock)[](source:svc-status) | f3-uc08-seq | db |
 
 ## UC-09 Đổi quyền nền tảng gọi những hàm nào? {#uc09}
 
@@ -94,7 +96,7 @@ Phía nền tảng của FE-03 dồn vào `PlatformAccountAdministrationService`
 | actor svc | AccountAdminSvc | backend | source:svc-access |
 | actor access | PlatformAccess | security | source:platform-role |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | changePlatformAccess(id, cmd, key) |
+| page | feapi | useStaffAccess → changePlatformAccess(id, cmd, key) |
 | feapi | rest | POST …/{id}/platform-access |
 | rest | idem | executePlatform(SA) |
 | idem | svc | changePlatformAccess(...) |
@@ -122,4 +124,4 @@ Phía nền tảng của FE-03 dồn vào `PlatformAccountAdministrationService`
 | 7 | Giá trị đã có hiệu lực / quyền đã đổi | MSG-FE03-20 / MSG-COM-05 |
 | 8 | Version cũ | MSG-COM-05 |
 | 9 | SA đang thao tác không còn ACTIVE | MSG-COM-01 |
-| 10 | SA mất quyền mà không còn SA ACTIVE khác | MSG-FE03-17 |
+| 10 | Thu hồi hoặc đổi sang vai trò khác làm mất một SA ACTIVE và không còn SA ACTIVE khác | MSG-FE03-17 |

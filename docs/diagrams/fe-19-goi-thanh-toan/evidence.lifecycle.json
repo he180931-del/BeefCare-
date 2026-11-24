@@ -11,7 +11,7 @@
   "states": [
     { "id": "received", "type": "start", "label": "RECEIVED", "sublabel": "Chờ JOB-06 (UI: PROCESSING)", "tag": "UC-08", "step": "01" },
     { "id": "accepted", "type": "success", "label": "ACCEPTED", "sublabel": "Đã phân bổ 1 yêu cầu", "tag": "cuối", "step": "02" },
-    { "id": "review", "type": "decision", "label": "UNMATCHED / NEEDS_REVIEW", "sublabel": "Cần PM đối soát", "tag": "UC-06" },
+    { "id": "review", "type": "decision", "label": "UNMATCHED / NEEDS_REVIEW", "sublabel": "Phân loại theo chiều giao dịch", "tag": "UC-06" },
     { "id": "hold", "type": "waiting", "label": "HOLD", "sublabel": "PM giữ, còn mở" },
     { "id": "rejected", "type": "failure", "label": "REJECTED", "sublabel": "PM từ chối" },
     { "id": "locked", "type": "neutral", "label": "LOCKED_FOR_RETURN", "sublabel": "Trả tiền ngoài hệ thống" }
@@ -30,6 +30,7 @@
       "dot": "violet",
       "title": "Quyết định của PM",
       "items": [
+        "Chứng từ chưa xử lý: chiều vào vào Cần xem, chiều ra hiển thị NO_ACTION trên API",
         "ACCEPT chạy lại đủ điều kiện R-19-06 rồi dùng chung bước xác nhận",
         "HOLD, REJECT vẫn được xem xét lại; mọi quyết định cần lý do",
         "Chứng từ đã phân bổ hoặc đang khóa không nhận quyết định"
@@ -40,7 +41,7 @@
       "title": "Khóa hoàn trả",
       "items": [
         "Chỉ chứng từ chiều vào, chưa phân bổ, chưa khóa",
-        "Ghi hoàn trả một lần, bất biến; hoặc mở khóa khi chưa ghi",
+        "Ghi kết quả hoàn trả một lần và giữ trạng thái khóa; chỉ mở khóa trước khi ghi kết quả",
         "Khóa thì không bao giờ cấp tiền cho yêu cầu nào"
       ]
     }
