@@ -115,7 +115,7 @@ describe('SCR-79 Feed Receipt form', () => {
     expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho' })).toBeInTheDocument()
     const created = (await listFeedReceipts()).find((row) => row.status === 'DRAFT' && row.code.endsWith('0032'))
     expect(created).toBeDefined()
-    const reopen = screen.getByRole('button', { name: `Tiếp tục ${created!.code}` })
+    const reopen = await screen.findByRole('button', { name: `Tiếp tục ${created!.code}` })
     await user.click(reopen)
 
     expect(await screen.findByRole('heading', { name: /Phiếu nhập kho PNK-\d{4}-0032 · Nháp/ })).toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('SCR-79 Feed Receipt form', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await screen.findByRole('heading', { name: 'Phiếu nhập kho' })
 
-    await user.click(screen.getByRole('button', { name: `Tiếp tục ${created!.code}` }))
+    await user.click(await screen.findByRole('button', { name: `Tiếp tục ${created!.code}` }))
     await screen.findByRole('heading', { name: /Phiếu nhập kho PNK-\d{4}-0032 · Nháp/ })
     await user.click(screen.getByRole('button', { name: 'Lưu & cộng kho' }))
     await screen.findByRole('heading', { name: 'Phiếu nhập kho' })
