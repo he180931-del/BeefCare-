@@ -355,7 +355,10 @@ class PlatformAccountListResourceTest extends DomainTestSupport {
         em.flush(); em.clear();
         long twelve = statements(() -> assertThat(read(admin, "q", tag).path("items")).hasSize(12));
         assertThat(two).as("statistics must observe the request").isPositive();
-        assertThat(twelve).as("no query per account: 2 accounts %d, 12 accounts %d", two, twelve).isEqualTo(two);
+        // Hibernate statistics are process-wide; one scheduled statement may interleave with this request.
+        assertThat(twelve)
+            .as("no query per account: 2 accounts %d, 12 accounts %d", two, twelve)
+            .isLessThanOrEqualTo(two + 1);
     }
 
     private void populated(String tag, Farm farm, int i) {
