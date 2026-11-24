@@ -1072,3 +1072,9 @@ TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lư
 2. **Ghi chú không bắt buộc** khi sửa / xóa (tối đa 500 ký tự). Popup Xóa chỉ xác nhận, vẫn hiện ngày hết ngưng thịt trước → sau. Record Revision vẫn lưu giá trị trước / sau, người và thời điểm (BR-D15).
 3. Bản ghi đã xóa (VOIDED) không còn hiện trong diễn biến ca và popup xem lại ca đã đóng; số đếm "Diễn biến & điều trị" không tính bản ghi đã xóa.
 4. Migration mới `20261124000100_health_optional_void_note` bỏ hai ràng buộc `ck_observation_void_reason`, `ck_treatment_void_reason` (bắt buộc lý do khi VOIDED); migration cũ không sửa, dữ liệu cũ giữ nguyên. API không đổi hình dạng: trường `reason` vẫn nhận, chỉ thôi bắt buộc.
+
+### D74 — FE-08: lọc danh sách tăng trưởng theo tình trạng (24/11/2026)
+
+1. Danh sách tăng trưởng (SCR-23) có tab **Tất cả / Quá hạn cân / BCS thấp / ADG thấp**, kèm số bò từng tab. Nút **Xem** ở khối "Cần cân lại" và "Cần chú ý" mở tab tương ứng, như Sinh sản (D71).
+2. API A1 `GET /api/farms/{farmId}/growth` thêm tham số tùy chọn `flag` (`WEIGHING_OVERDUE`, `LOW_ADG`, `LOW_BCS`); giá trị khác → MSG-COM-10. Lọc theo cờ áp sau khi đếm, nên `summary` giữ nguyên khi đổi tab; `total` là số dòng sau mọi bộ lọc.
+3. Một con bò có thể có nhiều cờ (ví dụ vừa quá hạn cân vừa BCS thấp): cột Tình trạng hiện đủ các cờ; vạch đầu dòng đỏ khi có BCS thấp, vàng khi có cờ khác.
