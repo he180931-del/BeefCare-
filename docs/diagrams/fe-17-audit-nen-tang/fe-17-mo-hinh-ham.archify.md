@@ -1,10 +1,9 @@
 # FE-17 – Mô hình hàm theo use case {#fe17-functions}
 
-FE-17 có **hai đường hàm**: đường ghi (`AuditService.log`, gọi từ mọi lệnh nguồn trong transaction của lệnh) và đường đọc UC-01 (`PlatformAuditQueryService`). `PlatformAuditCatalog` nằm giữa: nó quyết định vai trò được ghi và mã nào được đọc.
+Khi một thao tác thay đổi dữ liệu, hệ thống ghi lại ai đã làm gì và lúc nào. Quản trị hệ thống (SA) xem những bản ghi được phép trên màn Nhật ký.
 
-- `CorrelationIdFilter` gắn mã truy vết cho mỗi request; `AuditService` đọc lại mã đó khi ghi.[](source:corr-filter)
-- `AuditService.log` bắt buộc có transaction đang mở (`Propagation.MANDATORY`).[](source:audit-log)
-- Đường đọc chỉ trả mã thuộc danh mục và trường trong allowlist; mục ngoài danh mục trả MSG-COM-08.[](source:svc-detail)
+- Đọc các mũi tên từ trên xuống. Rê chuột lên ô hoặc số nguồn để xem hàm và đoạn code tương ứng.
+- Mã truy vết nối yêu cầu với dòng nhật ký, giúp tìm lại cùng một lần xử lý khi cần kiểm tra.[](source:corr-filter)[](source:audit-log)
 
 @answer scope="Code dev 703f90e0 · UC-FE17-01 và hạ tầng ghi audit"
 @meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
@@ -23,63 +22,63 @@ FE-17 có **hai đường hàm**: đường ghi (`AuditService.log`, gọi từ 
 @source svc-detail title="PlatformAuditQueryService.get" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformAuditQueryService.java lines=116:146
 @source svc-actions title="PlatformAuditQueryService.actions" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformAuditQueryService.java lines=147:150
 
-## Một lệnh nguồn ghi audit qua những hàm nào? {#write-path}
+## Khi có thay đổi dữ liệu, hệ thống ghi nhật ký thế nào? {#write-path}
 
 @sequence id=f17-write-seq title="Ghi audit (hạ tầng chung, ví dụ UC-FE03-06)"
-| actor filter | CorrelationIdFilter | security | source:corr-filter |
-| actor cmd | Service nguồn | backend | source:source-example |
-| actor writer | AuditService | backend | source:audit-log |
+| actor filter | Mã truy vết | security | source:corr-filter |
+| actor cmd | Xử lý thao tác | backend | source:source-example |
+| actor writer | Ghi nhật ký | backend | source:audit-log |
 | actor db | Cơ sở dữ liệu | database |
-| filter | cmd | X-Request-Id → MDC |
-| cmd | writer | log(FarmContext, action, target, details) |
-| writer | db | Lưu audit với vai trò từ context và correlation_id | emphasis |
-| writer | cmd | AuditLog | return |
+| filter | cmd | Gắn mã truy vết cho yêu cầu |
+| cmd | writer | Gửi ai đã làm gì và với đối tượng nào |
+| writer | db | Lưu vai trò, thời gian và mã truy vết | emphasis |
+| writer | cmd | Trả bản ghi nhật ký | return |
 
 @steps id=f17-write-steps
-| w1-filter | CorrelationIdFilter | Nhận `X-Request-Id` hợp lệ hoặc tạo mới, trả lại trên response, đặt vào MDC cho cả request.[](source:corr-filter) Job dùng mã riêng cho mỗi lượt chạy.[](source:corr-current) | f17-write-seq | filter |
-| w1-cmd | Service nguồn | Gọi `audit.log` trong transaction của lệnh, sau khi ghi dữ liệu nghiệp vụ; lý do không đưa vào `details`.[](source:source-example) | f17-write-seq | cmd |
-| w1-writer | AuditService | `write` điền `actor_role`, `logged_at`, `details` dạng JSON và `CorrelationId.current()`.[](source:audit-log) | f17-write-seq | writer |
-| w1-role | AuditService | Với `FarmContext`, audit dùng vai trò đã kiểm tra trong context. Các overload không có vai trò truyền sẵn dùng `roleOf` theo phạm vi hành động. Actor rỗng là Hệ thống.[](source:audit-log)[](source:audit-role) | f17-write-seq | writer |
+| w1-filter | Mã truy vết | `CorrelationIdFilter` nhận hoặc tạo mã `X-Request-Id` cho lần gửi này, rồi đặt vào nơi dùng chung trong lúc xử lý (`MDC`). Job định kỳ có mã riêng cho từng lượt chạy.[](source:corr-filter)[](source:corr-current) | f17-write-seq | filter |
+| w1-cmd | Xử lý thao tác | Sau khi thay đổi dữ liệu, hàm nghiệp vụ gọi `audit.log` trong cùng giao dịch. Nếu thao tác bị hủy khi lưu, dòng nhật ký đi cùng cũng bị hủy.[](source:source-example)[](source:audit-log) | f17-write-seq | cmd |
+| w1-writer | Ghi nhật ký | `AuditService.write` lưu giờ thao tác (`logged_at`), vai trò (`actor_role`), chi tiết thay đổi (`details`) và mã truy vết.[](source:audit-log) | f17-write-seq | writer |
+| w1-role | Ghi nhật ký | Nếu hàm nhận thông tin trại kèm vai trò đã kiểm tra (`FarmContext`), nhật ký dùng vai trò đó. Các đường gọi khác dùng `roleOf` để tìm vai trò theo phạm vi. Bản ghi do hệ thống tự chạy hiện là Hệ thống.[](source:audit-log)[](source:audit-role) | f17-write-seq | writer |
 
-## UC-01 SA xem audit gọi những hàm nào? {#uc01}
+## UC-01 Quản trị hệ thống xem nhật ký như thế nào? {#uc01}
 
 @sequence id=f17-read-seq title="UC-FE17-01 Xem audit"
-| actor page | SCR-51 Audit | frontend | source:fe-audit-list |
-| actor hooks | Hook audit | frontend | source:fe-audit-detail |
-| actor feapi | Admin API | frontend | source:fe-audit-api |
-| actor rest | Audit REST | backend | source:res-audit |
-| actor svc | Audit Query | backend | source:svc-search |
-| actor access | PlatformAccess | security | source:platform-role |
-| actor catalog | AuditCatalog | security | source:catalog |
+| actor page | Màn nhật ký | frontend | source:fe-audit-list |
+| actor hooks | Tải dữ liệu | frontend | source:fe-audit-detail |
+| actor feapi | Gửi từ web | frontend | source:fe-audit-api |
+| actor rest | API nhật ký | backend | source:res-audit |
+| actor svc | Xử lý nhật ký | backend | source:svc-search |
+| actor access | Kiểm quyền SA | security | source:platform-role |
+| actor catalog | Danh mục mã | security | source:catalog |
 | actor db | Cơ sở dữ liệu | database |
-| phase | Bộ lọc (A3) |
-| page | hooks | useAudit tải mã hành động |
-| hooks | feapi | listAuditActions() |
-| feapi | rest | GET /api/platform/audit/actions |
-| rest | svc | actions() |
-| svc | access | requireRole(SA) | security |
-| svc | catalog | actions() |
-| svc | feapi | AuditActionOption[] | return |
-| phase | Danh sách (A1) |
-| page | hooks | useAudit với bộ lọc hiện tại |
-| hooks | feapi | listAudit(filters) |
-| feapi | rest | GET /api/platform/audit |
-| rest | svc | search(from, to, actor, ...) |
-| svc | access | requireRole(SA) | security |
-| svc | catalog | select(action, targetType) |
-| svc | db | count + rows theo mã đã lưu |
-| svc | feapi | AuditPage | return |
-| phase | Chi tiết (A2) |
-| page | hooks | useAuditDetail(id) |
-| hooks | feapi | getAuditEntry(id) |
-| feapi | rest | GET /api/platform/audit/{id} |
-| rest | svc | get(id) |
-| svc | access | requireRole(SA) | security |
-| svc | catalog | byStored(action), allowlist | security |
-| svc | feapi | AuditDetail | return |
+| phase | Nạp lựa chọn cho bộ lọc |
+| page | hooks | Mở màn Nhật ký |
+| hooks | feapi | Lấy loại thao tác được phép |
+| feapi | rest | Yêu cầu danh mục bộ lọc |
+| rest | svc | Đọc loại thao tác |
+| svc | access | Kiểm quyền Quản trị hệ thống |
+| svc | catalog | Lấy danh mục dùng trên màn hình |
+| svc | feapi | Trả lựa chọn lọc | return |
+| phase | Xem danh sách nhật ký |
+| page | hooks | Áp dụng bộ lọc |
+| hooks | feapi | Gửi tiêu chí tìm kiếm |
+| feapi | rest | Yêu cầu danh sách nhật ký |
+| rest | svc | Tìm theo ngày và người thực hiện |
+| svc | access | Kiểm quyền Quản trị hệ thống |
+| svc | catalog | Đổi lựa chọn thành mã lưu trữ |
+| svc | db | Đếm và lấy các dòng khớp |
+| svc | feapi | Trả một trang nhật ký | return |
+| phase | Xem chi tiết một mục |
+| page | hooks | Chọn một dòng |
+| hooks | feapi | Gửi mã bản ghi |
+| feapi | rest | Yêu cầu chi tiết nhật ký |
+| rest | svc | Lấy bản ghi theo mã |
+| svc | access | Kiểm quyền Quản trị hệ thống |
+| svc | catalog | Chọn các trường được xem |
+| svc | feapi | Trả chi tiết nhật ký | return |
 
 @steps id=f17-read-steps
-| r1-page | SCR-51 Audit | `useAudit` tải mã hành động và danh sách theo bộ lọc. Khi mở chi tiết một dòng, `useAuditDetail` gọi `getAuditEntry`.[](source:fe-audit-list)[](source:fe-audit-detail) | f17-read-seq | page |
-| r1-svc | Audit Query | `AuditQueryService.search` kiểm SA, `from` / `to` bắt buộc, `from` không sau `to` (MSG-COM-11), tối đa 12 tháng, mã thuộc danh mục và lọc được theo tên, email hoặc Hệ thống.[](source:svc-search) | f17-read-seq | svc |
-| r1-catalog | AuditCatalog | Ánh xạ mã đang lưu ↔ mã công khai và loại đích; `select` cho ra tập mã cần lọc.[](source:catalog) | f17-read-seq | catalog |
-| r1-detail | Cơ sở dữ liệu | `get` đọc một dòng, mã ngoài danh mục → MSG-COM-08, chỉ trả trường trong allowlist, email che.[](source:svc-detail) | f17-read-seq | db |
+| r1-page | Màn nhật ký | `useAudit` lấy lựa chọn lọc bằng `listAuditActions` và tải danh sách bằng `listAudit`. Khi mở chi tiết, `useAuditDetail` gọi `getAuditEntry`.[](source:fe-audit-list)[](source:fe-audit-detail) | f17-read-seq | page |
+| r1-svc | Xử lý nhật ký | `search` kiểm quyền SA và khoảng ngày bắt đầu đến kết thúc, tối đa 12 tháng. Nếu ngày bắt đầu sau ngày kết thúc thì báo `MSG-COM-11`. Người xem có thể tìm theo tên, email hoặc các thao tác do hệ thống thực hiện.[](source:svc-search) | f17-read-seq | svc |
+| r1-catalog | Danh mục mã | `PlatformAuditCatalog` nối tên thao tác trên màn hình với mã đã lưu. Hàm `select` lấy các mã phù hợp với hành động và loại đối tượng đang lọc.[](source:catalog) | f17-read-seq | catalog |
+| r1-detail | Cơ sở dữ liệu | `get` đọc một dòng nhật ký và chỉ trả các trường được phép xem. Email được che. Bản ghi có mã ngoài danh mục trả `MSG-COM-08`.[](source:svc-detail) | f17-read-seq | db |

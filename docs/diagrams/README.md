@@ -13,10 +13,10 @@ server). Feature có nhiều bảng thì có thêm một file ERD đủ cột.
 
 ## Mô hình hàm theo use case
 
-Mỗi UC là một sequence đi theo hàm thật: trang / component → hàm API frontend →
-REST resource → `IdempotencyCommandService` (lệnh ghi) → service → kiểm quyền → DB.
-Bên dưới mỗi sơ đồ có các bước ghi tên hàm, điều kiện kiểm và mã lỗi; rê chuột
-lên số nguồn để xem đoạn code của hàm đó.
+Đọc các mũi tên từ trên xuống để biết màn hình gửi gì, hệ thống kiểm gì và
+kết quả trả về đâu. Tên ô và nhãn mũi tên dùng tiếng Việt. Phần giải thích
+bên dưới ghi tên hàm, API và điều kiện xử lý để đối chiếu với code thật.
+Rê chuột lên ô hoặc số nguồn để xem đoạn code của bước đó.
 
 | Feature | Trang | UC |
 |---|---|---|
@@ -32,9 +32,9 @@ Một trang chứa tối đa 4 sơ đồ, nên các UC cùng màn hình được
 
 ## Cách đọc
 
-- Mỗi trang mở đầu bằng kết luận, sau đó là các panel. Bấm **Open interactive
-  view** để mở sơ đồ toàn màn hình; **Step through** đi qua từng bước và tô sáng
-  phần tương ứng trên sơ đồ.
+- Bấm **Play messages** để chạy các mũi tên theo thứ tự. **Open interactive
+  view** mở sơ đồ ở chế độ tương tác. **Step through** đi qua phần giải thích
+  và tô sáng thành phần tương ứng trên sơ đồ.
 - Số mũ nhỏ sau câu dẫn tới spec trong `docs/requirements/specs/` hoặc mã nguồn.
   Nội dung sơ đồ được đối chiếu với `dev` tại commit `703f90e0` (24/11/2026).
 - ERD trong trang tổng quan chỉ giữ khóa và cột trạng thái; file `*-erd.html`

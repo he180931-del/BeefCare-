@@ -1,10 +1,10 @@
 # FE-19 – Mô hình hàm phía Chủ trại và SePay (UC-01, 02, 03, 08) {#fe19-owner-functions}
 
-Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua `SePayWebhookService`. Hai bên gặp nhau ở **bước xác nhận dùng chung `confirm`**, chạy sau khi khóa trại → gói → yêu cầu theo đúng thứ tự.
+Chủ trại chọn gói, nhận mã thanh toán rồi chuyển khoản. Khi đối chiếu được tiền về, hệ thống ghi nhận kỳ dịch vụ và kiểm tra xem Chủ trại đã vào được trại chưa.
 
-- Frontend gọi qua `subscriptionApi`; tạo và hủy yêu cầu gửi `Idempotency-Key`.[](source:fe-sub-api)
-- Webhook trả 200 ngay sau khi lưu chứng từ và job; JOB-06 mới là bước đối chiếu và xác nhận.[](source:hook-receive)
-- `requestPayment` và `cancelPayment` đều khóa dòng trại trước, cùng thứ tự với `confirm`, nên hủy và xác nhận không chạy chồng nhau.[](source:svc-cancel)
+- Đọc các mũi tên từ trên xuống. Rê chuột lên ô hoặc số nguồn để xem hàm và đoạn code tương ứng.
+- SePay báo ngân hàng đã nhận tiền. Tác vụ JOB-06 chạy sau để so giao dịch với yêu cầu trước khi xác nhận thanh toán.[](source:hook-receive)[](source:hook-job)
+- Khi tạo, hủy hoặc xác nhận thanh toán, hệ thống khóa bản ghi theo thứ tự để hai thao tác diễn ra tuần tự.[](source:svc-request)[](source:svc-cancel)[](source:hook-confirm)
 
 @answer scope="Code dev 703f90e0 · UC-FE19-01, 02, 03, 08 · D54"
 @meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
@@ -32,119 +32,119 @@ Phía Chủ trại dồn vào `SubscriptionPaymentService`; tiền về đi qua 
 @source hook-process title="SePayWebhookService.processStored" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=567:630
 @source hook-confirm title="SePayWebhookService.confirm" path=backend/src/main/java/vn/edu/fpt/beefcare/service/payment/SePayWebhookService.java lines=631:699
 
-## UC-01 Xem gói gọi những hàm nào? {#uc01}
+## UC-01 Màn gói dịch vụ lấy trạng thái và giá ở đâu? {#uc01}
 
 @sequence id=f19-uc01-seq title="UC-FE19-01 Xem gói và trạng thái dịch vụ"
-| actor page | SCR-57 Gói | frontend | source:fe-overview |
-| actor feapi | subscriptionApi | frontend | source:fe-sub-api |
-| actor rest | Subscription REST | backend | source:res-sub |
-| actor svc | SubPaymentService | backend | source:svc-overview |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn gói dịch vụ | frontend | source:fe-overview |
+| actor feapi | Gửi từ web | frontend | source:fe-sub-api |
+| actor rest | API gói | backend | source:res-sub |
+| actor svc | Xử lý gói | backend | source:svc-overview |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | useOverview → getOverview(farmId) |
-| feapi | rest | GET …/subscription |
-| rest | svc | overview(farmId) |
-| svc | access | require(MANAGE_FARM_INFORMATION) | security |
-| svc | db | kỳ PAID, PENDING còn hạn, giá hiệu lực |
-| svc | feapi | SubscriptionOverview | return |
-| feapi | page | 14 mục SCR-57 | return |
+| page | feapi | Tải gói của trại |
+| feapi | rest | Yêu cầu tổng quan gói |
+| rest | svc | Lấy thông tin gói theo trại |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Đọc kỳ đã mua, yêu cầu chờ và giá |
+| svc | feapi | Trả trạng thái và thông tin gói | return |
+| feapi | page | Hiện thông tin gói trên màn hình | return |
 
 @steps id=f19-uc01-steps
-| o1-svc | SubPaymentService | `overview` tính kỳ hiện tại / tương lai, ngày còn lại (làm tròn xuống), ngày mở gia hạn, yêu cầu PENDING còn hạn và `eligibility`; chỉ đọc, không tạo gói.[](source:svc-overview) | f19-uc01-seq | svc |
-| o1-access | FarmAccessService | Chỉ Chủ trại; xem được ở mọi trạng thái dịch vụ; vai trò khác → MSG-COM-01.[](source:access-require) | f19-uc01-seq | access |
+| o1-svc | Xử lý gói | `SubscriptionPaymentService.overview` cho biết kỳ hiện tại hoặc tương lai, số ngày còn lại (làm tròn xuống), ngày mở gia hạn và giá hiện hành. Hàm cũng trả yêu cầu đang chờ nếu còn hạn.[](source:svc-overview) | f19-uc01-seq | svc |
+| o1-access | Kiểm quyền | Chủ trại xem gói được ở mọi trạng thái dịch vụ. `FarmAccessService.require` kiểm quyền `MANAGE_FARM_INFORMATION` và trả `MSG-COM-01` nếu tài khoản thiếu quyền.[](source:access-require) | f19-uc01-seq | access |
 
-## UC-02 Tạo, chờ và hủy yêu cầu thanh toán gọi những hàm nào? {#uc02}
+## UC-02 Tạo, theo dõi và hủy yêu cầu thanh toán ra sao? {#uc02}
 
 @sequence id=f19-uc02-seq title="UC-FE19-02 Tạo / chờ / hủy yêu cầu thanh toán"
-| actor page | SCR-58 / SCR-59 | frontend | source:fe-request |
-| actor feapi | API gói (FE) | frontend | source:fe-sub-api |
-| actor rest | Payment REST | backend | source:res-sub |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | Payment Svc | backend | source:svc-request |
-| actor access | Quyền trại | security | source:access-require |
+| actor page | Màn thanh toán | frontend | source:fe-request |
+| actor feapi | Gửi từ web | frontend | source:fe-sub-api |
+| actor rest | API thanh toán | backend | source:res-sub |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý thanh toán | backend | source:svc-request |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| actor farmapi | API trại | backend | source:res-context |
+| actor farmapi | API trang trại | backend | source:res-context |
 | phase | Tạo yêu cầu |
-| page | feapi | usePaymentRequest → createPayment |
-| feapi | rest | POST …/subscription/payments |
-| rest | idem | execute(PAYMENT_REQUEST) |
-| idem | svc | requestPayment(farmId, request) |
-| svc | access | require(MANAGE_FARM_INFORMATION) | security |
-| svc | db | lockById(farm), PENDING còn hạn? |
-| svc | db | cửa sổ gia hạn, giá, TK nhận |
-| svc | db | Subscription + Payment PENDING | emphasis |
-| svc | feapi | PaymentDTO (quoteRef, QR) | return |
-| phase | Chờ (SCR-59) |
-| page | feapi | usePaymentStatus → refreshPayment |
-| feapi | rest | GET …/payments/{id} |
-| rest | svc | paymentDetails(farmId, id) |
-| svc | feapi | state, receivedAt | return |
-| phase | Đã thanh toán (D54) |
-| page | farmapi | PaidTransfer → enterFarm → GET …/context |
-| farmapi | page | Ngữ cảnh trại hoặc lỗi truy cập | return |
-| phase | Hủy (D38) |
-| page | feapi | cancelPayment + khóa yêu cầu |
-| feapi | rest | POST …/{id}/cancel |
-| rest | idem | execute(PAYMENT_CANCEL) |
-| idem | svc | cancelPayment(...) |
-| svc | db | lockById(farm), chưa nhận giao dịch? | security |
-| svc | db | CANCELLED + audit |
-| svc | feapi | PaymentDTO | return |
+| page | feapi | Gửi kỳ hạn và giá đã xem |
+| feapi | rest | Yêu cầu tạo mã thanh toán |
+| rest | idem | Kiểm tra mã lần gửi |
+| idem | svc | Chạy lệnh tạo yêu cầu |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Kiểm yêu cầu đang chờ còn hạn |
+| svc | db | Kiểm hạn gia hạn, giá và tài khoản nhận |
+| svc | db | Lưu yêu cầu đang chờ | emphasis |
+| svc | feapi | Trả mã thanh toán và mã QR | return |
+| phase | Chờ tiền về |
+| page | feapi | Kiểm tra tiến độ mỗi 5 giây |
+| feapi | rest | Hỏi trạng thái yêu cầu |
+| rest | svc | Lấy chi tiết yêu cầu |
+| svc | feapi | Trả trạng thái và thời điểm nhận | return |
+| phase | Đã thanh toán |
+| page | farmapi | Kiểm quyền vào trại đã thanh toán |
+| farmapi | page | Trả thông tin trại hoặc lỗi quyền | return |
+| phase | Hủy yêu cầu |
+| page | feapi | Gửi lý do hủy và mã lần gửi |
+| feapi | rest | Yêu cầu hủy thanh toán |
+| rest | idem | Kiểm tra mã lần gửi |
+| idem | svc | Chạy lệnh hủy |
+| svc | db | Kiểm đã nhận giao dịch chưa |
+| svc | db | Lưu trạng thái đã hủy và ghi nhật ký |
+| svc | feapi | Trả yêu cầu sau khi hủy | return |
 
 @steps id=f19-uc02-steps
-| p2-page | SCR-58 / SCR-59 | `usePaymentRequest` gửi kỳ hạn và phiên bản giá đã xem.[](source:fe-request) `usePaymentStatus` tải lại mỗi 5 giây khi PENDING, dừng khi PAID / EXPIRED / rời màn.[](source:fe-status) Hộp thoại hủy giữ khóa theo lý do.[](source:fe-cancel) | f19-uc02-seq | page |
-| p2-paid | SCR-58 / SCR-59 | `PaidTransfer` gọi bước vào trại khi nhận PAID. API ngữ cảnh thuộc `FarmWorkspaceResource` của FE-02.[](source:res-context) Khi vào được, frontend lưu xác nhận theo tab và thay trang bằng Tổng quan. Nếu chưa vào được, biên nhận kèm lý do và nút thử lại ở SCR-59.[](source:fe-paid) `PaymentSuccessOnArrival` đọc và xóa bản xác nhận ở Tổng quan của đúng trại.[](source:fe-receipt) | f19-uc02-seq | page |
-| p2-svc | Payment Svc | `requestPayment`: đã có PENDING còn hạn thì trả lại (`reopened`); SUSPENDED → MSG-FE19-09; ngoài cửa sổ → MSG-FE19-03; thiếu giá / TK → MSG-FE19-04; giá đổi → MSG-FE19-02.[](source:svc-request) | f19-uc02-seq | svc |
-| p2-db | Cơ sở dữ liệu | Tạo Subscription nếu chưa có; `quoteRef` = "BC" + 12 ký tự; hết hạn sau 24 giờ; chốt TK nhận; audit `PAYMENT_REQUEST`. JOB-03 chuyển PENDING quá hạn sang EXPIRED mỗi 5 phút.[](source:job-expire) | f19-uc02-seq | db |
-| p2-cancel | Payment Svc | `cancelPayment`: không còn PENDING còn hạn → MSG-COM-05; đã nhận giao dịch → MSG-FE19-19; lý do quá 1.000 ký tự → MSG-COM-10.[](source:svc-cancel) | f19-uc02-seq | svc |
+| p2-page | Màn thanh toán | `usePaymentRequest` gửi kỳ hạn và phiên bản giá lúc mở màn. `usePaymentStatus` kiểm tra mỗi 5 giây khi yêu cầu đang chờ (`PENDING`) và dừng khi đã thanh toán, hết hạn hoặc rời màn. Hộp hủy giữ mã lần gửi theo lý do.[](source:fe-request)[](source:fe-status)[](source:fe-cancel) | f19-uc02-seq | page |
+| p2-paid | Màn thanh toán | Khi nhận trạng thái đã thanh toán (`PAID`), `PaidTransfer` gọi API ngữ cảnh trại của FE-02 để kiểm quyền. Nếu vào được, hệ thống mở Tổng quan và `PaymentSuccessOnArrival` hiện biên nhận một lần. Nếu chưa vào được, màn thanh toán hiện lý do và nút thử lại.[](source:res-context)[](source:fe-paid)[](source:fe-receipt) | f19-uc02-seq | page |
+| p2-svc | Xử lý thanh toán | `requestPayment` mở lại yêu cầu đang chờ còn hạn. Nếu cần tạo mới, hàm kiểm trại tạm ngưng, thời gian gia hạn, cấu hình tài khoản nhận và giá đã xem. Các mã lần lượt là `MSG-FE19-09`, `MSG-FE19-03`, `MSG-FE19-04` và `MSG-FE19-02`.[](source:svc-request) | f19-uc02-seq | svc |
+| p2-db | Cơ sở dữ liệu | Hệ thống tạo gói nếu trại chưa có, lưu tài khoản nhận và mã thanh toán (`quoteRef`) bắt đầu bằng BC, theo sau là 12 ký tự. Yêu cầu có hạn 24 giờ. JOB-03 đánh dấu đã hết hạn mỗi 5 phút.[](source:svc-request)[](source:job-expire) | f19-uc02-seq | db |
+| p2-cancel | Xử lý thanh toán | `cancelPayment` cho hủy yêu cầu còn chờ, còn hạn và chưa nhận giao dịch. Dữ liệu đã đổi báo `MSG-COM-05`, đã nhận giao dịch báo `MSG-FE19-19`, còn lý do dài quá 1.000 ký tự báo `MSG-COM-10`.[](source:svc-cancel) | f19-uc02-seq | svc |
 
-## UC-03 Xem lịch sử thanh toán gọi những hàm nào? {#uc03}
+## UC-03 Lịch sử và chi tiết thanh toán được tải thế nào? {#uc03}
 
 @sequence id=f19-uc03-seq title="UC-FE19-03 Lịch sử và chi tiết thanh toán"
-| actor page | SCR-60 Lịch sử | frontend | source:fe-history |
-| actor feapi | subscriptionApi | frontend | source:fe-sub-api |
-| actor rest | Subscription REST | backend | source:res-sub |
-| actor svc | SubPaymentService | backend | source:svc-history |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn lịch sử | frontend | source:fe-history |
+| actor feapi | Gửi từ web | frontend | source:fe-sub-api |
+| actor rest | API thanh toán | backend | source:res-sub |
+| actor svc | Tra thanh toán | backend | source:svc-history |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | useSubscriptionUseCase → listPayments |
-| feapi | rest | GET …/subscription/payments |
-| rest | svc | history(farmId, q, status, ...) |
-| svc | access | require(MANAGE_FARM_INFORMATION) | security |
-| svc | db | trang 20 dòng, mới nhất trước |
-| svc | feapi | PaymentHistoryPage | return |
-| page | feapi | getPayment(farmId, id) |
-| feapi | rest | GET …/payments/{id} |
-| rest | svc | paymentDetails(farmId, id) |
-| svc | feapi | PaymentDTO | return |
+| page | feapi | Lấy lịch sử theo bộ lọc |
+| feapi | rest | Yêu cầu danh sách thanh toán |
+| rest | svc | Tra thanh toán theo trại |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Lấy 20 dòng, mới nhất trước |
+| svc | feapi | Trả một trang lịch sử | return |
+| page | feapi | Chọn yêu cầu cần xem |
+| feapi | rest | Yêu cầu chi tiết thanh toán |
+| rest | svc | Tìm đúng yêu cầu của trại |
+| svc | feapi | Trả chi tiết yêu cầu | return |
 
 @steps id=f19-uc03-steps
-| h3-svc | SubPaymentService | `history` kiểm khoảng ngày (MSG-COM-11), bộ lọc, trang; `paymentDetails` trả một yêu cầu của đúng trại, không có → MSG-COM-08.[](source:svc-history) | f19-uc03-seq | svc |
-| h3-page | SCR-60 Lịch sử | Danh sách và chi tiết dùng chung `PaymentDTO`; SCR-59 mở lại từ dòng PENDING.[](source:fe-history) | f19-uc03-seq | page |
+| h3-svc | Tra thanh toán | `history` lọc lịch sử theo trạng thái, ngày và số trang. Khoảng ngày sai trả `MSG-COM-11`. `paymentDetails` chỉ trả yêu cầu của đúng trại, không tìm thấy thì báo `MSG-COM-08`.[](source:svc-history) | f19-uc03-seq | svc |
+| h3-page | Màn lịch sử | `useSubscriptionUseCase` gọi `listPayments` và `getPayment`. Danh sách và chi tiết dùng cùng kiểu dữ liệu `PaymentDTO`. Yêu cầu đang chờ có thể mở lại màn chuyển khoản SCR-59.[](source:fe-history) | f19-uc03-seq | page |
 
-## UC-08 Tiền về qua SePay gọi những hàm nào? {#uc08}
+## UC-08 Khi SePay báo tiền về, lúc nào hệ thống xác nhận? {#uc08}
 
 @sequence id=f19-uc08-seq title="UC-FE19-08 Xác nhận từ SePay (API-02 + JOB-06)"
 | actor sepay | SePay | external |
-| actor rest | Webhook REST | backend | source:res-hook |
-| actor svc | SePayWebhookSvc | backend | source:hook-receive |
-| actor job | JOB-06 | messagebus | source:hook-job |
+| actor rest | API nhận tin | backend | source:res-hook |
+| actor svc | Đối chiếu tiền | backend | source:hook-receive |
+| actor job | Tác vụ JOB-06 | messagebus | source:hook-job |
 | actor db | Cơ sở dữ liệu | database |
-| phase | Nhận webhook |
-| sepay | rest | POST /api/webhooks/sepay |
-| rest | svc | receive(timestamp, signature, body) |
-| svc | db | kiểm HMAC, lưu chứng từ RECEIVED + job | security |
-| svc | rest | WebhookResult | return |
-| rest | sepay | 200 success | return |
-| phase | Xử lý (JOB-06) |
-| job | svc | processDueEvidence → runLeasedJob |
-| svc | db | processStored: chiều, mã, số tiền, cửa sổ |
-| svc | db | lock farm → subscription → payment | security |
-| svc | db | confirm: PAID, kỳ, biên lai, audit | emphasis |
-| svc | db | thông báo + queuePaymentReceipt |
+| phase | Nhận thông báo của SePay |
+| sepay | rest | Báo giao dịch ngân hàng |
+| rest | svc | Gửi chữ ký và dữ liệu giao dịch |
+| svc | db | Kiểm chữ ký, lưu chứng từ và xếp việc |
+| svc | rest | Trả kết quả nhận thông báo | return |
+| rest | sepay | Báo đã nhận giao dịch | return |
+| phase | Đối chiếu và xác nhận |
+| job | svc | Xử lý chứng từ đang chờ |
+| svc | db | So chiều tiền, mã, số tiền và thời hạn |
+| svc | db | Giữ trại, gói và yêu cầu trong lúc ghi |
+| svc | db | Xác nhận thanh toán, lưu kỳ và biên lai | emphasis |
+| svc | db | Ghi thông báo và xếp email biên lai |
 
 @steps id=f19-uc08-steps
-| s8-rest | Webhook REST | Đọc raw body, gọi `receive`, trả `{success: true}` sau khi chứng từ và job đã commit.[](source:res-hook) | f19-uc08-seq | rest |
-| s8-svc | SePayWebhookSvc | `receive`: chữ ký sai → 401 và chỉ lưu metadata; sai kiểu trường → 400; `processWithReplayProtection` khử trùng theo bộ 4.[](source:hook-receive) `store` tạo chứng từ RECEIVED.[](source:hook-store) | f19-uc08-seq | svc |
-| s8-job | JOB-06 | `runLeasedJob` thử lại sau 1 / 5 / 15 phút rồi mỗi giờ; quá 24 giờ thì `exhaust` đặt NEEDS_REVIEW.[](source:hook-job) | f19-uc08-seq | job |
-| s8-db | Cơ sở dữ liệu | `processStored` không khớp thì `saveEvidence` (UNMATCHED).[](source:hook-process) `confirm` tính kỳ từ `latestEnd`, đặt `ACTIVE` nếu trại chưa SUSPENDED, ghi audit, thông báo và email biên lai.[](source:hook-confirm) | f19-uc08-seq | db |
+| s8-rest | API nhận tin | SePay gọi `POST /api/webhooks/sepay`. API chuyển phần dữ liệu gốc và chữ ký cho `receive`, rồi trả `200` sau khi lưu chứng từ và việc cần xử lý.[](source:res-hook) | f19-uc08-seq | rest |
+| s8-svc | Đối chiếu tiền | `receive` kiểm chữ ký HMAC và định dạng dữ liệu. Sai chữ ký trả `401`, sai dữ liệu trả `400`. `processWithReplayProtection` nhận biết giao dịch đã gửi, còn `store` ghi chứng từ chờ xử lý (`RECEIVED`).[](source:hook-receive)[](source:hook-store) | f19-uc08-seq | svc |
+| s8-job | Tác vụ JOB-06 | `runLeasedJob` cho thử lại sau 1, 5 và 15 phút, sau đó mỗi giờ. Nếu sau 24 giờ vẫn lỗi, `exhaust` chuyển chứng từ sang Cần kiểm tra (`NEEDS_REVIEW`).[](source:hook-job) | f19-uc08-seq | job |
+| s8-db | Cơ sở dữ liệu | `processStored` lưu chứng từ chưa khớp (`UNMATCHED`). Khi khớp, `confirm` tính kỳ mới từ hạn gần nhất, lưu biên lai, nhật ký và thông báo. Trại đã tạm ngưng vẫn nhận kỳ mua và giữ trạng thái tạm ngưng.[](source:hook-process)[](source:hook-confirm) | f19-uc08-seq | db |

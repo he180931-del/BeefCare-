@@ -1,11 +1,9 @@
 # FE-03 – Mô hình hàm phía trại (UC-01 → UC-06) {#fe03-farm-functions}
 
-Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. Mọi lệnh của Chủ trại đi qua `IdempotencyCommandService`, rồi `requireOwner` kiểm quyền trước khi khóa dòng.
+Phần này cho thấy lời mời được gửi và chấp nhận ra sao, cùng cách Chủ trại quản lý thành viên sau khi họ vào trại.
 
-- Frontend gọi qua `farmWorkspaceApi`; lệnh ghi gửi `expectedVersion` và `Idempotency-Key`.[](source:fe-api-members)
-- Lệnh trên lời mời khóa dòng qua `lockPendingInvitation`: kiểm trạng thái trước, version sau.[](source:svc-lock-pending)
-- Chấp nhận lời mời không dùng `Idempotency-Key`; token là khóa ý định.[](source:svc-accept)
-- Email không gửi ngay: `MailService` lưu ý định gửi trong cùng transaction, JOB-07 gửi sau.[](source:mail-queue)
+- Đọc các mũi tên từ trên xuống. Rê chuột lên ô hoặc số nguồn để xem hàm và đoạn code tương ứng.
+- Mỗi lời mời có một mã trong liên kết. Khi người được mời mở link, hệ thống đối chiếu mã với email đã đăng nhập.[](source:svc-find-token)
 
 @answer scope="Code dev 703f90e0 · UC-FE03-01 → 06"
 @meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
@@ -36,137 +34,137 @@ Phía trại của FE-03 dồn vào **một service**: `FarmMembershipService`. 
 @source access-require title="FarmAccessService.require" path=backend/src/main/java/vn/edu/fpt/beefcare/service/FarmAccessService.java lines=45:71
 @source mail-queue title="MailService.queueActionLink / queueMemberJoined / cancelActionLink" path=backend/src/main/java/vn/edu/fpt/beefcare/service/MailService.java lines=60:120
 
-## UC-01 Gửi lời mời gọi những hàm nào? {#uc01}
+## UC-01 Hệ thống gửi lời mời vào trại ra sao? {#uc01}
 
 @sequence id=f3-uc01-seq title="UC-FE03-01 Gửi lời mời"
-| actor page | Popup Mời | frontend | source:fe-invite |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-api-invites |
-| actor rest | Membership REST | backend | source:res-members |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | MembershipService | backend | source:svc-invite |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Hộp mời | frontend | source:fe-invite |
+| actor feapi | Gửi từ web | frontend | source:fe-api-invites |
+| actor rest | API thành viên | backend | source:res-members |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý lời mời | backend | source:svc-invite |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | useInviteDialog → inviteMember(farmId, input, key) |
-| feapi | rest | POST …/invitations |
-| rest | idem | execute(INVITE_SEND) |
-| idem | svc | invite(farmId, request) |
-| svc | access | requireOwner → require() | security |
-| svc | db | lockById(farm), kiểm ACTIVE |
-| svc | db | email đã là thành viên? lời mời PENDING? |
-| svc | db | saveAndFlush lời mời, token hash | emphasis |
-| svc | db | audit MEMBER_INVITE, queueActionLink |
-| svc | feapi | InvitationView | return |
-| feapi | page | MSG-FE03-01, tải lại SCR-14 | return |
+| page | feapi | Gửi email, vai trò và hạn mời |
+| feapi | rest | Gửi yêu cầu tạo lời mời |
+| rest | idem | Kiểm tra mã lần gửi |
+| idem | svc | Chạy lệnh tạo lời mời |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Kiểm trại đang hoạt động |
+| svc | db | Kiểm email đã tham gia hay đã được mời |
+| svc | db | Lưu lời mời để kiểm link khi mở | emphasis |
+| svc | db | Ghi nhật ký và xếp email |
+| svc | feapi | Trả thông tin lời mời | return |
+| feapi | page | Báo thành công và tải lại danh sách | return |
 
 @steps id=f3-uc01-steps
-| a1-page | Popup Mời | `submit`: nếu MSG-FE03-03 thì gọi `resendInvitation` cho lời mời đang chờ; nếu không thì `inviteMember` với khóa theo dữ liệu.[](source:fe-invite) | f3-uc01-seq | page |
-| a1-svc | MembershipService | `invite`: `requireOwner(farmId, true)`, khóa trại, chuẩn hóa email, kiểm số ngày 3 / 7 / 14 và vai trò MANAGER / TECHNICIAN.[](source:svc-invite) | f3-uc01-seq | svc |
-| a1-db | Cơ sở dữ liệu | Token link = `linkSigner.bearer(...)`, chỉ lưu hash. `mail.queueActionLink` lưu ý định gửi email trong cùng transaction.[](source:mail-queue) | f3-uc01-seq | db |
+| a1-page | Hộp mời | `useInviteDialog` gửi email, vai trò và hạn mời qua `inviteMember`. Khi đã có lời mời đang chờ (`MSG-FE03-03`), hộp thoại tải lời mời đó để Chủ trại chọn gửi lại.[](source:fe-invite) | f3-uc01-seq | page |
+| a1-svc | Xử lý lời mời | `FarmMembershipService.invite` kiểm người gửi là Chủ trại, dịch vụ đang hoạt động và email có thể được mời. Bạn có thể chọn hạn 3, 7 hoặc 14 ngày và vai trò Quản lý hoặc Kỹ thuật viên.[](source:svc-invite) | f3-uc01-seq | svc |
+| a1-db | Cơ sở dữ liệu | `linkSigner.bearer` tạo mã để đưa vào link. Hệ thống lưu bản băm của mã (`hash`) để đối chiếu khi mở link. `mail.queueActionLink` lên lịch gửi email cùng lần lưu lời mời.[](source:svc-invite)[](source:mail-queue) | f3-uc01-seq | db |
 
-| Lỗi | Hàm ném | Mã |
+| Khi nào báo lỗi | Chỗ kiểm trong code | Mã lỗi |
 | --- | --- | --- |
 | Không phải Chủ trại | `FarmAccessService.require` | MSG-COM-01 |
-| Trại không ACTIVE | `requireOwner` / `invite` | MSG-FE03-04 |
-| Email là thành viên ACTIVE | `invite` | MSG-FE03-02 |
+| Trại chưa hoạt động | `requireOwner` / `invite` | MSG-FE03-04 |
+| Email đã là thành viên đang hoạt động | `invite` | MSG-FE03-02 |
 | Email là thành viên đã ngưng | `invite` | MSG-FE03-21 (kèm `membershipId`) |
-| Đã có lời mời PENDING | `invite` | MSG-FE03-03 (kèm `invitationId`) |
+| Email đã có lời mời đang chờ | `invite` | MSG-FE03-03 (kèm `invitationId`) |
 | Số ngày / vai trò sai | `invite` | MSG-COM-10 |
 
-## UC-02, UC-03 Xem, gửi lại, hủy lời mời gọi những hàm nào? {#uc02-03}
+## UC-02, UC-03 Xem, gửi lại và hủy lời mời thế nào? {#uc02-03}
 
 @sequence id=f3-uc0203-seq title="UC-FE03-02 Xem + UC-FE03-03 Gửi lại / hủy lời mời"
-| actor page | SCR-14 Lời mời | frontend | source:fe-invitations |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-api-invites |
-| actor rest | Membership REST | backend | source:res-members |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | MembershipService | backend | source:svc-resend-cancel |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn lời mời | frontend | source:fe-invitations |
+| actor feapi | Gửi từ web | frontend | source:fe-api-invites |
+| actor rest | API thành viên | backend | source:res-members |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý lời mời | backend | source:svc-resend-cancel |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| phase | UC-02 Danh sách |
-| page | feapi | useInvitationsPage → listInvitations |
-| feapi | rest | GET …/invitations |
-| rest | svc | listInvitations(...) |
-| svc | access | require(VIEW_FARM_INFORMATION) | security |
-| svc | db | trang 20 dòng + đếm 4 trạng thái |
-| svc | feapi | InvitationPage | return |
-| phase | UC-03 Gửi lại / Hủy |
-| page | feapi | useInvitationsPage → gửi lại / hủy |
-| feapi | rest | POST …/{id}/resend · /cancel |
-| rest | idem | execute(INVITE_RESEND / CANCEL) |
-| idem | svc | resend / cancel |
-| svc | access | requireOwner | security |
-| svc | db | lockPendingInvitation | emphasis |
-| svc | db | token mới / CANCELLED, audit, mail |
-| svc | feapi | InvitationView | return |
-| feapi | page | MSG-FE03-05 / 07, tải lại | return |
+| phase | Xem danh sách lời mời |
+| page | feapi | Lấy danh sách theo bộ lọc |
+| feapi | rest | Yêu cầu danh sách lời mời |
+| rest | svc | Tra lời mời theo tiêu chí |
+| svc | access | Kiểm quyền xem thông tin trại |
+| svc | db | Lấy 20 dòng và số lượng theo trạng thái |
+| svc | feapi | Trả danh sách lời mời | return |
+| phase | Gửi lại hoặc hủy lời mời |
+| page | feapi | Gửi lựa chọn gửi lại hoặc hủy |
+| feapi | rest | Gửi lệnh đã chọn |
+| rest | idem | Kiểm tra mã lần gửi |
+| idem | svc | Chạy lệnh gửi lại hoặc hủy |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Khóa lời mời và kiểm còn chờ | emphasis |
+| svc | db | Lưu link mới hoặc trạng thái đã hủy |
+| svc | feapi | Trả lời mời sau thay đổi | return |
+| feapi | page | Báo kết quả và tải lại | return |
 
 @steps id=f3-uc0203-steps
-| b1-page | SCR-14 Lời mời | Tải chi tiết trại và danh sách song song; `run` gọi gửi lại hoặc hủy với `expectedVersion`.[](source:fe-invitations) | f3-uc0203-seq | page |
-| b1-svc | MembershipService | `listInvitations` kiểm tham số; lời mời PENDING quá hạn được tính EXPIRED lúc đọc, không ghi.[](source:svc-list-invites) `resend` đổi nonce và hash, link cũ hết tác dụng; `cancel` đặt CANCELLED, giữ hash tới JOB-08.[](source:svc-resend-cancel) | f3-uc0203-seq | svc |
-| b1-db | Cơ sở dữ liệu | `lockPendingInvitation`: không còn PENDING → MSG-FE03-08 kèm trạng thái, rồi mới kiểm version → MSG-COM-05.[](source:svc-lock-pending) JOB-02 chuyển PENDING quá hạn sang EXPIRED mỗi 15 phút.[](source:svc-expire-job) | f3-uc0203-seq | db |
+| b1-page | Màn lời mời | Màn lời mời tải chi tiết trại và danh sách cùng lúc. Khi gửi lại hoặc hủy, `useInvitationsPage` gửi phiên bản lời mời đã xem (`expectedVersion`) để phát hiện thay đổi của người khác.[](source:fe-invitations) | f3-uc0203-seq | page |
+| b1-svc | Xử lý lời mời | `listInvitations` hiển thị lời mời quá hạn là Đã hết hạn. `resend` tạo link mới và làm link cũ mất hiệu lực. `cancel` đánh dấu Đã hủy và giữ mã băm của link đến khi JOB-08 dọn dữ liệu.[](source:svc-list-invites)[](source:svc-resend-cancel) | f3-uc0203-seq | svc |
+| b1-db | Cơ sở dữ liệu | `lockPendingInvitation` giữ bản ghi trong lúc kiểm. Hệ thống kiểm lời mời còn chờ trước, rồi mới so phiên bản. Lời mời đã đổi trạng thái báo `MSG-FE03-08`, còn dữ liệu cũ báo `MSG-COM-05`. JOB-02 đánh dấu lời mời hết hạn mỗi 15 phút.[](source:svc-lock-pending)[](source:svc-expire-job) | f3-uc0203-seq | db |
 
-## UC-04 Chấp nhận lời mời gọi những hàm nào? {#uc04}
+## UC-04 Khi mở link và chấp nhận lời mời, hệ thống kiểm gì? {#uc04}
 
 @sequence id=f3-uc04-seq title="UC-FE03-04 Chấp nhận lời mời"
-| actor page | SCR-15 Chấp nhận | frontend | source:fe-accept |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-api-accept |
-| actor rest | Membership REST | backend | source:res-members |
-| actor svc | MembershipService | backend | source:svc-accept |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn nhận lời | frontend | source:fe-accept |
+| actor feapi | Gửi từ web | frontend | source:fe-api-accept |
+| actor rest | API thành viên | backend | source:res-members |
+| actor svc | Xử lý lời mời | backend | source:svc-accept |
+| actor access | Kiểm tài khoản | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| phase | Xem lời mời (A7) |
-| page | feapi | useFarmWorkspaceUseCase → previewInvitation(token) |
-| feapi | rest | GET /api/invitations/accept |
-| rest | svc | preview(token) |
-| svc | db | findInviteForCaller: hash token |
-| svc | access | currentActiveUser(), so email | security |
-| svc | db | ACCEPTED: membership ACTIVE. PENDING: hạn và trại ACTIVE |
-| svc | feapi | InvitationAcceptance | return |
-| phase | Chấp nhận (A8) |
-| page | feapi | useFarmWorkspaceUseCase → acceptInvitation(token) |
-| feapi | rest | POST /api/invitations/accept |
-| rest | svc | accept(token) |
-| svc | db | lockByTokenHash, lockById(farm) | security |
-| svc | feapi | Nếu đã ACCEPTED: trả membership ACTIVE đã có | return |
-| svc | db | Nếu PENDING: kiểm hạn, trại ACTIVE và tạo membership | emphasis |
-| svc | db | Với lần chấp nhận mới: audit, queueMemberJoined |
-| svc | feapi | AcceptedInvitation | return |
-| feapi | page | enterFarm(farmId) | return |
+| phase | Mở link để xem lời mời |
+| page | feapi | Gửi mã trong link lời mời |
+| feapi | rest | Yêu cầu xem lời mời |
+| rest | svc | Kiểm thông tin lời mời |
+| svc | db | Tìm lời mời theo mã link |
+| svc | access | Lấy tài khoản và so email |
+| svc | db | Đã nhận: kiểm tư cách. Đang chờ: kiểm hạn và trại |
+| svc | feapi | Trả thông tin và trạng thái lời mời | return |
+| phase | Bấm chấp nhận |
+| page | feapi | Gửi xác nhận tham gia |
+| feapi | rest | Gửi yêu cầu chấp nhận |
+| rest | svc | Xử lý chấp nhận lời mời |
+| svc | db | Khóa lời mời và trại |
+| svc | feapi | Đã nhận: trả thông tin thành viên hiện có | return |
+| svc | db | Đang chờ: kiểm điều kiện và lưu thành viên | emphasis |
+| svc | db | Lần đầu nhận: ghi nhật ký và xếp email |
+| svc | feapi | Trả kết quả tham gia | return |
+| feapi | page | Nhận kết quả để mở trại | return |
 
 @steps id=f3-uc04-steps
-| c1-page | SCR-15 Chấp nhận | `useFarmWorkspaceUseCase` đọc và gửi xác nhận lời mời.[](source:fe-workspace) `accept` hiện MSG-FE03-10, rồi `open` gọi `enterFarm` để mở trang chủ theo vai trò mới.[](source:fe-accept) `enterFarm` dùng chung với SCR-09.[](source:fe-enter) | f3-uc04-seq | page |
-| c1-find | MembershipService | Token trống hoặc sai → MSG-FE03-08 `INVALID`. Email khác → MSG-FE03-09. Ngoài nhánh mở lại ACCEPTED, lời mời phải PENDING và còn hạn.[](source:svc-find-token) | f3-uc04-seq | svc |
-| c1-db | Cơ sở dữ liệu | Mở lại ACCEPTED với đúng email và membership ACTIVE thì trả membership đã có. Nếu membership đã ngưng, trả MSG-FE03-08 (ACCEPTED).[](source:svc-replay) Với lời mời PENDING, trại phải ACTIVE và người được mời chưa có membership.[](source:svc-accept) | f3-uc04-seq | db |
+| c1-page | Màn nhận lời | `useFarmWorkspaceUseCase` xem lời mời qua `GET /api/invitations/accept` và gửi chấp nhận qua `POST /api/invitations/accept`. Khi đã tham gia, `enterFarm` kiểm lại quyền vào trại rồi mở trang chủ theo vai trò.[](source:fe-workspace)[](source:fe-accept)[](source:fe-enter) | f3-uc04-seq | page |
+| c1-find | Xử lý lời mời | `findInviteForCaller` kiểm mã trong link và email. Mã sai báo `MSG-FE03-08`, còn đăng nhập bằng email khác báo `MSG-FE03-09`. Lời mời đang chờ phải còn hạn.[](source:svc-find-token) | f3-uc04-seq | svc |
+| c1-db | Cơ sở dữ liệu | Mở lại lời mời đã chấp nhận chỉ trả thành viên cũ nếu tư cách còn hoạt động. Nếu đã ngưng thì báo `MSG-FE03-08`. Lần chấp nhận mới cần trại hoạt động và chưa có bản ghi thành viên cho người này.[](source:svc-replay)[](source:svc-accept) | f3-uc04-seq | db |
 
-## UC-05, UC-06 Xem và đổi thành viên gọi những hàm nào? {#uc05-06}
+## UC-05, UC-06 Xem và thay đổi thành viên trong trại ra sao? {#uc05-06}
 
 @sequence id=f3-uc0506-seq title="UC-FE03-05 Xem + UC-FE03-06 Đổi vai trò / ngưng / kích hoạt lại"
-| actor page | SCR-13 Thành viên | frontend | source:fe-member-change |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-api-members |
-| actor rest | Membership REST | backend | source:res-members |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | MembershipService | backend | source:svc-change |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn thành viên | frontend | source:fe-member-change |
+| actor feapi | Gửi từ web | frontend | source:fe-api-members |
+| actor rest | API thành viên | backend | source:res-members |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý thành viên | backend | source:svc-change |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| phase | UC-05 Danh sách |
-| page | feapi | useMembersPage → listMembers(farmId) |
-| feapi | rest | GET …/members |
-| rest | svc | listMembers(farmId) |
-| svc | access | require(VIEW_MEMBERS) | security |
-| svc | db | findWithUserByFarmId, sắp theo tên |
-| svc | feapi | MemberList + actions | return |
-| phase | UC-06 Đổi |
-| page | feapi | changeMember(id, payload) |
-| feapi | rest | PUT …/members/{id} |
-| rest | idem | execute(MEMBER_CHANGE) |
-| idem | svc | changeMember(...) |
-| svc | access | requireOwner | security |
-| svc | db | lockByIdAndFarmId, kiểm theo thứ tự | emphasis |
-| svc | db | membership_change + audit |
-| svc | feapi | MemberView | return |
-| feapi | page | MSG-FE03-13, tải lại | return |
+| phase | Tải danh sách thành viên |
+| page | feapi | Lấy thành viên của trại |
+| feapi | rest | Yêu cầu danh sách thành viên |
+| rest | svc | Tra danh sách theo mã trại |
+| svc | access | Kiểm quyền xem thành viên |
+| svc | db | Lấy thành viên và sắp theo tên |
+| svc | feapi | Trả danh sách và thao tác được phép | return |
+| phase | Đổi vai trò hoặc trạng thái |
+| page | feapi | Gửi lựa chọn và lý do |
+| feapi | rest | Gửi yêu cầu đổi thành viên |
+| rest | idem | Kiểm tra mã lần gửi |
+| idem | svc | Chạy lệnh đổi thành viên |
+| svc | access | Kiểm quyền Chủ trại |
+| svc | db | Kiểm điều kiện và lưu thay đổi | emphasis |
+| svc | db | Ghi lịch sử thành viên và nhật ký |
+| svc | feapi | Trả thành viên đã sửa | return |
+| feapi | page | Báo kết quả và tải lại | return |
 
 @steps id=f3-uc0506-steps
-| d1-page | SCR-13 Thành viên | `MembersPage` gọi `listMembers`.[](source:fe-members) Popup `save` gửi hành động, vai trò, ngày hiệu lực, lý do kèm `expectedVersion`.[](source:fe-member-change) | f3-uc0506-seq | page |
-| d1-list | MembershipService | `listMembers`: Quản lý chỉ nhận dòng ACTIVE, không có số Đã ngưng; sắp theo tên tiếng Việt rồi email, id.[](source:svc-list-members) | f3-uc0506-seq | svc |
-| d1-db | Cơ sở dữ liệu | `changeMember` kiểm: membership OWNER → MSG-COM-01; ngày tương lai → MSG-COM-07; lý do dưới 5 ký tự → MSG-COM-10; trại không ACTIVE (trừ Ngưng) → MSG-FE03-04; đã đúng → MSG-FE03-20; version → MSG-COM-05.[](source:svc-change) | f3-uc0506-seq | db |
+| d1-page | Màn thành viên | `useMembersPage` tải danh sách với `listMembers`. Hộp chỉnh sửa gửi thao tác, vai trò, ngày hiệu lực, lý do và phiên bản đã mở (`expectedVersion`).[](source:fe-members)[](source:fe-member-change) | f3-uc0506-seq | page |
+| d1-list | Xử lý thành viên | `listMembers` sắp theo tên tiếng Việt, rồi email và mã. Nếu người xem là Quản lý, kết quả chỉ có thành viên đang hoạt động.[](source:svc-list-members) | f3-uc0506-seq | svc |
+| d1-db | Cơ sở dữ liệu | `changeMember` kiểm quyền, ngày hiệu lực, lý do và trạng thái trại. Thành viên có vai trò Chủ trại được bảo vệ. Với trại chưa hoạt động, Chủ trại vẫn có thể ngưng thành viên. Cuối cùng service so phiên bản trước khi lưu.[](source:svc-change) | f3-uc0506-seq | db |

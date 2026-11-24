@@ -1,10 +1,9 @@
 # FE-02 – Mô hình hàm theo use case {#fe02-functions}
 
-Mỗi UC của FE-02 đi theo một chuỗi hàm cố định: **trang → hàm API frontend → REST resource → service → kiểm quyền → DB**. Lệnh ghi còn đi qua `IdempotencyCommandService` trước khi vào service.
+Các sơ đồ chỉ đường từ thao tác trên màn hình đến kết quả lưu trong hệ thống. Bạn có thể xem cách đăng ký, vào trại, sửa thông tin hoặc đổi trạng thái dịch vụ.
 
-- Frontend gọi qua `farmWorkspaceApi` (Chủ trại) hoặc `platformServiceApi` (PM); trang giữ `Idempotency-Key` để thử lại không tạo bản ghi thứ hai.[](source:fe-ws-api-register)
-- Kiểm quyền trong trại nằm ở `FarmAccessService.require`; kiểm vai trò PM nằm ở `PlatformAccessService.requireRole`.[](source:access-require)
-- Cùng khóa, cùng dữ liệu trả lại kết quả cũ; cùng khóa, khác dữ liệu trả MSG-COM-19.[](source:idem-execute)
+- Đọc các mũi tên từ trên xuống. Rê chuột lên ô hoặc số nguồn để xem hàm và đoạn code tương ứng.
+- Ô Chống ghi trùng kiểm tra mã lần gửi. Gửi lại cùng mã và dữ liệu sẽ nhận kết quả đã lưu nếu lần trước đã thành công.[](source:idem-execute)
 
 @answer scope="Code dev 703f90e0 · UC-FE02-01 → 05 · D54, D56"
 @meta locale=en repo_url=https://github.com/he180931-del/BeefCare-.git repo_revision=703f90e0ccdaa7c995525ce7e821d59c14829821
@@ -39,159 +38,161 @@ Mỗi UC của FE-02 đi theo một chuỗi hàm cố định: **trang → hàm 
 @source pm-change title="PlatformFarmService.suspend / restore" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformFarmService.java lines=121:150
 @source pm-notify title="PlatformFarmService.recordAndNotify" path=backend/src/main/java/vn/edu/fpt/beefcare/service/PlatformFarmService.java lines=223:238
 
-## UC-01 Đăng ký trại gọi những hàm nào? {#uc01}
+## UC-01 Khi bấm Tạo trại, hệ thống làm gì? {#uc01}
 
 @sequence id=uc01-seq title="UC-FE02-01 Đăng ký trại"
-| actor page | SCR-10 Đăng ký | frontend | source:fe-reg-page |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-ws-api-register |
-| actor rest | Workspace REST | backend | source:res-ws |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | WorkspaceService | backend | source:svc-register |
-| actor access | FarmAccessService | security | source:access-current |
+| actor page | Màn đăng ký | frontend | source:fe-reg-page |
+| actor feapi | Gửi từ web | frontend | source:fe-ws-api-register |
+| actor rest | API trang trại | backend | source:res-ws |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý đăng ký | backend | source:svc-register |
+| actor access | Kiểm tài khoản | security | source:access-current |
 | actor db | Cơ sở dữ liệu | database |
-| page | feapi | registerFarm(form, key) |
-| feapi | rest | POST /api/farms |
-| rest | idem | execute(FARM_REGISTER) |
-| idem | svc | register(request) |
-| svc | access | currentActiveUser() | security |
-| access | svc | AppUser | return |
-| svc | db | persist farm + membership OWNER | emphasis |
-| svc | db | starters, audit, outbox |
-| svc | idem | Details | return |
-| idem | rest | Details | return |
-| rest | feapi | 201 Created | return |
-| feapi | page | FarmDetails | return |
+| page | feapi | Gửi thông tin trại và mã lần gửi |
+| feapi | rest | Gửi yêu cầu tạo trại |
+| rest | idem | Kiểm tra yêu cầu có bị gửi lại |
+| idem | svc | Chạy lệnh tạo trại mới |
+| svc | access | Lấy tài khoản đang đăng nhập |
+| access | svc | Trả tài khoản đang hoạt động | return |
+| svc | db | Lưu trại và gán Chủ trại | emphasis |
+| svc | db | Tạo dữ liệu mặc định, ghi nhật ký và sự kiện |
+| svc | idem | Trả thông tin trại vừa tạo | return |
+| idem | rest | Chuyển kết quả tạo trại | return |
+| rest | feapi | Báo tạo trại thành công | return |
+| feapi | page | Nhận thông tin trại để chọn gói | return |
 
 @steps id=uc01-steps
-| u1-page | SCR-10 Đăng ký | `submit` kiểm form, giữ `requestKey.keyFor(form)`; thành công thì mở SCR-58 chọn gói.[](source:fe-reg-page) | uc01-seq | page |
-| u1-api | farmWorkspaceApi | `registerFarm` chuẩn hóa SĐT, gửi header `Idempotency-Key`.[](source:fe-ws-api-register) | uc01-seq | feapi |
-| u1-rest | Workspace REST | `register` bọc lệnh trong `commands.execute`, trả 201 kèm `Location`.[](source:res-ws) | uc01-seq | rest |
-| u1-idem | Idempotency | `execute` băm request; cùng khóa trả lại kết quả cũ.[](source:idem-execute) | uc01-seq | idem |
-| u1-svc | WorkspaceService | `register`: kiểm đã đăng ký Owner, tỉnh hợp lệ; tạo farm `PENDING_PAYMENT`, membership OWNER.[](source:svc-register) | uc01-seq | svc |
-| u1-db | Cơ sở dữ liệu | `StarterCatalogueService.create` tạo tham số và danh mục; `audit.log(FARM_REGISTER)`; `outbox.enqueue(FARM_REGISTERED)`.[](source:starter-create) | uc01-seq | db |
+| u1-page | Màn đăng ký | Khi bấm Tạo trang trại, màn hình kiểm tra biểu mẫu. `useFarmRegistration.submit` gọi `registerFarm` với thông tin trại và mã lần gửi.[](source:fe-reg-page) | uc01-seq | page |
+| u1-api | Gửi từ web | Frontend chuẩn hóa số điện thoại rồi gửi yêu cầu. Hàm `farmWorkspaceApi.registerFarm` gọi `POST /api/farms` với `Idempotency-Key`.[](source:fe-ws-api-register) | uc01-seq | feapi |
+| u1-rest | API trang trại | Backend tiếp nhận dữ liệu và chuyển lệnh tạo trại qua bước chống ghi trùng. Hàm `FarmWorkspaceResource.register` gọi `commands.execute` với lệnh `FARM_REGISTER`.[](source:res-ws) | uc01-seq | rest |
+| u1-idem | Chống ghi trùng | Nếu mã và nội dung trùng với lần đã xử lý, hệ thống trả thông tin trại đã lưu. Dùng lại mã với nội dung khác sẽ báo lỗi. Chỗ kiểm là `IdempotencyCommandService.execute`.[](source:idem-execute) | uc01-seq | idem |
+| u1-access | Kiểm tài khoản | Lấy tài khoản đã đăng nhập và còn hoạt động. Hàm `FarmAccessService.currentActiveUser()` trả về đối tượng tài khoản `AppUser`.[](source:access-current) | uc01-seq | access |
+| u1-svc | Xử lý đăng ký | Sau khi kiểm hồ sơ Chủ trại và tỉnh, hàm `FarmWorkspaceService.register` tạo trại chờ thanh toán (`PENDING_PAYMENT`). Hàm cũng gắn tài khoản vừa đăng ký với vai trò Chủ trại (`OWNER`) của trại mới.[](source:svc-register) | uc01-seq | svc |
+| u1-db | Cơ sở dữ liệu | Hệ thống tạo danh mục và tham số ban đầu (`StarterCatalogueService.create`), ghi nhật ký đăng ký (`FARM_REGISTER`) và lưu sự kiện `FARM_REGISTERED` để xử lý sau. Các bước lưu cùng một giao dịch.[](source:starter-create)[](source:svc-register) | uc01-seq | db |
+| u1-done | Màn đăng ký | Backend trả `201 Created` cùng thông tin trại (`Details`). Màn hình dùng mã trại vừa nhận để mở SCR-58 Chọn gói dịch vụ.[](source:res-ws)[](source:fe-reg-page) | uc01-seq | page |
 
-| Lỗi | Hàm ném | Mã |
+| Khi nào báo lỗi | Chỗ kiểm trong code | Mã lỗi |
 | --- | --- | --- |
 | Tài khoản chưa hoàn tất đăng ký Owner | `FarmWorkspaceService.register` | MSG-FE02-02 |
 | Tài khoản bị tạm ngưng | `FarmAccessService.currentActiveUser` | MSG-FE01-03 |
 | Tỉnh ngoài danh sách 34 tỉnh | `VietnamProvinces.require` | MSG-COM-10 |
 | Cùng khóa, khác dữ liệu | `IdempotencyCommandService` | MSG-COM-19 |
 
-## UC-02 Xem và chọn trại gọi những hàm nào? {#uc02}
+## UC-02 Khi mở danh sách và chọn trại, hệ thống kiểm gì? {#uc02}
 
 @sequence id=uc02-seq title="UC-FE02-02 Xem và chọn trại"
-| actor page | SCR-09 Chọn trại | frontend | source:fe-select-page |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-ws-api-list |
-| actor rest | Workspace REST | backend | source:res-ws |
-| actor svc | WorkspaceService | backend | source:svc-list |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn chọn trại | frontend | source:fe-select-page |
+| actor feapi | Gửi từ web | frontend | source:fe-ws-api-list |
+| actor rest | API trang trại | backend | source:res-ws |
+| actor svc | Xử lý chọn trại | backend | source:svc-list |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| phase | Danh sách trại |
-| page | feapi | listFarms() |
-| feapi | rest | GET /api/farms |
-| rest | svc | list() |
-| svc | access | currentActiveUser() | security |
-| svc | db | membership ACTIVE, số bò, latestEnd |
-| svc | feapi | List of Summary | return |
-| feapi | page | FarmSummary[] | return |
-| phase | Vào trại |
-| page | feapi | selectFarm(id) |
-| feapi | rest | GET /api/farms/{id}/context |
-| rest | svc | context(farmId) |
-| svc | access | require(SELECT_FARM) | security |
-| access | svc | FarmContext | return |
-| svc | feapi | Summary | return |
-| feapi | page | Trả ngữ cảnh. Trại ACTIVE được lưu theo tab | return |
+| phase | Tải danh sách trại |
+| page | feapi | Lấy danh sách trại |
+| feapi | rest | Yêu cầu danh sách từ backend |
+| rest | svc | Xử lý danh sách trại |
+| svc | access | Lấy tài khoản đang đăng nhập |
+| svc | db | Đọc trại đang tham gia, số bò và hạn gói |
+| svc | feapi | Trả danh sách trại | return |
+| feapi | page | Hiện danh sách trại | return |
+| phase | Kiểm tra trước khi vào trại |
+| page | feapi | Gửi mã trại được chọn |
+| feapi | rest | Yêu cầu trạng thái và quyền tại trại |
+| rest | svc | Xử lý yêu cầu vào trại |
+| svc | access | Kiểm quyền vào trại |
+| access | svc | Trả trại và vai trò của tài khoản | return |
+| svc | feapi | Trả thông tin trại đã kiểm | return |
+| feapi | page | Nhận thông tin để vào đúng màn hình | return |
 
 @steps id=uc02-steps
-| u2-page | SCR-09 Chọn trại | `useFarmSelect.open` lấy ngữ cảnh rồi chọn đích. Với trại `ACTIVE`, hook lưu trại theo tab và tải lại vào đích, ưu tiên mục được yêu cầu nếu có. Tự vào dùng `replace`.[](source:fe-select-page)[](source:fe-return) | uc02-seq | page |
-| u2-svc | WorkspaceService | `list` lấy membership ACTIVE ở mọi trạng thái dịch vụ; `context` kiểm lại trước khi đặt trại hiện tại.[](source:svc-list) | uc02-seq | svc |
-| u2-access | FarmAccessService | `require(SELECT_FARM)`: không có membership ACTIVE → MSG-COM-01; Quản lý / Kỹ thuật viên ở trại không ACTIVE → MSG-FE02-04.[](source:access-require) | uc02-seq | access |
+| u2-page | Màn chọn trại | Khi chọn trại, `useFarmSelect.open` lấy trạng thái dịch vụ và vai trò để biết sẽ mở màn nào. Với trại đang hoạt động, hệ thống ghi nhớ lựa chọn cho tab hiện tại và tải trang đích. Tự mở bằng `replace` sẽ thay màn Chọn trại trong lịch sử tab.[](source:fe-select-page)[](source:fe-return) | uc02-seq | page |
+| u2-svc | Xử lý chọn trại | `FarmWorkspaceService.list` liệt kê trại mà tài khoản còn là thành viên, kể cả trại có dịch vụ chưa hoạt động. `context` kiểm tra lại quyền trước khi frontend chọn trại hiện tại.[](source:svc-list) | uc02-seq | svc |
+| u2-access | Kiểm quyền | `require(SELECT_FARM)` kiểm quyền vào trại. Ai chưa có tư cách thành viên đang hoạt động nhận `MSG-COM-01`. Quản lý hoặc Kỹ thuật viên chọn trại chưa hoạt động nhận `MSG-FE02-04`.[](source:access-require) | uc02-seq | access |
 
 Menu chuyển trại nhanh nằm ở thanh trên của khu vực làm việc. Menu lưu trại `ACTIVE` theo tab và mở trang chủ theo vai trò. Menu dẫn về SCR-09 khi chọn trại chưa `ACTIVE`, khi trình duyệt chặn lưu trại theo tab hoặc khi chọn **Quản lý trang trại**.[](source:fe-switch)
 
 Hàm `enterFarm` được dùng sau khi chấp nhận lời mời và sau thanh toán.[](source:fe-enter)
 
-## UC-03 Cập nhật thông tin trại gọi những hàm nào? {#uc03}
+## UC-03 Khi sửa thông tin trại, hệ thống lưu gì? {#uc03}
 
 @sequence id=uc03-seq title="UC-FE02-03 Cập nhật thông tin trại"
-| actor page | SCR-11 Thông tin | frontend | source:fe-info-page |
-| actor feapi | farmWorkspaceApi | frontend | source:fe-ws-api-update |
-| actor rest | Workspace REST | backend | source:res-ws |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | WorkspaceService | backend | source:svc-update |
-| actor access | FarmAccessService | security | source:access-require |
+| actor page | Màn thông tin | frontend | source:fe-info-page |
+| actor feapi | Gửi từ web | frontend | source:fe-ws-api-update |
+| actor rest | API trang trại | backend | source:res-ws |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý thông tin | backend | source:svc-update |
+| actor access | Kiểm quyền | security | source:access-require |
 | actor db | Cơ sở dữ liệu | database |
-| phase | Tải form |
-| page | feapi | getFarm(id) |
-| feapi | rest | GET /{id} + /{id}/context |
-| rest | svc | get(farmId) |
-| svc | access | require(VIEW_FARM_INFORMATION) | security |
-| svc | feapi | Details | return |
-| phase | Lưu thay đổi |
-| page | feapi | updateFarm(id, form, key) |
-| feapi | rest | PUT /api/farms/{id} |
-| rest | idem | execute(FARM_UPDATE) |
-| idem | svc | update(farmId, request) |
-| svc | access | require(MANAGE_FARM_INFORMATION) | security |
-| svc | db | lockById, kiểm version, ghi trường | emphasis |
-| svc | db | audit FARM_UPDATE, outbox |
-| svc | feapi | Details | return |
-| feapi | page | tải lại, MSG-FE02-05 | return |
+| phase | Nạp thông tin vào biểu mẫu |
+| page | feapi | Lấy dữ liệu để sửa |
+| feapi | rest | Yêu cầu chi tiết và quyền tại trại |
+| rest | svc | Lấy thông tin trại theo mã |
+| svc | access | Kiểm quyền xem thông tin |
+| svc | feapi | Trả thông tin hiện tại | return |
+| phase | Lưu thông tin đã sửa |
+| page | feapi | Gửi thông tin mới và mã lần gửi |
+| feapi | rest | Gửi yêu cầu cập nhật |
+| rest | idem | Kiểm tra yêu cầu có bị gửi lại |
+| idem | svc | Chạy lệnh cập nhật |
+| svc | access | Kiểm quyền sửa thông tin |
+| svc | db | Kiểm dữ liệu còn mới và lưu | emphasis |
+| svc | db | Ghi nhật ký và lưu sự kiện |
+| svc | feapi | Trả thông tin đã cập nhật | return |
+| feapi | page | Báo đã lưu và tải lại | return |
 
 @steps id=uc03-steps
-| u3-page | SCR-11 Thông tin | `submit` kiểm form, gửi `expectedVersion` và giữ khóa yêu cầu.[](source:fe-info-page) | uc03-seq | page |
-| u3-api | farmWorkspaceApi | `getFarm` gọi song song chi tiết và context; `updateFarm` không gửi giống chính.[](source:fe-ws-api-farm) | uc03-seq | feapi |
-| u3-svc | WorkspaceService | `update`: khóa dòng trại, `VersionGuard.requireExpected`, kiểm tỉnh và múi giờ UTC+7, ghi audit `FARM_UPDATE`.[](source:svc-update) | uc03-seq | svc |
-| u3-access | FarmAccessService | Chủ trại xem / sửa được ở mọi trạng thái dịch vụ; vai trò khác → MSG-COM-01.[](source:access-require) | uc03-seq | access |
+| u3-page | Màn thông tin | Khi bấm Lưu, `submit` kiểm nội dung và gửi phiên bản mà người dùng đã mở (`expectedVersion`) cùng mã lần gửi.[](source:fe-info-page) | uc03-seq | page |
+| u3-api | Gửi từ web | `getFarm` lấy cả thông tin trại và quyền tại trại. `updateFarm` gửi những trường chỉnh sửa được trên màn này qua `PUT /api/farms/{id}`. Giống chính không nằm trong yêu cầu cập nhật.[](source:fe-ws-api-farm)[](source:fe-ws-api-update) | uc03-seq | feapi |
+| u3-svc | Xử lý thông tin | `FarmWorkspaceService.update` khóa bản ghi trong lúc lưu. `VersionGuard.requireExpected` kiểm xem có ai đã sửa trước đó, rồi service kiểm tỉnh và múi giờ UTC+7, lưu dữ liệu và ghi nhật ký `FARM_UPDATE`.[](source:svc-update) | uc03-seq | svc |
+| u3-access | Kiểm quyền | Chủ trại xem và sửa được thông tin ở mọi trạng thái dịch vụ. `FarmAccessService.require` trả `MSG-COM-01` nếu tài khoản không có quyền.[](source:access-require) | uc03-seq | access |
 
-| Lỗi | Hàm ném | Mã |
+| Khi nào báo lỗi | Chỗ kiểm trong code | Mã lỗi |
 | --- | --- | --- |
 | Không phải Chủ trại | `FarmAccessService.require` | MSG-COM-01 |
-| Version cũ | `VersionGuard.requireExpected` | MSG-COM-05 |
+| Dữ liệu đã thay đổi sau khi màn hình mở | `VersionGuard.requireExpected` | MSG-COM-05 |
 | Tỉnh / múi giờ sai | `VietnamProvinces.require`, `FarmTimeZones.require` | MSG-COM-10 |
 
-## UC-04, UC-05 màn PM gọi những hàm nào? {#uc04-05}
+## UC-04, UC-05 PM xem và đổi trạng thái dịch vụ ra sao? {#uc04-05}
 
 @sequence id=uc0405-seq title="UC-FE02-04 Tổng quan + UC-FE02-05 Tạm ngưng / khôi phục"
-| actor page | SCR-12 (PM) | frontend | source:fe-pm-dialog |
-| actor feapi | platformApi | frontend | source:fe-pm-api |
-| actor rest | PlatformFarm REST | backend | source:res-pm |
-| actor idem | Idempotency | security | source:idem-execute |
-| actor svc | PlatformFarmSvc | backend | source:pm-change |
-| actor access | PlatformAccess | security | source:platform-role |
+| actor page | Màn dịch vụ | frontend | source:fe-pm-dialog |
+| actor feapi | Gửi từ web | frontend | source:fe-pm-api |
+| actor rest | API dịch vụ | backend | source:res-pm |
+| actor idem | Chống ghi trùng | security | source:idem-execute |
+| actor svc | Xử lý dịch vụ | backend | source:pm-change |
+| actor access | Kiểm quyền | security | source:platform-role |
 | actor db | Cơ sở dữ liệu | database |
-| phase | UC-04 Tổng quan |
-| page | feapi | listFarms(filters) |
-| feapi | rest | GET /api/platform/farms |
-| rest | svc | overview(q, status, sort) |
-| svc | access | requireRole(PM) | security |
-| svc | db | findAll(filter), tiles() |
-| svc | feapi | FarmServicePage | return |
-| phase | UC-05 Popup |
-| page | feapi | getFarmService(id) |
-| feapi | rest | GET /api/platform/farms/{id} |
-| rest | svc | preview(farmId) |
-| svc | feapi | FarmServicePreview | return |
-| phase | UC-05 Xác nhận |
-| page | feapi | suspendFarm / restoreFarm |
-| feapi | rest | POST …/suspend · …/restore |
-| rest | idem | executePlatform(PM) |
-| idem | svc | suspend / restore |
-| svc | db | lockById, version, service_status | emphasis |
-| svc | db | recordAndNotify: audit + thông báo |
-| svc | feapi | FarmOverview | return |
-| feapi | page | MSG-FE02-08 | return |
+| phase | Xem danh sách trại |
+| page | feapi | Lấy danh sách theo bộ lọc |
+| feapi | rest | Yêu cầu tổng quan dịch vụ |
+| rest | svc | Tra danh sách trại theo bộ lọc |
+| svc | access | Kiểm quyền quản lý nền tảng |
+| svc | db | Lấy danh sách và số liệu tổng |
+| svc | feapi | Trả danh sách và các ô thống kê | return |
+| phase | Xem trước tác động |
+| page | feapi | Mở chi tiết của trại |
+| feapi | rest | Yêu cầu xem trước |
+| rest | svc | Tính trạng thái sau thay đổi |
+| svc | feapi | Trả thông tin xem trước | return |
+| phase | Xác nhận đổi trạng thái |
+| page | feapi | Xác nhận tạm ngưng hoặc khôi phục |
+| feapi | rest | Gửi lệnh đổi trạng thái |
+| rest | idem | Kiểm quyền PM và mã lần gửi |
+| idem | svc | Chạy lệnh tạm ngưng hoặc khôi phục |
+| svc | db | Kiểm dữ liệu còn mới và lưu trạng thái | emphasis |
+| svc | db | Ghi nhật ký và xếp thông báo |
+| svc | feapi | Trả trạng thái sau thay đổi | return |
+| feapi | page | Báo thay đổi thành công | return |
 
 @steps id=uc0405-steps
-| u4-page | SCR-12 (PM) | `useFarmList` gọi API danh sách, 20 dòng mỗi trang.[](source:fe-pm-routes)[](source:fe-pm-hooks) Popup xem trước thay đổi rồi gọi lệnh tạm ngưng hoặc khôi phục với khóa theo dữ liệu.[](source:fe-pm-dialog) | uc0405-seq | page |
-| u4-overview | PlatformFarmSvc | `overview` lọc theo tên trại / email Chủ trại, sắp xếp, tính ô đếm trên mọi trại.[](source:pm-overview) `preview` trả kỳ đã mua, lần tạm ngưng cuối, trạng thái sau khôi phục.[](source:pm-preview) | uc0405-seq | svc |
-| u4-access | PlatformAccess | `requireRole(PM)`: chỉ PM có quyền nền tảng ACTIVE; CS / SA → MSG-COM-01.[](source:platform-role) | uc0405-seq | access |
-| u5-change | Cơ sở dữ liệu | `suspend` / `restore`: khóa dòng, đã ở trạng thái yêu cầu → MSG-FE02-09, kiểm version; khôi phục tính lại từ `latestEnd`.[](source:pm-change) `recordAndNotify` ghi audit và thông báo Chủ trại.[](source:pm-notify) | uc0405-seq | db |
+| u4-page | Màn dịch vụ | Màn dịch vụ tải 20 trại mỗi trang qua `useFarmList`. Khi chọn đổi trạng thái, hộp thoại cho xem trước kết quả rồi mới gửi `suspendFarm` hoặc `restoreFarm`.[](source:fe-pm-routes)[](source:fe-pm-hooks)[](source:fe-pm-dialog) | uc0405-seq | page |
+| u4-overview | Xử lý dịch vụ | `PlatformFarmService.overview` lọc tên trại hoặc email Chủ trại và tính các ô thống kê. `preview` cho biết kỳ đã mua, lần tạm ngưng gần nhất và trạng thái sẽ có nếu khôi phục.[](source:pm-overview)[](source:pm-preview) | uc0405-seq | svc |
+| u4-access | Kiểm quyền | `requireRole(PM)` kiểm người thao tác là Quản lý nền tảng đang hoạt động. Tài khoản thiếu quyền nhận `MSG-COM-01`.[](source:platform-role) | uc0405-seq | access |
+| u5-change | Cơ sở dữ liệu | `suspend` và `restore` khóa bản ghi khi kiểm trạng thái và phiên bản. Khôi phục tính trạng thái từ hạn gói (`latestEnd`). `recordAndNotify` ghi nhật ký và xếp thông báo cho Chủ trại.[](source:pm-change)[](source:pm-notify) | uc0405-seq | db |
 
-| Lỗi | Hàm ném | Mã |
+| Khi nào báo lỗi | Chỗ kiểm trong code | Mã lỗi |
 | --- | --- | --- |
 | Không phải PM ACTIVE | `PlatformAccessService.requireRole` | MSG-COM-01 |
 | Lý do trống / quá 500 ký tự | `PlatformFarmService.validate` | MSG-COM-06 / 10 |
 | Đã ở trạng thái yêu cầu | `PlatformFarmService.alreadyIn` | MSG-FE02-09 |
-| Version cũ | `VersionGuard.requireExpected` | MSG-COM-05 |
+| Dữ liệu đã thay đổi sau khi màn hình mở | `VersionGuard.requireExpected` | MSG-COM-05 |
