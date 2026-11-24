@@ -22,6 +22,8 @@ logging:
 beefcare:
   email:
     provider: ${BEEFCARE_EMAIL_PROVIDER:smtp}
+    resend:
+      api-key: ${BEEFCARE_RESEND_API_KEY:}
     link-signing-key: ${BEEFCARE_LINK_SECRET}
     frontend-base-url: ${BEEFCARE_PUBLIC_URL}
     backend-base-url: ${BEEFCARE_BACKEND_URL}
