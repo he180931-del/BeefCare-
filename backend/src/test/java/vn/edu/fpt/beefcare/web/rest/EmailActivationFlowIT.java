@@ -7,7 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,6 +24,7 @@ import vn.edu.fpt.beefcare.service.email.EmailDeliveryJobService;
 import vn.edu.fpt.beefcare.service.email.MockEmailDelivery;
 
 @ServiceIntegrationTest
+@ExtendWith(OutputCaptureExtension.class)
 class EmailActivationFlowIT {
 
     @Autowired IdentityService identityService;
@@ -32,7 +36,7 @@ class EmailActivationFlowIT {
     @Autowired MockMvc mockMvc;
 
     @Test
-    void registeredEmailLinkDispatchesDurablyAndCreatesSessionAfterVerification() throws Exception {
+    void registeredEmailLinkDispatchesDurablyAndCreatesSessionAfterVerification(CapturedOutput output) throws Exception {
         String email = "mail-flow@example.test";
         drainQueue();
         identityService.register("Mail Flow Owner", email, "SomeStrongPass9", "SomeStrongPass9", true);
@@ -60,20 +64,32 @@ class EmailActivationFlowIT {
         mockMvc.perform(get("/api/account").session(session)).andExpect(status().isOk());
         assertThat(links.findById(link.getId()).orElseThrow().getUsedAt()).isNotNull();
         assertThat(jobs.findById(queued.getId()).orElseThrow().getStatus()).isEqualTo("SENT");
+        assertThat(output)
+            .contains("Email delivery job " + queued.getId() + " sent")
+            .contains("template=VERIFY_EMAIL")
+            .contains("source=ACCOUNT_LINK")
+            .contains("attempt=1");
     }
 
     @Test
-    void failedMailProviderDeliveryIsRetriedFromThePersistedJob() {
+    void failedMailProviderDeliveryIsRetriedFromThePersistedJob(CapturedOutput output) {
         String email = "mail-retry@example.test";
         drainQueue();
         identityService.register("Retry Owner", email, "SomeStrongPass9", "SomeStrongPass9", true);
+        var queued = jobs.findAll().stream().filter(candidate -> email.equalsIgnoreCase(candidate.getRecipient())).findFirst().orElseThrow();
         inbox.failNextDeliveries(1);
         deliveryJobs.dispatchDueJobs();
-        var job = jobs.findAll().stream().filter(candidate -> email.equalsIgnoreCase(candidate.getRecipient())).findFirst().orElseThrow();
+        var job = jobs.findById(queued.getId()).orElseThrow();
         assertThat(job.getStatus()).isEqualTo("PENDING");
         assertThat(job.getAttempts()).isEqualTo(1);
         assertThat(job.getLastError()).isEqualTo("IllegalStateException");
         assertThat(inbox.findMessagesFor(email)).isEmpty();
+        assertThat(output)
+            .contains("Email delivery job " + job.getId() + " failed")
+            .contains("template=VERIFY_EMAIL")
+            .contains("source=ACCOUNT_LINK")
+            .contains("attempt=1")
+            .contains("Simulated local mail provider failure");
 
         job.setAvailableAt(java.time.Instant.now().minusSeconds(1));
         jobs.saveAndFlush(job);
