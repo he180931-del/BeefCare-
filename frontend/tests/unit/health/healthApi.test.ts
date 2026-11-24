@@ -207,12 +207,12 @@ describe('đóng ca', () => {
 })
 
 describe('sửa và hủy bản ghi', () => {
-  it('sửa liệu trình tính lại ngưng thịt, giữ lý do và đánh dấu Đã sửa', async () => {
+  it('sửa liệu trình tính lại ngưng thịt, ghi chú không bắt buộc (D73) và đánh dấu Đã sửa', async () => {
     const { api } = setup()
     const row = (await api.getProfile('BC-000203')).timeline.find((t) => t.medicineName === 'Oxytetracycline 20% LA')!
-    const noReason = await rejection(api.correctEntry(row.id, { expectedVersion: row.version, reason: ' ', courseDays: 5 }))
-    expect((noReason as HealthValidationError).errors.reason).toBe('Lý do là bắt buộc.')
-    const r = await api.correctEntry(row.id, { expectedVersion: row.version, reason: 'Liệu trình thực tế 5 ngày', courseDays: 5 })
+    const tooLong = await rejection(api.correctEntry(row.id, { expectedVersion: row.version, reason: 'x'.repeat(501), courseDays: 5 }))
+    expect((tooLong as HealthValidationError).errors.reason).toBe('Ghi chú tối đa 500 ký tự.')
+    const r = await api.correctEntry(row.id, { expectedVersion: row.version, reason: '', courseDays: 5 })
     expect(r).toMatchObject({ action: 'CORRECTED', withdrawalBefore: '2026-11-10', withdrawalAfter: '2026-11-14' })
     const after = (await api.getProfile('BC-000203')).timeline.find((t) => t.id === row.id)!
     expect(after).toMatchObject({ corrected: true, status: 'VALID', courseDays: 5 })
@@ -223,7 +223,7 @@ describe('sửa và hủy bản ghi', () => {
     const timeline = (await api.getProfile('BC-000203')).timeline
     const opening = timeline.find((t) => t.type === 'OPENING' && t.caseCode === 'HC-0412')!
     const e = await rejection(api.voidEntry(opening.id, { reason: 'Nhầm' }))
-    expect(e.message).toBe('Lần ghi mở ca không thể hủy. Hãy sửa lại, hoặc đóng ca kèm lý do.')
+    expect(e.message).toBe('Lần ghi mở ca không thể xóa. Hãy sửa lại, hoặc đóng ca kèm lý do.')
     for (const t of timeline.filter((x) => x.type === 'TREATMENT')) await api.voidEntry(t.id, { expectedVersion: t.version, reason: 'Ghi nhầm' })
     const p = await api.getProfile('BC-000203')
     expect(p).toMatchObject({ healthState: 'MONITORING', withdrawalEndDate: null })

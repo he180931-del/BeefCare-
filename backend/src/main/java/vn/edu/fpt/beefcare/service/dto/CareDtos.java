@@ -61,6 +61,7 @@ public final class CareDtos {
     /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
+    /** Xóa (hủy mềm) một bản ghi; {@code reason} là ghi chú không bắt buộc, tối đa 500 ký tự (D53, D69, D73). */
     public record VoidRecord(Integer expectedVersion, String reason) {}
     /** D62: mở lại ca đã đóng (Khỏi / Chết / Mất tích); lý do bắt buộc, tối đa 500 ký tự. */
     public record ReopenCase(Integer expectedVersion, String reason) {}

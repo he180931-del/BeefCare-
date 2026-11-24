@@ -1065,3 +1065,10 @@ TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lư
 1. **Danh sách tăng trưởng (SCR-23)** cùng khung với Sức khỏe (D66) và Sinh sản (D71): một hàng 3 khối – **Cần cân lại** (nổi bật: số bò quá chu kỳ cân 30 ngày, kèm số lượt cân 30 ngày qua), **Cần chú ý** (đỏ nhạt khi có bò BCS < 2,5 hoặc ADG thấp hơn trung bình chuồng, xanh nhạt "Thể trạng ổn" khi không), **Đang nuôi**. Bộ lọc và bảng gom trong một khối; cột Giống / Giới tính / Chuồng gộp vào dòng phụ của Bò; vạch đầu dòng đỏ (BCS thấp) / vàng (ADG thấp, quá hạn cân); cả dòng bấm được mở tab Tăng trưởng của hồ sơ bò; trạng thái trống không lồng khung. Chưa thêm tab theo tình trạng vì API chưa có bộ lọc này.
 2. **Tab Tăng trưởng & BCS ở hồ sơ bò** (bò không có dự kiến xuất bán): thay 5 ô ngang nhau bằng một khối nổi bật **Cân gần nhất** đặt cạnh biểu đồ – số kg lớn, ngày · cơ sở, tăng cân bình quân, thể trạng (BCS), lần cân tới. "Lần cân tới" chỉ tô màu khi quá hạn (đỏ) hoặc còn ≤ 7 ngày (vàng). Bò Vỗ béo có dự kiến xuất bán giữ bố cục cũ.
 3. **Lịch sử đo:** tiêu đề kèm số dòng; bỏ cột Trạng thái, chỉ còn nhãn "Đã sửa" / "Đã xóa" cạnh thời điểm đo; chú thích rút còn một câu.
+
+### D73 — FE-10: Sửa / Xóa bản ghi theo dõi, điều trị như các màn chăm sóc khác (24/11/2026)
+
+1. Dòng diễn biến ca có hai nút riêng **Sửa** và **Xóa** thay cho "Sửa · Hủy" mở một popup có ô chọn hành động; lần ghi mở ca chỉ có Sửa (R-10-11 giữ nguyên). Đồng nhất với Cân nặng (D43), Tiêm phòng (D53) và Sinh sản (D69).
+2. **Ghi chú không bắt buộc** khi sửa / xóa (tối đa 500 ký tự). Popup Xóa chỉ xác nhận, vẫn hiện ngày hết ngưng thịt trước → sau. Record Revision vẫn lưu giá trị trước / sau, người và thời điểm (BR-D15).
+3. Bản ghi đã xóa (VOIDED) không còn hiện trong diễn biến ca và popup xem lại ca đã đóng; số đếm "Diễn biến & điều trị" không tính bản ghi đã xóa.
+4. Migration mới `20261124000100_health_optional_void_note` bỏ hai ràng buộc `ck_observation_void_reason`, `ck_treatment_void_reason` (bắt buộc lý do khi VOIDED); migration cũ không sửa, dữ liệu cũ giữ nguyên. API không đổi hình dạng: trường `reason` vẫn nhận, chỉ thôi bắt buộc.

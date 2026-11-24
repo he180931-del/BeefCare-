@@ -312,7 +312,7 @@ public class HealthCareCommandService {
         HealthCase healthCase = o.getHealthCase();
         Cattle cattle = lockForCorrection(farmId, healthCase);
         VersionGuard.requireExpected(o.getVersion(), req == null ? null : req.expectedVersion());
-        requireText(req == null ? null : req.reason(), "reason", 500);
+        String note = optionalText(req.reason(), "reason", 500); // D73: ghi chú sửa / xóa không bắt buộc
         if (!"VALID".equalsIgnoreCase(o.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         Map<String, Object> before = observationSnapshot(o);
         LocalDate withdrawalBefore = withdrawalOf(cattle);
@@ -329,7 +329,7 @@ public class HealthCareCommandService {
         if (req.observerId() != null) o.setObserver(activeMember(farmId, req.observerId(), "observerId"));
         o.setIsCorrected(Boolean.TRUE);
         em.flush();
-        revisions.record(ctx, "HealthObservation", observationId, RecordRevisionService.CORRECT, req.reason(), before, observationSnapshot(o));
+        revisions.recordWithOptionalNote(ctx, "HealthObservation", observationId, RecordRevisionService.CORRECT, note, before, observationSnapshot(o));
         audit.log(ctx, "HEALTH_OBSERVATION_CORRECT", "HealthObservation", observationId, Map.of("caseId", healthCase.getId()));
         return recordStatus(observationId, o.getStatus(), o.getVersion(), healthCase, cattle, withdrawalBefore);
     }
@@ -347,15 +347,15 @@ public class HealthCareCommandService {
         HealthCase healthCase = observation.getHealthCase();
         Cattle cattle = lockForCorrection(farmId, healthCase);
         VersionGuard.requireExpected(observation.getVersion(), req == null ? null : req.expectedVersion());
-        requireText(req == null ? null : req.reason(), "reason", 500);
+        String note = optionalText(req.reason(), "reason", 500); // D73: ghi chú sửa / xóa không bắt buộc
         // R-10-11: the opening observation is corrected, never voided; a wrongly opened case is closed with a reason.
         if (Boolean.TRUE.equals(observation.getOpening())) throw DomainException.conflict(MessageCodes.FE10_13);
         if (!"VALID".equalsIgnoreCase(observation.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         Map<String, Object> before = observationSnapshot(observation);
         LocalDate withdrawalBefore = withdrawalOf(cattle);
-        observation.setStatus("VOIDED"); observation.setStatusReason(req.reason().trim());
+        observation.setStatus("VOIDED"); observation.setStatusReason(note);
         em.flush();
-        revisions.record(ctx, "HealthObservation", observationId, RecordRevisionService.VOID, req.reason(), before, observationSnapshot(observation));
+        revisions.recordWithOptionalNote(ctx, "HealthObservation", observationId, RecordRevisionService.VOID, note, before, observationSnapshot(observation));
         audit.log(ctx, "HEALTH_OBSERVATION_VOID", "HealthObservation", observationId, Map.of("caseId", healthCase.getId()));
         return recordStatus(observationId, observation.getStatus(), observation.getVersion(), healthCase, cattle, withdrawalBefore);
     }
@@ -374,7 +374,7 @@ public class HealthCareCommandService {
         HealthCase healthCase = t.getHealthCase();
         Cattle cattle = lockForCorrection(farmId, healthCase);
         VersionGuard.requireExpected(t.getVersion(), req == null ? null : req.expectedVersion());
-        requireText(req == null ? null : req.reason(), "reason", 500);
+        String note = optionalText(req.reason(), "reason", 500); // D73: ghi chú sửa / xóa không bắt buộc
         if (!"VALID".equalsIgnoreCase(t.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         Map<String, Object> before = treatmentSnapshot(t);
         LocalDate withdrawalBefore = withdrawalOf(cattle);
@@ -400,7 +400,7 @@ public class HealthCareCommandService {
         t.setWithdrawalEndDate(withdrawalEnd(t.getTreatmentTime(), cattle, t.getCourseDays() == null ? 1 : t.getCourseDays(), t.getWithdrawalDays() == null ? 0 : t.getWithdrawalDays()));
         t.setIsCorrected(Boolean.TRUE);
         em.flush();
-        revisions.record(ctx, "Treatment", treatmentId, RecordRevisionService.CORRECT, req.reason(), before, treatmentSnapshot(t));
+        revisions.recordWithOptionalNote(ctx, "Treatment", treatmentId, RecordRevisionService.CORRECT, note, before, treatmentSnapshot(t));
         audit.log(ctx, "HEALTH_TREATMENT_CORRECT", "Treatment", treatmentId, Map.of("caseId", healthCase.getId()));
         return recordStatus(treatmentId, t.getStatus(), t.getVersion(), healthCase, cattle, withdrawalBefore);
     }
@@ -418,13 +418,13 @@ public class HealthCareCommandService {
         HealthCase healthCase = treatment.getHealthCase();
         Cattle cattle = lockForCorrection(farmId, healthCase);
         VersionGuard.requireExpected(treatment.getVersion(), req == null ? null : req.expectedVersion());
-        requireText(req == null ? null : req.reason(), "reason", 500);
+        String note = optionalText(req.reason(), "reason", 500); // D73: ghi chú sửa / xóa không bắt buộc
         if (!"VALID".equalsIgnoreCase(treatment.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         Map<String, Object> before = treatmentSnapshot(treatment);
         LocalDate withdrawalBefore = withdrawalOf(cattle);
-        treatment.setStatus("VOIDED"); treatment.setStatusReason(req.reason().trim());
+        treatment.setStatus("VOIDED"); treatment.setStatusReason(note);
         em.flush();
-        revisions.record(ctx, "Treatment", treatmentId, RecordRevisionService.VOID, req.reason(), before, treatmentSnapshot(treatment));
+        revisions.recordWithOptionalNote(ctx, "Treatment", treatmentId, RecordRevisionService.VOID, note, before, treatmentSnapshot(treatment));
         audit.log(ctx, "HEALTH_TREATMENT_VOID", "Treatment", treatmentId, Map.of("caseId", healthCase.getId()));
         return recordStatus(treatmentId, treatment.getStatus(), treatment.getVersion(), healthCase, cattle, withdrawalBefore);
     }

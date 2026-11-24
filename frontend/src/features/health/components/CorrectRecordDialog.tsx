@@ -2,12 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { DateTimeInput, DoseInput, Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
+import { latestWithdrawalEnd } from '../domain/healthRules'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { joinDose, splitDose, type DoseUnit } from '../../../shared/lib/dose'
-import { hint, MemberSelect, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave, useTemperatureCheck } from './healthUi'
+import type { EntryAction } from './CaseCard'
+import { hint, MemberSelect, ReadonlyBox, toIntOrNull, useDialogSave, useTemperatureCheck } from './healthUi'
 
 function Row({ label, current, error, children }: { label: string; current: ReactNode; error?: string; children: ReactNode }) {
   return (
@@ -19,10 +20,13 @@ function Row({ label, current, error, children }: { label: string; current: Reac
   )
 }
 
-export default function CorrectRecordDialog({ row, profile, options, onClose, onSaved }: { row: HealthTimelineRow; profile: HealthProfile; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
+/**
+ * Sửa hoặc xóa một bản ghi theo dõi / điều trị (D73, như Cân nặng D43, Tiêm phòng D53, Sinh sản D69): hành động do nút
+ * ở dòng thời gian quyết định; sửa có Ghi chú không bắt buộc, xóa chỉ xác nhận. Lần ghi mở ca không có nút Xóa.
+ */
+export default function CorrectRecordDialog({ action, row, profile, options, onClose, onSaved }: { action: EntryAction; row: HealthTimelineRow; profile: HealthProfile; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
   const treatment = row.type === 'TREATMENT'
   const opening = row.type === 'OPENING'
-  const [action, setAction] = useState<'correct' | 'void'>('correct')
   const [time, setTime] = useState(row.occurredAt)
   const [medicineId, setMedicineId] = useState(String(row.medicineId ?? ''))
   // D65: liều số + đơn vị; liều cũ không theo chuẩn thì để trống ô số, hiện nguyên văn ở cột "Hiện tại".
@@ -45,7 +49,6 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
   const { errors } = form
   const tempCheck = useTemperatureCheck()
   const voiding = action === 'void'
-  const blocked = voiding && opening
   const medicines = options.medicines.filter((m) => m.active || m.id === row.medicineId)
 
   const before = profile.withdrawalEndDate
@@ -71,12 +74,8 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
 
   const kind = treatment ? 'điều trị' : 'theo dõi'
   return (
-    <Modal title={`Sửa / hủy bản ghi ${kind}`} sub={`${profile.cattle.code} · Ca ${row.caseCode} · ${treatment ? 'Điều trị' : opening ? 'Mở ca' : 'Theo dõi'} ${fmtDateTime(row.occurredAt)}`} width={700} onClose={onClose}>
+    <Modal title={voiding ? `Xóa bản ghi ${kind}?` : `Sửa bản ghi ${kind}`} sub={`${profile.cattle.code} · Ca ${row.caseCode} · ${treatment ? 'Điều trị' : opening ? 'Mở ca' : 'Theo dõi'} ${fmtDateTime(row.occurredAt)}`} width={voiding ? 560 : 700} onClose={onClose}>
       <Field label="Bản ghi" id="cr-record"><ReadonlyBox id="cr-record" value={row.details} /></Field>
-      <Field label="Hành động *">
-        <RadioGroup name="cr-action" value={action} onChange={setAction} options={[{ value: 'correct', label: 'Sửa bản ghi' }, { value: 'void', label: 'Hủy bản ghi' }]} />
-      </Field>
-      {blocked && <Note tone="err">{MSG.voidOpening}</Note>}
       {!voiding && (
         <Table variant="panel">
           <thead><tr><Th className="w-[140px]">Trường thông tin</Th><Th className="w-[160px]">Giá trị hiện tại</Th><Th>Giá trị mới</Th></tr></thead>
@@ -112,14 +111,15 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
         </Table>
       )}
       <datalist id="cr-who">{options.members.map((m) => <option key={m.id} value={m.name} />)}</datalist>
-      {voiding && !blocked && <Note tone="warn">Bản ghi sẽ chuyển sang trạng thái Đã hủy: mờ đi trong lịch sử và không còn được tính vào ngưng sử dụng thịt hay trạng thái sức khỏe.</Note>}
-      <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-      {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
+      {voiding
+        ? <p className="m-0 text-sm text-ink">Bản ghi sẽ không còn trong diễn biến ca; ngưng thịt và trạng thái sức khỏe được tính lại. Lịch sử thay đổi vẫn được lưu.</p>
+        : <Field label="Ghi chú" id="cr-reason" hint={hint(errors.reason, 'Không bắt buộc · tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>}
+      {(treatment || voiding) && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
       {tempCheck.dialog}
       {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving || blocked}>{voiding ? 'Hủy bản ghi' : 'Lưu'}</ModalButton>
+        <ModalButton variant={voiding ? 'danger' : 'primary'} onClick={save} disabled={form.saving}>{voiding ? 'Xóa' : 'Lưu'}</ModalButton>
       </ModalFooter>
     </Modal>
   )

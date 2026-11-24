@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -246,22 +246,32 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('sửa điều trị: hiện ngưng thịt trước và sau, bắt buộc lý do, đánh dấu Đã sửa', async () => {
+  it('D73 sửa điều trị: hiện ngưng thịt trước và sau, ghi chú không bắt buộc, đánh dấu Đã sửa', async () => {
     const user = userEvent.setup()
     renderTab('BC-000203')
-    await user.click(await screen.findByRole('button', { name: 'Sửa · Hủy bản ghi 13/10/2026 07:30' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Sửa / hủy bản ghi điều trị' })
+    await user.click(await screen.findByRole('button', { name: 'Sửa bản ghi 13/10/2026 07:30' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Sửa bản ghi điều trị' })
+    expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
     const course = within(dialog).getByRole('textbox', { name: 'Số ngày dùng' })
     await user.clear(course)
     await user.type(course, '5')
     expect(within(dialog).getByText('Ngưng thịt đến: 10/11/2026 → 14/11/2026 (tính lại khi lưu)')).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Lưu' }))
-    expect(await within(dialog).findByText('Lý do là bắt buộc.')).toBeInTheDocument()
-
-    await user.type(within(dialog).getByRole('textbox', { name: 'Lý do' }), 'Liệu trình thực tế 5 ngày')
+    expect(within(dialog).getByRole('textbox', { name: 'Ghi chú' })).toHaveValue('')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Ngưng thịt của BC-000203 đổi từ 10/11/2026 sang 14/11/2026.')
     expect(await screen.findByText('Đã sửa')).toBeInTheDocument()
+  })
+
+  it('D73 xóa điều trị: chỉ xác nhận, bản ghi biến khỏi diễn biến; lần ghi mở ca không có nút Xóa', async () => {
+    const user = userEvent.setup()
+    renderTab('BC-000203')
+    await user.click(await screen.findByRole('button', { name: 'Xóa bản ghi 13/10/2026 07:30' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Xóa bản ghi điều trị?' })
+    expect(within(dialog).queryByRole('textbox', { name: /Ghi chú|Lý do/ })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Xóa' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Xóa bản ghi 13/10/2026 07:30' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Đã hủy')).not.toBeInTheDocument()
   })
 
   it('D41: Chủ trại ghi như Quản lý, mở được hộp thoại qua URL', async () => {

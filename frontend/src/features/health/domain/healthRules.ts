@@ -12,7 +12,7 @@ export const MSG = {
   exited: (code: string, date: string, type: string) => `${code} đã rời đàn ngày ${fmtDate(date)} (${type}). Hồ sơ chỉ được xem.`,
   pendingExit: 'Bò đang chờ xác nhận chết / mất nên chưa nhận thêm sự kiện chăm sóc mới.',
   inactiveMedicine: (name: string) => `${name} đã ngưng sử dụng, không thể chọn cho bản ghi mới.`,
-  voidOpening: 'Lần ghi mở ca không thể hủy. Hãy sửa lại, hoặc đóng ca kèm lý do.',
+  voidOpening: 'Lần ghi mở ca không thể xóa. Hãy sửa lại, hoặc đóng ca kèm lý do.',
 }
 
 /** Ngày của lần dùng cuối = ngày dùng đầu + (số ngày liệu trình − 1). */

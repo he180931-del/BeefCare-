@@ -2,7 +2,7 @@ import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { dateOf } from '../domain/healthFormat'
 import { caseDay, latestWithdrawalEnd, MSG } from '../domain/healthRules'
-import { correctionTreatmentErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
+import { correctionTreatmentErrors, HealthValidationError, noteErrors, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
 import { mapHealthError } from './healthError'
 import {
   ageText, mapCattle, mapHealthCaseCard, mapHealthCaseResult, mapHealthCaseRow, mapMedicine, mapPendingExit, mapRecordResult, mapTimelineRow,
@@ -235,7 +235,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         const ctx = caseContext(entry.caseId)
         assertValid({
-          ...reasonErrors(cmd.reason),
+          ...noteErrors(cmd.reason),
           // Chỉ kiểm các trường người dùng gửi lên; trường để nguyên lấy theo bản ghi cũ ở backend.
           ...(treatment
             ? correctionTreatmentErrors(cmd, ctx)
@@ -252,7 +252,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       }, treatment ? 'treatmentTime' : 'observedAt')
     },
 
-    // A7 / A8 hủy.
+    // A7 / A8 xóa (D73: ghi chú không bắt buộc).
     // A5b (D62): mở lại ca đã đóng; ca Chết / Mất tích thì backend bác luôn phiếu chờ xác nhận.
     async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
       assertValid(reasonErrors(cmd.reason))
@@ -262,7 +262,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     async voidEntry(entryId: number, cmd: VoidEntryCommand): Promise<RecordResult> {
       const entry = entryOf(entryId)
       if (entry.type === 'OPENING') throw new Error(MSG.voidOpening)
-      assertValid(reasonErrors(cmd.reason))
+      assertValid(noteErrors(cmd.reason))
       return run(async () => {
         const r = await transport.command(path(entry.type === 'TREATMENT' ? `/treatments/${entryId}/void` : `/health-observations/${entryId}/void`), toVoidRequest(cmd))
         return recordResult(r, 'VOIDED', entry)
