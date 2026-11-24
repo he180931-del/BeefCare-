@@ -23,6 +23,7 @@ export {
   listEntryPens,
   listEntryVaccines,
   listEntryBreeds,
+  listEntryPurposes,
   listEntryParentCattle,
   listPendingEntryCalves,
   markCalfDiedBeforeRegistration,

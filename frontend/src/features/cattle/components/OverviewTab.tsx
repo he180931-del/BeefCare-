@@ -4,6 +4,7 @@ import { Chip, Fields, Panel, Td, Th } from './parts'
 import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
 import type { CattleViewModel as CowSeed } from '../types'
 import { localCattleList } from '../api/cattleApi'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
 const dmy = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').reverse().join('/') : value ?? '')
@@ -68,6 +69,8 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ['Ngày sinh', cow.birth],
                 ['Tuổi', ageFull(cow)],
                 ['Nguồn nhập đàn', cow.source],
+                ...(cow.entrySource === 'EXTERNAL' && typeof cow.quarantineUntil === 'string' && cow.quarantineUntil >= businessDate()
+                  ? [['Cách ly nhập đàn đến', dmy(cow.quarantineUntil)] as const] : []),
                 ['Mục đích nuôi', `${cow.purpose}${cow.purposeType ? ` (${PURPOSE_TYPE_LABELS[String(cow.purposeType)] ?? cow.purposeType})` : ''} · từ ${cow.purposeSince}`],
                 ['Giai đoạn', cow.stage],
                 ['Chuồng hiện tại', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—'],

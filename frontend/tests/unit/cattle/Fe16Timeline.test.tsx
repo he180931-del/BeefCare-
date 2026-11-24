@@ -263,13 +263,13 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       <MemoryRouter initialEntries={[`/cattle/BC-000142?tab=repro&m=correct&r=${target.id}`]}><ReproductionProfileTab cattleCode="BC-000142" role={role} /></MemoryRouter>,
     )
     const manager = at('MANAGER')
-    expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
     manager.unmount()
     const owner = at('OWNER') // D41
-    expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
     owner.unmount()
     at('TECHNICIAN')
     expect(await screen.findByText('Chế độ chỉ xem.')).toBeInTheDocument()
-    expect(screen.queryByText('Sửa bản ghi')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /^Sửa / })).not.toBeInTheDocument()
   })
 })

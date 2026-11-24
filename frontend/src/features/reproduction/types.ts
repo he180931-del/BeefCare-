@@ -8,11 +8,18 @@ export type PregnancyCheckResult = 'PREGNANT' | 'NOT_PREGNANT' | 'INCONCLUSIVE'
 export type CalfOutcomeType = 'LIVE' | 'STILLBORN'
 export type CalfRegistrationChoice = 'DRAFT' | 'REGISTER_NOW'
 
+/** Phương pháp khám thai; OBSERVATION = quan sát không lên giống lại (D67). */
+export type CheckMethod = 'ULTRASOUND' | 'RECTAL' | 'OBSERVATION' | 'OTHER'
+
 export interface BreedingEligibility {
   status: EligibilityStatus
   minimumAgeMet: boolean
   minimumWeightMet: boolean
   noOpenHealthCase: boolean
+  /** D67: chỉ có khi bò đã từng đẻ – đủ số ngày hồi phục sau đẻ chưa. */
+  postpartumMet?: boolean
+  requiredPostpartumDays?: number
+  daysSinceCalving?: number
   requiredAgeMonths: number
   actualAgeMonths: number
   requiredWeightKg: number
@@ -189,7 +196,7 @@ export type ReproductionCommand =
       linkedBreedingId?: string | null
       dataSource?: DataSource
       result: PregnancyCheckResult
-      method?: 'ULTRASOUND' | 'RECTAL' | 'OTHER'
+      method?: CheckMethod
       estimatedMonths?: number | null
       examiner?: string
       note?: string

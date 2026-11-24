@@ -4,6 +4,7 @@ export const PAY_METHODS = ['Chuyển khoản', 'Tiền mặt']
 
 export const STAGES = [
   { value: 'Bê theo mẹ', label: 'Bê theo mẹ' },
+  { value: 'Bê cai sữa', label: 'Bê cai sữa' },
   { value: 'Bò tơ', label: 'Bò tơ / hậu bị' },
   { value: 'Vỗ béo', label: 'Vỗ béo' },
   { value: 'Bò cái', label: 'Bò cái' },

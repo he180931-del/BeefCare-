@@ -67,7 +67,6 @@ describe('voucher pricing owns purchase weight validation', () => {
   it.each([
     [{ weight: 2000, weightBasis: 'MEASURED' as const }, 'Con #2: cân nhập phải từ 1 đến 1.500 kg.'],
     [{ weight: 0.5, weightBasis: 'MEASURED' as const }, 'Con #2: cân nhập phải từ 1 đến 1.500 kg.'],
-    [{ weight: 250, weightBasis: null }, 'Con #2: vui lòng chọn cơ sở cân.'],
   ])('keeps a hard draft validation error for %s', (patch, message) => {
     const cows = [cow, { ...cow, ...patch }]
     expect(validateEntryWeights(cows, 'kg')).toBe(message)
@@ -83,7 +82,7 @@ describe('voucher pricing owns purchase weight validation', () => {
   it.each([0.5, 1501, -5])('rejects the entered per-head weight %s outside 1–1500', (weight) => {
     expect(validateEntryForPost({ ...input, pricing: 'con', cows: [{ ...cow, pricing: 'con', weight }] })).toMatch(/1 đến 1.500 kg/)
   })
-  it('requires an explicit basis for an entered per-head weight', () => {
-    expect(validateEntryForPost({ ...input, pricing: 'con', cows: [{ ...cow, pricing: 'con', weightBasis: null }] })).toBe('Con #1: vui lòng chọn cơ sở cân.')
+  it('allows the purchase form to infer basis for an entered per-head weight', () => {
+    expect(validateEntryForPost({ ...input, pricing: 'con', cows: [{ ...cow, pricing: 'con', weightBasis: null }] })).toBeNull()
   })
 })

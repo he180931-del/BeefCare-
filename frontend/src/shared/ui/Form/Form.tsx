@@ -1,6 +1,7 @@
 import { useRef, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cx } from '../cx'
 import { Icon } from '../Icon/Icon'
+import { DOSE_UNITS, type DoseUnit } from '../../lib/dose'
 
 // aria-invalid: a field marked invalid is drawn with a red border (only when a page sets aria-invalid="true").
 const fieldCls =
@@ -84,6 +85,54 @@ export function DateInput({ value, onChange, className, readOnly, id, label }: {
           className="absolute inset-0 size-full cursor-pointer opacity-0"
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Ô ngày giờ: hiện dd/mm/yyyy hh:mm + icon lịch như {@link DateInput}, bấm mở bộ chọn ngày giờ của trình duyệt.
+ * value/onChange dạng 'yyyy-mm-ddThh:mm'; `label` đặt tên cho ô ẩn khi không có nhãn hiển thị gắn với `id`.
+ */
+export function DateTimeInput({ value, onChange, className, id, label, max }: { value: string; onChange: (value: string) => void; className?: string; id?: string; label?: string; max?: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [date, time] = value ? value.split('T') : []
+  const [y, m, d] = date ? date.split('-') : []
+  return (
+    <div className={cx('relative', className)}>
+      <div className={cx(fieldCls, 'flex items-center gap-1.5')}>
+        <span className={cx('min-w-0 flex-1 whitespace-nowrap', !value && 'text-subtle')}>{value ? `${d}/${m}/${y} ${time?.slice(0, 5) ?? ''}` : 'dd/mm/yyyy hh:mm'}</span>
+        <Icon name="calendar-event" className="text-muted" />
+      </div>
+      <input
+        ref={ref}
+        id={id}
+        type="datetime-local"
+        value={value || ''}
+        max={max}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        onClick={() => ref.current?.showPicker?.()}
+        aria-label={id ? undefined : label ?? 'Chọn ngày giờ'}
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
+      />
+    </div>
+  )
+}
+
+/**
+ * Ô liều: số và đơn vị trong cùng một ô (D65), cao và viền như các ô nhập khác. `label` đặt tên cho ô số khi không có
+ * nhãn hiển thị gắn với `id`.
+ */
+export function DoseInput({ id, amount, unit, onAmount, onUnit, invalid, readOnly, label }: {
+  id?: string; amount: string; unit: DoseUnit; onAmount: (value: string) => void; onUnit: (value: DoseUnit) => void; invalid?: boolean; readOnly?: boolean; label?: string
+}) {
+  return (
+    <div className={cx('flex rounded-xl border bg-white focus-within:border-brand', invalid ? 'border-err-fg' : 'border-field', readOnly && '!bg-page')}>
+      <input id={id} inputMode="decimal" maxLength={10} value={amount} readOnly={readOnly} aria-invalid={invalid || undefined} aria-label={id ? undefined : label}
+        onChange={(e) => onAmount(e.target.value)} className="min-w-0 flex-1 rounded-l-xl bg-transparent px-2.5 py-3 text-sm text-ink outline-none" />
+      <select aria-label="Đơn vị liều" value={unit} disabled={readOnly} onChange={(e) => onUnit(e.target.value as DoseUnit)}
+        className="cursor-pointer rounded-r-xl border-l border-field bg-transparent px-2 text-sm text-ink outline-none">
+        {DOSE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+      </select>
     </div>
   )
 }

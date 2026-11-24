@@ -57,7 +57,7 @@ export interface EntryCow {
   ageMonths?: number
   weight: number
   estimated: boolean
-  /** Backend weight-basis selection; null means the user has not selected a weighing basis yet. */
+  /** Inferred MEASURED for manual weights; preserve unchanged legacy/Excel ESTIMATED. No weight means null. */
   weightBasis?: 'MEASURED' | 'ESTIMATED' | null
   barn: PenCode
   unitPrice: number

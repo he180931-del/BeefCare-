@@ -125,6 +125,14 @@ public class CattleStateService {
             weight == null ? NO_WEIGHING : weight.stripTrailingZeros().toPlainString(), weightMet));
         Long openCases = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult();
         criteria.add(new BreedingCriterion("OPEN_HEALTH_CASE", "0", String.valueOf(openCases), openCases == 0)); // met = no OPEN case
+        // D67: bò đã từng đẻ – cảnh báo khi chưa đủ số ngày hồi phục sau đẻ (tham số "Sau sinh", mặc định 45 ngày).
+        Instant lastCalving = em.createQuery("select max(c.birthTime) from CalvingEvent c where c.dam.id=:id and upper(c.status)='VALID'", Instant.class)
+            .setParameter("id", cattleId).getSingleResult();
+        if (lastCalving != null) {
+            int minDays = effectiveInt(cattle.getFarm().getId(), today, 45, "POST_CALVING_DAYS", "postpartumIntervalDays", "postpartum_interval_days");
+            long days = java.time.temporal.ChronoUnit.DAYS.between(clock.toFarmDate(lastCalving), today);
+            criteria.add(new BreedingCriterion("POSTPARTUM_INTERVAL", String.valueOf(minDays), String.valueOf(days), days >= minDays));
+        }
         return criteria;
     }
 

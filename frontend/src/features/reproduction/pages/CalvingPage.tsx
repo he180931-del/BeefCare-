@@ -6,7 +6,7 @@ import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
 import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductionRole } from '../types'
-import { COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, SOURCE_HINT, SOURCE_OPTIONS, nowLocal, parseDecimalText } from '../components/reproductionFields'
+import { COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, nowLocal, parseDecimalText } from '../components/reproductionFields'
 import { ReproductionOptionsProvider, useReproductionOptions } from '../components/reproductionOptions'
 import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
@@ -139,11 +139,6 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
                   <DateTimeField label="Thời điểm đẻ *" value={form.birthAt} onChange={(value) => patchForm('birthAt', value)} />
                   {errText(issueOf('birthAt'))}
                 </div>
-                <Field label="Nguồn dữ liệu" id="calving-source" hint={SOURCE_HINT}>
-                  <Select id="calving-source" aria-label="Nguồn dữ liệu" value={form.dataSource} onChange={(event) => patchForm('dataSource', event.target.value as DataSource)}>
-                    {SOURCE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                  </Select>
-                </Field>
                 <Field label="Người đỡ đẻ" id="calving-attendant"><PersonInput id="calving-attendant" label="Người đỡ đẻ" value={form.attendant} onChange={(value) => patchForm('attendant', value)} /></Field>
                 <RadioField label="Kiểu đẻ" name="Kiểu đẻ" value={form.course} onChange={(value) => patchForm('course', value)} options={COURSE_OPTIONS} />
                 <RadioField label="Tình trạng bò mẹ sau đẻ" name="Tình trạng bò mẹ sau đẻ" value={form.damCondition} onChange={(value) => patchForm('damCondition', value)} options={DAM_CONDITION_OPTIONS} />

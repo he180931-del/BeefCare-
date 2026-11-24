@@ -1,11 +1,12 @@
 // Public boundary of the shared UI primitives. They know no business model: callers pass labels, tones and data.
 export { ActionLink } from './ActionLink/ActionLink'
+export { MoneyInput, NumberInput, parseMoney } from './Form/NumericInput'
 export { Badge, type BadgeTone } from './Badge/Badge'
 export { Button } from './Button/Button'
 export { Card, Info, KV, Metric, Tile, type MetricTone } from './Card/Card'
 export { PANEL_SURFACE, Panel, type PanelTone } from './Panel/Panel'
 export { EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note } from './Feedback/Feedback'
-export { Checkbox, DateInput, Field, FilterSelect, Radio, SearchInput, Select, Textarea, inputCls, smInputCls } from './Form/Form'
+export { Checkbox, DateInput, DateTimeInput, DoseInput, Field, FilterSelect, Radio, SearchInput, Select, Textarea, inputCls, smInputCls } from './Form/Form'
 export { ICON_NAMES, Icon, type IconName } from './Icon/Icon'
 export { default as Modal, ModalButton, ModalFooter } from './Modal/Modal'
 export { default as NoticeDialog } from './Modal/NoticeDialog'

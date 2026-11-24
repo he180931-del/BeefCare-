@@ -37,10 +37,10 @@ export const CATALOGUE_DEMO: CatalogueSeed = {
   ],
   medicines: [
     { id: 1, code: 'OXY-LA', name: 'Oxytetracycline 20% LA', description: 'Không dùng cho bò đang cho bê bú dưới 7 ngày', dose: '1 ml/10 kg thể trọng', route: 'INTRAMUSCULAR', withdrawalDays: 28, usageCount: 18, available: true, version: 1 },
-    { id: 2, code: 'ORS-V', name: 'Điện giải thú y (Oresol)', description: '', dose: '2 lít/ngày', route: 'ORAL', withdrawalDays: 0, usageCount: 7, available: true, version: 1 },
-    { id: 3, code: 'IVM-1', name: 'Ivermectin 1%', description: '', dose: '1 ml/50 kg', route: 'SUBCUTANEOUS', withdrawalDays: 35, usageCount: 12, available: true, version: 1 },
-    { id: 4, code: 'MEL-2', name: 'Meloxicam 2%', description: '', dose: '2,5 ml/100 kg', route: 'INTRAMUSCULAR', withdrawalDays: 15, usageCount: 5, available: true, version: 1 },
-    { id: 5, code: 'PEN-S', name: 'Penicillin–Streptomycin', description: '', dose: '1 ml/20 kg', route: 'INTRAMUSCULAR', withdrawalDays: 30, usageCount: 3, available: false, version: 1 },
+    { id: 2, code: 'ORS-V', name: 'Điện giải thú y (Oresol)', description: '', dose: '2 lít', route: 'ORAL', withdrawalDays: 0, usageCount: 7, available: true, version: 1 },
+    { id: 3, code: 'IVM-1', name: 'Ivermectin 1%', description: 'Liều 1 ml / 50 kg thể trọng', dose: '10 ml', route: 'SUBCUTANEOUS', withdrawalDays: 35, usageCount: 12, available: true, version: 1 },
+    { id: 4, code: 'MEL-2', name: 'Meloxicam 2%', description: 'Liều 2,5 ml / 100 kg thể trọng', dose: '10 ml', route: 'INTRAMUSCULAR', withdrawalDays: 15, usageCount: 5, available: true, version: 1 },
+    { id: 5, code: 'PEN-S', name: 'Penicillin–Streptomycin', description: 'Liều 1 ml / 20 kg thể trọng', dose: '20 ml', route: 'INTRAMUSCULAR', withdrawalDays: 30, usageCount: 3, available: false, version: 1 },
   ],
   purposes: [
     { id: 1, code: 'BREED', name: 'Sinh sản', purposeType: 'BREEDING', description: 'Bò cái Zebu đỏ / Lai Sind giữ lại làm giống', activeCattle: 86, referenced: true, receivingPens: pens('A1', 'A2', 'C1', 'D'), available: true, version: 1 },

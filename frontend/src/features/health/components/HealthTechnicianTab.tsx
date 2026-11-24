@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { fmtDate, fmtDateTime } from '../domain/healthFormat'
+import { caseLabel, fmtDate, fmtDateTime } from '../domain/healthFormat'
 import { useHealthProfile } from '../hooks/useHealthProfile'
 import { CaseStatusBadge, EntryBadge, shortDetails } from './healthUi'
 import HealthTimelineSource from './HealthTimelineSource'
@@ -28,7 +28,7 @@ export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string
           {/* Bento (Figma Tab 17 ④b): ca đang mở là khối đỏ nhạt; ca mạn tính vàng nhạt. */}
           <div className={`flex flex-col gap-3 rounded-2xl border p-4 ${c.status === 'CHRONIC' ? 'border-warn-bg bg-warn-bg' : 'border-err-bg bg-err-bg'}`}>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="m-0 text-sm font-semibold text-ink">Ca {c.caseCode} · {c.diagnosis || c.signs}</h3>
+              <h3 className="m-0 text-sm font-semibold text-ink">Ca {c.caseCode} · {caseLabel(c)}</h3>
               <CaseStatusBadge status={c.status} day={c.day} chronicSince={c.chronicSince} />
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-2">

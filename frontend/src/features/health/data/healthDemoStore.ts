@@ -1,9 +1,9 @@
 import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
-import { followUpErrors, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
+import { hasFollowUp, HealthValidationError, noteErrors, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
-  CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
-  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
+  CorrectEntryCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
+  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, ReopenCaseCommand, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
 } from '../types'
 import { HEALTH_DEMO_NOW, HEALTH_SEED, type CaseRecord, type EntryRecord, type HealthSeed } from './healthMock'
 
@@ -76,7 +76,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     const first = db.entries.find((e) => e.caseId === c.id && e.type === 'OPENING')
     return {
       id: c.id, caseCode: c.caseCode, status: c.status, severity: c.severity, diagnosis: c.diagnosis, signs: c.signs, openingSigns: first?.description ?? c.signs,
-      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt,
+      suspectedContagious: c.suspectedContagious, openedAt: c.openedAt, openedDate: dateOf(c.openedAt), chronicSince: c.chronicSince, outcome: c.outcome, closedAt: c.closedAt, closedBy: c.closedBy,
       treatmentCount: valid.filter((e) => e.type === 'TREATMENT').length, day: caseDay(c.openedAt, now()),
       withdrawalEndDate: latestWithdrawalEnd(valid), latestEntryAt: valid.reduce((m, e) => (e.occurredAt > m ? e.occurredAt : m), c.openedAt), version: c.version,
     }
@@ -94,6 +94,8 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
   function result(c: CaseRecord, kind: HealthCaseResult['kind'], observationId: number | null, deathVoucher: PendingExit | null = null): HealthCaseResult {
     return { id: c.id, caseCode: c.caseCode, cattleCode: c.cattleCode, status: c.status, version: c.version, observationId, healthState: healthStateOf(c.cattleCode), kind, outcome: c.outcome, deathVoucher }
   }
+
+  const memberName = (id: number | null | undefined) => db.members.find((m) => m.id === id)?.name ?? ''
 
   function observationErrors(label: string, v: { time?: string; temperatureC?: number | null }, ctx: { cattle: HealthCattle; min?: string; minWhat?: string }, errors: Record<string, string>) {
     Object.assign(errors, observationFieldErrors(label, v, { now: now(), entryDate: ctx.cattle.entryDate, min: ctx.min, minWhat: ctx.minWhat }))
@@ -128,11 +130,17 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const sign = dir === 'asc' ? 1 : -1
       rows.sort((a, b) => sign * (sort === 'caseCode' ? a.caseCode.localeCompare(b.caseCode) : a.openedAt.localeCompare(b.openedAt) || a.caseCode.localeCompare(b.caseCode)))
       const count = (s: string) => db.cases.filter((c) => c.status === s).length
+      const active = db.cases.filter((c) => c.status !== 'CLOSED')
       const pens = new Map<string, string>()
       for (const c of db.cases) { const k = cattleOf(c.cattleCode); if (k.penCode) pens.set(k.penCode, k.penName) }
       return structuredClone({
         rows,
-        counts: { open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length },
+        counts: {
+          open: count('OPEN'), chronic: count('CHRONIC'), closed: count('CLOSED'), all: db.cases.length,
+          treating: active.filter((c) => c.status === 'OPEN' && validOf(c.id).some((e) => e.type === 'TREATMENT')).length,
+          severe: active.filter((c) => c.severity === 'SEVERE').length, moderate: active.filter((c) => c.severity === 'MODERATE').length,
+          mild: active.filter((c) => c.severity === 'MILD').length, contagious: active.filter((c) => c.suspectedContagious).length,
+        },
         pens: [...pens].map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code)),
       })
     },
@@ -161,19 +169,9 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       const cattle = ensureCattle(cattleCode)
       assertCanAdd(cattle)
-      const existing = cmd.existingCaseId !== undefined ? activeCase(cmd.existingCaseId, cmd.expectedVersion) : null
-      if (existing && existing.cattleCode !== cattleCode) throw new Error(MSG.changed)
-      throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
+      throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
 
-      const base = { occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
-      if (existing) {
-        const row = addEntry({ ...base, caseId: existing.id, type: 'OBSERVATION' })
-        existing.severity = cmd.severity as CaseRecord['severity']
-        if (cmd.diagnosis.trim()) existing.diagnosis = cmd.diagnosis.trim()
-        existing.suspectedContagious = existing.suspectedContagious || cmd.suspectedContagious
-        existing.version += 1
-        return structuredClone(result(existing, 'ADDED', row.id))
-      }
+      const base = { occurredAt: cmd.observedAt, recordedBy: memberName(cmd.observerId) || 'Quản lý', observerId: cmd.observerId ?? undefined, temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
       const id = Math.max(0, ...db.cases.map((c) => c.id)) + 1
       const created: CaseRecord = {
         id, caseCode: `HC-${String(id).padStart(4, '0')}`, cattleCode, diagnosis: cmd.diagnosis.trim(), signs: cmd.signs.trim(), suspectedContagious: cmd.suspectedContagious,
@@ -184,16 +182,6 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       return structuredClone(result(created, 'OPENED', row.id))
     },
 
-    async recordFollowUp(caseId: number, cmd: FollowUpCommand): Promise<HealthCaseResult> {
-      const c = activeCase(caseId, cmd.expectedVersion)
-      const cattle = cattleOf(c.cattleCode)
-      assertCanAdd(cattle)
-      throwIf(followUpErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: c.openedAt }))
-      const row = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, progress: cmd.progress as Exclude<typeof cmd.progress, ''>, description: cmd.description.trim() })
-      c.version += 1
-      return structuredClone(result(c, 'FOLLOWED', row.id))
-    },
-
     async recordTreatment(caseId: number, cmd: TreatmentCommand): Promise<TreatmentResult> {
       const c = activeCase(caseId, cmd.expectedVersion)
       const cattle = cattleOf(c.cattleCode)
@@ -201,7 +189,8 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const errors: Record<string, string> = {}
       const medicine = treatmentErrors(cmd as never, { cattle, openedAt: c.openedAt }, errors)
       throwIf(errors)
-      const returnedToOpen = c.status === 'CHRONIC'
+      // D59: ca theo dõi dài hạn về Đang mở, trừ khi người dùng giữ trạng thái cho điều trị duy trì.
+      const returnedToOpen = c.status === 'CHRONIC' && cmd.returnToOpen !== false
       const row = addEntry({
         caseId, type: 'TREATMENT', occurredAt: cmd.treatmentTime, recordedBy: cmd.performer.trim() || 'Quản lý', temperatureC: null, medicineId: medicine!.id, medicineName: medicine!.name,
         dose: cmd.dose.trim(), route: cmd.route as Exclude<typeof cmd.route, ''>, courseDays: cmd.courseDays ?? 1, withdrawalDays: cmd.withdrawalDays ?? medicine!.withdrawalDays ?? 0, veterinaryAdvice: cmd.veterinaryAdvice.trim(),
@@ -225,27 +214,41 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
 
       c.diagnosis = cmd.diagnosis.trim()
       c.suspectedContagious = cmd.suspectedContagious
-      let observationId: number | null = null
-      if (cmd.progressText.trim()) {
-        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: cmd.progress as Progress, description: cmd.progressText.trim() }).id
-      }
+      // D58: phần theo dõi và trạng thái là một lần cập nhật, cùng một thời điểm.
+      const observationId = hasFollowUp(cmd)
+        ? addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: memberName(cmd.confirmedById) || 'Quản lý', observerId: cmd.confirmedById ?? undefined, temperatureC: cmd.temperatureC, progress: cmd.progress as Progress, description: cmd.description.trim() }).id
+        : null
       let kind: HealthCaseResult['kind'] = 'KEPT'
       let voucher: PendingExit | null = null
-      if (cmd.action === 'TO_CHRONIC') { c.status = 'CHRONIC'; c.chronicSince = dateOf(now()); kind = 'CHRONIC' }
+      if (cmd.action === 'TO_CHRONIC') { c.status = 'CHRONIC'; c.chronicSince = dateOf(cmd.observedAt); kind = 'CHRONIC' }
       else if (cmd.action === 'TO_OPEN') { c.status = 'OPEN'; c.chronicSince = undefined; kind = 'REOPENED' }
       else if (closing) {
-        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.closedAt; c.closedBy = cmd.confirmedBy || 'Quản lý'; kind = 'CLOSED'
+        c.status = 'CLOSED'; c.outcome = cmd.outcome as CaseRecord['outcome']; c.closedAt = cmd.observedAt; c.closedBy = memberName(cmd.confirmedById) || 'Quản lý'; kind = 'CLOSED'
         if (c.outcome === 'DIED' || c.outcome === 'MISSING') {
           // GBR-95: phiếu xuất chờ cho Chủ trại; bò vẫn ACTIVE đến khi Chủ trại xác nhận (herd-exit đọc phiếu này khi nối backend).
           voucher = {
             id: Math.max(0, ...db.vouchers.map((v) => v.id)) + 1, cattleCode: c.cattleCode, caseCode: c.caseCode, type: c.outcome === 'DIED' ? 'DEATH' : 'OTHER',
-            reason: c.outcome === 'DIED' ? 'Chết' : 'Mất tích', date: dateOf(cmd.closedAt!), reportedBy: c.closedBy, status: 'PENDING',
+            reason: c.outcome === 'DIED' ? 'Chết' : 'Mất tích', date: dateOf(cmd.observedAt), reportedBy: c.closedBy, status: 'PENDING',
           }
           db.vouchers.push(voucher)
         }
       }
       c.version += 1
       return structuredClone(result(c, kind, observationId, voucher))
+    },
+
+    async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
+      const c = caseById(caseId)
+      if (c.status !== 'CLOSED' || !c.outcome || c.outcome === 'CLOSED_BY_EXIT' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== c.version)) throw new Error(MSG.changed)
+      const cattle = cattleOf(c.cattleCode)
+      assertExitedFree(cattle)
+      throwIf(reasonErrors(cmd.reason))
+      // D62: ca Chết / Mất tích mở lại thì phiếu chờ xác nhận của ca đó bị bác.
+      if (c.outcome === 'DIED' || c.outcome === 'MISSING') db.vouchers = db.vouchers.filter((v) => v.caseCode !== c.caseCode)
+      else assertCanAdd(cattle)
+      Object.assign(c, { status: 'OPEN', outcome: undefined, closedAt: undefined, closedBy: undefined, chronicSince: undefined })
+      c.version += 1
+      return structuredClone(result(c, 'RESUMED', null))
     },
 
     async correctEntry(entryId: number, cmd: CorrectEntryCommand): Promise<RecordResult> {
@@ -257,7 +260,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       assertExitedFree(cattle)
       const before = cattleWithdrawal(c.cattleCode)
       const errors: Record<string, string> = {}
-      Object.assign(errors, reasonErrors(cmd.reason))
+      Object.assign(errors, noteErrors(cmd.reason))
       const snapshot: Record<string, unknown> = {}
       if (e.type === 'TREATMENT') {
         const next = {
@@ -281,7 +284,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
         const description = textError(opening ? 'Dấu hiệu / mô tả' : 'Mô tả', next.description, { required: true, max: 1000 }); if (description) errors.description = description
         throwIf(errors)
         Object.assign(snapshot, { occurredAt: e.occurredAt, temperatureC: e.temperatureC, progress: e.progress, description: e.description })
-        Object.assign(e, { occurredAt: next.time, temperatureC: next.temperatureC, description: next.description.trim(), recordedBy: cmd.observer || e.recordedBy })
+        Object.assign(e, { occurredAt: next.time, temperatureC: next.temperatureC, description: next.description.trim(), ...(cmd.observerId ? { recordedBy: memberName(cmd.observerId) || e.recordedBy, observerId: cmd.observerId } : {}) })
         if (e.type === 'FOLLOW_UP') e.progress = next.progress as Exclude<typeof next.progress, '' | undefined>
         if (opening) { c.openedAt = next.time; c.signs = next.description.trim() }
       }
@@ -301,7 +304,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const c = caseById(e.caseId)
       if (c.outcome === 'CLOSED_BY_EXIT') throw new Error(MSG.changed)
       assertExitedFree(cattleOf(c.cattleCode))
-      throwIf(reasonErrors(cmd.reason))
+      throwIf(noteErrors(cmd.reason))
       const before = cattleWithdrawal(c.cattleCode)
       e.revisions.push({ at: now(), reason: cmd.reason.trim(), actor: 'Quản lý', kind: 'VOIDED', before: {} })
       e.status = 'VOIDED'

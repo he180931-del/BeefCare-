@@ -19,6 +19,7 @@ export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string;
 export type EntryListView = { rows: HerdEntry[]; tiles: Record<string, unknown>; counts: Record<string, number> }
 export type EntryVaccineOption = { id: number; code: string; name: string; available: boolean }
 export type EntryBreedOption = { id: number; code: string; name: string; available: boolean }
+export type EntryPurposeOption = { id: number; name: string; purposeType: string; available: boolean }
 export type EntryParentOption = { id: number; code: string; sex: 'MALE' | 'FEMALE'; name: string }
 
 const canonical = (value: unknown): string => {
@@ -229,11 +230,15 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
         const barn = textValue(cow.barn)
         const basis = cow.weightBasis ?? (numberValue(cow.weight) > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null)
         const keepWeight = farmBorn ? cow.pricing !== 'con' && Boolean(basis) : numberValue(cow.weight) > 0
+        const selectedPurposeId = nullableNumber(cow.purposeId)
+        const purposeId = !farmBorn && selectedPurposeId != null && selectedPurposeId > 0
+          ? selectedPurposeId
+          : findPurposeId(purposesBody, textValue(cow.purpose)) ?? (farmBorn ? selectedPurposeId : null)
         return {
           earTagNumber: textValue(cow.tag) || null, name: textValue(cow.name) || null, photoUrl: null, colourMarkings: textValue(cow.colourMarkings) || null,
           breedId: nullableNumber(cow.breedId) ?? findNamedId(breedsBody, textValue(cow.breed)), sex: sex(cow.sex), birthDate: fullDate(cow.dob ?? cow.born),
           birthDateAccuracy: birthAccuracy(cow.dobAccuracy), ageMonths: nullableNumber(cow.ageMonths), lifeStage: lifeStage(cow.stage ?? cow.group, farmBorn),
-          purposeId: findPurposeId(purposesBody, textValue(cow.purpose)) ?? nullableNumber(cow.purposeId), entryWeightKg: keepWeight ? numberValue(cow.weight) : null,
+          purposeId, entryWeightKg: keepWeight ? numberValue(cow.weight) : null,
           weightBasis: keepWeight ? basis : null, penId: findNamedId(penRows.map((pen) => ({ ...pen, name: pen.code })), barn) ?? nullableNumber(cow.penId),
           unitPrice: numberValue(cow.unitPrice), quarantineUntil: textValue(cow.quarantineUntil) || null, warningReason: textValue(cow.warningReason) || null,
           vaccination: {
@@ -309,5 +314,8 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     const body = asRecord(await transport.get(transport.farmPath(farmId, '/cattle?herdStatus=ACTIVE&size=200')))
     return asRows(body.items).map((row): EntryParentOption => ({ id: numberValue(row.id), code: textValue(row.code ?? row.displayCode), sex: row.sex === 'MALE' ? 'MALE' : 'FEMALE', name: textValue(row.name) })).filter((row) => row.id > 0)
   }
-  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
+  const purposes = async (): Promise<EntryPurposeOption[]> => asRows(await transport.get(transport.farmPath(farmId, '/catalogues/production-purposes'))).map(row => ({
+    id: numberValue(row.id), name: textValue(row.name), purposeType: textValue(row.purposeType), available: row.available !== false && row.status !== 'INACTIVE',
+  })).filter(row => row.id > 0 && row.available)
+  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, sellers, vaccines, breeds, purposes, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
 }

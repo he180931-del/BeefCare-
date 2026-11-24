@@ -930,3 +930,145 @@ Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google 
 3. `POST /api/account/terms-acceptance` chỉ đặt `termsAccepted = true` và `termsAcceptedAt` ở lần đầu; gọi lại giữ nguyên thời điểm. Không hoàn tất đăng ký Owner, không tạo trại/membership, không cấp vai trò hoặc gói.
 4. Khi chưa chấp thuận, backend vẫn cho đọc hồ sơ, lấy CSRF, chấp thuận và đăng xuất; API nghiệp vụ khác trả `403` + `MSG-FE01-14` nhưng không hủy phiên. OAuth redirect ưu tiên `/chap-nhan-dieu-khoan` trước luồng Owner/chọn trại; frontend kiểm lại profile để không phụ thuộc riêng redirect.
 5. Dùng hai cột hiện có `terms_accepted`, `terms_accepted_at`; chưa thêm phiên bản điều khoản hoặc migration. Khi có quy trình ban hành nhiều phiên bản sẽ quyết định migration và luồng chấp thuận lại riêng.
+
+### D58 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
+
+TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:
+
+1. Thẻ ca chỉ còn hai nút: **Ghi điều trị** và **Cập nhật ca bệnh**.
+2. Popup **Cập nhật ca bệnh**: thời điểm, thân nhiệt, diễn biến, mô tả, chẩn đoán / cờ truyền nhiễm, trạng thái ca (Giữ / Chuyển mạn tính hoặc Mở lại / Đóng ca → kết quả, người xác nhận). Một thời điểm dùng cho lần theo dõi, ngày mạn tính và lúc đóng ca. Giữ trạng thái → phần theo dõi bắt buộc; đổi trạng thái → tùy chọn, có nhập ô nào thì cần đủ diễn biến và mô tả (giữ D35, không tự điền diễn biến). Lỗi nhập liệu dưới ô, lỗi điều kiện popup (D49).
+3. Phần theo dõi và trạng thái lưu **trong một giao dịch** qua A5 (`POST …/health-cases/{id}/status` thêm `observedAt`, `temperatureC`); không gọi hai API liên tiếp từ giao diện.
+4. Popup **Mở ca** luôn mở ca mới (một bò có thể có nhiều ca – GBR-45). Bò đang có ca thì popup nhắc mã ca và có nút "Cập nhật ca …" chuyển sang đúng ca.
+5. Backend vẫn nhận `existingCaseId` ở A3 và giữ A4 (`/observations`) để không đổi hợp đồng; giao diện không dùng nữa. Không migration.
+
+Spec FE-10 đã cập nhật: UC-FE10-02/03, R-10-01, SCR-37 dòng 7, popup Mở ca dòng 8, popup Cập nhật ca bệnh (thay popup Ghi theo dõi và Cập nhật / Đóng ca), A3–A5, TC-10-04/05/07/27/29.
+
+### D59 — FE-10: ghi điều trị cho ca theo dõi dài hạn có thể giữ trạng thái (23/11/2026)
+
+TuanPQ duyệt đợt 2 của bản đánh giá FE-10. GBR-45 cho ca CHRONIC tự về OPEN mỗi khi ghi điều trị, khiến điều trị duy trì (vitamin, thuốc bổ, kháng viêm định kỳ) đẩy ca về Đang mở và người dùng phải chuyển lại.
+
+1. Popup Ghi điều trị của ca CHRONIC có ô **"Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)"**, mặc định chọn (giữ hành vi SRS).
+2. Bỏ chọn → ca giữ CHRONIC; sức khỏe của bò là "Theo dõi" (không phải "Đang điều trị"); ngày ngưng thịt vẫn tính từ điều trị (GBR-46 không phụ thuộc trạng thái ca).
+3. A6 thêm `returnToOpen?` (thiếu = `true`); không migration, phản hồi `returnedToOpen` giữ nguyên. Thay MSG-FE10-10 bằng ô chọn này.
+
+### D60 — FE-10: trạng thái ca hiển thị bằng tiếng Việt, "Theo dõi dài hạn" thay "mạn tính" (23/11/2026)
+
+TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn toàn tiếng Việt. SRS định nghĩa CHRONIC là *long-term monitoring* – trạng thái quản lý ca, không phải chẩn đoán "bệnh mạn tính".
+
+1. Nhãn: `OPEN` → **Đang mở**, `CHRONIC` → **Theo dõi dài hạn**, `CLOSED` → **Đã đóng** (huy hiệu: "Đang mở · ngày n", "Theo dõi dài hạn · từ dd/mm/yyyy", "Đã đóng · Khỏi"); tab danh sách "Theo dõi dài hạn (n)".
+2. Hành động: "Chuyển theo dõi dài hạn", "Chuyển về đang mở" (không dùng "Mở lại" để dành cho việc mở lại ca đã đóng ở đợt 4).
+3. Mã trong DB / API / code giữ nguyên `OPEN`, `CHRONIC`, `CLOSED`; chỉ đổi chữ hiển thị (một nguồn `CASE_STATUS_LABEL`). Spec FE-10 đổi theo, gồm các chỗ viết "mãn tính".
+
+### D61 — FE-10: thân nhiệt ngoài 35–43 °C hỏi xác nhận thay vì chặn (23/11/2026)
+
+TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải giới hạn sinh lý; bò hạ thân nhiệt hoặc sốt cao vẫn phải ghi được.
+
+1. Ngoài **30,0–45,0 °C** → chặn, lỗi dưới ô MSG-FE10-06 (số gõ nhầm, ví dụ `395`, `3,9`). Frontend và backend cùng kiểm.
+2. Trong 30,0–45,0 nhưng ngoài **35,0–43,0 °C** → popup "Kiểm tra lại thân nhiệt" (MSG-FE10-06a) với nút "Kiểm tra lại" / "Xác nhận lưu". Đây là bước trên giao diện; API không thêm trường.
+3. Để trống → vẫn lưu. Sửa ô thân nhiệt thì lỗi cũ của ô biến mất (trước đây lỗi đỏ còn sau khi xóa trống ô).
+4. Áp dụng ở Mở ca sức khỏe, Cập nhật ca bệnh, Sửa bản ghi theo dõi. Không làm khoảng tham chiếu theo nhóm bò.
+
+### D62 — FE-10 / FE-13: mở lại ca sức khỏe đã đóng; bác phiếu chết / mất thì mở lại ca (23/11/2026)
+
+TuanPQ duyệt đợt 4 của bản đánh giá FE-10; chủ FE-13 đồng ý. Trước đây ca đã đóng không mở lại được (đóng nhầm phải mở ca mới, lịch sử bị tách), và bác phiếu chết / mất để bò ACTIVE nhưng ca vẫn ghi "Chết".
+
+1. **Mở lại ca** (FE-10, nút ở bảng "Các ca trước", popup lý do bắt buộc ≤ 500): ca về Đang mở, xóa kết quả / ngày đóng / người xác nhận / "theo dõi dài hạn từ"; lưu Record Revision hành động `REOPEN` và nhật ký `HEALTH_CASE_REOPEN`.
+2. Điều kiện: **Khỏi** → bò còn nhận sự kiện; **Chết / Mất tích** → bò còn trong đàn, phiếu PENDING của ca bị bác (lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận → bò EXITED → MSG-COM-13; **CLOSED_BY_EXIT** → không bao giờ (MSG-COM-05). Ca Khỏi: Owner và Manager (MANAGE_HEALTH); ca Chết / Mất tích: **chỉ Owner** vì phải bác phiếu xuất (MANAGE_EXIT_VOUCHERS, GBR-34) – TuanPQ chốt.
+3. **Bác phiếu chết / mất PENDING** (FE-13) → ca nguồn mở lại cùng lý do, thông báo MSG-FE13-10. Thay "ca giữ kết quả" của GBR-95 / R-13-09.
+4. API `POST …/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trả thêm `version` cho ca đã đóng. Không migration. Một lớp dùng chung `HealthCaseReopener` cho cả hai đường.
+
+### D63 — Dọn form nhập bò mua ngoài SCR-24 (23/11/2026)
+
+An chốt theo brief PR-K, áp dụng cho popup thêm / sửa con của phiếu mua ngoài:
+
+1. Chỉ nhập **Tháng sinh (ước tính)**; có tháng gửi ngày 01 và ESTIMATED, trống gửi UNKNOWN. Nháp / Excel có EXACT giữ nguyên ngày đầy đủ và độ chính xác khi không sửa tháng.
+2. Chỉ một ô **Cân nhập (kg)**, không chọn cơ sở cân. Có cân nhập tay gửi MEASURED, không cân gửi null. Dòng ESTIMATED từ Excel / nháp cũ giữ nguyên nếu không đổi số cân; đổi số cân chuyển MEASURED. Đây là điều chỉnh yêu cầu chọn Weight basis của popup trong SRS; Excel vẫn giữ cột cơ sở cân và bảng vẫn hiện UT.
+3. Theo con chỉ một ô **Giá con (đ)** lưu vào unitPrice; theo kg nhập đơn giá và hiện thành tiền chỉ đọc. Không gán trước giá hoặc tháng sinh cho con mới. Giá luôn nhập được.
+4. Cảnh báo của tóm tắt SCR-24 và tiêu chí chuồng trong popup hiện đỏ nhưng vẫn không chặn lưu; lỗi dữ liệu / sức chứa vẫn kiểm như trước.
+5. Con mới chỉ vào phiếu sau khi lưu popup; hủy không để dòng rỗng. Con đã có trong nháp luôn được xóa sau xác nhận, kể cả chưa có mã bò. Thẻ tai tùy chọn (tối đa 30), nhắc bổ sung đặc điểm khi chưa có thẻ.
+6. Mục đích nuôi lấy danh mục ACTIVE theo ID và purposeType, giới hạn SIRE cho đực và BREEDING cho cái. Cách ly nhập đàn là ngày theo dõi riêng sau mua, khác cách ly thịt; không trước ngày nhập, có +14/+21 ngày, phải giữ qua mở lại nháp và hiện trên hồ sơ khi còn hiệu lực.
+
+Không đổi backend, OpenAPI, migration, nhập Excel, sửa hồ sơ FE-05 hay nghiệp vụ bê sinh tại trại. Các điều kiện backend và giới hạn field hiện hành tiếp tục áp dụng.
+
+### D64 — FE-10: mã ca sức khỏe đếm theo trại (24/11/2026)
+
+SRS §3.2 và spec FE-10: mã ca `HC-nnnn`, duy nhất trong trại. Code cũ lấy ID toàn hệ thống (`HC-` + 6 chữ số), nên trại mới có vài ca đã thấy HC-008001 và số nhảy cóc theo các trại khác.
+
+1. Mã ca lấy từ bộ đếm theo trại như các mã nghiệp vụ khác (`CodeSequenceService`, loại `HEALTH_CASE`, BR-D34): `HC-0001`, `HC-0002`…; không đặt lại theo năm; quá 9999 thì dài thêm.
+2. Ca tạo trước giữ nguyên mã (đã hiện ở phiếu xuất, nhắc việc, lịch sử). Số mới trùng một mã cũ trong trại thì lấy số kế tiếp.
+3. Không migration: `code_sequence.code_type` là chuỗi, không có ràng buộc danh sách.
+
+### D65 — FE-10 / FE-18: liều thuốc số + đơn vị; số ngày dùng; "Ghi chú" thay "Lời khuyên thú y" (24/11/2026)
+
+TuanPQ duyệt, chủ FE-18 đồng ý. Liều là chữ tự do ("30ml", "30 cc", "3 ống"), liều tham chiếu của thuốc dài tới 100 ký tự trong khi ô Liều khi ghi điều trị chỉ 50, thuốc chưa có đường dùng bị tự điền "Khác", ghi chú chung của thuốc hiện như "Tham chiếu" liều, và Tiêm phòng đã nhập số + đơn vị.
+
+1. **Liều = số + đơn vị** (ml, lít, mg, g, viên, gói, liều) cho ghi / sửa điều trị và liều tham chiếu của thuốc; vẫn lưu một chuỗi ("30 ml", tối đa 50) nên không đổi API / DB. Không làm liều theo thể trọng trong ô liều (TuanPQ chốt): ghi ở Ghi chú của thuốc; liều điều trị là lượng thực tế mỗi lần. Liều cũ không theo chuẩn hiện nguyên văn và giữ nguyên nếu người dùng không nhập lại.
+2. Liều tham chiếu chỉ điền sẵn khi đường dùng trùng đường của thuốc; đổi đường khác thì bỏ liều điền sẵn và báo "Liều tham chiếu chỉ áp cho …". Thuốc chưa có đường dùng thì để trống.
+3. "Liệu trình (ngày)" → **"Số ngày dùng (mỗi ngày 1 lần)"** kèm "Tổng: liều × số ngày"; "Mũi cuối" → **"Ngày dùng cuối"** (đúng GBR-46: một đợt cùng thuốc, liều, đường mỗi ngày một lần).
+4. "Lời khuyên thú y" → **"Ghi chú"** (gợi ý: lời dặn của thú y, phản ứng sau dùng thuốc); API giữ `veterinaryAdvice`. Ghi chú của thuốc hiện "Ghi chú thuốc: …" dưới ô Thuốc.
+5. Danh mục thuốc gợi ý: thuốc nhiều dạng (tiêm / uống) tạo mỗi dạng một mục, vì liều và ngày ngưng thịt khác nhau.
+
+### D66 — FE-10 / FE-09: màn danh sách Sức khỏe & Điều trị và bảng mũi Tiêm phòng theo Bento (24/11/2026)
+
+TuanPQ: màn danh sách rối, các khối giống nhau, màu không mang thông tin, bo góc không thống nhất, rời rạc. Màn Sức khỏe để **xem ca nào cần chú ý và đi tới hồ sơ bò**; không ghi nhận trực tiếp.
+
+1. **SCR-36** một hàng 3 khối (5 + 4 + 3): **Ca chưa đóng** (khối nổi bật, số đang mở / đang điều trị, thanh tỷ lệ theo mức độ Nặng · Trung bình · Nhẹ); **khối cảnh báo** xanh nhạt "Không có ca cần xử lý gấp" hoặc đỏ nhạt "Cần chú ý ngay" khi có ca nặng / nghi truyền nhiễm, ba dòng ca nặng (nút Xem lọc ngay) · nghi truyền nhiễm · đang điều trị; **Theo dõi dài hạn**. Không có ô "Đã đóng trong kỳ" (không giúp việc trước mắt).
+2. Tab gạch chân, bộ lọc (tìm, mức độ, chuồng – cùng kiểu ô) và bảng gom trong **một khối**. Kỳ chỉ hiện ở tab Đã đóng / Tất cả. Bảng gộp cột Chuồng vào dòng phụ của Bò, vạch màu đầu dòng theo mức độ, nền đỏ nhạt khi nghi truyền nhiễm, cả dòng bấm được (chuột, Enter / Space) mở tab Sức khỏe của bò. Mọi khối bo 16, ô điều khiển bo 12.
+3. **Sửa lỗi:** tab Theo dõi dài hạn trước đây bị lọc theo kỳ – nay luôn hiện đủ như Đang mở.
+4. A1 `counts` (Map) thêm `treating`, `severe`, `moderate`, `mild`, `contagious` cho ca chưa đóng; không đổi schema OpenAPI, không migration.
+5. **Tiêm phòng (SCR-31):** giữ phần trên (thẻ lịch, nút); khối danh sách mũi làm cùng kiểu – tab gạch chân, bộ lọc, thanh "Ghi nhận n mũi đã chọn" và bảng trong một khối; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm (quá hạn đỏ, đến hạn vàng, đã tiêm xanh); trạng thái trống nằm trong khối.
+
+### D67 — FE-11 / FE-12: xác nhận có thai bằng quan sát, tiêu chí sau đẻ, gọn khung phối (24/11/2026)
+
+TuanPQ duyệt sau khi đánh giá bản nhận xét luồng Sinh sản. Trại nhỏ không có siêu âm nên bò phối xong kẹt ở "Đã phối", không có ngày đẻ dự kiến và không vào nhóm sắp đẻ.
+
+1. **Khám thai bằng quan sát:** thêm phương pháp `OBSERVATION` "Quan sát – không lên giống lại". Thẻ "Lần phối gần nhất" (bò Đã phối) có nút **"Xác nhận có thai (quan sát)"** từ ngày thứ 21 sau phối, mở popup Ghi khám thai điền sẵn Có thai + Quan sát + lần phối liên kết. Vẫn là một lần khám CÓ THAI nên đúng GBR-51 / R-11-06; không tự suy ra mang thai, không migration.
+2. **Điều kiện phối (GBR-55, chỉ cảnh báo):** bò đã từng đẻ thêm tiêu chí "Sau đẻ ≥ N ngày" (`POSTPARTUM_INTERVAL`, N = tham số Sau sinh, mặc định 45). Bò chỉ thiếu lần cân thì huy hiệu tổng "Cần cân lại" (vàng); quy tắc cân giữ như chốt 15/11/2026.
+3. **Lên giống giả khi mang thai:** R-11-04 giữ chặn; MSG-FE11-05 chỉ đường ghi ở Diễn biến thai (loại Theo dõi).
+4. **Khung phối:** giữ khung giờ theo tham số trại (REM-02), bỏ thanh 24 giờ, chỉ hiện một dòng chữ.
+5. Không làm: rút còn 3 trạng thái, nới quy tắc không làm mồ côi (sửa trường không gây mâu thuẫn vẫn làm được), gộp hai spec – thay bằng bảng tham chiếu chéo ở đầu FE-11 và FE-12.
+
+### D68 — FE-11 / FE-12: tab Sinh sản (SCR-39) theo Bento, tránh loạn thông tin (24/11/2026)
+
+TuanPQ: khối trạng thái là bảng số dày đặc, nhiều ô "—" và "0", thông tin lặp (ngày sau đẻ, cân gần nhất), không rõ việc tiếp theo.
+
+1. **Khối trạng thái (nổi bật, 7/12):** chỉ tên trạng thái (lớn), "từ ngày", một ô **việc tiếp theo** theo trạng thái – Chờ phối: theo dõi lên giống; Động dục: cửa sổ phối gợi ý; Đã phối: số ngày đã phối và ngày khám được; Mang thai: ngày dự kiến đẻ, còn n ngày (thanh tiến độ); Sau sinh: ngày n / 45 và ngày phối lại được (thanh tiến độ) – rồi các nút ghi.
+2. **Khối ngữ cảnh (5/12)** đổi theo trạng thái: Điều kiện xét phối (Chờ phối / Động dục / Sau sinh) dạng danh sách gọn, xanh nhạt khi đạt hết, vàng nhạt khi chỉ còn điều kiện "chờ được" (chưa cân lại, chưa đủ ngày sau đẻ), đỏ nhạt khi chưa đạt tuổi / cân / có ca bệnh; Lần phối gần nhất (Đã phối); Thai kỳ hiện tại (Mang thai).
+3. **Chỉ số sinh sản** thành khối trắng riêng, chỉ hiện chỉ số đã có giá trị (không "—"); đặt cạnh Lịch sử sinh bê khi bò đã đẻ. Bỏ khỏi khối trạng thái các ô lặp (ngày sau đẻ, cân gần nhất – cân nằm trong điều kiện phối). Khối Cửa sổ phối riêng gộp vào khối trạng thái.
+
+### D69 — FE-11 / FE-12: Sửa / Xóa bản ghi sinh sản tách riêng như Cân nặng và Tiêm phòng (24/11/2026)
+
+TuanPQ: dòng thời gian Sinh sản làm giống các phần khác (D43 FE-08, D53 FE-09).
+
+1. Dòng thời gian có hai nút riêng **Sửa** và **Xóa** (thay "Sửa · Hủy"); popup không còn ô chọn hành động.
+2. Popup **Sửa**: bảng giá trị hiện tại / mới; "Lý do *" → **Ghi chú** không bắt buộc (≤ 500).
+3. **Xóa**: popup xác nhận "Xóa … ?" kèm câu ảnh hưởng, không có ô lý do; vẫn hỏi lại khi bản ghi đang được liên kết (động dục có phối liên kết, khám đang xác nhận thai) và vẫn chặn khi làm mồ côi bản ghi sau (MSG-FE11-07). Phía máy chủ vẫn là xóa mềm (`VOIDED`) có Record Revision.
+4. Bản ghi `VOIDED` không hiện ở dòng thời gian sinh sản.
+5. Backend `ReproductionCommandService`: ghi chú trống lưu `null`, > 500 → MSG-COM-10; dùng `RecordRevisionService.recordWithOptionalNote`. Không migration (`status_reason` cho phép null), không đổi route.
+
+### D70 — FE-11 / FE-12: bỏ "Nguồn dữ liệu" khỏi giao diện Sinh sản (24/11/2026)
+
+TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lưu một sự kiện; phân biệt thêm chỉ tốn thời gian đọc và gây rối. Đã kiểm: `dataSource` không tham gia quy tắc, nhắc việc hay chỉ số nào (chỉ được lưu).
+
+1. Bỏ ô "Nguồn dữ liệu" ở popup Ghi phối, Ghi khám thai, Ghi diễn biến thai, màn Ghi đẻ và các popup Sửa; bỏ cột "Nguồn dữ liệu" ở dòng thời gian sinh sản.
+2. Mọi bản ghi mới lưu `DIRECT_OBSERVATION` (mặc định sẵn có của backend khi không gửi). Bản ghi cũ giữ giá trị đã lưu.
+3. Không đổi API / DB: `dataSource` vẫn là trường tùy chọn của A1–A8, không migration. Lệch SRS (Data source của các popup sinh sản) – ghi nhận tại đây.
+
+### D71 — FE-11 / FE-12: màn danh sách Sinh sản theo Bento; popup Xóa báo thẳng; gọn popup ghi (24/11/2026)
+
+1. **Danh sách Sinh sản (SCR-38)** cùng khung với Sức khỏe (D66): một hàng 3 khối – **Việc cần làm** (nổi bật: động dục cần phối, đến hạn khám thai, sắp đẻ 30 ngày, mỗi dòng có "Xem" mở tab tương ứng), **Cần chú ý** (đỏ nhạt khi có bò chưa đủ điều kiện phối / quá hạn thụ thai, xanh nhạt khi không), **Đang mang thai**. Tab gạch chân, bộ lọc và bảng gom trong một khối; tab mặc định là tab đầu tiên có bò theo thứ tự việc gấp; cột Giống / Chuồng gộp vào dòng phụ của Bò; vạch vàng đầu dòng khi có việc tới hạn; trạng thái trống không lồng khung.
+2. **Popup Xóa** (D69): bản ghi đang có bản ghi phụ thuộc (động dục có phối liên kết, phối có khám thai, khám đã xác nhận thai có diễn biến / lần đẻ, lần đẻ có bê đã đăng ký) → báo thẳng "Không xóa được: …" và chỉ có nút Đóng, thay cho hỏi "Vẫn xóa?" rồi bị máy chủ từ chối.
+3. **Popup ghi sinh sản:** bỏ ô "Bò cái" chỉ đọc (lặp dòng phụ; dòng phụ thêm số tai); "Mô tả (không bắt buộc)" → "Mô tả". Không hiện khung phối trong popup vì giao diện không có tham số giờ phối của trại; khung phối chính xác hiện ở khối trạng thái sau khi lưu.
+
+### D72 — FE-08: màn Tăng trưởng & BCS theo Bento (24/11/2026)
+
+1. **Danh sách tăng trưởng (SCR-23)** cùng khung với Sức khỏe (D66) và Sinh sản (D71): một hàng 3 khối – **Cần cân lại** (nổi bật: số bò quá chu kỳ cân 30 ngày, kèm số lượt cân 30 ngày qua), **Cần chú ý** (đỏ nhạt khi có bò BCS < 2,5 hoặc ADG thấp hơn trung bình chuồng, xanh nhạt "Thể trạng ổn" khi không), **Đang nuôi**. Bộ lọc và bảng gom trong một khối; cột Giống / Giới tính / Chuồng gộp vào dòng phụ của Bò; vạch đầu dòng đỏ (BCS thấp) / vàng (ADG thấp, quá hạn cân); cả dòng bấm được mở tab Tăng trưởng của hồ sơ bò; trạng thái trống không lồng khung. Chưa thêm tab theo tình trạng vì API chưa có bộ lọc này.
+2. **Tab Tăng trưởng & BCS ở hồ sơ bò** (bò không có dự kiến xuất bán): thay 5 ô ngang nhau bằng một khối nổi bật **Cân gần nhất** đặt cạnh biểu đồ – số kg lớn, ngày · cơ sở, tăng cân bình quân, thể trạng (BCS), lần cân tới. "Lần cân tới" chỉ tô màu khi quá hạn (đỏ) hoặc còn ≤ 7 ngày (vàng). Bò Vỗ béo có dự kiến xuất bán giữ bố cục cũ.
+3. **Lịch sử đo:** tiêu đề kèm số dòng; bỏ cột Trạng thái, chỉ còn nhãn "Đã sửa" / "Đã xóa" cạnh thời điểm đo; chú thích rút còn một câu.
+
+### D73 — FE-10: Sửa / Xóa bản ghi theo dõi, điều trị như các màn chăm sóc khác (24/11/2026)
+
+1. Dòng diễn biến ca có hai nút riêng **Sửa** và **Xóa** thay cho "Sửa · Hủy" mở một popup có ô chọn hành động; lần ghi mở ca chỉ có Sửa (R-10-11 giữ nguyên). Đồng nhất với Cân nặng (D43), Tiêm phòng (D53) và Sinh sản (D69).
+2. **Ghi chú không bắt buộc** khi sửa / xóa (tối đa 500 ký tự). Popup Xóa chỉ xác nhận, vẫn hiện ngày hết ngưng thịt trước → sau. Record Revision vẫn lưu giá trị trước / sau, người và thời điểm (BR-D15).
+3. Bản ghi đã xóa (VOIDED) không còn hiện trong diễn biến ca và popup xem lại ca đã đóng; số đếm "Diễn biến & điều trị" không tính bản ghi đã xóa.
+4. Migration mới `20261124000100_health_optional_void_note` bỏ hai ràng buộc `ck_observation_void_reason`, `ck_treatment_void_reason` (bắt buộc lý do khi VOIDED); migration cũ không sửa, dữ liệu cũ giữ nguyên. API không đổi hình dạng: trường `reason` vẫn nhận, chỉ thôi bắt buộc.

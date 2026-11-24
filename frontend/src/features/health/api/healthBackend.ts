@@ -2,18 +2,18 @@ import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { dateOf } from '../domain/healthFormat'
 import { caseDay, latestWithdrawalEnd, MSG } from '../domain/healthRules'
-import { correctionTreatmentErrors, followUpErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
+import { correctionTreatmentErrors, HealthValidationError, noteErrors, observationErrors, openCaseErrors, reasonErrors, statusErrors, textFieldErrors, treatmentErrors } from '../validation/healthValidation'
 import { mapHealthError } from './healthError'
 import {
   ageText, mapCattle, mapHealthCaseCard, mapHealthCaseResult, mapHealthCaseRow, mapMedicine, mapPendingExit, mapRecordResult, mapTimelineRow,
   mapTreatmentResult, num, nullableNum, pick, pickOptional, SEVERITIES, STATES, STATUSES, OUTCOMES, text, toFarmTime, toInstant,
-  toObservationCorrectionRequest, toOpenCaseRequest, toFollowUpRequest, toStatusRequest, toTreatmentCorrectionRequest, toTreatmentRequest, toVoidRequest,
+  toObservationCorrectionRequest, toOpenCaseRequest, toStatusRequest, toTreatmentCorrectionRequest, toTreatmentRequest, toVoidRequest,
   type CaseRef, type EntryRef,
 } from './healthMapper'
 import type {
-  CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
+  CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
   HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile, HealthState, HealthTimelineRow, Medicine, OpenCaseCommand, PendingExit, Progress, RecordResult,
-  Severity, StatusCommand, TreatmentCommand, TreatmentResult, TreatmentRoute, VoidEntryCommand,
+  ReopenCaseCommand, Severity, StatusCommand, TreatmentCommand, TreatmentResult, TreatmentRoute, VoidEntryCommand,
 } from '../types'
 
 /**
@@ -74,14 +74,18 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     if (memberList) return memberList
     const response = await transport.get(path('/members'))
     const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).members ?? asRecord(response).items)
-    memberList = rows.filter((m) => m.status === undefined || m.status === 'ACTIVE').map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)) }))
+    memberList = rows.filter((m) => m.status === undefined || m.status === 'ACTIVE').map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)), email: textValue(m.email) || undefined }))
     return memberList
   }
-  /** Tên thành viên (popup chọn theo tên) → id; tên không khớp thành viên nào → undefined. */
+  /**
+   * Người thực hiện điều trị nhập tự do (có thể là người ngoài): tên khớp đúng một thành viên → id; trùng họ tên hoặc
+   * không khớp → gửi tên, để không gán nhầm người.
+   */
   const memberId = async (name: string | undefined) => {
     const wanted = (name ?? '').trim()
     if (!wanted) return undefined
-    return (await members()).find((m) => m.name === wanted)?.id
+    const matches = (await members()).filter((m) => m.name === wanted)
+    return matches.length === 1 ? matches[0].id : undefined
   }
   const performerBody = async (name: string | undefined) => {
     const id = await memberId(name)
@@ -123,7 +127,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         const penList = await pens()
         const penId = filters.penCode ? penList.find((p) => p.code === filters.penCode)?.id : undefined
-        if (filters.penCode && penId === undefined) return { rows: [], counts: { open: 0, chronic: 0, closed: 0, all: 0 }, pens: penList }
+        if (filters.penCode && penId === undefined) return { rows: [], counts: { open: 0, chronic: 0, closed: 0, all: 0, treating: 0, severe: 0, moderate: 0, mild: 0, contagious: 0 }, pens: penList }
         const body = asRecord(await transport.get(path(`/health-cases${query({
           tab: (filters.tab ?? 'open').toUpperCase(), search: filters.search?.trim(), severity: filters.severity || undefined, penId, from: filters.from, to: filters.to,
           sort: filters.sort, dir: filters.dir, page: 0, size: LIST_SIZE,
@@ -131,7 +135,11 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         const counts = asRecord(body.counts)
         return {
           rows: asRows(body.items).map(mapRow),
-          counts: { open: num(counts.open) ?? 0, chronic: num(counts.chronic) ?? 0, closed: num(counts.closed) ?? 0, all: num(counts.all) ?? 0 },
+          counts: {
+            open: num(counts.open) ?? 0, chronic: num(counts.chronic) ?? 0, closed: num(counts.closed) ?? 0, all: num(counts.all) ?? 0,
+            treating: num(counts.treating) ?? 0, severe: num(counts.severe) ?? 0, moderate: num(counts.moderate) ?? 0, mild: num(counts.mild) ?? 0,
+            contagious: num(counts.contagious) ?? 0,
+          },
           pens: penList,
         }
       })
@@ -174,7 +182,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         ])
         const medicineList = Array.isArray(medicineRows) ? asRows(medicineRows) : asRows(asRecord(medicineRows).items)
         const diagnoses = [...new Set(asRows(asRecord(caseBody).items).map((c) => textValue(c.diagnosis)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'))
-        return { medicines: medicineList.map(mapMedicine), members: memberRows.map((m) => m.name), diagnoses }
+        return { medicines: medicineList.map(mapMedicine), members: memberRows, diagnoses }
       })
     },
 
@@ -182,22 +190,10 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       return run(async () => {
         const { cattle } = await resolve(cattleCode)
-        const existing = cmd.existingCaseId !== undefined ? cases.get(cmd.existingCaseId) : undefined
-        assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
-        const [{ cattleId }, observerId] = await Promise.all([resolve(cattleCode), memberId(cmd.observer)])
-        const r = await transport.command(path('/health-cases'), toOpenCaseRequest(cattleId, { ...cmd, observerId }))
-        return result(r, cmd.existingCaseId !== undefined ? 'ADDED' : 'OPENED', { caseCode: '', cattleCode })
-      })
-    },
-
-    // A4
-    async recordFollowUp(caseId: number, cmd: FollowUpCommand): Promise<HealthCaseResult> {
-      return run(async () => {
-        const ctx = caseContext(caseId)
-        assertValid(followUpErrors(cmd, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.openedAt }))
-        const observerId = await memberId(cmd.observer)
-        const r = await transport.command(path(`/health-cases/${caseId}/observations`), toFollowUpRequest({ ...cmd, observerId }))
-        return result(r, 'FOLLOWED', cases.get(caseId))
+        assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate }))
+        const { cattleId } = await resolve(cattleCode)
+        const r = await transport.command(path('/health-cases'), toOpenCaseRequest(cattleId, cmd))
+        return result(r, 'OPENED', { caseCode: '', cattleCode })
       })
     },
 
@@ -208,6 +204,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/treatments`), toTreatmentRequest({
           expectedVersion: cmd.expectedVersion, medicineId: cmd.medicineId, treatmentTime: cmd.treatmentTime, dose: cmd.dose, route: cmd.route,
           courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, performerBody: await performerBody(cmd.performer), veterinaryAdvice: cmd.veterinaryAdvice,
+          returnToOpen: cmd.returnToOpen,
         })))
         return mapTreatmentResult(r, caseId, cases.get(caseId)?.caseCode ?? '', cmd.courseDays)
       }, 'treatmentTime')
@@ -218,18 +215,17 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       const closing = cmd.action === 'CLOSE'
       return run(async () => {
         assertValid(statusErrors(cmd, caseContext(caseId)))
-        const confirmedById = await memberId(cmd.confirmedBy)
-        // D35: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
-        const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest({ ...cmd, confirmedById })))
+        // D35 / D58: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu phần theo dõi thiếu mô tả hoặc diễn biến.
+        const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), toStatusRequest(cmd)))
         const kind: CaseResultKind = cmd.action === 'TO_CHRONIC' ? 'CHRONIC' : cmd.action === 'TO_OPEN' ? 'REOPENED' : closing ? 'CLOSED' : 'KEPT'
         const ref = cases.get(caseId)
         const voucherId = num(r.pendingExitVoucherId)
         const deathVoucher: PendingExit | null = voucherId === undefined ? null : {
           id: voucherId, cattleCode: textValue(r.cattleCode, ref?.cattleCode), caseCode: textValue(r.caseCode, ref?.caseCode), type: cmd.outcome === 'MISSING' ? 'OTHER' : 'DEATH',
-          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.closedAt ?? now()), reportedBy: cmd.confirmedBy, status: 'PENDING',
+          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.observedAt), reportedBy: (await members()).find((m) => m.id === cmd.confirmedById)?.name ?? '', status: 'PENDING',
         }
         return result(r, kind, ref, deathVoucher)
-      }, closing ? 'closedAt' : 'observedAt')
+      })
     },
 
     // A7 / A8 sửa: route theo loại bản ghi đã đọc ở A2.
@@ -239,7 +235,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         const ctx = caseContext(entry.caseId)
         assertValid({
-          ...reasonErrors(cmd.reason),
+          ...noteErrors(cmd.reason),
           // Chỉ kiểm các trường người dùng gửi lên; trường để nguyên lấy theo bản ghi cũ ở backend.
           ...(treatment
             ? correctionTreatmentErrors(cmd, ctx)
@@ -250,17 +246,23 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         })
         const body = treatment
           ? toTreatmentCorrectionRequest({ ...cmd, performerBody: cmd.performer === undefined ? undefined : await performerBody(cmd.performer) })
-          : toObservationCorrectionRequest({ ...cmd, observerId: await memberId(cmd.observer) })
+          : toObservationCorrectionRequest(cmd)
         const r = await transport.command(path(treatment ? `/treatments/${entryId}/correction` : `/health-observations/${entryId}/correction`), body)
         return recordResult(r, 'CORRECTED', entry)
       }, treatment ? 'treatmentTime' : 'observedAt')
     },
 
-    // A7 / A8 hủy.
+    // A7 / A8 xóa (D73: ghi chú không bắt buộc).
+    // A5b (D62): mở lại ca đã đóng; ca Chết / Mất tích thì backend bác luôn phiếu chờ xác nhận.
+    async reopenCase(caseId: number, cmd: ReopenCaseCommand): Promise<HealthCaseResult> {
+      assertValid(reasonErrors(cmd.reason))
+      return run(async () => result(await transport.command(path(`/health-cases/${caseId}/reopen`), toVoidRequest(cmd)), 'RESUMED', cases.get(caseId)))
+    },
+
     async voidEntry(entryId: number, cmd: VoidEntryCommand): Promise<RecordResult> {
       const entry = entryOf(entryId)
       if (entry.type === 'OPENING') throw new Error(MSG.voidOpening)
-      assertValid(reasonErrors(cmd.reason))
+      assertValid(noteErrors(cmd.reason))
       return run(async () => {
         const r = await transport.command(path(entry.type === 'TREATMENT' ? `/treatments/${entryId}/void` : `/health-observations/${entryId}/void`), toVoidRequest(cmd))
         return recordResult(r, 'VOIDED', entry)

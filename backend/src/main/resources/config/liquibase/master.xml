@@ -170,4 +170,5 @@
     <include file="config/liquibase/changelog/20261121000100_local_runtime_cattle_qr.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261121000200_system_test_accounts.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261123000100_vaccination_remove_deferral.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261124000100_health_optional_void_note.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

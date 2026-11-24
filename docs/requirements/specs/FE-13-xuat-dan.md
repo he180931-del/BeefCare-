@@ -93,7 +93,7 @@ Phiếu DEATH **không có số tiền** (GBR-95).
 | R-13-06 | Kiểm tra trước khi xác nhận, theo từng con: ngưng thịt còn hiệu lực sau ngày xuất (với Bán / Loại thải → tô nổi MSG-FE13-07), ca OPEN / CHRONIC, mũi tiêm và nhắc việc tương lai sẽ bị hủy, thai đang có, bê nháp của bò mẹ. **Cảnh báo không chặn**; Owner phải tick xác nhận (MSG-COM-16). | GBR-35, GBR-94, GBR-46 |
 | R-13-07 | Xác nhận: kiểm lại; nếu **bất kỳ** con nào không còn ACTIVE → không xác nhận gì (MSG-COM-05). Trong **một transaction** cho mọi con: EXITED; đóng phân chuồng tại ngày xuất; hủy mũi tiêm và nhắc việc sau ngày xuất; đóng ca OPEN / CHRONIC với kết quả CLOSED_BY_EXIT; đóng thai đang có là DAM_EXITED; audit. Bê nháp của bò mẹ **vẫn chờ**. | GBR-35, GBR-94 |
 | R-13-08 | Bò EXITED chỉ đọc, giữ đủ lịch sử. | GBR-26 |
-| R-13-09 | Phiếu chết PENDING (từ FE-10): Owner hoàn thiện nguyên nhân, xử lý xác (Chết), đính kèm bằng chứng → xác nhận (R-13-07); hoặc **bỏ** với lý do bắt buộc → DISMISSED, bò vẫn ACTIVE, ca giữ kết quả. Trong lúc PENDING bò hiện "Chờ xác nhận chết / mất", không nhận sự kiện mới; REM-12 nhắc Owner. | GBR-95, GBR-26 |
+| R-13-09 | Phiếu chết PENDING (từ FE-10): Owner hoàn thiện nguyên nhân, xử lý xác (Chết), đính kèm bằng chứng → xác nhận (R-13-07); hoặc **bỏ** với lý do bắt buộc → DISMISSED, bò vẫn ACTIVE, **ca sức khỏe nguồn mở lại** (OPEN, lý do = lý do bác, lưu lịch sử – D62, thay "ca giữ kết quả" của GBR-95 vì bò không chết / mất). Mở lại ca Chết / Mất tích từ FE-10 cũng bác phiếu PENDING này. Trong lúc PENDING bò hiện "Chờ xác nhận chết / mất", không nhận sự kiện mới; REM-12 nhắc Owner. | GBR-95, GBR-26 |
 | R-13-10 | Owner ghi chết trực tiếp (không qua ca sức khỏe): chọn loại Chết, làm như phiếu chết. | UC-01 AF6 |
 | R-13-11 | Tiền: tiền dòng theo kg = đơn giá × cân xuất; theo con = đơn giá; khấu trừ ≤ tiền bò; đã thu ≤ tổng phải thu (MSG-FE06-13). | GBR-91, GBR-92 |
 | R-13-12 | Hủy phiếu CONFIRMED: bắt buộc lý do; phiếu VOIDED (không bao giờ xóa, không hủy hai lần); mọi con ACTIVE lại với phân chuồng mới từ ngày hủy ở chuồng cuối; chuồng cuối ngưng / thiếu chỗ → Owner chọn chuồng ACTIVE còn chỗ cho từng con (MSG-FE13-09; không đạt tiêu chí cần lý do cảnh báo). Kiểm: không con nào đang trên dòng xuất mở khác. Các mục đã đóng / hủy do xuất (mũi, nhắc việc, ca, thai) **không tự khôi phục**, chỉ liệt kê để xem lại; khoản thu giữ trong lịch sử. | GBR-36, UC-03 |
@@ -257,7 +257,7 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | A6 | Bỏ nháp | `expectedVersion` + `Idempotency-Key` | — | COM-05 | `DELETE …/exit-vouchers/{id}` |
 | A7 | Kiểm tra trước khi xác nhận | — | `{rows[{cattleId, withdrawalUntil?, openCases[], futureDoses, futureReminders, openPregnancy, draftCalves}], penOccupancy[]}` | — | `GET …/exit-vouchers/{id}/checks` |
 | A8 | Xác nhận | `reviewedChecks: true, version` + `Idempotency-Key` | `{voucherCode, exited, cancelledItems {doses, reminders, cases, pregnancies}}` | COM-16, FE06-16, FE13-03, COM-05, COM-02 | `POST …/exit-vouchers/{id}/confirm` |
-| A9 | Bỏ phiếu chết PENDING | `reason, version` + `Idempotency-Key` | Phiếu DISMISSED | COM-06, COM-05 | `POST …/exit-vouchers/{id}/dismiss` |
+| A9 | Bỏ phiếu chết PENDING | `reason, version` + `Idempotency-Key` | Phiếu DISMISSED; ca nguồn OPEN (D62); `message` MSG-FE13-10 khi ca được mở lại | COM-06, COM-05 | `POST …/exit-vouchers/{id}/dismiss` |
 | A10 | Kiểm / hủy phiếu | — / `reason, pens[{cattleId, penId, warningReason?}], version` + `Idempotency-Key` | `{rows[{cattleId, lastPen, available, needsPen}]}` / `{voided, reopened[], itemsToReview[]}` | FE13-09, FE04-06, COM-06, COM-05 | `GET …/exit-vouchers/{id}/void-check` · `POST …/void` |
 | A11 | Chi tiết | — | Mọi trường SCR-76 | COM-08 | `GET …/exit-vouchers/{id}` |
 | A12 | Thu tiền | Như FE-06 A16 với `type = EXIT` | — | FE06-13, COM-07 | `GET` / `POST /api/farms/{farmId}/vouchers/EXIT/{voucherId}/payments` · `POST /payments/{paymentId}/void` |
@@ -278,6 +278,7 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | MSG-FE13-07 | Cảnh báo dòng | {cattle_code} đang trong thời gian ngưng thịt đến {date}. Bán giết mổ trước ngày này vi phạm an toàn thực phẩm – hãy đổi ngày xuất hoặc bỏ con này. |
 | MSG-FE13-08 | Trong hộp thoại | {cattle_code} đã có trên phiếu {voucher_code}. |
 | MSG-FE13-09 | Trong hộp thoại | Chuồng {pen} không khả dụng hoặc không đủ chỗ. Hãy chọn chuồng cho từng con trước khi hủy. |
+| MSG-FE13-10 | Toast thành công | Đã bác phiếu {voucher_code}. {cattle_code} vẫn ở trong đàn; ca {case_code} đã mở lại. (D62) |
 
 ---
 
@@ -297,7 +298,7 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | TC-13-10 | Bò mẹ có bê nháp | Xác nhận xuất bò mẹ | Bê nháp vẫn PENDING_CONFIRMATION | I | R-13-07 |
 | TC-13-11 | Bò EXITED | Gọi ghi cân / chuyển chuồng | MSG-COM-13 | H | R-13-08 |
 | TC-13-12 | Ca đóng Chết → phiếu PENDING | Owner nhập nguyên nhân, xử lý xác, xác nhận | CONFIRMED; bò EXITED; REM-12 giải quyết | I | R-13-09 |
-| TC-13-13 | Phiếu PENDING | Bỏ không lý do / có lý do | MSG-COM-06 / DISMISSED; bò ACTIVE; ca giữ kết quả Chết | I | R-13-09 |
+| TC-13-13 | Phiếu PENDING | Bỏ không lý do / có lý do | MSG-COM-06 / DISMISSED; bò ACTIVE; ca nguồn OPEN; MSG-FE13-10 | I | R-13-09, D62 |
 | TC-13-14 | Phiếu chết, loại Mất tích | Xem SCR-43 | Không có trường Xử lý xác | E | SCR-43 |
 | TC-13-15 | Theo kg: 450 kg × 70.000; khấu trừ 500.000; đặt cọc 10.000.000 | Tính | Tiền bò 31.500.000; phải thu 31.000.000; còn 21.000.000 | U | R-13-11 |
 | TC-13-16 | Khấu trừ > tiền bò; đặt cọc > tổng | Lưu | Lỗi; MSG-FE06-13 | U, H | R-13-11 |
@@ -329,3 +330,4 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 23/11/2026 | 28/10/2026 | D62 (chủ FE-13 đồng ý): bác phiếu chết / mất PENDING thì ca sức khỏe nguồn mở lại; mở lại ca Chết / Mất tích ở FE-10 bác phiếu PENDING – R-13-09, A9, MSG-FE13-10, TC-13-13; popup "Bác đề xuất xuất đàn" đổi chú thích | Tuấn |

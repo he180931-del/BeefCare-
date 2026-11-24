@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        D73 (FE-10): xóa bản ghi theo dõi / điều trị không còn bắt buộc lý do, như Cân nặng (D43), Tiêm phòng (D53)
+        và Sinh sản (D69). Bỏ hai ràng buộc buộc status_reason khác rỗng khi VOIDED; dữ liệu cũ giữ nguyên.
+        Lịch sử thay đổi (record_revision) vẫn lưu giá trị trước / sau, người và thời điểm.
+    -->
+    <changeSet id="20261124000100-health-optional-void-note" author="beefcare" dbms="postgresql">
+        <sql>
+            ALTER TABLE health_observation DROP CONSTRAINT IF EXISTS ck_observation_void_reason;
+            ALTER TABLE treatment DROP CONSTRAINT IF EXISTS ck_treatment_void_reason;
+        </sql>
+    </changeSet>
+</databaseChangeLog>

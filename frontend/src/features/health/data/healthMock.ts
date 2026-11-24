@@ -1,4 +1,4 @@
-import type { CaseOutcome, CaseStatus, EntryType, HealthCattle, Medicine, PendingExit, Progress, RecordStatus, Severity, TreatmentRoute } from '../types'
+import type { CaseOutcome, CaseStatus, EntryType, HealthCattle, HealthMember, Medicine, PendingExit, Progress, RecordStatus, Severity, TreatmentRoute } from '../types'
 
 /** "Hôm nay" của dữ liệu mẫu: các frame Figma tính ngày từ 20/10/2026 (HC-0412 mở 13/10 là "ngày 8"). */
 export const HEALTH_DEMO_NOW = '2026-10-20T08:00'
@@ -34,6 +34,7 @@ export interface EntryRecord {
   type: EntryType
   occurredAt: string
   recordedBy: string
+  observerId?: number
   status: RecordStatus
   corrected: boolean
   version: number
@@ -55,7 +56,7 @@ export interface HealthSeed {
   cases: CaseRecord[]
   entries: EntryRecord[]
   medicines: Medicine[]
-  members: string[]
+  members: HealthMember[]
   diagnoses: string[]
   vouchers: PendingExit[]
 }
@@ -64,7 +65,7 @@ const MANAGER = 'Trần Quốc Long'
 
 export const MEDICINES: Medicine[] = [
   { id: 1, name: 'Oxytetracycline 20% LA', active: true, defaultDose: '30 ml', doseNote: '1 ml / 10 kg', route: 'INTRAMUSCULAR', withdrawalDays: 28 },
-  { id: 2, name: 'Oresol thú y', active: true, defaultDose: '2 lít/ngày', doseNote: 'Pha theo hướng dẫn nhà sản xuất', route: 'ORAL', withdrawalDays: 0 },
+  { id: 2, name: 'Oresol thú y', active: true, defaultDose: '2 lít', doseNote: 'Pha theo hướng dẫn nhà sản xuất', route: 'ORAL', withdrawalDays: 0 },
   { id: 3, name: 'Meloxicam 5%', active: true, defaultDose: '20 ml', doseNote: '1 ml / 25 kg', route: 'INTRAMUSCULAR', withdrawalDays: 15 },
   { id: 4, name: 'Ivermectin 1%', active: true, defaultDose: '10 ml', doseNote: '1 ml / 50 kg', route: 'SUBCUTANEOUS', withdrawalDays: 35 },
   { id: 5, name: 'Vitamin B-complex', active: true, defaultDose: '10 ml', doseNote: '', route: 'INTRAMUSCULAR', withdrawalDays: 0 },
@@ -127,7 +128,7 @@ const opening = (caseId: number, occurredAt: string, description: string, temper
 const followUp = (caseId: number, occurredAt: string, progress: Progress, description: string, temperatureC: number | null = null) => entry(caseId, 'FOLLOW_UP', occurredAt, { progress, description, temperatureC })
 const treatment = (caseId: number, occurredAt: string, medicineId: number, dose: string, courseDays: number, withdrawalDays: number, veterinaryAdvice = '') => {
   const m = MEDICINES.find((x) => x.id === medicineId)!
-  return entry(caseId, 'TREATMENT', occurredAt, { medicineId, medicineName: m.name, dose, route: m.route, courseDays, withdrawalDays, veterinaryAdvice })
+  return entry(caseId, 'TREATMENT', occurredAt, { medicineId, medicineName: m.name, dose, route: m.route || 'OTHER', courseDays, withdrawalDays, veterinaryAdvice })
 }
 
 const ENTRIES: EntryRecord[] = [
@@ -164,7 +165,7 @@ export const HEALTH_SEED: HealthSeed = {
   cases: CASES,
   entries: ENTRIES,
   medicines: MEDICINES,
-  members: [MANAGER, 'Nguyễn Văn Hùng'],
+  members: [{ id: 1, name: MANAGER }, { id: 2, name: 'Nguyễn Văn Hùng' }],
   diagnoses: ['Tiêu chảy', 'Viêm phổi', 'Chướng hơi'],
   vouchers: [],
 }
