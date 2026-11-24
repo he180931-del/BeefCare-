@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
 import { Avatar, PriorityBadge, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
@@ -54,7 +54,7 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
-        <PageHeader title={TITLE} sub="Mọi nhân viên hỗ trợ đều xem được toàn bộ hàng đợi; chỉ nhân viên đang phụ trách mới thao tác trên yêu cầu. Nhân viên hỗ trợ không vào được dữ liệu vận hành trại." />
+        <PageHeader title={TITLE} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="Chưa có người nhận" value={counts.unassigned} note={`${counts.unassignedHigh} ưu tiên cao`} warn />
           <Metric label="Yêu cầu của tôi" value={counts.mine} note={`${me.name} đang phụ trách`} />
@@ -120,12 +120,11 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
               </tbody>
             </Table>
           )}
-          <Pagination page={data.page} pageCount={pageCount} onChange={(page) => setFilters((f) => ({ ...f, page }))} summary={`Hiển thị ${data.items.length} / ${data.total} yêu cầu · chưa xử lý trước, rồi theo ưu tiên và thời gian tạo`} />
+          <Pagination page={data.page} pageCount={pageCount} onChange={(page) => setFilters((f) => ({ ...f, page }))} />
         </Card>
         {unavailable && (
           <Note tone="warn">{unavailable.code} có nhân viên hỗ trợ phụ trách không còn khả dụng: nhân viên đủ quyền có thể "Nhận lại" và giữ nguyên trạng thái {STATUS_LABEL[unavailable.status]}. Khi chưa phụ trách, chỉ xem được yêu cầu.</Note>
         )}
-        <Foot>Hàng đợi hỗ trợ của nhân viên hỗ trợ. Thẻ số liệu và tab lọc nhanh theo tình trạng; nút "Nhận" chỉ hiện ở yêu cầu chưa có người phụ trách, "Mở" vào màn xử lý yêu cầu. Cột Phụ trách báo đỏ khi người phụ trách cũ không còn khả dụng.</Foot>
       </div>
       {m === 'nhan-lai' && (
         <ReasonDialog

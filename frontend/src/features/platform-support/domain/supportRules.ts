@@ -1,5 +1,5 @@
 import { businessDateTime, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
-import type { InternalStatus, QueueFilters, QueueTab, Ticket, TicketCategory, TicketPriority, TicketRow, TicketStatus, TargetRole, InternalView, Actor } from '../types'
+import type { InternalOutcome, InternalStatus, QueueFilters, QueueTab, Ticket, TicketCategory, TicketPriority, TicketRow, TicketStatus, TargetRole, InternalView, Actor } from '../types'
 
 export type SupportErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'VALIDATION' | 'SAVE_FAILED_AFTER_DOMAIN'
 
@@ -26,8 +26,23 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
   SYSTEM_USAGE: 'Sử dụng hệ thống',
   OTHER: 'Khác',
 }
-export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
-export const OUTCOME_LABEL = { PERFORMED: 'Đã thực hiện', UNABLE: 'Không thể thực hiện', OUTSIDE_DOMAIN: 'Ngoài phạm vi' } as const
+
+/** D58: category controls which specialist roles CS may target for an IR. */
+export function internalRequestRoles(category: TicketCategory): TargetRole[] {
+  switch (category) {
+    case 'ACCOUNT_ACCESS': return ['SA']
+    case 'PAYMENT':
+    case 'FARM_SERVICE': return ['PM']
+    case 'SYSTEM_USAGE':
+    case 'OTHER': return ['PM', 'SA']
+  }
+}
+
+export const defaultInternalRequestRole = (category: TicketCategory): TargetRole => internalRequestRoles(category)[0]
+export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', WAITING_CS: 'Chờ CS bổ sung', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
+export const OUTCOME_LABEL: Record<InternalOutcome, string> = {
+  CONFIRMED: 'Đã xác nhận', NOT_CONFIRMED: 'Không xác nhận', NEED_MORE_INFO: 'Cần bổ sung thông tin', OUT_OF_SCOPE: 'Ngoài phạm vi',
+}
 export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
 export const PLATFORM_ROLE_LABEL: Record<'CS' | TargetRole, string> = { CS: 'Nhân viên hỗ trợ', PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
 
@@ -52,7 +67,7 @@ export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slic
 
 export const isClosed = (t: Pick<Ticket, 'status'>) => t.status === 'CLOSED'
 export const openIrOf = (t: Pick<Ticket, 'internalRequests'>, role?: TargetRole): InternalView | undefined =>
-  t.internalRequests.find((r) => r.status === 'OPEN' && (!role || r.targetRole === role))
+  t.internalRequests.find((r) => (r.status === 'OPEN' || r.status === 'WAITING_CS') && (!role || r.targetRole === role))
 /** Backend trả resolution mới nhất trước; luôn chọn theo version để không phụ thuộc thứ tự API. */
 export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions.reduce((latest, current) => !latest || current.version > latest.version ? current : latest, undefined as Ticket['resolutions'][number] | undefined)
 

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, Info, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { auditDefaultRange, useAudit, useAuditDetail } from '../hooks/useAudit'
 import { ICON_BUTTON, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
 import SearchSelect from '../components/SearchSelect'
@@ -269,7 +269,6 @@ function AuditContent() {
           )}
         </div>
       )}
-      <Foot>Lịch sử audit nền tảng (chỉ Quản trị hệ thống). Mỗi dòng là một thay đổi đã lưu; chọn dòng để xem giá trị trước / sau và mã truy vết. Không có thao tác sửa hay xóa.</Foot>
     </div>
   )
 }

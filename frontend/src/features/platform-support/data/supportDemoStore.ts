@@ -1,9 +1,9 @@
-import { DOMAIN_RESULTS_SEED, IR_SEED, NOTIFICATIONS_SEED, STAFF_SEED, TICKETS_SEED, actorForRole } from './supportMock'
+import { IR_SEED, NOTIFICATIONS_SEED, STAFF_SEED, TICKETS_SEED, actorForRole } from './supportMock'
 import {
   SupportError, closeConditions, filterQueue, isAssignedTo, isClaimable, latestResolution, nowIso, openIrOf, queueCounts, required, toRow, ROLE_LABEL,
 } from '../domain/supportRules'
 import type {
-  Actor, CompleteCommand, ContextRef, DomainResult, InternalView, QueueFilters, QueuePage, StaffMember, SupportNotification, TargetRole, Ticket,
+  Actor, CompleteCommand, ContextRef, CreateInternalCommand, InternalView, QueueFilters, QueuePage, StaffMember, SupportNotification, TargetRole, Ticket,
   MessagePage, TicketCategory, TicketPriority,
 } from '../types'
 
@@ -13,12 +13,11 @@ const CHANGED_MSG = 'Bản ghi đã được thay đổi. Hãy tải lại và k
 const GONE_MSG = 'Mục đã chọn không còn khả dụng. Hãy chọn mục khác.'
 const NO_IR_ACCESS_MSG = 'Yêu cầu này không còn được giao cho bạn.'
 
-export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_SEED, notifications: NOTIFICATIONS_SEED, staff: STAFF_SEED, domain: DOMAIN_RESULTS_SEED }) {
+export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_SEED, notifications: NOTIFICATIONS_SEED, staff: STAFF_SEED }) {
   let tickets = structuredClone(seed.tickets)
   let irs = structuredClone(seed.irs)
   let notifications = structuredClone(seed.notifications)
   let staff = structuredClone(seed.staff)
-  let domain = structuredClone(seed.domain)
   let msgSeq = 10000
   let notifSeq = 100
 
@@ -42,7 +41,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
   const touch = (t: Ticket, actor: Actor, text: string) => {
     t.version += 1
     t.updatedAt = nowIso()
-    t.history.push({ at: t.updatedAt, actor: actor.name, text })
+    if (t.history) t.history.push({ at: t.updatedAt, actor: actor.name, text })
   }
   /** Điều kiện chung cho thao tác của CS phụ trách (GBR-77). */
   function guard(t: Ticket, actor: Actor, expectedVersion?: number) {
@@ -62,7 +61,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
   }
   const irHistory = (r: InternalView, actor: Actor, text: string) => {
     r.version += 1
-    r.history.push({ at: nowIso(), actor: actor.name, text })
+    if (r.history) r.history.push({ at: nowIso(), actor: actor.name, text })
   }
 
   return {
@@ -75,7 +74,10 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       const page = Math.min(Math.max(filters.page ?? 1, 1), pageCount)
       return { items: matched.slice((page - 1) * size, page * size).map(toRow), total: matched.length, page, size, counts: queueCounts(tickets.map(view), actor.id) }
     },
-    async listFarms() { return [...new Map(tickets.map((t) => [t.farmId, { id: t.farmId, name: t.farmName }])).values()].sort((a, b) => a.name.localeCompare(b.name)) },
+    async listFarms() {
+      const options = tickets.flatMap((t) => t.farmId == null ? [] : [{ id: t.farmId, name: t.farmName }])
+      return [...new Map(options.map((option) => [option.id, option])).values()].sort((a, b) => a.name.localeCompare(b.name))
+    },
     async listCs() { return structuredClone(staff.filter((s) => s.role === 'CS')) },
     async listRecipients(role: TargetRole) { return structuredClone(staff.filter((s) => s.role === role && s.available)) },
     async getTicket(_actor: Actor, code: string) { return pagedView(findTicket(code)) },
@@ -182,7 +184,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       return view(t)
     },
 
-    async createInternal(actor: Actor, code: string, cmd: { targetRole: TargetRole; recipientId: number; question: string; context?: ContextRef[] }) {
+    async createInternal(actor: Actor, code: string, cmd: CreateInternalCommand) {
       const t = findTicket(code)
       guard(t, actor)
       if (t.status !== 'IN_PROGRESS' && t.status !== 'WAITING_CUSTOMER') throw new SupportError('CONFLICT', CHANGED_MSG)
@@ -190,23 +192,34 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       if (dup) throw new SupportError('CONFLICT', `Ticket đã có yêu cầu nội bộ đang mở cho ${ROLE_LABEL[cmd.targetRole]} (${dup.code}).`)
       const to = staffById(cmd.recipientId, cmd.targetRole)
       if (!to || !to.available) throw new SupportError('CONFLICT', GONE_MSG)
-      const question = required(cmd.question, 'Câu hỏi / lý do', 2000)
+      const requestText = required(cmd.requestText, 'Nội dung yêu cầu', 2000)
       const n = Math.max(...irs.map((r) => r.id)) + 1
       const created = nowIso()
       const r: InternalView = {
-        id: n, code: `IR-${String(n).padStart(3, '0')}`, title: question.slice(0, 60), ticketId: t.id, ticketCode: t.code, farmId: t.farmId, farmName: t.farmName,
-        targetRole: cmd.targetRole, recipientId: to.id, recipient: to.name, fromId: actor.id, from: actor.name, createdAt: created, question,
-        context: cmd.context ?? [], status: 'OPEN', version: 1, history: [{ at: created, actor: actor.name, text: `Tạo yêu cầu gửi ${to.name} (${cmd.targetRole}).` }],
+        id: n, code: `IR-${String(n).padStart(3, '0')}`, title: requestText.slice(0, 60), ticketId: t.id, ticketCode: t.code, ticketSubject: t.subject, ticketCategory: t.category, ticketRequester: t.requester, farmId: t.farmId, farmName: t.farmName,
+        targetRole: cmd.targetRole, recipientId: to.id, recipient: to.name, fromId: actor.id, from: actor.name, createdAt: created, requestText,
+        status: 'OPEN', version: 1, history: [{ at: created, actor: actor.name, text: `Tạo yêu cầu gửi ${to.name} (${cmd.targetRole}).` }],
       }
       irs.push(r)
       touch(t, actor, `Tạo yêu cầu nội bộ ${r.code} gửi ${to.name}.`)
       return structuredClone(r)
     },
-    async manageInternal(actor: Actor, code: string, irCode: string, cmd: { action: 'REASSIGN' | 'CANCEL'; recipientId?: number; reason: string }) {
+    async manageInternal(actor: Actor, code: string, irCode: string, cmd: { action: 'REASSIGN' | 'CANCEL' | 'CLARIFY'; recipientId?: number; reason?: string; clarificationText?: string }) {
       const t = findTicket(code)
       guard(t, actor)
       const r = irOf(irCode)
-      if (r.ticketCode !== t.code || r.status !== 'OPEN') throw new SupportError('CONFLICT', CHANGED_MSG)
+      if (r.ticketCode !== t.code) throw new SupportError('CONFLICT', CHANGED_MSG)
+      if (cmd.action === 'CLARIFY') {
+        if (r.status !== 'WAITING_CS') throw new SupportError('CONFLICT', CHANGED_MSG)
+        const clarification = required(cmd.clarificationText, 'Nội dung bổ sung', 2000)
+        r.resultNote = clarification
+        r.status = 'OPEN'
+        r.completedAt = undefined
+        irHistory(r, actor, `Gửi bổ sung cho ${r.recipient}.`)
+        touch(t, actor, `Bổ sung thông tin cho yêu cầu nội bộ ${r.code}.`)
+        return structuredClone(r)
+      }
+      if (r.status !== 'OPEN' && r.status !== 'WAITING_CS') throw new SupportError('CONFLICT', CHANGED_MSG)
       const reason = required(cmd.reason, 'Lý do', 1000)
       if (cmd.action === 'CANCEL') {
         r.status = 'CANCELLED'
@@ -234,30 +247,22 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       if (r.recipientId !== actor.id || r.targetRole !== actor.role) throw new SupportError('FORBIDDEN', NO_IR_ACCESS_MSG)
       return structuredClone(r)
     },
-    async listDomainResults(actor: Actor, code: string): Promise<DomainResult[]> {
-      const r = irOf(code)
-      if (r.recipientId !== actor.id) throw new SupportError('FORBIDDEN', NO_IR_ACCESS_MSG)
-      return structuredClone(domain[code] ?? [])
-    },
     async completeInternal(actor: Actor, code: string, cmd: CompleteCommand) {
       const r = irOf(code)
       if (r.recipientId !== actor.id || r.targetRole !== actor.role) throw new SupportError('FORBIDDEN', NO_IR_ACCESS_MSG)
-      if (r.status !== 'OPEN') throw new SupportError('CONFLICT', r.status === 'DONE' ? 'Yêu cầu đã hoàn thành, chỉ đọc.' : 'Yêu cầu đã bị hủy, chỉ đọc.')
+      if (r.status !== 'OPEN') throw new SupportError('CONFLICT', r.status === 'DONE' ? 'Yêu cầu đã hoàn thành, chỉ đọc.' : r.status === 'WAITING_CS' ? 'Yêu cầu đang chờ nhân viên hỗ trợ bổ sung.' : 'Yêu cầu đã bị hủy, chỉ đọc.')
       if (cmd.expectedVersion !== r.version) throw new SupportError('CONFLICT', CHANGED_MSG)
       if (!cmd.outcome) throw new SupportError('VALIDATION', 'Kết quả là bắt buộc.')
-      const result = required(cmd.result, 'Nội dung kết quả', 2000)
-      if (cmd.outcome === 'PERFORMED' && !(domain[code] ?? []).some((d) => d.id === cmd.domainResultAuditId)) {
-        throw new SupportError('VALIDATION', 'Đã thực hiện cần chọn kết quả đã lưu hợp lệ trong miền xử lý.')
-      }
+      if (!['CONFIRMED', 'NOT_CONFIRMED', 'NEED_MORE_INFO', 'OUT_OF_SCOPE'].includes(cmd.outcome)) throw new SupportError('VALIDATION', `Kết quả không hợp lệ: ${cmd.outcome}.`)
+      const resultNote = required(cmd.resultNote, 'Nội dung kết quả', 2000)
       if (cmd.simulateSaveFailure) throw new SupportError('SAVE_FAILED_AFTER_DOMAIN', 'Không lưu được Hoàn thành. Kết quả miền đã được lưu, hãy thử lại với cùng tham chiếu.')
-      r.status = 'DONE'
+      r.status = cmd.outcome === 'NEED_MORE_INFO' ? 'WAITING_CS' : 'DONE'
       r.outcome = cmd.outcome
-      r.result = result
-      r.domainResultAuditId = cmd.outcome === 'PERFORMED' ? cmd.domainResultAuditId : undefined
-      r.completedAt = nowIso()
-      r.completedBy = actor.name
-      irHistory(r, actor, 'Gửi kết quả và hoàn thành.')
-      notifyCs(`${actor.role} ${actor.name} đã trả kết quả ${r.code}`, result.slice(0, 80), r.ticketCode, `Xem ${r.ticketCode}`)
+      r.resultNote = resultNote
+      r.completedAt = cmd.outcome === 'NEED_MORE_INFO' ? undefined : nowIso()
+      r.completedBy = cmd.outcome === 'NEED_MORE_INFO' ? undefined : actor.name
+      irHistory(r, actor, cmd.outcome === 'NEED_MORE_INFO' ? 'Yêu cầu nhân viên hỗ trợ bổ sung thông tin.' : 'Gửi kết quả và hoàn thành.')
+      notifyCs(`${actor.role} ${actor.name} đã trả kết quả ${r.code}`, resultNote.slice(0, 80), r.ticketCode, `Xem ${r.ticketCode}`)
       return structuredClone(r)
     },
 
@@ -266,7 +271,6 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       irs = structuredClone(seed.irs)
       notifications = structuredClone(seed.notifications)
       staff = structuredClone(seed.staff)
-      domain = structuredClone(seed.domain)
     },
   }
 }

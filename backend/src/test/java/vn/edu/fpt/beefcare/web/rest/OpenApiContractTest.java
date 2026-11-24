@@ -227,6 +227,54 @@ class OpenApiContractTest {
     }
 
     @Test
+    void fe20InternalRequestContractExposesTargetFieldsAndAudienceSafeResponses() throws Exception {
+        JsonNode api = readGeneratedApi();
+        JsonNode paths = api.path("paths");
+        JsonNode schemas = api.path("components").path("schemas");
+
+        JsonNode management = schemas.path("InternalManage");
+        assertThat(management.path("properties").path("action").path("enum").toString())
+            .contains("CLARIFY", "REASSIGN", "CANCEL");
+        assertThat(management.path("properties").path("clarificationText").path("maxLength").asInt()).isEqualTo(2000);
+        assertThat(management.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(1000);
+
+        assertThat(schemas.path("InternalCreate").path("properties").path("requestText").path("maxLength").asInt()).isEqualTo(2000);
+        JsonNode complete = schemas.path("Complete");
+        assertThat(complete.path("properties").path("resultNote").path("maxLength").asInt()).isEqualTo(2000);
+        assertThat(complete.path("properties").path("result").isMissingNode()).isTrue();
+        assertThat(complete.path("properties").path("domainResultAuditId").isMissingNode()).isTrue();
+        assertThat(complete.path("properties").path("outcome").path("enum").toString())
+            .isEqualTo("[\"CONFIRMED\",\"NOT_CONFIRMED\",\"NEED_MORE_INFO\",\"OUT_OF_SCOPE\"]");
+
+        assertThat(schemas.has("InternalHistory")).isTrue();
+        JsonNode internal = schemas.path("InternalView");
+        assertThat(internal.path("properties").path("history").path("items").path("$ref").asText())
+            .isEqualTo("#/components/schemas/InternalHistory");
+        assertThat(internal.path("properties").has("requestText")).isTrue();
+        assertThat(internal.path("properties").has("resultNote")).isTrue();
+        assertThat(internal.path("properties").has("question")).isFalse();
+        assertThat(internal.path("properties").has("context")).isFalse();
+        assertThat(internal.path("properties").has("result")).isFalse();
+        assertThat(internal.path("properties").has("domainResultAuditId")).isFalse();
+        assertThat(schemas.has("RecipientInternalView")).isTrue();
+        JsonNode recipient = schemas.path("RecipientInternalView");
+        assertThat(recipient.path("properties").has("requestText")).isTrue();
+        assertThat(recipient.path("properties").has("resultNote")).isTrue();
+        assertThat(recipient.path("properties").has("question")).isFalse();
+        assertThat(recipient.path("properties").has("context")).isFalse();
+        assertThat(recipient.path("properties").has("result")).isFalse();
+        assertThat(recipient.path("properties").has("domainResultAuditId")).isFalse();
+
+        assertThat(paths.path("/api/platform/internal-requests/{id}/completion").path("post")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.path("/api/platform/internal-requests").path("get")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.path("/api/platform/internal-requests/{id}").path("get")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.has("/api/platform/internal-requests/{id}/domain-results")).isFalse();
+    }
+
+    @Test
     void fe01AuthOperationsExposeRuntimeStatusesAndNoBogusCsrfQuery() throws Exception {
         JsonNode api = readGeneratedApi();
         JsonNode paths = api.path("paths");

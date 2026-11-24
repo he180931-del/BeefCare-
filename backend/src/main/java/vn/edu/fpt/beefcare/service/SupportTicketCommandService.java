@@ -274,7 +274,7 @@ public class SupportTicketCommandService {
         if (!available(user, role)) throw DomainException.notFound(MessageCodes.COM_08); return user;
     }
     void requireNoOpenRequest(SupportTicket t) {
-        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.state='OPEN'", Long.class)
+        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.state in ('OPEN','WAITING_CS')", Long.class)
             .setParameter("t", t.getId()).getSingleResult() != 0) throw DomainException.unprocessable("MSG-FE20-12");
     }
     void history(SupportTicket t, AppUser actor, String type, String prior, String reason, Map<String, ?> details) {
@@ -467,18 +467,39 @@ public class SupportTicketCommandService {
     }
 
     /** The recipient's own view (SCR-69): the signed-in recipient is available, so nothing needs reassignment. */
-    SupportDtos.InternalView recipientInternalView(InternalRequest r) {
-        return internalView(r, false);
+    SupportDtos.RecipientInternalView recipientInternalView(InternalRequest r) {
+        SupportTicket t = r.getTicket();
+        return new SupportDtos.RecipientInternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getRequester().getFullName(),
+            t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
+            r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
+            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(),
+            r.getState(), r.getOutcome(), r.getCompletedAt(), r.getVersion(), false, internalHistory(r),
+            r.getQuestion(), r.getResultText());
     }
 
     private SupportDtos.InternalView internalView(InternalRequest r, boolean needsReassignment) {
-        List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));
         SupportTicket t = r.getTicket();
-        List<SupportDtos.ContextReference> displayContext = context.stream().map(this::withContextLabel).toList();
-        return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getFarm() == null ? null : t.getFarm().getId(),
+        return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getRequester().getFullName(), t.getFarm() == null ? null : t.getFarm().getId(),
             t.getFarm() == null ? null : t.getFarm().getName(), r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
-            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), displayContext, r.getState(), r.getOutcome(),
-            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion(), needsReassignment);
+            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getState(), r.getOutcome(),
+            r.getCompletedAt(), r.getVersion(), needsReassignment, internalHistory(r),
+            r.getQuestion(), r.getResultText());
+    }
+
+    private List<SupportDtos.InternalHistory> internalHistory(InternalRequest r) {
+        return em.createQuery(
+                "select h from InternalRequestHistory h where h.internalRequest.id=:request order by h.occurredAt,h.id",
+                InternalRequestHistory.class
+            )
+            .setParameter("request", r.getId())
+            .getResultList()
+            .stream()
+            .map(h -> new SupportDtos.InternalHistory(
+                h.getId(), h.getEventType(), h.getNote(), h.getActor() == null ? null : h.getActor().getId(),
+                h.getActor() == null ? "SYSTEM" : h.getActor().getFullName(), h.getActorRole(), h.getOccurredAt(),
+                h.getRequestVersion(), h.getState(), h.getOutcome()
+            ))
+            .toList();
     }
 
     private static PlatformRole targetRole(InternalRequest r) {

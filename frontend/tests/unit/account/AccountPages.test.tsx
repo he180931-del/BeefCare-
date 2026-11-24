@@ -30,6 +30,14 @@ const renderAs = (who: string, path: string, tab: AccountDialogTab = 'profile') 
   </SessionContext.Provider>,
 )
 
+const renderFromRoute = (who: string, path: string) => render(
+  <SessionContext.Provider value={sessions[who]}>
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AccountDialogProvider><div>Trang nền</div></AccountDialogProvider>
+    </MemoryRouter>
+  </SessionContext.Provider>,
+)
+
 beforeEach(async () => {
   vi.clearAllMocks()
   await accountDemoStore.reset()
@@ -43,6 +51,13 @@ describe('account dialog profile panel', () => {
     expect(screen.getByRole('heading', { name: 'Hồ sơ của tôi' })).toBeInTheDocument()
     expect(screen.getByText('Tài khoản BeefCare')).toBeInTheDocument()
     expect(screen.queryByText('Quyền của tôi trong trại này')).not.toBeInTheDocument()
+  })
+
+  it('mở Hồ sơ của tôi từ route m=ho-so cho vai trò nền tảng', async () => {
+    renderFromRoute('pm', '/nen-tang/dich-vu?m=ho-so')
+
+    expect(await screen.findByRole('heading', { name: 'Hồ sơ của tôi' })).toBeInTheDocument()
+    expect(screen.getByText('pm@beefcare.local')).toBeInTheDocument()
   })
 
   it('saves the profile and reports field errors', async () => {

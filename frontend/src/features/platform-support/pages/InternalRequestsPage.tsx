@@ -1,19 +1,41 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useDemoState } from '../../../demo/demoModules'
 import { errText, useActor, useFlash } from '../components/common'
 import { ResultForm } from '../components/ResultForm'
-import { IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, formatStamp } from '../domain/supportRules'
-import type { CompleteCommand, InternalStatus, InternalView } from '../types'
+import { CATEGORY_LABEL, IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, formatStamp } from '../domain/supportRules'
+import type { CompleteCommand, HistoryEvent, InternalStatus, RecipientInternalView } from '../types'
 import { useSupportAssigned, useSupportCommands } from '../hooks/usePlatformSupportUseCase'
 
 const TITLE = 'Yêu cầu nội bộ được giao'
 const BASE = '/nen-tang/yeu-cau'
 const PAGE_SIZE = 50
-const irTone = (s: InternalStatus) => (s === 'OPEN' ? 'info' : s === 'DONE' ? 'ok' : 'outline')
+const irTone = (s: InternalStatus) => (s === 'OPEN' ? 'info' : s === 'WAITING_CS' ? 'warn' : s === 'DONE' ? 'ok' : 'outline')
+
+const chronologicalHistory = (history: HistoryEvent[]) => history
+  .map((event, index) => ({ event, index, time: Date.parse(event.at) }))
+  .sort((a, b) => {
+    if (Number.isNaN(a.time) || Number.isNaN(b.time)) return a.index - b.index
+    return a.time - b.time || a.index - b.index
+  })
+  .map(({ event }) => event)
+
+function InternalHistory({ history }: { history?: HistoryEvent[] }) {
+  if (history == null) return <Note tone="grey">Lịch sử chưa được cung cấp từ máy chủ.</Note>
+  const rows = chronologicalHistory(history)
+  if (!rows.length) return <Note tone="grey">Chưa có sự kiện lịch sử.</Note>
+  return (
+    <div>
+      <h3 className="m-0 text-sm font-semibold text-ink">Lịch sử yêu cầu</h3>
+      <ul aria-label="Lịch sử yêu cầu" className="m-0 flex list-none flex-col gap-1.5 p-0 text-xs">
+        {rows.map((h, index) => <li key={`${h.at}${h.actor}${h.text}${index}`}>{h.actor} · {h.text}</li>)}
+      </ul>
+    </div>
+  )
+}
 
 export default function InternalRequestsPage() {
   const { code } = useParams()
@@ -36,20 +58,20 @@ export default function InternalRequestsPage() {
   const selectedFromUrl = code ? all.find((r) => r.code === code) : undefined
   const tab = selectedFromUrl ? selectedFromUrl.status : tabState
   const items = all.filter((r) => r.status === tab)
-  const selected = selectedFromUrl ?? (code ? undefined : items[0])
+  const selected = selectedFromUrl
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
   const safeListPage = Math.min(listPage, pageCount)
   const pageItems = items.slice((safeListPage - 1) * PAGE_SIZE, safeListPage * PAGE_SIZE)
   const visibleItems = selectedFromUrl && !pageItems.some((r) => r.code === selectedFromUrl.code) ? [selectedFromUrl, ...pageItems] : pageItems
   const count = (s: InternalStatus) => all.filter((r) => r.status === s).length
   const back = () => { closeModal(); navigate(BASE) }
-  const goTo = (r: InternalView) => navigate(`${BASE}/${r.code}`)
+  const goTo = (r: RecipientInternalView) => navigate(`${BASE}/${r.code}`)
 
-  const done = async (updated: InternalView) => {
+  const done = async (updated: RecipientInternalView) => {
     await refetch()
     showFlash(`Kết quả ${updated.code} đã được gửi cho ${updated.from}.`)
     setPending(null)
-    navigate(`${BASE}/${updated.code}?m=hoan-thanh`)
+    navigate(`${BASE}/${updated.code}?m=${updated.status === 'WAITING_CS' ? 'cho-cs' : 'hoan-thanh'}`)
   }
   const saveFailed = (cmd: CompleteCommand) => { setPending(cmd); openModal('thu-lai') }
   const retry = async () => {
@@ -63,7 +85,7 @@ export default function InternalRequestsPage() {
         <PageHeader title={TITLE} sub={`Yêu cầu do nhân viên hỗ trợ gửi đích danh cho bạn – chỉ xử lý trong phạm vi ${PLATFORM_ROLE_LABEL[me.role as keyof typeof PLATFORM_ROLE_LABEL] ?? me.role}, không giải quyết hay đóng yêu cầu`} />
         <div>
           <Segmented value={tab} onChange={(v) => { setTab(v as InternalStatus); setListPage(1); if (code) navigate(BASE) }} options={[
-            { value: 'OPEN', label: `Đang mở ${count('OPEN')}` }, { value: 'DONE', label: `Hoàn thành ${count('DONE')}` }, { value: 'CANCELLED', label: `Đã hủy ${count('CANCELLED')}` },
+            { value: 'OPEN', label: `Đang mở ${count('OPEN')}` }, { value: 'WAITING_CS', label: `Chờ CS bổ sung ${count('WAITING_CS')}` }, { value: 'DONE', label: `Hoàn thành ${count('DONE')}` }, { value: 'CANCELLED', label: `Đã hủy ${count('CANCELLED')}` },
           ]} />
         </div>
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)]">
@@ -87,7 +109,6 @@ export default function InternalRequestsPage() {
             !code && <EmptyBlock title="Chưa chọn yêu cầu" sub="Chọn một yêu cầu bên trái để xem chi tiết." />
           )}
         </div>
-        <Foot>Yêu cầu nội bộ của {PLATFORM_ROLE_LABEL[me.role as keyof typeof PLATFORM_ROLE_LABEL] ?? me.role} được giao. Danh sách bên trái theo tab trạng thái; khung phải hiển thị nội dung từ nhân viên hỗ trợ và biểu mẫu trả kết quả. {PLATFORM_ROLE_LABEL[me.role as keyof typeof PLATFORM_ROLE_LABEL] ?? me.role} chỉ gửi kết quả, không giải quyết hay đóng yêu cầu. Chọn "Ngoài phạm vi" khi yêu cầu vượt quyền, kèm lý do để nhân viên hỗ trợ hướng dẫn khách.</Foot>
       </div>
 
       {code && access === 'FORBIDDEN' && (
@@ -96,10 +117,10 @@ export default function InternalRequestsPage() {
           <ModalFooter><ModalButton variant="primary" onClick={back}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
         </Modal>
       )}
-      {selected && (m === 'hoan-thanh' || m === 'ket-thuc') && <SummaryDialog ir={selected} finished={m === 'ket-thuc'} onClose={back} />}
+      {selected && (m === 'hoan-thanh' || m === 'ket-thuc' || m === 'cho-cs') && <SummaryDialog ir={selected} finished={m === 'ket-thuc'} onClose={back} />}
       {selected && (m === 'gui-ket-qua' || m === 'khong-the') && (
         <Modal title={m === 'khong-the' ? 'Không thể thực hiện / Ngoài phạm vi' : `Gửi kết quả xử lý ${selected.code}`} width={640} onClose={closeModal}>
-          <ResultForm ir={selected} me={me} simulateFailure={demo === 'luu-loi'} onlyReasons={m === 'khong-the'} initialOutcome={m === 'khong-the' ? 'UNABLE' : undefined} onDone={done} onSaveFailed={saveFailed} />
+          <ResultForm ir={selected} me={me} simulateFailure={demo === 'luu-loi'} onlyReasons={m === 'khong-the'} initialOutcome={m === 'khong-the' ? 'NOT_CONFIRMED' : undefined} onDone={done} onSaveFailed={saveFailed} />
         </Modal>
       )}
       {selected && m === 'thu-lai' && (
@@ -117,56 +138,70 @@ export default function InternalRequestsPage() {
   )
 }
 
-function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: InternalView; simulateFailure: boolean; onDone: (r: InternalView) => void; onSaveFailed: (c: CompleteCommand) => void }) {
+function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: RecipientInternalView; simulateFailure: boolean; onDone: (r: RecipientInternalView) => void; onSaveFailed: (c: CompleteCommand) => void }) {
   const me = useActor()
   const navigate = useNavigate()
   const [historyPage, setHistoryPage] = useState(1)
-  const pageSize = 50
-  const pageCount = Math.max(1, Math.ceil(ir.history.length / pageSize))
+  const pageSize = 10
+  const pageCount = Math.max(1, Math.ceil((ir.history?.length ?? 0) / pageSize))
   const safePage = Math.min(historyPage, pageCount)
-  const historyRows = ir.history.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const historyRows = ir.history == null ? undefined : chronologicalHistory(ir.history).slice((safePage - 1) * pageSize, safePage * pageSize)
+  const requestText = ir.requestText || 'Chưa có nội dung yêu cầu từ máy chủ.'
+  const resultNote = ir.resultNote
   return (
-    <Card title={`${ir.code} · ${ir.title}`} sub={`Câu hỏi từ nhân viên hỗ trợ · ${ir.context.length ? ir.context.map((c) => c.label).join(', ') : `yêu cầu ${ir.ticketCode}`}`} actions={<Badge tone={irTone(ir.status)} icon={ir.status === 'OPEN' ? 'clock' : undefined}>{IR_STATUS_LABEL[ir.status]}</Badge>}>
+    <Card title={`${ir.code} · [${CATEGORY_LABEL[ir.ticketCategory]}] · ${ir.title}`} actions={<Badge tone={irTone(ir.status)} icon={ir.status === 'OPEN' ? 'clock' : undefined}>{IR_STATUS_LABEL[ir.status]}</Badge>}>
       <Info cols={2} items={[
-        ['Yêu cầu hỗ trợ', `${ir.ticketCode} · ${ir.farmName}`],
-        ['Người gửi', `Nhân viên hỗ trợ ${ir.from} · ${formatStamp(ir.createdAt, true)}`],
+        ['Người dùng và trang trại', [ir.ticketRequester, ir.farmName].filter(Boolean).join(' · ')],
+        ['Người gửi', `Nhân viên hỗ trợ ${ir.from}`],
         ['Người nhận', `${ir.recipient} (${ROLE_LABEL[ir.targetRole]})`],
-        ['Liên kết', ir.context.length ? ir.context.map((c) => c.label).join(' · ') : '—'],
-        ['Phạm vi', `Chỉ trong quyền ${ROLE_LABEL[ir.targetRole]}`],
       ]} />
-      <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Câu hỏi từ nhân viên hỗ trợ</b>{ir.question}</div>
+      <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Nội dung yêu cầu từ nhân viên hỗ trợ</b>{requestText}</div>
       <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ</h3>
       {ir.status === 'OPEN' ? (
-        <ResultForm ir={ir} me={me} simulateFailure={simulateFailure} onDone={onDone} onSaveFailed={onSaveFailed} />
+        <>
+          <div role="status" aria-label={`Đang mở. Người tiếp theo: ${ir.recipient}. Hành động: gửi kết quả`} className="rounded-md bg-[#e8f2fa] px-3 py-2.5 text-xs text-[#296194]">
+            <b className="font-semibold">Đang mở · chờ {ir.recipient}</b>
+            <span className="mt-1 block">Bước tiếp theo: gửi kết quả xử lý trong phạm vi {ROLE_LABEL[ir.targetRole] ?? 'vai trò được giao'}.</span>
+          </div>
+          <ResultForm ir={ir} me={me} simulateFailure={simulateFailure} onDone={onDone} onSaveFailed={onSaveFailed} />
+        </>
+      ) : ir.status === 'WAITING_CS' ? (
+        <>
+          <Info cols={2} items={[
+            ['Kết quả', ir.outcome ? OUTCOME_LABEL[ir.outcome] : IR_STATUS_LABEL[ir.status]],
+            ['Đã gửi', resultNote ? `${ir.from} · ${formatStamp(ir.createdAt, true)}` : '—'],
+          ]} />
+          {resultNote && <div className="rounded-md bg-warn-bg px-3 py-2.5 text-xs text-ink">{resultNote}</div>}
+          <div role="status" aria-label={`Chờ nhân viên hỗ trợ bổ sung thông tin. Người tiếp theo: ${ir.from}`} className="rounded-md bg-warn-bg px-3 py-2.5 text-xs text-warn-fg">
+            <b className="font-semibold">Chờ CS bổ sung · chưa thể gửi kết quả mới</b>
+            <span className="mt-1 block">Bước tiếp theo: {ir.from} bổ sung thông tin; sau đó yêu cầu sẽ trở lại tab Đang mở cho {ir.recipient} xử lý tiếp.</span>
+          </div>
+          <div><Button variant="primary" onClick={() => navigate(BASE)}><Icon name="arrow-left" size={16} /> Về danh sách được giao</Button></div>
+        </>
       ) : (
         <>
           <Info cols={2} items={[
             ['Kết quả', ir.outcome ? OUTCOME_LABEL[ir.outcome] : IR_STATUS_LABEL[ir.status]],
-            ['Hoàn thành', ir.completedAt ? `${ir.completedBy ?? ''} · ${formatStamp(ir.completedAt, true)}` : '—'],
+            ['Người hoàn thành', ir.completedBy ?? '—'],
           ]} />
-          {ir.result && <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]">{ir.result}</div>}
+          {resultNote && <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]">{resultNote}</div>}
           <Note tone="grey">Chỉ nhân viên hỗ trợ và bạn thấy kết quả này – không gửi trực tiếp cho Chủ trại. Yêu cầu đã hoàn thành hoặc đã hủy chỉ đọc.</Note>
           <div><Button variant="primary" onClick={() => navigate(BASE)}><Icon name="arrow-left" size={16} /> Về danh sách được giao</Button></div>
         </>
       )}
-      <h3 className="m-0 text-sm font-semibold text-ink">Lịch sử yêu cầu</h3>
-      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-xs">
-        {historyRows.map((h) => <li key={`${h.at}${h.text}`} className="flex gap-3"><span className="w-[84px] shrink-0 text-muted">{formatStamp(h.at)}</span><span>{h.actor} · {h.text}</span></li>)}
-      </ul>
-      {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setHistoryPage} summary={`Hiển thị ${historyRows.length} / ${ir.history.length} sự kiện`} />}
+      <InternalHistory history={historyRows} />
+      {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setHistoryPage} summary={`Hiển thị ${historyRows?.length ?? 0} / ${ir.history?.length ?? 0} sự kiện`} />}
     </Card>
   )
 }
 
-function SummaryDialog({ ir, finished, onClose }: { ir: InternalView; finished: boolean; onClose: () => void }) {
+function SummaryDialog({ ir, finished, onClose }: { ir: RecipientInternalView; finished: boolean; onClose: () => void }) {
+  const waiting = ir.status === 'WAITING_CS'
+  const resultNote = ir.resultNote
   return (
-    <Modal title={finished ? 'Yêu cầu đã kết thúc' : `${ir.code} đã hoàn thành`} width={640} onClose={onClose}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Trạng thái / kết quả" id="sm-s"><input id="sm-s" readOnly className={inputCls} value={`${IR_STATUS_LABEL[ir.status]}${ir.outcome ? ` · ${OUTCOME_LABEL[ir.outcome]}` : ''}`} /></Field>
-        <Field label="Người nhận / thời điểm" id="sm-w"><input id="sm-w" readOnly className={inputCls} value={`${ir.completedBy ?? ir.recipient} · ${formatStamp(ir.completedAt ?? ir.createdAt, true)}`} /></Field>
-      </div>
-      <Field label="Kết quả đã lưu" id="sm-r"><input id="sm-r" readOnly className={inputCls} value={ir.result ?? '—'} /></Field>
-      <Note tone="info">Yêu cầu chỉ đọc. Nhân viên hỗ trợ dùng kết quả đã làm sạch để trả lời Chủ trại; yêu cầu vẫn giữ nguyên trạng thái.</Note>
+    <Modal title={waiting ? `${ir.code} đã chờ CS bổ sung` : finished ? 'Yêu cầu đã kết thúc' : `${ir.code} đã hoàn thành`} width={640} onClose={onClose}>
+      <Field label="Ghi chú kết quả đã lưu" id="sm-r"><input id="sm-r" readOnly className={inputCls} value={resultNote ?? '—'} /></Field>
+      <InternalHistory history={ir.history} />
       <ModalFooter><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} /> Về danh sách được giao</ModalButton></ModalFooter>
     </Modal>
   )

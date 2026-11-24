@@ -6,6 +6,7 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.*;
+import vn.edu.fpt.beefcare.domain.enumeration.InternalRequestState;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.service.dto.SupportDtos;
 
@@ -31,17 +32,22 @@ public class InternalSupportRequestService {
         SupportTicket t = tickets.find(ticketId, true); AppUser cs = tickets.assigned(t); tickets.writable(t);
         VersionGuard.requireExpected(t.getVersion(), r.ticketVersion());
         if (!Set.of("IN_PROGRESS", "WAITING_CUSTOMER").contains(t.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
+        boolean roleAllowed = switch (t.getCategory()) {
+            case "ACCOUNT_ACCESS" -> r.targetRole() == PlatformRole.SA;
+            case "PAYMENT", "FARM_SERVICE" -> r.targetRole() == PlatformRole.PM;
+            case "SYSTEM_USAGE", "OTHER" -> r.targetRole() == PlatformRole.PM || r.targetRole() == PlatformRole.SA;
+            default -> false;
+        };
+        if (!roleAllowed) throw DomainException.invalid("targetRole");
         specialistRole(r.targetRole()); AppUser recipient = tickets.staff(r.recipientId(), r.targetRole());
-        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.targetRole=:role and r.state='OPEN'", Long.class)
+        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.targetRole=:role and r.state in ('OPEN','WAITING_CS')", Long.class)
             .setParameter("t", ticketId).setParameter("role", r.targetRole().name()).getSingleResult() != 0)
             throw DomainException.conflict("MSG-FE20-16");
-        List<SupportDtos.ContextReference> refs = r.context() == null ? List.of() : r.context();
-        if (refs.size() > 20 || new HashSet<>(refs).size() != refs.size()) throw DomainException.invalid("context");
-        refs.forEach(ref -> validateReference(t, r.targetRole(), ref));
         InternalRequest ir = new InternalRequest(); ir.setTicket(t); ir.setTargetRole(r.targetRole().name());
         ir.setRecipient(recipient); ir.setCreatedBy(cs); ir.setCreatedAt(clock.now()); ir.setState("OPEN");
-        ir.setQuestion(SupportTicketCommandService.text(r.question(), 2000, "question")); ir.setContextJson(JsonSupport.toJson(refs));
+        ir.setQuestion(requestText(r)); ir.setContextJson(null);
         em.persist(ir); em.flush(); ir.setCode("IR-%04d".formatted(ir.getId())); em.flush();
+        appendHistory(ir, cs, "CS", "CREATED", ir.getQuestion());
         tickets.history(t, cs, "IR_CREATED", t.getStatus(), null, Map.of("requestId", ir.getId(), "targetRole", ir.getTargetRole()));
         tickets.changed(t, cs, "SUPPORT_INTERNAL_CREATE", ir, null); enqueueNotice(ir, recipient, "CREATED"); return tickets.internalView(ir);
     }
@@ -59,7 +65,22 @@ public class InternalSupportRequestService {
         InternalRequest ir = find(id, true); SupportTicket t = tickets.find(ir.getTicket().getId(), true);
         AppUser cs = tickets.assigned(t); tickets.writable(t);
         VersionGuard.requireExpected(ir.getVersion(), r.expectedVersion());
-        if (!"OPEN".equals(ir.getState())) throw DomainException.conflict(MessageCodes.COM_05);
+        if ("CLARIFY".equals(r.action())) {
+            if (!"WAITING_CS".equals(ir.getState())) throw DomainException.conflict(MessageCodes.COM_05);
+            String clarification = SupportTicketCommandService.text(
+                r.clarificationText() == null ? r.reason() : r.clarificationText(), 2000, "clarificationText");
+            AppUser recipient = ir.getRecipient();
+            ir.setResultText(clarification); ir.setState("OPEN"); ir.setCompletedAt(null);
+            em.flush();
+            appendHistory(ir, cs, "CS", "CLARIFICATION", clarification);
+            tickets.history(t, cs, "IR_CLARIFIED", t.getStatus(), null,
+                Map.of("requestId", ir.getId(), "clarification", true));
+            tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, "WAITING_CS");
+            enqueueNotice(ir, recipient, "CLARIFIED");
+            return tickets.internalView(ir);
+        }
+        String priorState = ir.getState();
+        if (!Set.of("OPEN", "WAITING_CS").contains(priorState)) throw DomainException.conflict(MessageCodes.COM_05);
         String reason = SupportTicketCommandService.text(r.reason(), 1000, "reason"); AppUser former = ir.getRecipient();
         switch (r.action()) {
             case "REASSIGN" -> {
@@ -70,49 +91,59 @@ public class InternalSupportRequestService {
             default -> throw DomainException.invalid("action");
         }
         em.flush(); tickets.history(t, cs, "IR_" + r.action(), t.getStatus(), reason, Map.of("requestId", ir.getId()));
-        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, "OPEN");
+        appendHistory(ir, cs, "CS", "REASSIGN".equals(r.action()) ? "REASSIGNED" : "CANCELLED", reason);
+        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, priorState);
         if ("CANCEL".equals(r.action())) enqueueNotice(ir, former, "CANCELLED");
         else if (!former.equals(ir.getRecipient())) enqueueNotice(ir, ir.getRecipient(), "REASSIGNED");
         return tickets.internalView(ir);
     }
 
     @Transactional(readOnly = true)
-    public List<SupportDtos.InternalView> mine(String state) {
+    public List<SupportDtos.RecipientInternalView> mine(String state) {
         PlatformContext ctx = platform.requireAnyPlatformRole(); specialistRole(ctx.role());
-        if (state != null && !Set.of("OPEN", "DONE", "CANCELLED").contains(state)) throw DomainException.invalid("state");
+        if (state != null && !knownState(state)) throw DomainException.invalid("state");
         return em.createQuery("select r from InternalRequest r where r.recipient.id=:u and r.targetRole=:role order by r.createdAt desc,r.id desc", InternalRequest.class)
             .setParameter("u", ctx.user().getId()).setParameter("role", ctx.role().name()).getResultList().stream()
             .filter(r -> state == null || state.equals(r.getState())).map(tickets::recipientInternalView).toList();
     }
 
-    @Transactional(readOnly = true)
-    public SupportDtos.InternalView get(Long id) { InternalRequest ir = find(id, false); named(ir); return tickets.recipientInternalView(ir); }
-
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> domainResults(Long id) {
-        InternalRequest ir = find(id, false); AppUser actor = named(ir).user();
-        return em.createQuery("select a from AuditLog a where a.actor.id=:u and a.loggedAt>=:start order by a.loggedAt desc,a.id desc", AuditLog.class)
-            .setParameter("u", actor.getId()).setParameter("start", ir.getCreatedAt()).getResultList().stream()
-            .filter(a -> validDomainResult(ir, a, actor)).limit(100)
-            .map(a -> Map.<String, Object>of("auditId", a.getId(), "action", a.getAction(), "targetType", a.getTargetType(), "targetId", a.getTargetId(), "time", a.getLoggedAt())).toList();
+    private static boolean knownState(String state) {
+        try {
+            InternalRequestState.valueOf(state);
+            return true;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
-    public SupportDtos.InternalView complete(Long id, SupportDtos.Complete r) {
+    @Transactional(readOnly = true)
+    public SupportDtos.RecipientInternalView get(Long id) { InternalRequest ir = find(id, false); named(ir); return tickets.recipientInternalView(ir); }
+
+    public SupportDtos.RecipientInternalView complete(Long id, SupportDtos.Complete r) {
         InternalRequest ir = find(id, true); AppUser actor = named(ir).user();
         // A ticket lock serializes completion with resolve/close and another CS's request commands.
         SupportTicket t = tickets.find(ir.getTicket().getId(), true); tickets.writable(t);
         VersionGuard.requireExpected(ir.getVersion(), r.expectedVersion());
         if (!"OPEN".equals(ir.getState())) throw DomainException.conflict("MSG-FE20-19");
-        if (!Set.of("PERFORMED", "UNABLE", "OUTSIDE_DOMAIN").contains(r.outcome())) throw DomainException.invalid("outcome");
-        String result = SupportTicketCommandService.text(r.result(), 2000, "result");
-        if ("PERFORMED".equals(r.outcome())) {
-            AuditLog a = r.domainResultAuditId() == null ? null : em.find(AuditLog.class, r.domainResultAuditId());
-            if (!validDomainResult(ir, a, actor)) throw DomainException.notFound(MessageCodes.COM_08);
-            ir.setDomainAudit(a);
-        } else if (r.domainResultAuditId() != null) throw DomainException.invalid("domainResultAuditId");
+        if (!Set.of("CONFIRMED", "NOT_CONFIRMED", "NEED_MORE_INFO", "OUT_OF_SCOPE").contains(r.outcome()))
+            throw DomainException.invalid("outcome");
+        boolean needsMoreInfo = "NEED_MORE_INFO".equals(r.outcome());
+        String result = SupportTicketCommandService.text(r.resultNote(), 2000, "resultNote");
+        if (needsMoreInfo) {
+            ir.setOutcome(r.outcome()); ir.setResultText(result); ir.setState("WAITING_CS"); ir.setCompletedAt(null);
+            em.flush(); tickets.history(t, actor, "IR_NEEDS_MORE_INFO", t.getStatus(), null, Map.of("requestId", ir.getId()));
+            appendHistory(ir, actor, ir.getTargetRole(), "NEED_MORE_INFO", result);
+            tickets.changed(t, actor, "SUPPORT_INTERNAL_MANAGE", ir, "OPEN"); tickets.notifyCs(t, "internal-clarification");
+            return tickets.recipientInternalView(ir);
+        }
         ir.setOutcome(r.outcome()); ir.setResultText(result); ir.setState("DONE"); ir.setCompletedAt(clock.now());
-        em.flush(); tickets.history(t, actor, "IR_COMPLETED", t.getStatus(), null, Map.of("requestId", ir.getId(), "outcome", ir.getOutcome()));
+        em.flush(); appendHistory(ir, actor, ir.getTargetRole(), "COMPLETED", result);
+        tickets.history(t, actor, "IR_COMPLETED", t.getStatus(), null, Map.of("requestId", ir.getId(), "outcome", ir.getOutcome()));
         tickets.changed(t, actor, "SUPPORT_INTERNAL_DONE", ir, "OPEN"); enqueueCompletionNotice(ir, t); return tickets.recipientInternalView(ir);
+    }
+
+    private static String requestText(SupportDtos.InternalCreate request) {
+        return SupportTicketCommandService.text(request.requestText(), 2000, "requestText");
     }
 
     @Transactional(readOnly = true)
@@ -139,34 +170,12 @@ public class InternalSupportRequestService {
     private void specialistRole(PlatformRole role) {
         if (role != PlatformRole.PM && role != PlatformRole.SA) throw DomainException.invalid("targetRole");
     }
-    private void validateReference(SupportTicket t, PlatformRole role, SupportDtos.ContextReference ref) {
-        if (ref == null || ref.id() == null || ref.id() < 1) throw DomainException.invalid("context");
-        boolean valid;
-        if (role == PlatformRole.SA) valid = "ACCOUNT".equals(ref.type()) && ref.id().equals(t.getRequester().getId());
-        else {
-            Farm farm = switch (ref.type()) {
-                case "FARM" -> em.find(Farm.class, ref.id());
-                case "SUBSCRIPTION" -> { Subscription s = em.find(Subscription.class, ref.id()); yield s == null ? null : s.getFarm(); }
-                case "PAYMENT" -> { Payment p = em.find(Payment.class, ref.id()); yield p == null ? null : p.getSubscription().getFarm(); }
-                case "FINANCE_RECORD" -> { ManualFinanceRecord f = em.find(ManualFinanceRecord.class, ref.id()); yield f == null ? null : f.getFarm(); }
-                case "FINANCE_SNAPSHOT" -> { CashReportSnapshot s = em.find(CashReportSnapshot.class, ref.id()); yield s == null ? null : s.getFarm(); }
-                default -> null;
-            };
-            valid = farm != null && t.getFarm() != null && farm.equals(t.getFarm());
-        }
-        if (!valid) throw DomainException.notFound(MessageCodes.COM_08);
-    }
-    private boolean validDomainResult(InternalRequest ir, AuditLog a, AppUser actor) {
-        if (a == null || !actor.equals(a.getActor()) || a.getLoggedAt().isBefore(ir.getCreatedAt()) ||
-            a.getAction().startsWith("SUPPORT_") || a.getAction().startsWith("INTERNAL_")) return false;
-        if ("PM".equals(ir.getTargetRole())) return ir.getTicket().getFarm() != null && ir.getTicket().getFarm().equals(a.getFarm()) &&
-            Set.of("Farm", "Subscription", "Payment", "BankTransferEvidence", "EvidenceReview", "ManualFinanceRecord").contains(a.getTargetType());
-        if ("AppUser".equals(a.getTargetType())) return a.getTargetId().equals(ir.getTicket().getRequester().getId());
-        if ("User".equals(a.getTargetType())) {
-            User identity = em.find(User.class, a.getTargetId());
-            return identity != null && identity.getEmail() != null && identity.getEmail().equalsIgnoreCase(ir.getTicket().getRequester().getEmail());
-        }
-        return false;
+    private void appendHistory(InternalRequest request, AppUser actor, String actorRole, String eventType, String note) {
+        InternalRequestHistory history = new InternalRequestHistory();
+        history.setInternalRequest(request); history.setActor(actor); history.setActorRole(actorRole);
+        history.setEventType(eventType); history.setNote(note); history.setOccurredAt(clock.now());
+        history.setRequestVersion(request.getVersion()); history.setState(request.getState()); history.setOutcome(request.getOutcome());
+        em.persist(history);
     }
     /** JOB-07 step 4: the named recipient of a request OPEN for 4 hours gets one reminder notice (per recipient). */
     public int remindLongOpenRequests() {

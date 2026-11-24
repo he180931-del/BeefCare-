@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { formatStamp } from '../../../src/features/platform-support/domain/supportRules'
 import { validateCreate } from '../../../src/features/support/validation/ticketValidation'
-import type { CreateTicketCommand, TicketCategory, TicketScope } from '../../../src/features/support/types'
+import type { CreateTicketCommand, TicketCategory } from '../../../src/features/support/types'
 
-const ticket = (category: TicketCategory, scope: TicketScope, farmId: number | null): CreateTicketCommand => ({
+const ticket = (category: TicketCategory): CreateTicketCommand => ({
   category,
-  scope,
-  farmId,
+  scope: 'FARM',
+  farmId: 1,
   subject: 'Cần hỗ trợ',
   description: 'Mô tả yêu cầu hỗ trợ',
 })
@@ -22,17 +22,8 @@ describe('formatStamp', () => {
   })
 })
 
-describe('validateCreate category/scope contract (D40)', () => {
-  it.each(['PAYMENT', 'FARM_SERVICE'] as const)('%s không được gửi ở phạm vi tài khoản', (category) => {
-    expect(validateCreate(ticket(category, 'ACCOUNT', null), [1]).scope).toBe('Danh mục này bắt buộc gắn với trang trại.')
-  })
-
-  it('truy cập tài khoản không được gửi ở phạm vi trang trại', () => {
-    expect(validateCreate(ticket('ACCOUNT_ACCESS', 'FARM', 1), [1]).scope).toBe('Danh mục này chỉ hỗ trợ ở phạm vi tài khoản.')
-  })
-
-  it.each(['SYSTEM_USAGE', 'OTHER'] as const)('%s cho phép cả hai phạm vi', (category) => {
-    expect(validateCreate(ticket(category, 'ACCOUNT', null), [1])).toEqual({})
-    expect(validateCreate(ticket(category, 'FARM', 1), [1])).toEqual({})
+describe('validateCreate category contract', () => {
+  it.each(['ACCOUNT_ACCESS', 'PAYMENT', 'FARM_SERVICE', 'SYSTEM_USAGE', 'OTHER'] as const)('%s is allowed for the active farm', (category) => {
+    expect(validateCreate(ticket(category), [1])).toEqual({})
   })
 })

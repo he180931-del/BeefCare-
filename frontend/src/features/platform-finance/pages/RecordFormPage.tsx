@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
+import { Button, Card, DateInput, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { useFinanceBankTransactions, useFinanceCategories, useFinanceFarms, useFinanceRecord, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
@@ -180,7 +180,6 @@ export default function RecordFormPage() {
             <Note>Đây là tài chính nền tảng cơ bản – không phải kế toán trại, ERP hay kế toán thuế. Khoản đã ghi sổ chỉ có thể hủy bỏ kèm lý do.</Note>
           </div>
         </div>
-        <Foot>Biểu mẫu khoản thu chi (PM). Ba nút ở đầu trang: bỏ nháp, lưu nháp và ghi sổ. Khung phải ghi lịch sử thao tác của khoản.</Foot>
       </div>
 
       <RecordDialogs code={record?.recordCode ?? null} onChanged={changeReload} />

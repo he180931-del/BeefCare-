@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Modal, ModalButton, ModalFooter, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, interactiveRowClass, LoadingBlock, Modal, ModalButton, ModalFooter, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { financeError } from '../api/financeError'
 import { useDemoState } from '../../../demo/demoModules'
 import { useFinanceCategories, useFinanceFarms, useFinanceRecords } from '../hooks/usePlatformFinanceUseCases'
@@ -111,7 +111,6 @@ export default function RecordListPage() {
             ))}
           </div>
         </Card>
-        <Foot>Thu chi khác của nền tảng (PM). Đây là tài chính nền tảng cơ bản, không phải kế toán trại. Khoản đã hủy bỏ hiển thị mờ; chọn mã khoản để mở hồ sơ và thao tác theo trạng thái.</Foot>
       </div>
       <RecordDialogs code={params.get('ma')} onChanged={() => setReloadKey((k) => k + 1)} />
       {demo === 'loi-tai-hop-thoai' && (

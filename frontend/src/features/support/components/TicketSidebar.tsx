@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Badge, Card, Pagination, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { formatDateTime, formatDayTime } from '../domain/format'
-import { categoryLabel, HISTORY_EVENTS, PRIORITY_LABELS, shortFarmName } from '../domain/ticketRules'
+import { categoryLabel, HISTORY_EVENTS, shortFarmName } from '../domain/ticketRules'
 import type { Ticket } from '../types'
 import { TicketStatusBadge } from './TicketStatusBadge'
 
-export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
+export function TicketInfoCard({ ticket, onViewResults }: { ticket: Ticket; onViewResults?: () => void }) {
   return (
     <Card variant="panel" title="Thông tin yêu cầu">
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
@@ -13,7 +13,6 @@ export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
           ['Trạng thái', <TicketStatusBadge ticket={ticket} />],
           ['Người phụ trách', ticket.assignedCs ?? 'Chưa phân công'],
           ['Danh mục', categoryLabel(ticket.category)],
-          ['Ưu tiên', PRIORITY_LABELS[ticket.priority]],
           ['Trang trại', shortFarmName(ticket.farmName)],
           ['Cập nhật', formatDateTime(ticket.updatedAt)],
         ].map(([k, v]) => (
@@ -23,6 +22,7 @@ export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
           </div>
         ))}
       </dl>
+      {ticket.resolutions.length > 0 && <Button size="sm" onClick={onViewResults}>Kết quả giải quyết</Button>}
     </Card>
   )
 }

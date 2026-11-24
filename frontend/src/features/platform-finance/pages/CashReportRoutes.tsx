@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, DateInput, ErrorBlock, FilterSelect, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { BackendError } from '../../../shared/api/backendClient'
@@ -131,7 +131,6 @@ export default function CashReportRoutes() {
           </Card>
         </div>
         <ScopeTable scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={(row) => { setFocus(row); open('rieng-trai') }} />
-        <Foot>Báo cáo dòng tiền nền tảng (PM). Báo cáo chạy trên một bản chốt dữ liệu (snapshot) để số liệu không đổi khi xem và xuất; &quot;Chạy / làm mới&quot; tạo bản chốt mới. Biểu đồ cột hiển thị thu theo ngày trong kỳ, bảng dưới chia theo phạm vi.</Foot>
       </div>
 
       {m === 'chi-tiet' && (

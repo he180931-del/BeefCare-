@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { activateTableRow, activateTableRowByKey, Badge, type BadgeTone, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Badge, type BadgeTone, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Info, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions'
 import SePayLookup from '../components/SePayLookup'
 import { userFacingError } from '../../../shared/api/userFacingError'
@@ -239,7 +239,6 @@ function Workbench({ account }: { account: string }) {
         </FilterSelect></div>
       <PaymentList filters={payments} refresh={refresh} changePage={(page) => { if (page < 0) { setSearch(''); setPayments(PAYMENTS) } else setPayments((old) => ({ ...old, page })) }} reload={reload} />
     </>}
-    <Foot>Chọn chứng từ để xem nguồn ngân hàng, yêu cầu liên quan, lịch sử và xử lý đối soát. Các số tổng hợp áp dụng toàn hệ thống.</Foot>
   </Layout>
 }
 

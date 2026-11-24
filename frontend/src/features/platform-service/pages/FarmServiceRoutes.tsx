@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { activateTableRow, activateTableRowByKey, Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Icon, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useFarmList, useFarmServiceCommands } from '../hooks/usePlatformServiceUseCase'
 import ServiceChangeDialog from '../components/ServiceChangeDialog'
@@ -156,7 +156,6 @@ export default function FarmServiceRoutes() {
       <div className="mt-4">
         <Note tone="info">Tạm ngưng và khôi phục tách biệt với thanh toán: trại tạm ngưng vẫn giữ kỳ dịch vụ đã mua, và thanh toán không tự gỡ tạm ngưng.</Note>
       </div>
-      <Foot>Dịch vụ trang trại (PM). Ô số liệu đếm mọi trại theo trạng thái và bấm để lọc; bảng sắp xếp được theo tên, trạng thái và ngày hết kỳ. Nút cuối dòng mở hộp thoại tạm ngưng hoặc khôi phục.</Foot>
       {mode && target ? (
         <ServiceChangeDialog
           key={`${mode}-${target.farmId}`}

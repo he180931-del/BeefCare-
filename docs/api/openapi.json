@@ -2315,7 +2315,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/InternalView"
+                  "$ref" : "#/components/schemas/RecipientInternalView"
                 }
               }
             }
@@ -9764,7 +9764,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/InternalView"
+                    "$ref" : "#/components/schemas/RecipientInternalView"
                   }
                 }
               }
@@ -9792,40 +9792,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/InternalView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/platform/internal-requests/{id}/domain-results" : {
-      "get" : {
-        "tags" : [ "assigned-internal-support-resource" ],
-        "operationId" : "results",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "type" : "object",
-                    "additionalProperties" : {
-                      "type" : "object"
-                    }
-                  }
+                  "$ref" : "#/components/schemas/RecipientInternalView"
                 }
               }
             }
@@ -15888,6 +15855,45 @@
         },
         "required" : [ "id" ]
       },
+      "InternalHistory" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "actorId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "actor" : {
+            "type" : "string"
+          },
+          "actorRole" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          }
+        }
+      },
       "InternalView" : {
         "type" : "object",
         "properties" : {
@@ -15904,6 +15910,16 @@
           },
           "ticketCode" : {
             "type" : "string"
+          },
+          "ticketSubject" : {
+            "type" : "string"
+          },
+          "ticketCategory" : {
+            "type" : "string"
+          },
+          "ticketRequester" : {
+            "type" : "string",
+            "description" : "Tên Chủ trại đã tạo ticket; hiển thị cùng trang trại cho người nhận yêu cầu nội bộ."
           },
           "farmId" : {
             "type" : "integer",
@@ -15929,27 +15945,11 @@
             "type" : "string",
             "format" : "date-time"
           },
-          "question" : {
-            "type" : "string"
-          },
-          "context" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/ContextReference"
-            }
-          },
           "status" : {
             "type" : "string"
           },
           "outcome" : {
             "type" : "string"
-          },
-          "result" : {
-            "type" : "string"
-          },
-          "domainResultAuditId" : {
-            "type" : "integer",
-            "format" : "int64"
           },
           "completedAt" : {
             "type" : "string",
@@ -15962,8 +15962,23 @@
           "needsReassignment" : {
             "type" : "boolean",
             "description" : "OPEN request whose recipient is no longer available (account suspended or platform role lost): the CS should change the recipient (UC-FE03-08 step 6, D32)"
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InternalHistory"
+            }
+          },
+          "requestText" : {
+            "type" : "string",
+            "description" : "FE20 target request text"
+          },
+          "resultNote" : {
+            "type" : "string",
+            "description" : "FE20 target result note"
           }
-        }
+        },
+        "required" : [ "requestText" ]
       },
       "ResolutionView" : {
         "type" : "object",
@@ -16196,6 +16211,8 @@
         "properties" : {
           "action" : {
             "type" : "string",
+            "description" : "CLARIFY requires clarificationText; REASSIGN requires recipientId and reason; CANCEL requires reason",
+            "enum" : [ "CLARIFY", "REASSIGN", "CANCEL" ],
             "minLength" : 1
           },
           "recipientId" : {
@@ -16204,7 +16221,14 @@
           },
           "reason" : {
             "type" : "string",
+            "description" : "Required for REASSIGN and CANCEL",
             "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "clarificationText" : {
+            "type" : "string",
+            "description" : "Required for CLARIFY",
+            "maxLength" : 2000,
             "minLength" : 0
           },
           "expectedVersion" : {
@@ -16212,7 +16236,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "expectedVersion" ]
+        "required" : [ "action", "expectedVersion" ]
       },
       "Resolution" : {
         "type" : "object",
@@ -16274,23 +16298,18 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "question" : {
+          "requestText" : {
             "type" : "string",
+            "description" : "FE20 request text; includes the question and minimum owner-provided hint",
             "maxLength" : 2000,
             "minLength" : 0
-          },
-          "context" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/ContextReference"
-            }
           },
           "ticketVersion" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "recipientId", "targetRole", "ticketVersion" ]
+        "required" : [ "recipientId", "requestText", "targetRole", "ticketVersion" ]
       },
       "Close" : {
         "type" : "object",
@@ -16611,23 +16630,106 @@
         "properties" : {
           "outcome" : {
             "type" : "string",
+            "enum" : [ "CONFIRMED", "NOT_CONFIRMED", "NEED_MORE_INFO", "OUT_OF_SCOPE" ],
             "minLength" : 1
           },
-          "result" : {
+          "resultNote" : {
             "type" : "string",
+            "description" : "FE20 target result note",
             "maxLength" : 2000,
             "minLength" : 0
-          },
-          "domainResultAuditId" : {
-            "type" : "integer",
-            "format" : "int64"
           },
           "expectedVersion" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "expectedVersion" ]
+        "required" : [ "expectedVersion", "outcome", "resultNote" ]
+      },
+      "RecipientInternalView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "ticketId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ticketCode" : {
+            "type" : "string"
+          },
+          "ticketSubject" : {
+            "type" : "string"
+          },
+          "ticketCategory" : {
+            "type" : "string"
+          },
+          "ticketRequester" : {
+            "type" : "string",
+            "description" : "Tên Chủ trại đã tạo ticket; hiển thị cùng trang trại cho người nhận yêu cầu nội bộ."
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "targetRole" : {
+            "type" : "string"
+          },
+          "recipientId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recipient" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "needsReassignment" : {
+            "type" : "boolean"
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InternalHistory"
+            }
+          },
+          "requestText" : {
+            "type" : "string",
+            "description" : "FE20 target request text"
+          },
+          "resultNote" : {
+            "type" : "string",
+            "description" : "FE20 target result note"
+          }
+        },
+        "required" : [ "requestText" ]
       },
       "ReportRequest" : {
         "type" : "object",
@@ -22111,6 +22213,9 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
+          "unpaged" : {
+            "type" : "boolean"
+          },
           "paged" : {
             "type" : "boolean"
           },
@@ -22121,9 +22226,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
@@ -22137,10 +22239,10 @@
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           },
           "empty" : {
@@ -25069,10 +25171,10 @@
           "headerName" : {
             "type" : "string"
           },
-          "token" : {
+          "parameterName" : {
             "type" : "string"
           },
-          "parameterName" : {
+          "token" : {
             "type" : "string"
           }
         }

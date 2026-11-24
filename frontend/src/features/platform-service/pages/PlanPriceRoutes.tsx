@@ -2,7 +2,7 @@ import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, DISCARD_PROMPT, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio } from '../../../shared/ui'
+import { Badge, Button, Card, DISCARD_PROMPT, EmptyBlock, ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio } from '../../../shared/ui'
 import { BackendError } from '../../../shared/api/backendClient'
 import { priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
 import { usePmAccess } from '../components/common'
@@ -203,7 +203,6 @@ export default function PlanPriceRoutes() {
         </Card>
       </section>
     </div>
-    <Foot>Bảng giá đã công bố chỉ xem. Phiên bản đã lên lịch có thể rút trước khi hiệu lực và luôn được giữ trong lịch sử.</Foot>
     {confirming ? <Modal title="Xác nhận công bố bảng giá" topTitle={TITLE} width={640} onClose={() => { if (!sending.current) { setConfirming(false); setError(null) } }}>
       <p className="text-sm">Giá 1 / 2 / 3 năm: {[draft.price1y, draft.price2y, draft.price3y].map(v => `${fmtMoney(parseVnd(v))} đ`).join(' / ')}.</p><p className="mt-2 text-sm">{draft.mode === 'NOW' ? 'Áp dụng ngay khi công bố thành công.' : `Hiệu lực từ ${fmtDateTime(draft.effectiveAt)} (giờ Việt Nam).`}</p>
       <p className="mt-2 whitespace-pre-wrap break-words text-sm">Điều khoản: {draft.terms.trim() || '—'}</p>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import { errText } from '../components/common'
 import { useSupportCommands, useSupportNotifications } from '../hooks/usePlatformSupportUseCase'
 
@@ -28,7 +28,7 @@ export default function NotificationsPage() {
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
-        <PageHeader title={TITLE} sub="Mở thông báo sẽ kiểm tra lại quyền của bạn với yêu cầu hỗ trợ">
+        <PageHeader title={TITLE}>
           <Button disabled={unread === 0} onClick={async () => { await markAllNotificationsRead(); await refetch() }}><Icon name="checks" size={16} /> Đánh dấu đã đọc tất cả</Button>
         </PageHeader>
         <div><Segmented options={[{ value: 'all', label: 'Tất cả' }, { value: 'unread', label: `Chưa đọc ${unread}` }]} value={tab} onChange={(value) => { setTab(value); setPage(1) }} /></div>
@@ -50,7 +50,6 @@ export default function NotificationsPage() {
           )}
           {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${pageItems.length} / ${items.length} thông báo`} />}
         </Card>
-        <Foot>Thông báo hỗ trợ của nhân viên hỗ trợ. Thông báo chưa đọc có nền xanh nhạt và chấm xanh; nút bên phải mở thẳng việc cần làm. Khi mở, hệ thống kiểm tra lại quyền với yêu cầu hỗ trợ.</Foot>
       </div>
     </Layout>
   )

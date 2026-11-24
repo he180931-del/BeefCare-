@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { ROLE_LABEL, closeConditions, formatStamp, openIrOf } from '../domain/supportRules'
+import { ROLE_LABEL, closeConditions, defaultInternalRequestRole, formatStamp, internalRequestRoles, openIrOf } from '../domain/supportRules'
 import type { InternalView, TargetRole, Ticket } from '../types'
 import { FieldError, useActor, useSubmit } from './common'
 import { useSupportCs, useSupportRecipients } from '../hooks/usePlatformSupportUseCase'
@@ -45,33 +45,32 @@ export function HandOverDialog({ onSubmit, onClose }: { onSubmit: (toCsId: numbe
 export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExisting, onClose }: {
   ticket: Ticket
   initialRole: TargetRole
-  onSubmit: (cmd: { targetRole: TargetRole; recipientId: number; question: string; context: Ticket['contextOptions']['PM'] }) => Promise<void>
+  onSubmit: (cmd: { targetRole: TargetRole; recipientId: number; requestText: string }) => Promise<void>
   onViewExisting: (ir: InternalView) => void
   onClose: () => void
 }) {
-  const [role, setRole] = useState<TargetRole>(initialRole)
+  const allowedRoles = internalRequestRoles(ticket.category)
+  const initialAllowedRole = allowedRoles.includes(initialRole) ? initialRole : defaultInternalRequestRole(ticket.category)
+  const [role, setRole] = useState<TargetRole>(initialAllowedRole)
   const { data } = useSupportRecipients(role)
   const [recipient, setRecipient] = useState('')
-  const [question, setQuestion] = useState('')
-  const [ctx, setCtx] = useState('')
-  const [errors, setErrors] = useState<{ recipient?: string; question?: string }>({})
+  const [requestText, setRequestText] = useState('')
+  const [errors, setErrors] = useState<{ recipient?: string; requestText?: string }>({})
   const { busy, error, run } = useSubmit()
   const existing = openIrOf(ticket, role)
   const stateOk = ticket.status === 'IN_PROGRESS' || ticket.status === 'WAITING_CUSTOMER'
   const submit = () => {
-    const next = { recipient: recipient ? undefined : 'Người nhận cụ thể là bắt buộc.', question: question.trim() ? undefined : 'Câu hỏi / lý do là bắt buộc.' }
+    const next = { recipient: recipient ? undefined : 'Người nhận cụ thể là bắt buộc.', requestText: requestText.trim() ? undefined : 'Nội dung yêu cầu là bắt buộc.' }
     setErrors(next)
-    if (next.recipient || next.question) return
-    const context = ticket.contextOptions[role].filter((c) => String(c.id) === ctx)
-    void run(() => onSubmit({ targetRole: role, recipientId: Number(recipient), question: question.trim(), context }))
+    if (next.recipient || next.requestText) return
+    void run(() => onSubmit({ targetRole: role, recipientId: Number(recipient), requestText: requestText.trim() }))
   }
   return (
-    <Modal title={initialRole === 'SA' ? 'Tạo yêu cầu nội bộ cho quản trị hệ thống' : 'Tạo yêu cầu nội bộ'} width={640} onClose={onClose}>
+    <Modal title="Tạo yêu cầu nội bộ" width={640} onClose={onClose}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Vai trò đích *" id="ir-role">
-          <Select id="ir-role" value={role} onChange={(e) => { setRole(e.target.value as TargetRole); setRecipient(''); setCtx('') }}>
-            <option value="PM">{ROLE_LABEL.PM}</option>
-            <option value="SA">{ROLE_LABEL.SA}</option>
+          <Select id="ir-role" value={role} onChange={(e) => { setRole(e.target.value as TargetRole); setRecipient('') }}>
+            {allowedRoles.map((targetRole) => <option key={targetRole} value={targetRole}>{ROLE_LABEL[targetRole]}</option>)}
           </Select>
         </Field>
         <Field label="Người nhận cụ thể *" id="ir-to">
@@ -82,17 +81,11 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
           <FieldError>{errors.recipient}</FieldError>
         </Field>
       </div>
-      <Field label="Câu hỏi / lý do *" id="ir-q">
-        <Textarea id="ir-q" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Kiểm tra Thanh toán BCF7K2Q9 và chứng từ mã chưa khớp" />
-        <FieldError>{errors.question}</FieldError>
+      <Field label="Nội dung yêu cầu *" id="ir-q">
+        <Textarea id="ir-q" value={requestText} onChange={(e) => setRequestText(e.target.value)} placeholder="Kiểm tra Thanh toán BCF7K2Q9 và chứng từ mã chưa khớp" />
+        <FieldError>{errors.requestText}</FieldError>
       </Field>
-      <Field label="Ngữ cảnh được chia sẻ" id="ir-ctx">
-        <Select id="ir-ctx" value={ctx} onChange={(e) => setCtx(e.target.value)}>
-          <option value="">Không chia sẻ liên kết</option>
-          {ticket.contextOptions[role].map((c) => <option key={`${c.type}${c.id}`} value={c.id}>{c.label}</option>)}
-        </Select>
-      </Field>
-      <Note tone="info">Chỉ chia sẻ câu hỏi và liên kết miền được phép. Không gửi toàn bộ hội thoại, ghi chú nội bộ hoặc dữ liệu ngân hàng.</Note>
+      <Note tone="info">Chỉ gửi câu hỏi và hint tối thiểu trong nội dung yêu cầu. Không chia sẻ liên kết miền, toàn bộ hội thoại, ghi chú nội bộ hoặc dữ liệu ngân hàng.</Note>
       {existing && <Note tone="info">Mỗi yêu cầu chỉ có một yêu cầu nội bộ đang mở cho mỗi vai trò. Hiện {existing.code} đã mở: cần xử lý yêu cầu hiện có trước khi tạo thêm.</Note>}
       {!stateOk && <Note tone="warn">Chỉ tạo khi yêu cầu đang Đang xử lý / Chờ khách phản hồi. Không thay đổi trạng thái yêu cầu.</Note>}
       {error && <Note tone="err">{error}</Note>}
@@ -187,7 +180,7 @@ export function CloseDialog({ ticket, onSubmit, onReload, onClose }: { ticket: T
 }
 
 export function ClosedDialog({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
-  const last = ticket.history[ticket.history.length - 1]
+  const last = ticket.history?.[ticket.history.length - 1]
   const res = ticket.resolutions[ticket.resolutions.length - 1]
   return (
     <Modal title={`Yêu cầu ${ticket.code} đã đóng`} width={640} onClose={onClose}>
