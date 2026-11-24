@@ -1078,3 +1078,11 @@ TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lư
 1. Danh sách tăng trưởng (SCR-23) có tab **Tất cả / Quá hạn cân / BCS thấp / ADG thấp**, kèm số bò từng tab. Nút **Xem** ở khối "Cần cân lại" và "Cần chú ý" mở tab tương ứng, như Sinh sản (D71).
 2. API A1 `GET /api/farms/{farmId}/growth` thêm tham số tùy chọn `flag` (`WEIGHING_OVERDUE`, `LOW_ADG`, `LOW_BCS`); giá trị khác → MSG-COM-10. Lọc theo cờ áp sau khi đếm, nên `summary` giữ nguyên khi đổi tab; `total` là số dòng sau mọi bộ lọc.
 3. Một con bò có thể có nhiều cờ (ví dụ vừa quá hạn cân vừa BCS thấp): cột Tình trạng hiện đủ các cờ; vạch đầu dòng đỏ khi có BCS thấp, vàng khi có cờ khác.
+
+### D75 — FE-05: danh sách Đàn bò theo Bento (24/11/2026)
+
+1. SCR-18 cùng khung với Sức khỏe (D66), Sinh sản (D71), Cân nặng (D72): tab nhóm đàn kiểu gạch chân, bộ lọc và bảng trong **một khối**; trạng thái trống nằm trong khối, không lồng khung.
+2. Hàng bộ lọc chính: Tìm, Trạng thái đàn, Chuồng, Sức khỏe. Giống, Giới tính, Giai đoạn, Mục đích, Dữ liệu cân và Sắp xếp gom sau nút **Bộ lọc khác (n)**; n là số bộ lọc đang áp (không tính Sắp xếp), có bộ lọc đang áp thì tự mở.
+3. Bảng còn 6 cột: Bò (dòng phụ giống · giới tính · tuổi), Chuồng, Mục đích · Giai đoạn, Cân gần nhất (dòng phụ ngày cân), Tình trạng, Sinh sản. Trạng thái đàn chỉ hiện khi khác Đang nuôi (Chờ xuất, Đã xuất, Đã hủy).
+4. Màu chỉ bật khi có chuyện: "Khỏe" là chữ xám; Sinh sản "Không áp dụng" để trống; vạch đầu dòng đỏ khi đang điều trị, vàng khi theo dõi / cách ly thịt / chờ xuất. Đang điều trị luôn đỏ kể cả khi nhãn gộp với ngưng thịt.
+5. Cả dòng bấm được (chuột, Enter / Space) mở hồ sơ bò; 10 con mỗi trang, theo `size` máy chủ trả về nếu có.

@@ -33,8 +33,8 @@ describe('cattle list herd statuses', () => {
     render(<MemoryRouter><CowList /></MemoryRouter>)
     expect(await screen.findByText('BC-ACTIVE')).toBeInTheDocument()
     const activeRow = screen.getByText('BC-ACTIVE').closest('tr') as HTMLElement
-    expect(within(activeRow).getByRole('cell', { name: 'Đang nuôi' })).toBeInTheDocument()
-    expect(activeRow).not.toHaveTextContent(/Chờ xuất|Đã xuất|Đã hủy/)
+    // D75: "Đang nuôi" là mặc định nên không lặp ở từng dòng; chỉ trạng thái khác mới hiện chữ.
+    expect(activeRow).not.toHaveTextContent(/Đang nuôi|Chờ xuất|Đã xuất|Đã hủy/)
     expect(screen.getByText('Chờ xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã hủy')).toBeInTheDocument()
