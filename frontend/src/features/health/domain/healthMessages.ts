@@ -15,6 +15,6 @@ export function statusToast(r: HealthCaseResult): string {
 
 export function recordToast(r: RecordResult): string {
   const what = r.recordType === 'TREATMENT' ? 'điều trị' : 'theo dõi'
-  const base = `Đã ${r.action === 'VOIDED' ? 'hủy' : 'sửa'} bản ghi ${what}. Thay đổi và lý do được lưu trong lịch sử.`
+  const base = `Đã ${r.action === 'VOIDED' ? 'xóa' : 'sửa'} bản ghi ${what}.`
   return r.withdrawalBefore !== r.withdrawalAfter ? `${base} Ngưng thịt của ${r.cattleCode} đổi từ ${fmtDate(r.withdrawalBefore)} sang ${fmtDate(r.withdrawalAfter)}.` : base
 }

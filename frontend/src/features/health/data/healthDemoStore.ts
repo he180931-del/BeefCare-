@@ -1,5 +1,5 @@
 import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
-import { hasFollowUp, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
+import { hasFollowUp, HealthValidationError, noteErrors, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
@@ -260,7 +260,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       assertExitedFree(cattle)
       const before = cattleWithdrawal(c.cattleCode)
       const errors: Record<string, string> = {}
-      Object.assign(errors, reasonErrors(cmd.reason))
+      Object.assign(errors, noteErrors(cmd.reason))
       const snapshot: Record<string, unknown> = {}
       if (e.type === 'TREATMENT') {
         const next = {
@@ -304,7 +304,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const c = caseById(e.caseId)
       if (c.outcome === 'CLOSED_BY_EXIT') throw new Error(MSG.changed)
       assertExitedFree(cattleOf(c.cattleCode))
-      throwIf(reasonErrors(cmd.reason))
+      throwIf(noteErrors(cmd.reason))
       const before = cattleWithdrawal(c.cattleCode)
       e.revisions.push({ at: now(), reason: cmd.reason.trim(), actor: 'Quản lý', kind: 'VOIDED', before: {} })
       e.status = 'VOIDED'
