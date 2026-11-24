@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from '../../../shared/ui'
+import { Icon } from '../Icon/Icon'
 
 /** `hint` is shown under the label; `keywords` (e.g. a code) are searched but never shown. */
 export interface SearchOption { value: string; label: string; hint?: string; keywords?: string }
@@ -19,6 +19,8 @@ interface Props {
   emptyText?: string
   /** Accessible name of the × button that resets to "Tất cả". */
   clearLabel?: string
+  /** Show a button that resets a selected value to the all option. */
+  clearable?: boolean
   'aria-label'?: string
   className?: string
 }
@@ -28,7 +30,7 @@ interface Props {
  * ↑ / ↓ move, Enter picks, Esc or leaving the field restores the current choice. Free text never becomes a filter.
  * Tabbing through does not open the list (it would cover the table); a click, typing or ↓ does.
  */
-export default function SearchSelect({ id, options, value, onChange, allLabel = 'Tất cả', placeholder = 'Gõ để tìm…', emptyText = 'Không có mục phù hợp', clearLabel = 'Bỏ lọc', className, ...aria }: Props) {
+export default function SearchSelect({ id, options, value, onChange, allLabel = 'Tất cả', placeholder = 'Gõ để tìm…', emptyText = 'Không có mục phù hợp', clearLabel = 'Bỏ lọc', clearable = true, className, ...aria }: Props) {
   const listId = useId()
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLUListElement>(null)
@@ -90,7 +92,7 @@ export default function SearchSelect({ id, options, value, onChange, allLabel = 
         className="h-[46px] w-full rounded-xl border border-field bg-white pl-3 pr-14 text-sm text-ink outline-none placeholder:text-muted focus:border-brand"
       />
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-[#66756b]">
-        {value && (
+        {clearable && value && (
           <button type="button" aria-label={clearLabel} className="grid h-7 w-7 place-items-center rounded-md hover:bg-chip"
             onMouseDown={(e) => e.preventDefault()} onClick={() => { pick(''); input.current?.blur() }}>
             <Icon name="x" size={14} />
