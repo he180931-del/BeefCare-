@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -93,7 +94,8 @@ class BrowserSessionFlowIT {
             .andExpect(jsonPath("$.passwordHash").doesNotExist());
         assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> {
             assertThat(user.isActivated()).isFalse();
-            assertThat(user.getPassword()).startsWith("$2").doesNotContain(PASSWORD);
+            assertThat(user.getPassword()).startsWith("$argon2id$").doesNotContain(PASSWORD);
+            assertThat(passwordEncoder.matches(PASSWORD, user.getPassword())).isTrue();
         });
         assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account -> {
             assertThat(account.isTermsAccepted()).isTrue();
@@ -297,8 +299,19 @@ class BrowserSessionFlowIT {
         Browser attacker = new Browser();
         attacker.fetchCsrf();
         // GBR-02 / E1: a wrong password and an unknown e-mail give the identical answer
-        attacker.login(email("unknown"), "whatever-123", false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01")).andExpect(jsonPath("$.params").isEmpty());
-        for (int attempt = 0; attempt < 4; attempt++) {
+        MvcResult unknown = attacker.login(email("unknown"), "whatever-123", false)
+            .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01")).andExpect(jsonPath("$.params").isEmpty()).andReturn();
+        MvcResult firstWrongPassword = attacker.login(email, "wrong-password-0", false)
+            .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01")).andReturn();
+        JsonNode unknownBody = om.readTree(unknown.getResponse().getContentAsString());
+        JsonNode firstWrongBody = om.readTree(firstWrongPassword.getResponse().getContentAsString());
+        assertThat(firstWrongBody.path("code")).isEqualTo(unknownBody.path("code"));
+        assertThat(firstWrongBody.path("message")).isEqualTo(unknownBody.path("message"));
+        assertThat(firstWrongBody.path("params")).isEqualTo(unknownBody.path("params"));
+        assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().getFailedPasswordAttempts()).isEqualTo(1);
+        attacker.get("/api/account/profile").andExpect(status().isUnauthorized());
+        assertThat(attacker.session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNull();
+        for (int attempt = 1; attempt < 4; attempt++) {
             attacker.login(email, "wrong-password-" + attempt, false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
         }
         // E2: the fifth wrong password itself locks sign-in (MSG-FE01-02, with the time sign-in reopens).
@@ -396,7 +409,9 @@ class BrowserSessionFlowIT {
         fresh.fetchCsrf();
         fresh.login(email, PASSWORD, false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
         fresh.login(email, "NewPassword-77", false).andExpect(status().isNoContent());
-        assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().getPassword()).startsWith("$2").doesNotContain("NewPassword-77");
+        String changedHash = users.findOneByEmailIgnoreCase(email).orElseThrow().getPassword();
+        assertThat(changedHash).startsWith("$argon2id$").doesNotContain("NewPassword-77");
+        assertThat(passwordEncoder.matches("NewPassword-77", changedHash)).isTrue();
         deliverAll();
         assertThat(inbox.findMessagesFor(email).size()).isEqualTo(mailsBefore + 1);
         assertThat(inbox.findMessagesFor(email).get(0).subject()).contains("password changed");
@@ -745,6 +760,23 @@ class BrowserSessionFlowIT {
             .andExpect(status().isNoContent());
 
         assertThat(owner.browser.session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isEqualTo("/tai-khoan");
+    }
+
+    @Test
+    void googleReauthenticationQueryCannotAuthorizePasswordChange() throws Exception {
+        String email = email("reauth-query");
+        Signed owner = signedUp(email, "Reauthentication Query");
+        String passwordBefore = users.findOneByEmailIgnoreCase(email).orElseThrow().getPassword();
+
+        owner.browser.post("/api/account/change-password?googleReauthenticated=true", Map.of("newPassword", "Query-Bypass-77", "confirmPassword", "Query-Bypass-77"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-FE01-16"));
+
+        String passwordAfter = users.findOneByEmailIgnoreCase(email).orElseThrow().getPassword();
+        assertThat(passwordAfter).isEqualTo(passwordBefore);
+        assertThat(passwordEncoder.matches(PASSWORD, passwordAfter)).isTrue();
+        assertThat(passwordEncoder.matches("Query-Bypass-77", passwordAfter)).isFalse();
+        owner.browser.get("/api/account/profile").andExpect(status().isOk());
     }
 
     @Test

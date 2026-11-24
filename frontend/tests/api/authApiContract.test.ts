@@ -133,3 +133,108 @@ test('TC-AUTH-API05: logout treats an already-missing server session as signed o
 
   await assert.doesNotReject(() => client.logout())
 })
+
+type CapturedRequest = { url: string; init: RequestInit | undefined }
+
+function assertTransportRequest(captured: CapturedRequest, method: string, path: string, body?: unknown, csrf = false) {
+  assert.equal(captured.url, path)
+  assert.equal(captured.init?.method ?? 'GET', method)
+  assert.equal(captured.init?.credentials, 'include')
+  const headers = new Headers(captured.init?.headers)
+  assert.equal(headers.get('Accept'), 'application/json')
+  if (body === undefined) {
+    assert.equal(captured.init?.body, undefined)
+    assert.equal(headers.get('Content-Type'), null)
+  } else {
+    assert.equal(headers.get('Content-Type'), 'application/json')
+    assert.deepEqual(JSON.parse(String(captured.init?.body)), body)
+  }
+  if (csrf) assert.equal(headers.get('X-XSRF-TOKEN'), 'csrf-wbs11')
+  else assert.equal(headers.get('X-XSRF-TOKEN'), null)
+}
+
+test('TC-AUTH-API06: registration and verification resend preserve exact body, CSRF, credentials and response semantics', async () => {
+  const cases = [
+    {
+      path: '/api/register',
+      body: { fullName: 'Test Owner', email: 'owner@example.test', password: 'SomeStrongPass9', confirmPassword: 'SomeStrongPass9', termsAccepted: true },
+      response: new Response(null, { status: 201 }),
+      invoke: (client: ReturnType<typeof createBackendClient>, body: unknown) => client.request<void>('/api/register', { method: 'POST', body }),
+    },
+    {
+      path: '/api/account/verification/resend',
+      body: { email: 'owner@example.test' },
+      response: new Response(JSON.stringify({ nextAllowedAt: '2026-11-24T08:01:00Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      invoke: (client: ReturnType<typeof createBackendClient>, body: unknown) => client.request<{ nextAllowedAt: string }>('/api/account/verification/resend', { method: 'POST', body }),
+    },
+  ]
+
+  for (const scenario of cases) {
+    const captured: CapturedRequest[] = []
+    const fetchMock: typeof fetch = async (input, init) => {
+      captured.push({ url: String(input), init })
+      if (String(input).endsWith('/api/csrf')) return new Response(JSON.stringify({ token: 'csrf-wbs11' }), { headers: { 'Content-Type': 'application/json' } })
+      return scenario.response.clone()
+    }
+    const client = createBackendClient({ fetchImpl: fetchMock })
+    const result = await scenario.invoke(client, scenario.body)
+
+    assert.equal(captured.length, 2)
+    assertTransportRequest(captured[0], 'GET', '/api/csrf')
+    assertTransportRequest(captured[1], 'POST', scenario.path, scenario.body, true)
+    if (scenario.path.endsWith('resend')) assert.deepEqual(result, { nextAllowedAt: '2026-11-24T08:01:00Z' })
+  }
+})
+
+test('TC-AUTH-API07: reset init, URL-encoded validation, and finish preserve exact HTTP contracts', async () => {
+  const resetEmail = 'owner@example.test'
+  const token = 'a+b /?&'
+
+  {
+    const captured: CapturedRequest[] = []
+    const fetchMock: typeof fetch = async (input, init) => {
+      captured.push({ url: String(input), init })
+      if (String(input).endsWith('/api/csrf')) return new Response(JSON.stringify({ token: 'csrf-wbs11' }), { headers: { 'Content-Type': 'application/json' } })
+      return new Response(null, { status: 200 })
+    }
+    const client = createBackendClient({ fetchImpl: fetchMock })
+    await client.request<void>('/api/account/reset-password/init', { method: 'POST', body: { email: resetEmail } })
+    assert.equal(captured.length, 2)
+    assertTransportRequest(captured[0], 'GET', '/api/csrf')
+    assertTransportRequest(captured[1], 'POST', '/api/account/reset-password/init', { email: resetEmail }, true)
+  }
+
+  {
+    const captured: CapturedRequest[] = []
+    const fetchMock: typeof fetch = async (input, init) => {
+      captured.push({ url: String(input), init })
+      return new Response(JSON.stringify({ valid: true, email: resetEmail }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    const client = createBackendClient({ fetchImpl: fetchMock })
+    const result = await client.request<{ valid: boolean; email: string }>(`/api/account/reset-password/validate?token=${encodeURIComponent(token)}`)
+    assert.deepEqual(result, { valid: true, email: resetEmail })
+    assert.equal(captured.length, 1)
+    assertTransportRequest(captured[0], 'GET', `/api/account/reset-password/validate?token=${encodeURIComponent(token)}`)
+  }
+
+  {
+    const captured: CapturedRequest[] = []
+    const fetchMock: typeof fetch = async (input, init) => {
+      captured.push({ url: String(input), init })
+      if (String(input).endsWith('/api/csrf')) return new Response(JSON.stringify({ token: 'csrf-wbs11' }), { headers: { 'Content-Type': 'application/json' } })
+      return new Response(null, { status: 204 })
+    }
+    const client = createBackendClient({ fetchImpl: fetchMock })
+    await client.request<void>('/api/account/reset-password/finish', {
+      method: 'POST',
+      body: { key: token, newPassword: 'ResetPassword-88', confirmPassword: 'ResetPassword-88' },
+    })
+    assert.equal(captured.length, 2)
+    assertTransportRequest(captured[0], 'GET', '/api/csrf')
+    assertTransportRequest(captured[1], 'POST', '/api/account/reset-password/finish', {
+      key: token,
+      newPassword: 'ResetPassword-88',
+      confirmPassword: 'ResetPassword-88',
+    }, true)
+  }
+})

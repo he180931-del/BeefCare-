@@ -1639,7 +1639,10 @@
               }
             }
           }
-        }
+        },
+        "security" : [ {
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/platform/support/tickets/{ticketId}/internal-requests/{id}/management" : {
@@ -8612,10 +8615,21 @@
         "tags" : [ "authenticate-controller" ],
         "operationId" : "isAuthenticated",
         "responses" : {
-          "200" : {
-            "description" : "OK"
+          "204" : {
+            "description" : "Authenticated"
+          },
+          "401" : {
+            "description" : "Not authenticated",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "authenticate-controller" ],
@@ -8631,10 +8645,53 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
-            "description" : "OK"
+          "204" : {
+            "description" : "Authenticated"
+          },
+          "400" : {
+            "description" : "Invalid credentials request",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Account suspended",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "423" : {
+            "description" : "Authentication temporarily locked",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
-        }
+        },
+        "security" : [ {
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account" : {
@@ -8699,7 +8756,10 @@
               }
             }
           }
-        }
+        },
+        "security" : [ {
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/terms-acceptance" : {
@@ -8727,7 +8787,11 @@
               }
             }
           }
-        }
+        },
+        "security" : [ {
+          "session" : [ ],
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/reset-password/init" : {
@@ -8748,7 +8812,10 @@
           "200" : {
             "description" : "OK"
           }
-        }
+        },
+        "security" : [ {
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/reset-password/finish" : {
@@ -8769,7 +8836,10 @@
           "200" : {
             "description" : "OK"
           }
-        }
+        },
+        "security" : [ {
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/profile" : {
@@ -8813,7 +8883,11 @@
               }
             }
           }
-        }
+        },
+        "security" : [ {
+          "session" : [ ],
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/owner-registration" : {
@@ -8861,7 +8935,11 @@
           "204" : {
             "description" : "No Content"
           }
-        }
+        },
+        "security" : [ {
+          "session" : [ ],
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/account/change-password" : {
@@ -8882,7 +8960,11 @@
           "200" : {
             "description" : "OK"
           }
-        }
+        },
+        "security" : [ {
+          "session" : [ ],
+          "csrf" : [ ]
+        } ]
       }
     },
     "/api/farms/{farmId}/trading-partners/{id}/status" : {
@@ -12537,14 +12619,7 @@
       "get" : {
         "tags" : [ "authenticate-controller" ],
         "operationId" : "csrf",
-        "parameters" : [ {
-          "name" : "token",
-          "in" : "query",
-          "required" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/CsrfToken"
-          }
-        } ],
+        "parameters" : [ ],
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -12556,7 +12631,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/activate" : {
@@ -12572,10 +12648,11 @@
           }
         } ],
         "responses" : {
-          "200" : {
-            "description" : "OK"
+          "303" : {
+            "description" : "Activated and redirected"
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/account/reset-password/validate" : {
@@ -12601,7 +12678,23 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/logout" : {
+      "post" : {
+        "tags" : [ "authenticate-controller" ],
+        "operationId" : "logout",
+        "responses" : {
+          "204" : {
+            "description" : "Logged out"
+          }
+        },
+        "security" : [ {
+          "session" : [ ],
+          "csrf" : [ ]
+        } ]
       }
     }
   },
@@ -12633,6 +12726,22 @@
             "additionalProperties" : {
               "type" : "object"
             }
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "Stable BeefCare error code."
+          },
+          "params" : {
+            "description" : "Safe structured error parameters."
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "User-facing or generic error message."
+          },
+          "path" : {
+            "type" : "string",
+            "format" : "uri",
+            "description" : "Request path."
           }
         }
       },
@@ -16051,18 +16160,28 @@
             "type" : "string"
           },
           "email" : {
-            "type" : "string"
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 1
           },
           "password" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "8–128 Unicode code points; must not equal the email address (case-insensitive); no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           },
           "confirmPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Must match password; 8–128 Unicode code points; no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           },
           "termsAccepted" : {
             "type" : "boolean"
           }
-        }
+        },
+        "required" : [ "confirmPassword", "email", "fullName", "password", "termsAccepted" ]
       },
       "RegistrationResponse" : {
         "type" : "object",
@@ -20707,6 +20826,7 @@
           },
           "password" : {
             "type" : "string",
+            "description" : "Sign-in credential; required and at most 128 Unicode code points. Creation and reset password rules do not apply here.",
             "maxLength" : 128,
             "minLength" : 4
           },
@@ -20784,9 +20904,13 @@
         "type" : "object",
         "properties" : {
           "email" : {
-            "type" : "string"
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 1
           }
-        }
+        },
+        "required" : [ "email" ]
       },
       "ResendVerificationResponse" : {
         "type" : "object",
@@ -20824,12 +20948,19 @@
             "type" : "string"
           },
           "newPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "8–128 Unicode code points; must not equal the account email; no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           },
           "confirmPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Must match newPassword; 8–128 Unicode code points; no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           }
-        }
+        },
+        "required" : [ "confirmPassword", "key", "newPassword" ]
       },
       "AccountProfileUpdate" : {
         "type" : "object",
@@ -20967,15 +21098,23 @@
         "type" : "object",
         "properties" : {
           "currentPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Required for password accounts; optional only with a recent server-verified Google reauthentication."
           },
           "newPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "8–128 Unicode code points; must not equal the account email; no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           },
           "confirmPassword" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Must match newPassword; 8–128 Unicode code points; no composition rule.",
+            "maxLength" : 128,
+            "minLength" : 8
           }
-        }
+        },
+        "required" : [ "confirmPassword", "newPassword" ]
       },
       "StatusRequest" : {
         "type" : "object",
@@ -21926,13 +22065,29 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "totalElements" : {
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -21948,22 +22103,6 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -21972,16 +22111,6 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "paged" : {
             "type" : "boolean"
           },
@@ -21992,19 +22121,29 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "empty" : {
+          "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "empty" : {
             "type" : "boolean"
           }
         }
@@ -24927,13 +25066,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "parameterName" : {
+          "headerName" : {
             "type" : "string"
           },
           "token" : {
             "type" : "string"
           },
-          "headerName" : {
+          "parameterName" : {
             "type" : "string"
           }
         }
@@ -24945,9 +25084,14 @@
             "type" : "boolean"
           },
           "email" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           }
-        }
+        },
+        "required" : [ "email", "valid" ]
       }
     },
     "securitySchemes" : {

@@ -78,8 +78,13 @@ class GoogleReauthenticationIT extends DomainTestSupport {
         assertThat(GoogleReauthentication.recent(session, now)).isNull();
         session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, now.minusSeconds(299));
         assertThat(GoogleReauthentication.recent(session, now)).isNotNull();
+        session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, now.minusSeconds(300));
+        assertThat(GoogleReauthentication.recent(session, now)).isNotNull();
         session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, now.minusSeconds(301));
         assertThat(GoogleReauthentication.recent(session, now)).isNull();
+        session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, now.plusSeconds(1));
+        assertThat(GoogleReauthentication.recent(session, now)).isNull();
+        assertThat(session.getAttribute(GoogleReauthentication.AUTHENTICATED_AT)).isEqualTo(now.plusSeconds(1));
         assertThat(GoogleReauthentication.recent(null, now)).isNull();
     }
 
