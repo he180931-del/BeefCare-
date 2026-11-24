@@ -63,6 +63,19 @@ describe('SCR-85 consumption report projections', () => {
     expect(rows).toEqual([{ key: 'FEED:TA-01', label: 'Cỏ khô', herdGroup: null, averageHead: 5, actualKg: 20, averageKgPerHeadDay: 2, totalCost: 400, averageCostPerHeadDay: 40, varianceRatio: -0.1 }])
   })
 
+  it('TC-23-30: reports a 10% negative variance when actual consumption is below plan', () => {
+    const data = buildFeedConsumptionReport({
+      from: '2026-06-01', to: '2026-06-01',
+      feedings: [feeding({ plannedTotalKg: 60, actualTotalKg: 54, lines: [
+        { feedItemId: 100, feedCode: 'TA-01', feedName: 'Cỏ', plannedKg: 60, actualKg: 54, inRation: true, unitCost: 10, totalCost: 540 },
+      ] })],
+      rations: [ration], receipts: [], adjustments: [], catalogue: [],
+    })
+    const report = filterFeedConsumptionReport(data, { from: '2026-06-01', to: '2026-06-01', groupBy: 'FEED' })
+    expect(report.rows).toHaveLength(1)
+    expect(report.rows[0]).toMatchObject({ plannedKg: 60, actualKg: 54, varianceRatio: -0.1 })
+  })
+
   it('aggregates valid sessions and counts head-days once per pen and date', () => {
     const data = buildFeedConsumptionReport({
       from: '2026-06-01',

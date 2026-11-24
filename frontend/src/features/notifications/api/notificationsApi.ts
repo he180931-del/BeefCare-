@@ -29,7 +29,8 @@ export const mapBackendNotification = (value: unknown): NotificationView | null 
   if (!targetType) return null
   return {
     id: numberValue(row.id), category, title: textValue(row.title), summary: textValue(row.summary), targetType,
-    targetId: numberValue(row.targetId), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime),
+    targetId: numberValue(row.targetId), farmId: row.farmId == null ? null : numberValue(row.farmId),
+    createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime),
   }
 }
 

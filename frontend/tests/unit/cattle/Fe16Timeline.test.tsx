@@ -54,6 +54,16 @@ describe('FE-16 timeline mapping', () => {
     expect(all).toContain('Giá trị trước khi sửa: Cân 342 kg')
     expect(timelineGroups(events, 'all', true).map((g) => g.label)).toEqual(['THÁNG 10 2026', 'THÁNG 9 2026'])
   })
+
+  it('TC-16-02: sorts ordinary valid events by occurrence date without enabling correction history', () => {
+    const ordinary = [
+      ev({ category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 31, occurredAt: '2026-10-01T03:00:00Z', recordedAt: '2026-10-05T03:00:00Z', status: 'VALID', values: { weightKg: 324 } }),
+      ev({ category: 'VACCINATION', type: 'VACCINATION_RECORD', sourceId: 32, occurredAt: '2026-10-03T03:00:00Z', recordedAt: '2026-10-03T03:00:00Z', status: 'VALID', values: { vaccine: 'LMLM', source: 'ON_FARM' } }),
+    ]
+    const visible = timelineGroups(ordinary, 'all', false).flatMap((group) => group.items)
+    expect(visible.map((event) => event.title)).toEqual(['Tiêm LMLM', 'Cân 324 kg'])
+    expect(visible.map((event) => event.status)).toEqual(['VALID', 'VALID'])
+  })
 })
 
 describe('FE-16 timeline tab', () => {
@@ -214,10 +224,10 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     }
   })
 
-  it('sends only the changed fields to the exact reproduction source and refreshes the timeline', async () => {
+  it('TC-16-16: opens and saves a month-boundary correction in fixed UTC+7', async () => {
     const user = userEvent.setup()
     const source = {
-      category: 'REPRODUCTION', type: 'BREEDING', status: 'VALID', sourceId: 77, occurredAt: '2026-10-01T03:00:00Z',
+      category: 'REPRODUCTION', type: 'BREEDING', status: 'VALID', sourceId: 77, occurredAt: '2026-10-31T17:15:00Z',
       canCorrect: true, canOpen: true, values: { version: 2, method: 'AI', performedBy: 'Người cũ' },
     }
     const get = vi.spyOn(backendTransport, 'get').mockResolvedValue([source])
@@ -228,8 +238,8 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       await user.click(await screen.findByRole('button', { name: 'Sửa / Hủy' }))
       const dialog = within(screen.getByRole('dialog'))
       const time = dialog.getByLabelText('Thời điểm xảy ra')
-      expect(time).toHaveValue('2026-10-01T10:00')
-      fireEvent.change(time, { target: { value: '2026-10-01T11:00' } })
+      expect(time).toHaveValue('2026-11-01T00:15')
+      fireEvent.change(time, { target: { value: '2026-11-01T01:15' } })
       await user.clear(dialog.getByLabelText('Người thực hiện'))
       await user.type(dialog.getByLabelText('Người thực hiện'), 'Người mới')
       await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Sửa tên')
@@ -237,7 +247,7 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       await user.click(dialog.getByRole('button', { name: 'Lưu chỉnh sửa' }))
       await waitFor(() => expect(command).toHaveBeenCalledWith(
         expect.stringMatching(/\/reproduction-events\/77\/correction$/),
-        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới', occurredAt: '2026-10-01T11:00:00+07:00' },
+        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới', occurredAt: '2026-11-01T01:15:00+07:00' },
         { key: expect.any(String) },
       ))
       await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(reads))

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { createSubscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import { DEMO_START, SUBSCRIPTION_SEED } from '../../../src/features/subscription/data/subscriptionMock'
-import { addYears, fmtClock, fmtPeriod, fmtVnd, planPeriod, renewalOpensAt, toIso, vnTime } from '../../../src/features/subscription/domain/subscriptionRules'
+import { addYears, daysUntil, fmtClock, fmtPeriod, fmtVnd, periodStatus, planPeriod, renewalOpensAt, requestEligibility, toIso, vnTime } from '../../../src/features/subscription/domain/subscriptionRules'
 import { SubscriptionError } from '../../../src/features/subscription/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
@@ -27,6 +27,34 @@ describe('quy tắc kỳ dịch vụ (GBR-71, GBR-73)', () => {
   })
   it('29/02 về 28/02 ở năm không nhuận', () => {
     expect(toIso(addYears(vnTime(2028, 2, 29), 1))).toBe(toIso(vnTime(2029, 2, 28)))
+  })
+
+  it('TC-19-05/37: opens renewal exactly 90 days before confirmed expiry and blocks only before that boundary', () => {
+    // The confirmed period boundary is exclusive, so a displayed 31/12 end is stored as 01/01.
+    const latestEnd = vnTime(2027, 1, 1)
+    const opensAt = vnTime(2026, 10, 2)
+    expect(toIso(renewalOpensAt(latestEnd))).toBe(toIso(opensAt))
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt - 1, pricesAvailable: true }))
+      .toMatchObject({ ok: false, reason: 'OUTSIDE_WINDOW', opensAt: toIso(opensAt) })
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt, pricesAvailable: true })).toEqual({ ok: true })
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt + 1, pricesAvailable: true })).toEqual({ ok: true })
+    expect(requestEligibility({ suspended: true, latestEnd: toIso(latestEnd), now: opensAt, pricesAvailable: true })).toEqual({ ok: false, reason: 'SUSPENDED' })
+  })
+
+  it('TC-19-14/16: starts the next subscription period at the later of confirmation and prior expiry', () => {
+    const continuous = planPeriod(vnTime(2027, 2, 1), vnTime(2027, 3, 15), 1)
+    expect(toIso(continuous.start)).toBe(toIso(vnTime(2027, 3, 15)))
+    expect(toIso(continuous.end)).toBe(toIso(vnTime(2028, 3, 15)))
+    const afterExpiry = planPeriod(vnTime(2027, 2, 10), vnTime(2027, 1, 1), 1)
+    expect(toIso(afterExpiry.start)).toBe(toIso(vnTime(2027, 2, 10)))
+  })
+
+  it('TC-19-36: counts 24 hours as one day, 23 hours as zero, and marks the exact end past', () => {
+    const end = toIso(vnTime(2026, 11, 30, 12))
+    expect(daysUntil(end, vnTime(2026, 11, 29, 12))).toBe(1)
+    expect(daysUntil(end, vnTime(2026, 11, 29, 13))).toBe(0)
+    expect(periodStatus('2026-11-01T00:00:00+07:00', end, vnTime(2026, 11, 30, 11, 59))).toBe('CURRENT')
+    expect(periodStatus('2026-11-01T00:00:00+07:00', end, vnTime(2026, 11, 30, 12))).toBe('PAST')
   })
   it('định dạng tiền và bộ đếm', () => {
     expect(fmtVnd(1_200_000)).toBe('1.200.000 đ')

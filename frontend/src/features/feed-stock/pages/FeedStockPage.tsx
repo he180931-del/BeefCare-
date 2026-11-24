@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
+import { Badge, Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { filterFeedStock } from '../domain/feedStockList'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
@@ -17,7 +17,6 @@ const STATUS_LABELS: Record<FeedStockStatus, string> = {
   LOW: 'Sắp hết',
   OUT_OF_STOCK: 'Hết hàng',
 }
-
 
 function updatedText(iso: string | null | undefined) {
   const match = iso?.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
@@ -58,6 +57,10 @@ export default function FeedStockPage() {
   const visibleRows = useMemo(
     () => filterFeedStock(allRows, { query: query.trim(), group, status }),
     [allRows, group, query, status],
+  )
+  const lowRows = useMemo(
+    () => allRows.filter((row) => row.available !== false && (row.status === 'LOW' || row.status === 'OUT_OF_STOCK')),
+    [allRows],
   )
   const viewing: FeedStockRow | undefined = params.get('m') === 'xem'
     ? allRows.find((row) => String(row.feedItemId) === params.get('feed'))
@@ -108,6 +111,37 @@ export default function FeedStockPage() {
 
         <section role="tabpanel" aria-label="Tồn kho thức ăn" className="flex flex-col gap-4">
           <FeedStockSummary rows={stockQuery.data} headCount={sideQuery?.headCount} />
+
+          {!stockQuery.loading && !errorMessage && lowRows.length > 0 && (
+            <aside role="alert" aria-label="Cảnh báo tồn kho thấp" className="rounded-2xl border border-warn-bg bg-warn-bg/35 p-4 text-sm text-ink">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="m-0 font-semibold">{lowRows.length} mặt hàng đang ở mức tối thiểu hoặc thấp hơn</p>
+                  <p className="m-0 mt-1 text-xs text-muted">Cảnh báo REM-10 · kiểm tra và tạo phiếu nhập kho cho các mặt hàng bị ảnh hưởng.</p>
+                </div>
+                <Link
+                  to={`/thuc-an/phieu-nhap/moi?feedItemId=${lowRows[0].feedItemId}`}
+                  className="font-semibold text-brand underline decoration-[#b6d4bf] underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  Tạo phiếu nhập kho
+                </Link>
+              </div>
+              <ul className="m-0 mt-3 flex flex-col gap-2 pl-5">
+                {lowRows.map((row) => (
+                  <li key={row.feedItemId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-medium">{row.name}</span>
+                    <Badge tone={row.status === 'OUT_OF_STOCK' ? 'err' : 'warn'}>{STATUS_LABELS[row.status]}</Badge>
+                    <Link
+                      to={`/thuc-an/phieu-nhap/moi?feedItemId=${row.feedItemId}`}
+                      className="text-xs font-semibold text-brand underline decoration-[#b6d4bf] underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                      Nhập {row.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
 
           <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
             <label className="sr-only" htmlFor="feed-stock-search">Tìm mã, tên thức ăn</label>

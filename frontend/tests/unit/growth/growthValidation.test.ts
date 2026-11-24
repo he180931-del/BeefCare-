@@ -50,4 +50,12 @@ describe('validateMeasurement', () => {
       }
     `)
   })
+
+  it('TC-08-02/03: checks exact weight limits and BCS values outside the half-step scale', () => {
+    expect(validateMeasurement(input({ weightKg: 1 }), ctx)).not.toHaveProperty('weightKg')
+    expect(validateMeasurement(input({ weightKg: 1500 }), ctx)).not.toHaveProperty('weightKg')
+    expect(validateMeasurement(input({ weightKg: 1500.1 }), ctx).weightKg).toBe('Cân nặng phải từ 1 đến 1.500 kg.')
+    expect(validateMeasurement(input({ bcs: 3.3 }), ctx).bcs).toBe('BCS phải nằm trong thang 1,0 – 5,0 (bước 0,5).')
+    expect(validateMeasurement(input({ bcs: 5.5 }), ctx).bcs).toBe('BCS phải nằm trong thang 1,0 – 5,0 (bước 0,5).')
+  })
 })

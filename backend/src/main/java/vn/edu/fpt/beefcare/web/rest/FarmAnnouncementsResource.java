@@ -17,6 +17,7 @@ public class FarmAnnouncementsResource {
     public FarmAnnouncementsResource(FarmAnnouncementService service,IdempotencyCommandService commands){this.service=service;this.commands=commands;}
 
     @GetMapping public List<AnnouncementView> list(@PathVariable Long farmId){return service.list(farmId);}
+    @GetMapping("/{id}") public AnnouncementView get(@PathVariable Long farmId,@PathVariable Long id){return service.get(farmId,id);}
     /** Active eligible FarmMembership options only; IDs are membership IDs, not AppUser IDs. */
     @GetMapping("/recipients") public List<MemberOption> recipients(@PathVariable Long farmId){return service.listEligibleRecipients(farmId);}
     @GetMapping("/{id}/preview") public PublishPreview previewPublish(@PathVariable Long farmId,@PathVariable Long id){return service.previewPublish(farmId,id);}

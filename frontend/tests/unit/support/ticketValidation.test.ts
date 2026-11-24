@@ -31,6 +31,13 @@ describe('validateCreate fields', () => {
     })
   })
 
+  it('TC-20-04: reports both errors for a 151-character subject and blank description', () => {
+    expect(validateCreate(command({ subject: 's'.repeat(151), description: '  ' }), [1])).toMatchObject({
+      subject: 'Tiêu đề tối đa 150 ký tự.',
+      description: 'Vui lòng nhập mô tả.',
+    })
+  })
+
   it('requires an owned farm for a farm ticket', () => {
     expect(validateCreate(command({ farmId: null }), [1]).farmId).toBe('Vui lòng chọn trang trại liên quan.')
     expect(validateCreate(command({ farmId: 2 }), [1]).farmId).toBe('Bạn không có quyền với trang trại này.')

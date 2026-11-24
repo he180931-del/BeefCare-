@@ -2,6 +2,7 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useSession } from '../../../app/session/sessionContext'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
@@ -20,6 +21,7 @@ import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceip
 import type { FeedReceiptDemoRecord } from '../types/feedReceiptDemo'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
+import { FeedReceiptPrintView } from '../components/FeedReceiptPrintView'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
 import { newFeedCommandKey } from '../api/command'
 
@@ -143,6 +145,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   postReceipt: ReturnType<typeof useFeedReceiptForm>['post']
 }) {
   const navigate = useNavigate()
+  const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
   const [suppliers, setSuppliers] = useState(initialSuppliers)
   const [values, setValues] = useState<FeedReceiptFormValues>(() => {
@@ -341,16 +344,23 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       const saved = await saveDraft({ input, options: { key: saveCommandKey.current } })
       saveCommandKey.current = ''
       setCurrentRecord(saved)
-      await uploadPendingFiles(saved.id)
+      let attachmentWarning = ''
+      try {
+        await uploadPendingFiles(saved.id)
+      } catch (attachmentError) {
+        // Attachments are optional: keep the saved receipt usable and let the user retry from it.
+        attachmentWarning = `Không thể tải chứng từ đính kèm: ${feedReceiptError(attachmentError, 'vui lòng thử lại từ phiếu đã lưu.')}`
+        setError(attachmentWarning)
+      }
       if (postNow) {
         const key = newReceiptCommandKey()
         pendingPost.current = { id: saved.id, version: saved.version, key }
         const posted = await postReceipt({ id: saved.id, version: saved.version, options: { key } })
         pendingPost.current = null
         setCurrentRecord(posted)
-        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
+        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.${attachmentWarning ? ` ${attachmentWarning}` : ''}` } })
       } else {
-        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })
+        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.${attachmentWarning ? ` ${attachmentWarning}` : ''}` } })
       }
     } catch (saveError) {
       setError(feedReceiptError(saveError, 'Không thể lưu phiếu. Vui lòng thử lại.'))
@@ -627,6 +637,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
               {currentRecord?.status === 'DRAFT' && feedReceiptServerBacked
                 ? <Button variant="danger" block disabled={saving} onClick={() => openModal('bo-nhap')}>Bỏ nháp</Button>
                 : <Button block disabled={saving} onClick={() => navigate('/thuc-an/phieu-nhap')}>Hủy</Button>}
+              {currentRecord && <Button block onClick={() => window.print()}><span className="inline-flex items-center gap-1.5"><Icon name="printer" size={16} />In phiếu</span></Button>}
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
@@ -643,6 +654,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
         </aside>
       </div>
       </div>
+
+      {currentRecord && <FeedReceiptPrintView receipt={currentRecord} attachments={attachments} farmName={session?.farmName} />}
 
       <Foot>{FOOT}</Foot>
 

@@ -19,6 +19,7 @@ import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.InternalRequest;
 import vn.edu.fpt.beefcare.domain.Notification;
 import vn.edu.fpt.beefcare.repository.NotificationRepository;
+import vn.edu.fpt.beefcare.repository.PaymentRepository;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -26,6 +27,7 @@ class NotificationServiceTest {
     @Mock FarmAccessService access;
     @Mock FarmClock clock;
     @Mock NotificationTargetAccessService targetAccess;
+    @Mock PaymentRepository payments;
     @InjectMocks NotificationService service;
 
     @Test void notifyDeduplicatesByRecipientAndEventWithoutStoringTicketBody(){
@@ -54,6 +56,22 @@ class NotificationServiceTest {
         Notification n=new Notification();n.setId(1L);n.setRecipient(recipient);n.setTargetType("FARM");n.setTargetId(1L);
         when(repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L)).thenReturn(List.of(n));when(targetAccess.canOpen(recipient,n)).thenReturn(true);
         assertThat(service.mine()).extracting(NotificationService.NotificationView::id).containsExactly(1L);verify(repository).findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L);
+    }
+
+    @Test void paymentNotificationsExposeTheFarmOfEachPayment(){
+        AppUser recipient=new AppUser();recipient.setId(9L);when(access.currentActiveUser()).thenReturn(recipient);
+        Notification first=new Notification();first.setId(1L);first.setRecipient(recipient);first.setTargetType("PAYMENT");first.setTargetId(101L);
+        Notification second=new Notification();second.setId(2L);second.setRecipient(recipient);second.setTargetType("PAYMENT");second.setTargetId(202L);
+        PaymentRepository.RequestFarm firstTarget=mock(PaymentRepository.RequestFarm.class);
+        PaymentRepository.RequestFarm secondTarget=mock(PaymentRepository.RequestFarm.class);
+        when(firstTarget.getFarmId()).thenReturn(11L);when(secondTarget.getFarmId()).thenReturn(22L);
+        when(repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L)).thenReturn(List.of(first,second));
+        when(targetAccess.canOpen(recipient,first)).thenReturn(true);when(targetAccess.canOpen(recipient,second)).thenReturn(true);
+        when(payments.findRequestFarmById(101L)).thenReturn(Optional.of(firstTarget));
+        when(payments.findRequestFarmById(202L)).thenReturn(Optional.of(secondTarget));
+
+        assertThat(service.mine()).extracting(NotificationService.NotificationView::farmId).containsExactly(11L,22L);
+        verify(payments).findRequestFarmById(101L);verify(payments).findRequestFarmById(202L);
     }
 
     @Test void inboxHidesTargetWhenAuthorizationWasRevoked(){

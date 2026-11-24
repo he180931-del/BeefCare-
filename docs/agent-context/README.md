@@ -18,6 +18,7 @@ backend source.
 | Any other feature (FE-01 to FE-23) | The feature spec in `docs/requirements/specs/FE-xx-*.md`, then the feature folder listed in `ARCHITECTURE.md` |
 | Tests, build, review, or UI verification | `VERIFICATION.md` + the owning feature file |
 | New delegated coding task | `PROMPT_TEMPLATE.md` + routed context |
+| Windows agent shell, GitNexus, or 9Router troubleshooting | [Windows agent workflow](WINDOWS_AGENT_WORKFLOW.md) |
 
 Do not copy large requirement tables into these files. Follow the links to the
 smallest relevant source symbol or contract section when a rule must change.

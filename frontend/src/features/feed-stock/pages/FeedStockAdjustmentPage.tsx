@@ -2,10 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
+import { formatDate, formatNumber } from '../domain/feedLabels'
 import { useFeedStockAdjustmentList } from '../hooks/useFeedStockAdjustmentList'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 
-const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 const currencyFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
 const TYPE_LABELS: Record<string, string> = {
   PERIODIC_COUNT: 'Kiểm kê định kỳ',
@@ -14,6 +14,17 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: 'Khác',
 }
 const STATUS_LABELS: Record<string, string> = { DRAFT: 'Nháp', POSTED: 'Đã ghi nhận' }
+
+function signed(value: number) {
+  if (value === 0) return '0'
+  return `${value > 0 ? '+' : '−'}${formatNumber(Math.abs(value), 3)}`
+}
+
+function itemSummary(lines: Array<{ feedName: string }>) {
+  const names = [...new Set(lines.map((line) => line.feedName).filter(Boolean))]
+  if (names.length <= 3) return names.join(' · ') || '—'
+  return `${names.slice(0, 3).join(' · ')} · +${names.length - 3}`
+}
 
 export default function FeedStockAdjustmentPage() {
   const navigate = useNavigate()
@@ -58,10 +69,10 @@ export default function FeedStockAdjustmentPage() {
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <Td className="font-semibold">{row.code}</Td>
-                    <Td>{row.countDate}</Td>
+                    <Td className="whitespace-nowrap">{formatDate(row.countDate)}</Td>
                     <Td>{TYPE_LABELS[row.adjustmentType] ?? row.adjustmentType}</Td>
-                    <Td>{row.lines.length}</Td>
-                    <Td>{numberFormat.format(row.totalDifferenceKg)}</Td>
+                    <Td className="min-w-[180px]">{itemSummary(row.lines)}</Td>
+                    <Td className="whitespace-nowrap">{signed(row.totalDifferenceKg)} kg</Td>
                     <Td>{row.totalValue === null ? '—' : currencyFormat.format(row.totalValue)}</Td>
                     <Td><Badge tone={row.status === 'POSTED' ? 'ok' : row.status === 'DRAFT' ? 'warn' : undefined}>{STATUS_LABELS[row.status] ?? row.status}</Badge></Td>
                     <Td>
@@ -76,7 +87,7 @@ export default function FeedStockAdjustmentPage() {
             <p className="m-0 border-t border-rule px-4 py-3 text-xs text-muted">{rows.length} phiếu kiểm kê</p>
           </div>
         )}
-        <Note>Ghi nhận kiểm kê không thay đổi các phiếu nhập hoặc nhật ký cho ăn trước đó.</Note>
+        <Note>Ngày kiểm kê thuộc về chứng từ; tồn kho trên SCR-77 luôn là snapshot hiện tại, không phải tồn lịch sử của ngày đó. Ghi nhận kiểm kê không thay đổi các phiếu nhập hoặc nhật ký cho ăn trước đó.</Note>
       </section>
     </Layout>
   )

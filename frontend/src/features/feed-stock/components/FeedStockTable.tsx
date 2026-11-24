@@ -16,6 +16,10 @@ function equivalent(row: FeedStockRow) {
   return `≈ ${formatNumber(row.onHandKg / perUnit)} ${row.purchaseUnit.toLocaleLowerCase('vi')} ${formatNumber(perUnit)} kg`
 }
 
+function hasUnavailableConsumption(row: FeedStockRow) {
+  return row.averageDailyUseKg === 0 && row.daysOfCover === null
+}
+
 export default function FeedStockTable({ rows, onView }: { rows: readonly FeedStockRow[]; onView?: (row: FeedStockRow) => void }) {
   const navigate = useNavigate()
   return (
@@ -50,7 +54,7 @@ export default function FeedStockTable({ rows, onView }: { rows: readonly FeedSt
                 {packs && <div className="text-[11px] text-muted">{packs}</div>}
               </Td>
               <Td className="whitespace-nowrap">{row.minimumStockKg === null ? '—' : formatKg(row.minimumStockKg)}</Td>
-              <Td className="whitespace-nowrap">{formatKg(row.averageDailyUseKg)}</Td>
+              <Td className="whitespace-nowrap">{hasUnavailableConsumption(row) ? '—' : formatKg(row.averageDailyUseKg)}</Td>
               <Td className="whitespace-nowrap">{formatDaysOfCover(row.daysOfCover)}</Td>
               <Td className="min-w-[110px]">
                 {row.nearestLotExpiryDate

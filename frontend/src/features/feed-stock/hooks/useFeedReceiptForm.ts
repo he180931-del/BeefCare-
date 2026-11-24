@@ -15,7 +15,7 @@ export type FeedReceiptFormData = { stock: FeedStockRow[]; suppliers: FeedSuppli
 export function useFeedReceiptForm(id?: string) {
   const query = useQuery(async (): Promise<FeedReceiptFormData> => {
     const [stock, suppliers, receipt, receipts, attachments] = await Promise.all([
-      listFeedStock(), listFeedSuppliers(), id ? getFeedReceipt(id) : Promise.resolve(null), listFeedReceipts(), id ? listFeedReceiptAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
+      listFeedStock(), listFeedSuppliers(), id ? getFeedReceipt(id) : Promise.resolve(null), listFeedReceipts(), id ? listFeedReceiptAttachments(Number(id)).catch(() => [] as FeedReceiptAttachment[]) : Promise.resolve([] as FeedReceiptAttachment[]),
     ])
     return { stock, suppliers, receipt, receipts, attachments }
   }, [id])

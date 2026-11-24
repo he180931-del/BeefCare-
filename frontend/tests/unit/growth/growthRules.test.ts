@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adgBasis, adgBasisText, adgForWindow, finishingProgress, validWeights, weightAtNextWeighing } from '../../../src/features/growth/domain/growthRules'
+import { adgBasis, adgBasisText, adgForWindow, finishingProjection, finishingProgress, validWeights, weightAtNextWeighing } from '../../../src/features/growth/domain/growthRules'
 import type { GrowthRecord } from '../../../src/features/growth/types'
 
 const record = (id: number, measuredAt: string, weightKg: number | undefined, patch: Partial<GrowthRecord> = {}): GrowthRecord => ({
@@ -8,6 +8,29 @@ const record = (id: number, measuredAt: string, weightKg: number | undefined, pa
 })
 
 describe('tiến độ chặng vỗ béo (Figma Tab 17)', () => {
+  it('TC-08-17 actual result: 50 days from 01/11 lands on 21/12, while the spec row says 20/12', () => {
+    const points = [
+      { id: 1, at: '2026-10-02T08:00', kg: 370, basis: 'MEASURED' as const },
+      { id: 2, at: '2026-11-01T08:00', kg: 400, basis: 'MEASURED' as const },
+    ]
+
+    expect(finishingProjection(points, 450, '2026-11-01T08:00')).toMatchObject({
+      state: 'PROJECTED', targetKg: 450, missingKg: 50, adg60: 1, days: 50, projectedDate: '2026-12-21',
+    })
+  })
+
+  it('TC-08-10/11: calculates 90-day ADG and suppresses ADG when the only gap is 10 days', () => {
+    const points = [
+      { id: 1, at: '2026-10-01T08:00', kg: 300, basis: 'MEASURED' as const },
+      { id: 2, at: '2026-10-31T08:00', kg: 330, basis: 'MEASURED' as const },
+    ]
+    expect(adgForWindow(points, 90, '2026-11-05T12:00')).toBe(1)
+    expect(adgForWindow([
+      { id: 3, at: '2026-10-26T08:00', kg: 300, basis: 'MEASURED' as const },
+      { id: 4, at: '2026-11-05T08:00', kg: 310, basis: 'MEASURED' as const },
+    ], 90, '2026-11-05T12:00')).toBeUndefined()
+  })
+
   it('tính từ lần cân hợp lệ đầu tiên tới cân mục tiêu, bỏ bản ghi đã loại trừ và lần chỉ chấm BCS', () => {
     const records = [
       record(4, '2026-10-10T07:20', 318, { method: 'TAPE', basis: 'ESTIMATED' }),

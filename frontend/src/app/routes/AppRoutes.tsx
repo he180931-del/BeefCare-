@@ -4,7 +4,7 @@ import { loadImportDetailPage, loadImportListPage, loadImportNewPage } from '../
 import { loadExportDetailPage, loadExportListPage, loadExportNewPage } from '../../features/herd-exit/routes'
 import { loadCowListPage, loadCowProfilePage, loadScanQrPage, loadTechnicianCattleRoutes } from '../../features/cattle/routes'
 import { loadPenListPage } from '../../features/pen-management/routes'
-import { loadFeedCataloguePage, loadFeedConsumptionReportPage, loadFeedFeedingPage, loadFeedRationFormPage, loadFeedRationPage, loadFeedReceiptFormPage, loadFeedReceiptPage, loadFeedStockAdjustmentFormPage, loadFeedStockAdjustmentPage, loadFeedStockPage, loadFeedTodayRationsPage } from '../../features/feed-stock/routes'
+import { loadFeedCataloguePage, loadFeedConsumptionReportPage, loadFeedFeedingPage, loadFeedFeedingPrintPage, loadFeedRationFormPage, loadFeedRationPage, loadFeedRationPrintPage, loadFeedReceiptFormPage, loadFeedReceiptPage, loadFeedStockAdjustmentFormPage, loadFeedStockAdjustmentPage, loadFeedStockPage, loadFeedTodayRationsPage } from '../../features/feed-stock/routes'
 import { loadCalvingPage, loadReproductionWorklistPage, loadTechnicianReproductionPage } from '../../features/reproduction/routes'
 import { loadAcceptInvitationPage, loadFarmInformationPage, loadFarmRegistrationPage, loadFarmSelectPage, loadInvitationsPage, loadMembersPage, loadOwnerRegistrationPage } from '../../features/farm-workspace/routes'
 import { loadFarmDashboardPage, loadManagementReportPage, loadRemindersPage, loadTechnicianHomePage, loadTechnicianRemindersPage } from '../../features/farm-overview/routes'
@@ -43,7 +43,9 @@ const FeedStockAdjustments = lazy(loadFeedStockAdjustmentPage)
 const FeedStockAdjustmentForm = lazy(loadFeedStockAdjustmentFormPage)
 const FeedRations = lazy(loadFeedRationPage)
 const FeedRationForm = lazy(loadFeedRationFormPage)
+const FeedRationPrint = lazy(loadFeedRationPrintPage)
 const FeedFeeding = lazy(loadFeedFeedingPage)
+const FeedFeedingPrint = lazy(loadFeedFeedingPrintPage)
 const FeedCatalogue = lazy(loadFeedCataloguePage)
 const FeedConsumptionReport = lazy(loadFeedConsumptionReportPage)
 const FeedTodayRations = lazy(loadFeedTodayRationsPage)
@@ -140,7 +142,9 @@ export default function AppRoutes() {
         <Route path="/thuc-an/khau-phan" element={desk(<FeedRations />)} />
         <Route path="/thuc-an/khau-phan/moi" element={desk(<FeedRationForm />)} />
         <Route path="/thuc-an/khau-phan/:id" element={desk(<FeedRationForm />)} />
+        <Route path="/thuc-an/khau-phan/:id/in" element={desk(<FeedRationPrint />)} />
         <Route path="/thuc-an/nhat-ky" element={farmMember(<FeedFeeding />)} />
+        <Route path="/thuc-an/nhat-ky/in" element={farmMember(<FeedFeedingPrint />)} />
         <Route path="/thuc-an/danh-muc" element={desk(<FeedCatalogue />)} />
         <Route path="/thuc-an/bao-cao" element={desk(<FeedConsumptionReport />)} />
         <Route path="/danh-muc/*" element={farmMember(<Catalogue />)} />

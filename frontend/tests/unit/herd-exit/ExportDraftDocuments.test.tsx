@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -205,6 +205,26 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     expect(screen.getAllByText('32.800.000')).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
     expect(screen.getAllByText('80.000')).toHaveLength(2)
+  })
+
+  it('TC-13-15: calculates 450 kg at 70,000, then applies deduction and deposit', async () => {
+    apiState.exports = [{ id: existingDraft.id, date: existingDraft.date, type: existingDraft.type, status: 'Nháp' }]
+    apiState.hydrated = { ...structuredClone(existingDraft), draft: { ...structuredClone(existingDraft.draft), pricing: 'kg' } }
+    const user = userEvent.setup()
+    renderPage('/herd-exit/new?id=PX-2026-0061')
+    await screen.findByText('1. Thông tin phiếu')
+
+    const cowRow = screen.getByText('BC-000301').closest('tr')!
+    fireEvent.change(within(cowRow).getByLabelText('Cân xuất BC-000301'), { target: { value: '450' } })
+    fireEvent.change(cowRow.querySelectorAll('input')[1], { target: { value: '70.000' } })
+    const deductionField = screen.getByText('Khấu trừ (hao hụt, môi giới)').parentElement!.querySelector('input')!
+    const depositField = screen.getByText('Đã thu (đặt cọc)').parentElement!.querySelector('input')!
+    fireEvent.change(deductionField, { target: { value: '500.000' } })
+    fireEvent.change(depositField, { target: { value: '10.000.000' } })
+
+    expect(within(cowRow).getByText('31.500.000')).toBeInTheDocument()
+    expect(screen.getAllByText('Tổng phải thu').some((label) => label.parentElement?.textContent?.includes('31.000.000'))).toBe(true)
+    expect(screen.getByText('Còn phải thu').parentElement).toHaveTextContent('21.000.000')
   })
 
   it('keeps the hydrated draft visible when document upload fails', async () => {

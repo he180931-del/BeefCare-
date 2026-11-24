@@ -12847,6 +12847,15 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "farmId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Farm owning a PAYMENT target; null for other target types"
+          },
           "createdTime" : {
             "type" : "string",
             "format" : "date-time"

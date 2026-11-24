@@ -59,6 +59,20 @@ it('chặn lưu ngay trong popup khi cân nhập theo kg không hợp lệ', asy
   expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument()
 })
 
+it.each([
+  ['tuổi 0 tháng', { dob: '2026-10' }],
+  ['tuổi 241 tháng', { dob: '2006-09' }],
+  ['cân 1.501 kg', { weight: 1501 }],
+  ['số tai 31 ký tự', { tag: 'T'.repeat(31) }],
+] as const)('TC-06-18: blocks saving the specified invalid %s value', async (_label, patch) => {
+  const user = userEvent.setup()
+  const onSave = renderModal({ ...completeCow, ...patch })
+
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+
+  expect(onSave).not.toHaveBeenCalled()
+})
+
 it('chặn lưu ngay trong popup khi chưa chọn chuồng nhận', async () => {
   const user = userEvent.setup()
   const onSave = renderModal({ ...completeCow, barn: '' })

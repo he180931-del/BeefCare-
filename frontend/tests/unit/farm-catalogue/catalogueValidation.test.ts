@@ -31,6 +31,13 @@ describe('catalogue item rules', () => {
     `)
   })
 
+  it('TC-18-02/03: requires uppercase breed codes from 2 to 20 characters', () => {
+    const base = { name: 'Lai Sind', group: 'Bò thịt', description: '' }
+    expect(validateBreed({ ...base, code: 'lai-sind' } as Breed).code).toBe('Mã giống gồm 2–20 ký tự: chữ in hoa, số và "-".')
+    expect(validateBreed({ ...base, code: 'A' } as Breed).code).toBe('Mã giống gồm 2–20 ký tự: chữ in hoa, số và "-".')
+    expect(validateBreed({ ...base, code: 'A'.repeat(21) } as Breed).code).toBe('Mã giống gồm 2–20 ký tự: chữ in hoa, số và "-".')
+  })
+
   it('medicine', () => {
     expect(validateMedicine({ code: 'TH01', name: 'Oxytetracycline', dose: '10 ml', route: 'INTRAMUSCULAR', withdrawalDays: 28, description: '' } as Medicine)).toMatchInlineSnapshot(`{}`)
     expect(validateMedicine({ code: '', name: 'x'.repeat(151), dose: '', route: 'NASAL_SPRAY', withdrawalDays: 366, description: '' } as unknown as Medicine)).toMatchInlineSnapshot(`
@@ -65,6 +72,16 @@ describe('catalogue item rules', () => {
       }
     `)
   })
+
+  it('TC-18-13: rejects a vaccine with booster over 730 days and withdrawal over 365', () => {
+    expect(validateVaccine({ code: 'LMLM', name: 'LMLM', diseasePrevented: 'LMLM', manufacturer: 'Navetco', dose: '2 ml', route: 'SUBCUTANEOUS', boosterInterval: 731, withdrawalDays: 366 } as Vaccine))
+      .toEqual({ boosterInterval: 'Nhắc lại sau phải nằm trong khoảng 0 đến 730.', withdrawalDays: 'Ngưng sử dụng thịt phải nằm trong khoảng 0 đến 365.' })
+  })
+
+  it('TC-18-14: requires a medicine withdrawal period', () => {
+    expect(validateMedicine({ code: 'TH01', name: 'Oxytetracycline', dose: '10 ml', route: 'INTRAMUSCULAR', withdrawalDays: undefined, description: '' } as unknown as Medicine))
+      .toEqual({ withdrawalDays: 'Ngưng sử dụng thịt là bắt buộc.' })
+  })
 })
 
 describe('farm parameter rules', () => {
@@ -83,6 +100,14 @@ describe('farm parameter rules', () => {
         "weaningAgeMonths": "Tuổi cai sữa phải nằm trong khoảng 3 đến 12.",
       }
     `)
+  })
+
+  it('TC-18-18/19/20: checks upper weaning age and strict age/time ordering at the specified values', () => {
+    expect(validateParameters(values({ weaningAgeMonths: 13 })).weaningAgeMonths).toBe('Tuổi cai sữa phải nằm trong khoảng 3 đến 12.')
+    expect(validateParameters(values({ weaningAgeMonths: 12, youngStockAgeMonths: 12 })).youngStockAgeMonths)
+      .toBe('Tuổi bò tơ phải lớn hơn tuổi cai sữa.')
+    expect(validateParameters(values({ windowStartHours: 12, windowEndHours: 10 })).windowEndHours)
+      .toBe('Giờ kết thúc phải lớn hơn giờ bắt đầu.')
   })
 
   it('needs a source note and an effective date from today', () => {

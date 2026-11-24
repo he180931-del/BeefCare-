@@ -47,6 +47,15 @@ describe('calving rules (GBR-57, GBR-58, MSG-FE12-06/07/08, MSG-FE05-12)', () =>
     expect(calvingIssues(command([{ ...live, weightKg: 81 }]), context)[0]).toMatchObject({ field: 'weight' })
   })
 
+  it('TC-12-12: reports out-of-range live-calf weights and missing weight basis', () => {
+    for (const weightKg of [0.5, 80.1]) {
+      expect(calvingIssues(command([{ ...live, weightKg }]), context)[0])
+        .toMatchObject({ field: 'weight', message: 'Bê số 1: cân nặng phải từ 1 đến 80 kg.' })
+    }
+    expect(calvingIssues(command([{ ...live, weightKg: 25, weightBasis: null }]), context)[0])
+      .toMatchObject({ field: 'weightBasis', message: 'Bê số 1: chọn cơ sở cân.' })
+  })
+
   it('refuses a SIRE purpose for a female calf and a BREEDING purpose for a male calf', () => {
     expect(calvingIssues(command([{ ...live, sex: 'FEMALE', productionPurpose: 'SIRE' }]), context)[0]).toMatchObject({ calf: 0, field: 'purpose' })
     expect(calvingIssues(command([{ ...live, sex: 'MALE', productionPurpose: 'BREEDING' }]), context)[0]).toMatchObject({ calf: 0, field: 'purpose' })
@@ -80,5 +89,6 @@ describe('breeding eligibility and expected date', () => {
 
   it('adds the 283 day gestation length to a breeding time', () => {
     expect(expectedCalvingDate('2026-10-20T15:10')).toBe('2027-07-30T15:10')
+    expect(expectedCalvingDate('2026-11-01T09:00')).toBe('2027-08-11T09:00')
   })
 })

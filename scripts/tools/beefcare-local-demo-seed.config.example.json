@@ -1,0 +1,4 @@
+{
+  "obsolete": true,
+  "reason": "Do not use. The actual helper has fixed routes from FeedManagementResource."
+}

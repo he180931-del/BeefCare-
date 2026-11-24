@@ -33,7 +33,7 @@ export type FeedConsumptionBackendReport = {
   rows: FeedConsumptionReportGroupedRow[]
   total: FeedConsumptionReportTotal
   costByFeed: FeedConsumptionReportCostByFeed[]
-  adjustmentLosses: { kg: number; value: number }
+  adjustmentLosses: { kg: number | null; value: number | null }
   rawRows: FeedConsumptionBackendRow[]
   adjustmentLossKg: number | null
   adjustmentLossValue: number | null
@@ -84,6 +84,7 @@ export type FeedConsumptionServerRow = {
   totalCost: number
   averageCostPerHeadDay: number
   varianceRatio: number | null
+  notes?: string[]
 }
 
 export type FeedConsumptionSupportingData = {

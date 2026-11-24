@@ -52,6 +52,9 @@ describe('UC-FE03-06 popup (D30)', () => {
   it('confirms a reactivation with the current role and farm', async () => {
     open(inactive)
     expect(screen.getByRole('dialog', { name: 'Kích hoạt lại thành viên' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kích hoạt lại' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Đổi vai trò' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Vai trò mới *')).not.toBeInTheDocument()
     // Shown as wrapping text, not a one-line read-only input that cuts the role and status off on phones.
     const memberInfo = screen.getByLabelText('Thành viên')
     expect(memberInfo.tagName).not.toBe('INPUT')

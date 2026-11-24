@@ -116,6 +116,21 @@ public class FarmAnnouncementService {
     }
 
     @Transactional(readOnly = true)
+    public AnnouncementView get(Long farmId, Long id) {
+        FarmContext context = access.require(farmId, FarmAction.VIEW_ANNOUNCEMENTS);
+        FarmMembership member = membership(farmId, context.user().getId());
+        FarmAnnouncement announcement = load(farmId, id);
+        boolean author = announcement.getAuthor().getId().equals(member.getId());
+        if (
+            !author &&
+            ("DRAFT".equals(announcement.getState()) || !recipients.existsByVersion_Announcement_IdAndMembership_Id(id, member.getId()))
+        ) {
+            throw DomainException.notFound(MessageCodes.COM_08);
+        }
+        return view(announcement, author, member);
+    }
+
+    @Transactional(readOnly = true)
     public PublishPreview previewPublish(Long farmId, Long id) {
         FarmContext context = access.require(farmId, FarmAction.MANAGE_ANNOUNCEMENTS);
         FarmMembership author = membership(farmId, context.user().getId());

@@ -188,6 +188,22 @@ Nếu tiến trình bị kill cưỡng bức hoặc máy mất điện, shutdown
 
 Đặt `BEEFCARE_LOCAL_RUNTIME_CATTLE_ENABLED=false` rồi khởi động lại để tắt việc tạo demo; tài khoản local vẫn được seed. Tính năng không chạy ngoài profile `local`, và luôn tắt nếu có profile `prod`. Mã QR/mã bò đã thuộc dữ liệu khác sẽ báo lỗi, không ghi đè. Riêng bản ghi thử cũ đúng cặp `BC-000001` / `QR-CAMERA-TEST` gắn với QR mẫu ở trại A được nhận lại và chuyển thành dữ liệu tạm.
 
+### Seed demo FE-07 / FE-14 / FE-15 / FE-23
+
+Sau khi backend `dev,local` đã sẵn sàng, chạy preflight khô (mặc định không ghi)
+từ gốc repo:
+
+```powershell
+$env:BEEFCARE_DEV_PASSWORD = '<giá trị local trong .env>'
+pwsh -NoProfile -File scripts/tools/beefcare-local-demo-seed-v1.ps1
+pwsh -NoProfile -File scripts/tools/beefcare-local-demo-seed-v1.ps1 -Apply
+```
+
+Đọc kế hoạch và readback đã làm sạch trước khi dùng lệnh `-Apply` để ghi dữ liệu.
+Có thể đổi `-BaseUrl`, `-FarmName` hoặc truyền `-FarmId`; script tự khám phá
+trại theo phiên đăng nhập. Không đưa mật khẩu vào lệnh đã lưu, log hoặc Git.
+Chi tiết sentinel và các tình huống được seed: [docs/local-demo-seed.md](local-demo-seed.md).
+
 ## 6. Email
 
 **Local.** Profile `local` chọn adapter SMTP gửi tới Mailpit (`localhost:1025`); xem thư tại <http://localhost:8025>. Mailpit giữ thư tại máy, không gửi ra ngoài. Dùng nó để xem các mẫu tiếng Việt: xác thực, đặt lại mật khẩu, lời mời vào trại, thông báo, kể cả bản plain-text và thời hạn link. Profile `dev` và `testh2` không có `local` dùng `MockEmailDelivery` trong bộ nhớ, trừ khi đặt `beefcare.email.provider=smtp`. Hộp thư local không có API.
@@ -235,3 +251,8 @@ Google OIDC, SMTP thật và SePay LIVE chưa được cấu hình và kiểm th
 | Backend báo thiếu property khi khởi động | Chạy đủ profile `dev,local`, không chạy riêng `local`. |
 | Frontend báo không kết nối được máy chủ hoặc không gọi được API | Kiểm backend bằng `/management/health` ở mục 3; request phải bắt đầu bằng `/api`; proxy trong `frontend/vite.config.js` trỏ `127.0.0.1:8080`; frontend và backend dùng cùng hostname. |
 | Build lỗi do dependency | Xóa `frontend/node_modules` rồi chạy lại `npm ci` và `npm run build`. Lệnh xóa: macOS/Linux `rm -rf node_modules`; PowerShell `Remove-Item -Recurse -Force node_modules`; Command Prompt `rmdir /s /q node_modules`. |
+# Windows agent and 9Router workflow
+
+For Codex agent shell provisioning, 9Router, Agent Follow, GitNexus on the
+Vietnamese Windows path, and focused frontend verification, use
+[Windows agent workflow](agent-context/WINDOWS_AGENT_WORKFLOW.md).

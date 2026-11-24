@@ -5,19 +5,26 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentState;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentRecordStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.ProfileFieldGroup;
+import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
 import vn.edu.fpt.beefcare.repository.*;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.*;
 
@@ -88,6 +95,49 @@ public class FeedManagementService {
         FeedItem f=new FeedItem();f.setFarm(ctx.farm());f.setCode(code);f.setName(request.name().trim());f.setFeedGroup(normalizeFeedGroup(request.feedGroup()));f.setNutritionNote(trim(request.nutritionNote()));f.setPurchaseUnit(trim(request.purchaseUnit()));f.setKgPerPurchaseUnit(request.kgPerPurchaseUnit());f.setMinimumStockKg(request.minimumStockKg());f.setAvailable(request.available());f.setStockUnit("kg");f.setOnHandKg(BigDecimal.ZERO.setScale(3));f.setAvgUnitCost(BigDecimal.ZERO.setScale(2));FeedItem saved=feeds.saveAndFlush(f);
         outbox.enqueue(farmId,"FEED_ITEM_CREATED","FeedItem",saved.getId(),Map.of("feedItemId",saved.getId()));return feedView(saved);
     }
+
+    /** Resolves inclusive daily occupancy in one assignment/history batch. */
+    private OccupancySnapshot occupancySnapshot(Long farmId,LocalDate from,LocalDate to,String groupBy,List<FeedingRecord> feeding){
+        TypedQuery<PenAssignment> assignmentQuery=entityManager.createQuery("select a from PenAssignment a join fetch a.cattle join fetch a.pen where a.farm.id=:farm and a.fromDate<=:to and (a.toDate is null or a.toDate>=:from)",PenAssignment.class);
+        if(assignmentQuery==null)return occupancyFromFeeding(feeding);
+        List<PenAssignment> assignmentRows=assignmentQuery.setParameter("farm",farmId).setParameter("from",from).setParameter("to",to).getResultList();
+        if(assignmentRows==null||assignmentRows.isEmpty())return OccupancySnapshot.empty();
+            Set<Long> cattleIds=assignmentRows.stream().map(a->a.getCattle().getId()).filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long,List<CattleProfileChange>> historyByCattle=new HashMap<>();
+            if(!cattleIds.isEmpty()){
+                TypedQuery<CattleProfileChange> historyQuery=entityManager.createQuery("select h from CattleProfileChange h join fetch h.cattle where h.farm.id=:farm and h.cattle.id in :cattleIds and h.fieldGroup in :fields and h.effectiveDate<=:to order by h.cattle.id,h.fieldGroup,h.effectiveDate,h.id",CattleProfileChange.class);
+                if(historyQuery!=null)for(CattleProfileChange change:historyQuery.setParameter("farm",farmId).setParameter("cattleIds",cattleIds).setParameter("fields",List.of(ProfileFieldGroup.PURPOSE,ProfileFieldGroup.LIFE_STAGE)).setParameter("to",to).getResultList())historyByCattle.computeIfAbsent(change.getCattle().getId(),ignored->new ArrayList<>()).add(change);
+            }
+            Map<Long,ProductionPurpose> purposesById=new HashMap<>();
+            TypedQuery<ProductionPurpose> purposeQuery=entityManager.createQuery("select p from ProductionPurpose p where p.farm.id=:farm",ProductionPurpose.class);
+            if(purposeQuery!=null)for(ProductionPurpose purpose:purposeQuery.setParameter("farm",farmId).getResultList())purposesById.put(purpose.getId(),purpose);
+            Map<LocalDate,Map<Long,PenAssignment>> occupancyByDay=new LinkedHashMap<>();
+            for(LocalDate day=from;!day.isAfter(to);day=day.plusDays(1))occupancyByDay.put(day,new LinkedHashMap<>());
+            for(PenAssignment assignment:assignmentRows){
+                LocalDate start=assignment.getFromDate().isAfter(from)?assignment.getFromDate():from;LocalDate end=assignment.getToDate()==null||assignment.getToDate().isAfter(to)?to:assignment.getToDate();
+                for(LocalDate day=start;!day.isAfter(end);day=day.plusDays(1)){Map<Long,PenAssignment> byCattle=occupancyByDay.get(day);Long cattleId=assignment.getCattle().getId();PenAssignment current=byCattle.get(cattleId);if(current==null||assignmentPrecedes(current,assignment))byCattle.put(cattleId,assignment);}
+            }
+            Map<String,Long> penHeadDays=new LinkedHashMap<>(),groupHeadDays=new LinkedHashMap<>();long total=0;
+            for(Map.Entry<LocalDate,Map<Long,PenAssignment>> dayEntry:occupancyByDay.entrySet())for(PenAssignment assignment:dayEntry.getValue().values()){
+                total++;penHeadDays.merge(assignment.getPen().getCode(),1L,Long::sum);String group=historicalHerdGroup(assignment.getCattle(),dayEntry.getKey(),historyByCattle.get(assignment.getCattle().getId()),purposesById);groupHeadDays.merge(group,1L,Long::sum);
+            }
+            return new OccupancySnapshot(total,penHeadDays,groupHeadDays);
+    }
+
+    private OccupancySnapshot occupancyFromFeeding(List<FeedingRecord> feeding){Map<String,Long> penHeadDays=new LinkedHashMap<>(),groupHeadDays=new LinkedHashMap<>();Set<String> seen=new HashSet<>();long total=0;for(FeedingRecord record:feeding)if("VALID".equals(record.getStatus())){String dayPen=record.getFeedingDate()+"|"+record.getPen().getId();if(seen.add(dayPen)){long heads=record.getHeadCount()==null?0L:record.getHeadCount().longValue();total+=heads;penHeadDays.merge(record.getPen().getCode(),heads,Long::sum);String group=record.getRationVersion()==null?"Unknown":record.getRationVersion().getHerdGroup();groupHeadDays.merge(group,heads,Long::sum);}}return new OccupancySnapshot(total,penHeadDays,groupHeadDays);}
+
+    private boolean assignmentPrecedes(PenAssignment older,PenAssignment newer){int date=older.getFromDate().compareTo(newer.getFromDate());if(date!=0)return date<0;if(older.getId()==null)return newer.getId()!=null;if(newer.getId()==null)return false;return older.getId()<newer.getId();}
+
+    private String historicalHerdGroup(Cattle cattle,LocalDate day,List<CattleProfileChange> changes,Map<Long,ProductionPurpose> purposesById){
+        List<CattleProfileChange> lifeChanges=new ArrayList<>(),purposeChanges=new ArrayList<>();if(changes!=null)for(CattleProfileChange change:changes){if(change.getFieldGroup()==ProfileFieldGroup.LIFE_STAGE)lifeChanges.add(change);else if(change.getFieldGroup()==ProfileFieldGroup.PURPOSE)purposeChanges.add(change);}
+        String stageName=profileValueAtHistory(lifeChanges,day,cattle.getLifeStage()==null?null:cattle.getLifeStage().name());LifeStage stage;try{stage=stageName==null?cattle.getLifeStage():LifeStage.valueOf(stageName);}catch(IllegalArgumentException ignored){stage=cattle.getLifeStage();}
+        String purposeId=profileValueAtHistory(purposeChanges,day,cattle.getPurpose()==null?null:Objects.toString(cattle.getPurpose().getId()));ProductionPurpose purpose=null;try{if(purposeId!=null)purpose=purposesById.get(Long.valueOf(purposeId));}catch(NumberFormatException ignored){}
+        PurposeType type=purpose==null?(cattle.getPurpose()==null?null:cattle.getPurpose().getPurposeType()):purpose.getPurposeType();if(stage==LifeStage.UNWEANED_CALF||stage==LifeStage.WEANED_CALF)return "CALVES";if(type==PurposeType.FATTENING)return "FATTENING";if(type==PurposeType.SIRE)return "BREEDING_BULLS";if(type==PurposeType.BREEDING&&cattle.getSex()==vn.edu.fpt.beefcare.domain.enumeration.Sex.FEMALE&&stage==LifeStage.ADULT)return "BREEDING_FEMALES";if(stage==LifeStage.YOUNG_STOCK)return "YOUNG_STOCK";return "OTHER";
+    }
+
+    private String profileValueAtHistory(List<CattleProfileChange> changes,LocalDate day,String current){if(changes==null||changes.isEmpty())return current;String value=Objects.toString(changes.get(0).getOldValue(),current);for(CattleProfileChange change:changes){if(change.getEffectiveDate().isAfter(day))break;value=change.getNewValue();}return value;}
+
+    private record OccupancySnapshot(long totalHeadDays,Map<String,Long> penHeadDays,Map<String,Long> groupHeadDays){static OccupancySnapshot empty(){return new OccupancySnapshot(0L,Map.of(),Map.of());}long headDaysFor(String groupBy,String label){return "FEED".equals(groupBy)?totalHeadDays:("PEN".equals(groupBy)?penHeadDays.getOrDefault(label,0L):groupHeadDays.getOrDefault(label,0L));}}
 
     @Transactional
     public FeedItemView updateFeedItem(Long farmId,Long feedId,FeedItemRequest request){
@@ -676,27 +726,21 @@ public class FeedManagementService {
     @Transactional(readOnly=true)
     public ConsumptionReport consumptionReport(Long farmId,ConsumptionReportRequest request){
         access.require(farmId,FarmAction.MANAGE_FEED);if(request.from().isAfter(request.to()))throw DomainException.invalid("period");if(request.from().plusMonths(24).isBefore(request.to()))throw DomainException.unprocessable(MessageCodes.COM_10,"field","period","maximumMonths",24);
+        List<FeedingRecord> feeding=feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to());
+        long periodDays=java.time.temporal.ChronoUnit.DAYS.between(request.from(),request.to())+1;
+        OccupancySnapshot occupancy=occupancySnapshot(farmId,request.from(),request.to(),request.groupBy(),feeding);
         record Key(Long penId,String herdGroup,Long feedId){}
         record Aggregate(Pen pen,String herdGroup,FeedItem feed,BigDecimal[] kg,long[] cost){}
         java.util.Map<Key,Aggregate> values=new java.util.LinkedHashMap<>();
-        for(FeedingRecord record:feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to()))if("VALID".equals(record.getStatus())){
+        for(FeedingRecord record:feeding)if("VALID".equals(record.getStatus())){
             String group=record.getRationVersion()==null?"Unknown":record.getRationVersion().getHerdGroup();
             for(FeedingRecordLine line:feedingLines.findByFeedingRecord_Id(record.getId())){Key key=new Key(record.getPen().getId(),group,line.getFeedItem().getId());Aggregate agg=values.computeIfAbsent(key,k->new Aggregate(record.getPen(),group,line.getFeedItem(),new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO},new long[]{0L}));agg.kg()[0]=agg.kg()[0].add(line.getPlannedKg());agg.kg()[1]=agg.kg()[1].add(line.getActualKg());agg.cost()[0]=Math.addExact(agg.cost()[0],line.getTotalCost());}
         }
         List<ConsumptionRow> rawRows=values.values().stream().map(a->{BigDecimal variance=a.kg()[0].signum()==0?null:a.kg()[1].subtract(a.kg()[0]).divide(a.kg()[0],4,RoundingMode.HALF_UP);return new ConsumptionRow(a.pen().getId(),a.pen().getCode(),a.herdGroup(),a.feed().getId(),a.feed().getCode(),a.kg()[0],a.kg()[1],variance,a.cost()[0]);}).toList();
-        record GroupAggregate(String label,BigDecimal planned,BigDecimal actual,long cost,long headCount,long headDays,long days) {}
         java.util.Map<String,BigDecimal[]> grouped=new java.util.LinkedHashMap<>();
         java.util.Map<String,Long> groupedCost=new java.util.LinkedHashMap<>();
-        // Keep the head-count snapshot for each group/pen/day.  The report's
-        // denominator is head-days (not the number of pen-days): a pen with 20
-        // head contributes 20 to the denominator even when it has several
-        // feeding sessions or feed lines on that day.
-        java.util.Map<String,java.util.Map<String,Long>> groupedHeadDays=new java.util.LinkedHashMap<>();
-        java.util.Map<String,Long> groupedHeads=new java.util.LinkedHashMap<>();
-        java.util.Map<String,java.util.Set<LocalDate>> groupedDates=new java.util.LinkedHashMap<>();
         java.util.Map<String,String> feedNames=new java.util.LinkedHashMap<>();
-        java.util.Set<String> seenHead=new java.util.HashSet<>();
-        for(FeedingRecord record:feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to())) if("VALID".equals(record.getStatus())) {
+        for(FeedingRecord record:feeding) if("VALID".equals(record.getStatus())) {
             String herd=record.getRationVersion()==null?"Unknown":record.getRationVersion().getHerdGroup();
             for(FeedingRecordLine line:feedingLines.findByFeedingRecord_Id(record.getId())) {
                 String label="HERD_GROUP".equals(request.groupBy())?herd:"PEN".equals(request.groupBy())?record.getPen().getCode():line.getFeedItem().getCode();
@@ -704,22 +748,16 @@ public class FeedManagementService {
                 BigDecimal[] totals=grouped.computeIfAbsent(key,k->new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO});
                 totals[0]=totals[0].add(line.getPlannedKg()); totals[1]=totals[1].add(line.getActualKg());
                 groupedCost.merge(key,line.getTotalCost(),Math::addExact); feedNames.putIfAbsent(line.getFeedItem().getCode(),line.getFeedItem().getName());
-                groupedDates.computeIfAbsent(key,k->new java.util.HashSet<>()).add(record.getFeedingDate());
-                String headKey=key+"|"+record.getFeedingDate()+"|"+record.getPen().getId();
-                if(seenHead.add(headKey)){
-                    long headCount=record.getHeadCount().longValue();
-                    groupedHeads.merge(key,headCount,Long::sum);
-                    groupedHeadDays.computeIfAbsent(key,k->new java.util.LinkedHashMap<>()).put(headKey,headCount);
-                }
             }
         }
-        List<ConsumptionReportGroupedRow> rows=grouped.entrySet().stream().map(entry->{String key=entry.getKey();BigDecimal[] totals=entry.getValue();long cost=groupedCost.getOrDefault(key,0L);long headDays=groupedHeadDays.getOrDefault(key,java.util.Map.of()).values().stream().mapToLong(Long::longValue).sum();long days=groupedDates.getOrDefault(key,java.util.Set.of()).size();BigDecimal avgHead=days==0?BigDecimal.ZERO:BigDecimal.valueOf(groupedHeads.getOrDefault(key,0L)).divide(BigDecimal.valueOf(days),2,RoundingMode.HALF_UP);BigDecimal kgPer=headDays==0?BigDecimal.ZERO:totals[1].divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPer=headDays==0?0L:BigDecimal.valueOf(cost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();BigDecimal variance=totals[0].signum()==0?null:totals[1].subtract(totals[0]).divide(totals[0],4,RoundingMode.HALF_UP);return new ConsumptionReportGroupedRow(key,avgHead,totals[1],kgPer,cost,costPer,variance,List.of());}).toList();
-        BigDecimal totalKg=rawRows.stream().map(ConsumptionRow::actualKg).reduce(BigDecimal.ZERO,BigDecimal::add);long totalCost=rawRows.stream().mapToLong(r->r.totalCost()==null?0L:r.totalCost()).sum();java.util.Set<LocalDate> dates=new java.util.HashSet<>();long headDays=0L;java.util.Set<String> headSeen=new java.util.HashSet<>();
-        for(FeedingRecord record:feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to())) if("VALID".equals(record.getStatus())) {dates.add(record.getFeedingDate());String k=record.getFeedingDate()+"|"+record.getPen().getId();if(headSeen.add(k))headDays+=record.getHeadCount();}
+        if("PEN".equals(request.groupBy()))occupancy.penHeadDays().keySet().forEach(label->grouped.putIfAbsent(label,new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO}));
+        if("HERD_GROUP".equals(request.groupBy()))occupancy.groupHeadDays().keySet().forEach(label->grouped.putIfAbsent(label,new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO}));
+        List<ConsumptionReportGroupedRow> rows=grouped.entrySet().stream().map(entry->{String key=entry.getKey();BigDecimal[] totals=entry.getValue();long cost=groupedCost.getOrDefault(key,0L);long headDays=occupancy.headDaysFor(request.groupBy(),key);BigDecimal avgHead=periodDays==0?BigDecimal.ZERO:BigDecimal.valueOf(headDays).divide(BigDecimal.valueOf(periodDays),2,RoundingMode.HALF_UP);BigDecimal kgPer=headDays==0?BigDecimal.ZERO:totals[1].divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPer=headDays==0?0L:BigDecimal.valueOf(cost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();BigDecimal variance=totals[0].signum()==0?null:totals[1].subtract(totals[0]).divide(totals[0],4,RoundingMode.HALF_UP);return new ConsumptionReportGroupedRow(key,avgHead,totals[1],kgPer,cost,costPer,variance,List.of());}).toList();
+        BigDecimal totalKg=rawRows.stream().map(ConsumptionRow::actualKg).reduce(BigDecimal.ZERO,BigDecimal::add);long totalCost=rawRows.stream().mapToLong(r->r.totalCost()==null?0L:r.totalCost()).sum();long headDays=occupancy.totalHeadDays();
         java.time.Instant from=request.from().atStartOfDay(clock.zone()).toInstant();java.time.Instant to=request.to().plusDays(1).atStartOfDay(clock.zone()).toInstant();
         List<FeedStockMovement> adjustment=movements.findByFarm_IdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(farmId,from,to).stream().filter(m->"STOCK_ADJUSTMENT".equals(m.getSourceType())&&m.getQuantityKg().signum()<0).toList();BigDecimal lossKg=adjustment.stream().map(m->m.getQuantityKg().negate()).reduce(BigDecimal.ZERO,BigDecimal::add);long lossValue=adjustment.stream().mapToLong(m->m.getQuantityKg().negate().multiply(m.getUnitCost()).setScale(0,RoundingMode.HALF_UP).longValue()).sum();
         BigDecimal receivedKg=BigDecimal.ZERO;long receiptCount=0L,receivedAmount=0L;for(FeedReceipt receipt:receipts.findByFarm_IdOrderByReceiptDateDescIdDesc(farmId))if("POSTED".equals(receipt.getStatus())&&!receipt.getReceiptDate().isBefore(request.from())&&!receipt.getReceiptDate().isAfter(request.to())){receiptCount++;receivedAmount+=receipt.getTotalPayable();receivedKg=receivedKg.add(lines.findByReceipt_IdOrderByIdAsc(receipt.getId()).stream().map(FeedReceiptLine::getKgReceived).reduce(BigDecimal.ZERO,BigDecimal::add));}
-        BigDecimal kgPerHead=headDays==0?BigDecimal.ZERO:totalKg.divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPerHead=headDays==0?0L:BigDecimal.valueOf(totalCost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();ConsumptionReportTile tile=new ConsumptionReportTile(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(dates.size()),BigDecimal.valueOf(headDays),receivedKg,receiptCount,receivedAmount);ConsumptionReportTotal total=new ConsumptionReportTotal(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(dates.size()),BigDecimal.valueOf(headDays));java.util.Map<String,BigDecimal[]> byFeed=new java.util.LinkedHashMap<>();for(ConsumptionRow row:rawRows){BigDecimal[] t=byFeed.computeIfAbsent(row.feedCode(),k->new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO});t[0]=t[0].add(row.actualKg());t[1]=t[1].add(BigDecimal.valueOf(row.totalCost()==null?0L:row.totalCost()));}List<ConsumptionReportCostByFeed> costByFeed=byFeed.entrySet().stream().map(e->new ConsumptionReportCostByFeed(e.getKey(),feedNames.getOrDefault(e.getKey(),e.getKey()),e.getValue()[0],e.getValue()[1].longValue())).toList();return new ConsumptionReport(request.from(),request.to(),request.groupBy(),tile,rows,total,costByFeed,new ConsumptionReportAdjustmentLosses(lossKg,lossValue),rawRows,lossKg,lossValue,clock.now());
+        BigDecimal kgPerHead=headDays==0?BigDecimal.ZERO:totalKg.divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPerHead=headDays==0?0L:BigDecimal.valueOf(totalCost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();ConsumptionReportTile tile=new ConsumptionReportTile(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(periodDays),BigDecimal.valueOf(headDays),receivedKg,receiptCount,receivedAmount);ConsumptionReportTotal total=new ConsumptionReportTotal(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(periodDays),BigDecimal.valueOf(headDays));java.util.Map<String,BigDecimal[]> byFeed=new java.util.LinkedHashMap<>();for(ConsumptionRow row:rawRows){BigDecimal[] t=byFeed.computeIfAbsent(row.feedCode(),k->new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO});t[0]=t[0].add(row.actualKg());t[1]=t[1].add(BigDecimal.valueOf(row.totalCost()==null?0L:row.totalCost()));}List<ConsumptionReportCostByFeed> costByFeed=byFeed.entrySet().stream().map(e->new ConsumptionReportCostByFeed(e.getKey(),feedNames.getOrDefault(e.getKey(),e.getKey()),e.getValue()[0],e.getValue()[1].longValue())).toList();return new ConsumptionReport(request.from(),request.to(),request.groupBy(),tile,rows,total,costByFeed,new ConsumptionReportAdjustmentLosses(lossKg,lossValue),rawRows,lossKg,lossValue,clock.now());
     }
 
     @Transactional

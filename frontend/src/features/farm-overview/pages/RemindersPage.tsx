@@ -135,7 +135,7 @@ export default function RemindersPage() {
             <span className="text-[11px] text-subtle">{visible.length} kết quả</span>
           </div>
           <div className="min-w-0 overflow-hidden rounded-2xl border border-field bg-white">
-            {groups.length === 0 ? <EmptyBlock title="Không có nhắc việc phù hợp" sub="Thử đổi bộ lọc hoặc chọn tab khác." /> : groups.map((g) => (
+            {groups.length === 0 ? <EmptyBlock title={items.length === 0 ? 'Chưa có nhắc việc trong dữ liệu hiện có' : 'Không có nhắc việc phù hợp'} sub={items.length === 0 ? 'Nhắc việc sắp tới chỉ hiển thị khi bắt đầu cửa sổ hiển thị đã cấu hình.' : 'Thử đổi bộ lọc hoặc chọn tab khác.'} /> : groups.map((g) => (
               <div key={g.key}>
                 <div className={`px-4 pb-1 pt-3 text-[10px] font-bold ${g.headCls}`}>{`${g.heading} · ${g.items.length}`}</div>
                 {g.items.map((item) => <ReminderRow key={item.id} item={item} today={today} timeZone={data.timeZone} onOpen={() => openDetail(item.id)} />)}

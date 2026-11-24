@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accessActionsOf, allowedAuditChange, auditActionLabel, auditActorQuery, auditChanges, auditRoleLabel, compareAccounts, defaultAuditRange, farmsJoinedText, formatNoticeTime, formatPlatformDate, formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateReason, verificationText } from '../../../src/features/platform-admin/domain/platformRules'
+import { accessActionsOf, allowedAuditChange, auditActionLabel, auditActorQuery, auditChanges, auditRoleLabel, compareAccounts, defaultAuditRange, farmsJoinedText, filterAccounts, formatNoticeTime, formatPlatformDate, formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateReason, verificationText } from '../../../src/features/platform-admin/domain/platformRules'
 import { validateAuditRange } from '../../../src/features/platform-admin/validation/platformValidation'
 import type { AccountListItem, AccountRecord } from '../../../src/features/platform-admin/types'
 
@@ -15,6 +15,8 @@ describe('platformRules', () => {
     expect(validateAuditRange({ from: '', to: '2026-10-18' })).toBe('Vui lòng nhập Khoảng thời gian.')
     expect(validateAuditRange({ from: '2026-10-18', to: '2026-10-11' })).toBe('Ngày bắt đầu không được sau ngày kết thúc.')
     expect(validateAuditRange({ from: '2025-10-17', to: '2026-10-18' })).toBe('Khoảng thời gian không hợp lệ.')
+    // Exact 13-month interval is outside the 12-month policy.
+    expect(validateAuditRange({ from: '2025-09-18', to: '2026-10-18' })).toBe('Khoảng thời gian không hợp lệ.')
     expect(validateAuditRange({ from: '2025-10-18', to: '2026-10-18' })).toBeNull()
     expect(validateAuditRange({ from: '2026-10-18', to: '2026-10-18' })).toBeNull()
     // LocalDate.plusMonths: 29/02 + 12 tháng = 28/02
@@ -79,6 +81,27 @@ describe('platformRules', () => {
     expect([row({ id: 2, email: 'b@x.vn' }), row({ id: 1, email: 'b@x.vn' }), row({ id: 3, email: 'a@x.vn' })].sort(compareAccounts).map((a) => a.id)).toEqual([3, 1, 2])
     expect(formatPlatformDateTime('2026-10-17T17:30:00Z')).toBe('18/10/2026 00:30')
     expect(formatPlatformDate('2026-10-17T17:30:00Z')).toBe('18/10/2026')
+  })
+
+  it('TC-03-75: filters status and ACTIVE platform roles, searches name/email literally, and ignores phone', () => {
+    const rows = [
+      { id: 1, fullName: 'Nguyễn Văn An', email: 'AN@EXAMPLE.TEST', accountStatus: 'ACTIVE', platformRole: 'CS', platformAccessStatus: 'ACTIVE' },
+      { id: 2, fullName: 'Nguyễn Bình', email: 'binh@example.test', accountStatus: 'SUSPENDED', platformRole: 'PM', platformAccessStatus: 'ACTIVE' },
+      { id: 3, fullName: 'Trần Chi', email: 'chi@example.test', accountStatus: 'ACTIVE', platformRole: 'SA', platformAccessStatus: 'ACTIVE' },
+      { id: 4, fullName: 'Lê Dũng', email: 'revoked@example.test', accountStatus: 'ACTIVE', platformRole: 'CS', platformAccessStatus: 'REVOKED' },
+      { id: 5, fullName: 'Chưa có tên', email: 'literal%under_score@example.test', accountStatus: 'ACTIVE', platformRole: null, platformAccessStatus: null },
+    ].map((row) => ({ emailVerified: true, farmCount: 0, farmRoles: [], phone: '0912345678', ...row } as AccountListItem))
+
+    expect(filterAccounts(rows, { status: 'ACTIVE', platformRole: 'CS' }).map((row) => row.id)).toEqual([1])
+    expect(filterAccounts(rows, { platformRole: 'PM' }).map((row) => row.id)).toEqual([2])
+    expect(filterAccounts(rows, { platformRole: 'SA' }).map((row) => row.id)).toEqual([3])
+    expect(filterAccounts(rows, { status: 'SUSPENDED' }).map((row) => row.id)).toEqual([2])
+    expect(filterAccounts(rows, { platformRole: 'NONE' }).map((row) => row.id)).toEqual([5, 4])
+    expect(filterAccounts(rows, { q: '  NGUYỄN ' }).map((row) => row.id)).toEqual([2, 1])
+    expect(filterAccounts(rows, { q: 'an@example' }).map((row) => row.id)).toEqual([1])
+    expect(filterAccounts(rows, { q: '0912345678' })).toEqual([])
+    expect(filterAccounts(rows, { q: '%' }).map((row) => row.id)).toEqual([5])
+    expect(filterAccounts(rows, { q: '_' }).map((row) => row.id)).toEqual([5])
   })
 
   it('thời gian thông báo tương đối', () => {
