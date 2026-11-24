@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   activateTableRow, activateTableRowByKey, Badge, ErrorBlock, Foot, Icon, interactiveRowClass, LoadingBlock, PageHeader, Pagination, Panel,
-  SearchInput, Select, Table, Td, Th,
+  SearchInput, Select, Table, Tabs, Td, Th,
 } from '../../../shared/ui'
 import { cx } from '../../../shared/ui/cx'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -11,19 +11,23 @@ import { useDemoState } from '../../../demo/demoModules'
 import { fmtDate, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, STATUS_LABEL } from '../domain/growthLabels'
 import { useGrowthHerd } from '../hooks/useGrowthUseCase'
-import type { GrowthFilters, GrowthHerdRow, GrowthHerdStatus, GrowthWindow } from '../types'
+import type { GrowthFilters, GrowthHerdFlag, GrowthHerdRow, GrowthWindow } from '../types'
 
 const TITLE = 'Tăng trưởng & BCS'
 
-const StatusBadge = ({ status }: { status: GrowthHerdStatus }) =>
-  status === 'NORMAL' ? <Badge tone="ok" icon="circle-check">{STATUS_LABEL[status]}</Badge>
-  : status === 'OVERDUE' ? <Badge tone="warn" icon="alert-triangle">{STATUS_LABEL[status]}</Badge>
-  : <Badge tone={status === 'LOW_BCS' ? 'err' : 'warn'}>{STATUS_LABEL[status]}</Badge>
+/** Tab lọc theo tình trạng (D74), theo thứ tự việc gấp; giá trị trùng cờ của API. */
+const TABS: { value: GrowthHerdFlag | ''; label: string }[] = [
+  { value: '', label: 'Tất cả' }, { value: 'WEIGHING_OVERDUE', label: 'Quá hạn cân' }, { value: 'LOW_BCS', label: 'BCS thấp' }, { value: 'LOW_ADG', label: 'ADG thấp' },
+]
+const FLAG_STATUS = { WEIGHING_OVERDUE: 'OVERDUE', LOW_ADG: 'LOW_ADG', LOW_BCS: 'LOW_BCS' } as const
 
-/** Vạch đầu dòng cùng màu với huy hiệu tình trạng: đỏ BCS thấp, vàng quá hạn cân / ADG thấp, không tô khi bình thường. */
-const STATUS_EDGE: Record<GrowthHerdStatus, string> = {
-  LOW_BCS: 'border-l-[#cc6b5c]', LOW_ADG: 'border-l-[#d6a34d]', OVERDUE: 'border-l-[#d6a34d]', NORMAL: 'border-l-transparent',
-}
+/** Đủ các cờ của con bò (một con có thể vừa quá hạn cân vừa BCS thấp); không có cờ nào là Bình thường. */
+const FlagBadges = ({ flags }: { flags: GrowthHerdFlag[] }) => flags.length === 0
+  ? <Badge tone="ok" icon="circle-check">{STATUS_LABEL.NORMAL}</Badge>
+  : <span className="flex flex-wrap gap-1">{flags.map((f) => <Badge key={f} tone={f === 'LOW_BCS' ? 'err' : 'warn'}>{STATUS_LABEL[FLAG_STATUS[f]]}</Badge>)}</span>
+
+/** Vạch đầu dòng: đỏ khi BCS thấp, vàng khi có cờ khác, không tô khi bình thường. */
+const edgeOf = (flags: GrowthHerdFlag[]) => flags.includes('LOW_BCS') ? 'border-l-[#cc6b5c]' : flags.length ? 'border-l-[#d6a34d]' : 'border-l-transparent'
 
 /**
  * Màn theo dõi tăng trưởng cấp đàn (SCR-23, D72) theo Bento như Sức khỏe / Sinh sản: hàng 3 khối (cần cân lại – nổi bật,
@@ -38,8 +42,9 @@ export default function GrowthHerdPage() {
   const [lifeStage, setStage] = useState('')
   const [windowDays, setWindow] = useState<GrowthWindow>(90)
   const [dir, setDir] = useState<'asc' | 'desc'>('desc')
+  const [flag, setFlag] = useState<GrowthHerdFlag | ''>('')
   const [page, setPage] = useState(1)
-  const filters: GrowthFilters = { q, penCode, herdGroup, lifeStage, windowDays, dir, page }
+  const filters: GrowthFilters = { q, penCode, herdGroup, lifeStage, windowDays, dir, flag: flag || undefined, page }
   const { options, herd } = useGrowthHerd(filters, demo)
   const { data, loading, error, refetch } = herd
   const change = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1) }
@@ -50,6 +55,8 @@ export default function GrowthHerdPage() {
   const { tiles, rows, total, size } = data
   const first = total === 0 ? 0 : (data.page - 1) * size + 1
   const attention = tiles.lowBcs + tiles.lowAdg > 0
+  const counts: Record<GrowthHerdFlag, number> = { WEIGHING_OVERDUE: tiles.overdue, LOW_BCS: tiles.lowBcs, LOW_ADG: tiles.lowAdg }
+  const view = (value: GrowthHerdFlag) => change(setFlag)(value)
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-5 leading-[normal]">
@@ -61,7 +68,8 @@ export default function GrowthHerdPage() {
               <div className="flex flex-col gap-1">
                 <p className="m-0 text-xs text-side-text">Cần cân lại</p>
                 <p className="m-0 flex items-baseline gap-3"><span className="text-[40px] font-bold leading-none">{tiles.overdue}</span>
-                  <span className="text-xs text-side-text">bò quá chu kỳ cân 30 ngày</span></p>
+                  <span className="flex-1 text-xs text-side-text">bò quá chu kỳ cân 30 ngày</span>
+                  {tiles.overdue > 0 && <button type="button" aria-label="Xem bò quá hạn cân" onClick={() => view('WEIGHING_OVERDUE')} className="cursor-pointer text-xs font-semibold text-white underline-offset-2 hover:underline">Xem</button>}</p>
               </div>
               <p className="m-0 rounded-xl bg-white/8 px-4 py-3 text-[13px] text-white"><strong>{tiles.weighings30}</strong> lượt cân trong 30 ngày qua</p>
             </Panel>
@@ -71,8 +79,8 @@ export default function GrowthHerdPage() {
                 {attention ? 'Cần chú ý' : 'Thể trạng ổn'}
               </p>
               <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13px]">
-                <AttentionLine value={tiles.lowBcs} text="bò BCS < 2,5 (lần đo gần nhất)" tone="err" />
-                <AttentionLine value={tiles.lowAdg} text={`bò ADG thấp hơn trung bình chuồng (${windowDays} ngày)`} tone="warn" />
+                <AttentionLine value={tiles.lowBcs} text="bò BCS < 2,5 (lần đo gần nhất)" tone="err" label="Xem bò BCS thấp" onView={() => view('LOW_BCS')} />
+                <AttentionLine value={tiles.lowAdg} text={`bò ADG thấp hơn trung bình chuồng (${windowDays} ngày)`} tone="warn" label="Xem bò ADG thấp" onView={() => view('LOW_ADG')} />
               </ul>
             </Panel>
             <Panel className="justify-between gap-1 @min-[1024px]:col-span-3">
@@ -84,7 +92,9 @@ export default function GrowthHerdPage() {
         </section>
 
         <Panel className="gap-0 overflow-hidden p-0!">
-          <div className="flex flex-wrap items-center gap-2.5 border-b border-rule px-4 py-4 @min-[1024px]:px-6">
+          <div className="flex flex-col gap-3 border-b border-rule px-4 pt-3 @min-[1024px]:px-6">
+            <Tabs value={flag} onChange={(value) => change(setFlag)(value as GrowthHerdFlag | '')} tabs={TABS.map((t) => ({ value: t.value, label: t.value ? `${t.label} (${counts[t.value]})` : t.label }))} />
+            <div className="flex flex-wrap items-center gap-2.5 pb-4">
             <SearchInput className="w-full sm:w-[240px]" aria-label="Tìm mã hiển thị, số tai" placeholder="Tìm mã hiển thị, số tai" value={q} onChange={(e) => change(setQ)(e.target.value)} />
             <Select className="w-full sm:w-[180px]" aria-label="Chuồng" value={penCode} onChange={(e) => change(setPen)(e.target.value)}>
               <option value="">Chuồng: Tất cả</option>
@@ -101,6 +111,7 @@ export default function GrowthHerdPage() {
             <Select className="w-full sm:w-[170px]" aria-label="Kỳ ADG" value={String(windowDays)} onChange={(e) => change(setWindow)(Number(e.target.value) as GrowthWindow)}>
               {[30, 90, 180].map((d) => <option key={d} value={d}>Kỳ ADG: {d} ngày</option>)}
             </Select>
+            </div>
           </div>
           {rows.length === 0 ? (
             // Trống nằm ngay trong khối danh sách, không lồng khung viền thứ hai.
@@ -134,12 +145,13 @@ export default function GrowthHerdPage() {
   )
 }
 
-/** Dòng trong khối cần chú ý; số 0 tô xám. */
-function AttentionLine({ value, text, tone }: { value: number; text: string; tone: 'err' | 'warn' }): ReactNode {
+/** Dòng trong khối cần chú ý; số 0 tô xám; "Xem" mở tab tương ứng (D74). */
+function AttentionLine({ value, text, tone, label, onView }: { value: number; text: string; tone: 'err' | 'warn'; label: string; onView: () => void }): ReactNode {
   return (
     <li className="flex items-center gap-2 border-t border-black/5 pt-2 first:border-t-0 first:pt-0">
       <strong className={cx('min-w-7 text-xl', value === 0 ? 'text-muted' : tone === 'err' ? 'text-err-fg' : 'text-warn-fg')}>{value}</strong>
       <span className={cx('flex-1', value === 0 ? 'text-muted' : 'text-ink')}>{text}</span>
+      {value > 0 && <button type="button" aria-label={label} onClick={onView} className="cursor-pointer text-xs font-semibold text-brand hover:underline">Xem</button>}
     </li>
   )
 }
@@ -149,7 +161,7 @@ function Row({ r, onOpen }: { r: GrowthHerdRow; onOpen: () => void }) {
     // Cả dòng mở tab Tăng trưởng & BCS của bò: nhận focus bằng Tab, Enter/Space như nhấn chuột (Bento §3).
     <tr tabIndex={0} aria-label={`Mở hồ sơ ${r.code}`} className={interactiveRowClass}
       onClick={(event) => activateTableRow(event, onOpen)} onKeyDown={(event) => activateTableRowByKey(event, onOpen)}>
-      <Td className={cx('border-l-4', STATUS_EDGE[r.status])}>
+      <Td className={cx('border-l-4', edgeOf(r.flags))}>
         <span className="font-medium">{r.name ? `${r.code} · ${r.name}` : r.code}</span>
         <span className="block text-[11px] text-muted">{[r.breed, r.sex, r.penName].filter(Boolean).join(' · ')}</span>
       </Td>
@@ -157,7 +169,7 @@ function Row({ r, onOpen }: { r: GrowthHerdRow; onOpen: () => void }) {
       <Td className="whitespace-nowrap">{r.weighedAt ? fmtDate(r.weighedAt) : '—'}</Td>
       <Td className="whitespace-nowrap">{r.adg === undefined ? '—' : `${fmtDec(r.adg, 2)} kg/ngày`}</Td>
       <Td>{r.bcs === undefined ? '—' : fmtDec(r.bcs)}</Td>
-      <Td><StatusBadge status={r.status} /></Td>
+      <Td><FlagBadges flags={r.flags} /></Td>
       <Td><Icon name="chevron-right" size={14} /></Td>
     </tr>
   )

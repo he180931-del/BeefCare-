@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.service.email;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -27,6 +28,7 @@ public class ResendEmailDelivery implements EmailDelivery {
     private final String from;
     private final String apiKey;
 
+    @Autowired
     public ResendEmailDelivery(@Value("${beefcare.email.resend.api-key:}") String apiKey, JHipsterProperties properties) {
         this(createClient(), properties.getMail().getFrom(), apiKey);
     }

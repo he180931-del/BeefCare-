@@ -83,9 +83,12 @@ export interface GrowthFilters {
   page?: number
   size?: number
   dir?: 'asc' | 'desc' // sắp xếp theo ngày cân
+  flag?: GrowthHerdFlag // D74: chỉ lấy bò có cờ này; trống là tất cả
 }
 
 export type GrowthHerdStatus = 'OVERDUE' | 'LOW_ADG' | 'LOW_BCS' | 'NORMAL'
+/** Cờ tình trạng của một con bò (một con có thể có nhiều cờ); trùng giá trị tham số `flag` của API (D74). */
+export type GrowthHerdFlag = 'WEIGHING_OVERDUE' | 'LOW_ADG' | 'LOW_BCS'
 
 export interface GrowthHerdRow {
   code: string
@@ -100,6 +103,7 @@ export interface GrowthHerdRow {
   adg?: number
   bcs?: number
   status: GrowthHerdStatus
+  flags: GrowthHerdFlag[]
 }
 
 export interface GrowthHerdPage {

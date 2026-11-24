@@ -38,6 +38,17 @@ describe('danh sách đàn /can-nang', () => {
     expect(await screen.findByText('Không có bò phù hợp')).toBeInTheDocument()
   })
 
+  it('D74: "Xem" ở khối cần chú ý mở tab BCS thấp; tab Tất cả bỏ lọc', async () => {
+    const user = userEvent.setup()
+    renderAs('OWNER', <GrowthRoutes />, '/')
+    await user.click(await screen.findByRole('button', { name: 'Xem bò BCS thấp' }))
+    expect(await screen.findByRole('row', { name: /^Mở hồ sơ BC-000087/ })).toBeInTheDocument()
+    const rows = screen.getAllByRole('row', { name: /^Mở hồ sơ / })
+    rows.forEach((row) => expect(within(row).getByText('BCS thấp')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Tất cả' }))
+    expect(await screen.findByText('BC-000188')).toBeInTheDocument()
+  })
+
   it('báo lỗi tải và cho thử lại', async () => {
     const spy = vi.spyOn(growthApi, 'listHerd').mockRejectedValueOnce(new Error('boom'))
     renderAs('OWNER', <GrowthRoutes />, '/')
