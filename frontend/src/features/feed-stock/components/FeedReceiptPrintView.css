@@ -1,0 +1,182 @@
+.feed-receipt-print-root {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 14mm 12mm;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .feed-receipt-print-root,
+  .feed-receipt-print-root * {
+    visibility: visible !important;
+  }
+
+  .feed-receipt-print-root {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    box-sizing: border-box;
+    color: #111827;
+    background: #fff;
+    font: 10pt/1.4 Arial, sans-serif;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .feed-receipt-print-root * {
+    box-sizing: border-box;
+  }
+
+  .feed-receipt-print-root h1,
+  .feed-receipt-print-root h2,
+  .feed-receipt-print-root h3,
+  .feed-receipt-print-root p,
+  .feed-receipt-print-root dl,
+  .feed-receipt-print-root figure {
+    margin: 0;
+  }
+
+  .feed-receipt-print-root h1 {
+    font-size: 17pt;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .feed-receipt-print-root h2 {
+    border-bottom: 1px solid #9ca3af;
+    font-size: 11pt;
+    margin: 14px 0 7px;
+    padding-bottom: 3px;
+    text-transform: uppercase;
+  }
+
+  .feed-receipt-print-root table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .feed-receipt-print-root th,
+  .feed-receipt-print-root td {
+    border: 1px solid #9ca3af;
+    overflow-wrap: anywhere;
+    padding: 5px 6px;
+    vertical-align: top;
+  }
+
+  .feed-receipt-print-root th {
+    background: #f3f4f6;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  .feed-receipt-print-root thead {
+    display: table-header-group;
+  }
+
+  .feed-receipt-print-root tr,
+  .feed-receipt-print-root .feed-receipt-print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .feed-receipt-print-root tfoot {
+    display: table-row-group;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-header {
+    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-farm {
+    font-size: 12pt;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-status {
+    border: 1px solid #374151;
+    font-size: 10pt;
+    font-weight: 700;
+    padding: 4px 8px;
+    text-align: center;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-status--draft {
+    border-style: dashed;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-status--voided {
+    border-width: 2px;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-meta,
+  .feed-receipt-print-root .feed-receipt-print-financial,
+  .feed-receipt-print-root .feed-receipt-print-audit {
+    display: grid;
+    gap: 5px 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-meta > div,
+  .feed-receipt-print-root .feed-receipt-print-financial > div,
+  .feed-receipt-print-root .feed-receipt-print-audit > div {
+    display: grid;
+    gap: 4px;
+    grid-template-columns: minmax(115px, auto) minmax(0, 1fr);
+  }
+
+  .feed-receipt-print-root dt {
+    font-weight: 700;
+  }
+
+  .feed-receipt-print-root dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-note {
+    margin-top: 6px;
+    white-space: pre-wrap;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-money {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-signatures {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 28px;
+    text-align: center;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-signature-line {
+    border-top: 1px solid #374151;
+    margin-top: 48px;
+    padding-top: 5px;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-muted {
+    color: #4b5563;
+  }
+
+  .feed-receipt-print-root .feed-receipt-print-void-reason {
+    border: 1px solid #9ca3af;
+    margin-top: 6px;
+    padding: 6px;
+  }
+}
