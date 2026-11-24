@@ -114,7 +114,7 @@ test('TC-08-API03: danh sách đàn gửi bộ lọc, đổi trang 1-based ↔ 0
     },
   })
   const api = createGrowthBackend({ farmId: 1, transport, clock })
-  const page = await api.listHerd({ q: ' 203 ', penCode: 'B1', herdGroup: 'FATTENING', lifeStage: 'ADULT', windowDays: 30, page: 2, dir: 'desc' })
+  const page = await api.listHerd({ q: ' 203 ', penCode: 'B1', herdGroup: 'FATTENING', lifeStage: 'ADULT', windowDays: 30, page: 2, dir: 'desc', flag: 'LOW_BCS' })
 
   const growthCall = calls.find((c) => c.path.startsWith('/api/farms/1/growth'))!
   const params = new URL(growthCall.path, 'http://x').searchParams
@@ -126,6 +126,7 @@ test('TC-08-API03: danh sách đàn gửi bộ lọc, đổi trang 1-based ↔ 0
   assert.equal(params.get('page'), '1')
   assert.equal(params.get('size'), '7')
   assert.equal(params.get('sort'), '-weighedOn')
+  assert.equal(params.get('flag'), 'LOW_BCS') // D74
 
   assert.equal(page.page, 2)
   assert.equal(page.total, 9)
@@ -135,6 +136,7 @@ test('TC-08-API03: danh sách đàn gửi bộ lọc, đổi trang 1-based ↔ 0
   assert.equal(page.rows[0].sex, 'Cái')
   assert.equal(page.rows[0].latestWeightKg, 420)
   assert.equal(page.rows[1].status, 'OVERDUE')
+  assert.deepEqual(page.rows[1].flags, ['WEIGHING_OVERDUE', 'LOW_BCS'])
   assert.equal(page.rows[1].latestWeightKg, undefined)
 })
 

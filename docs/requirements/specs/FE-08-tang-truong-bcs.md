@@ -113,6 +113,7 @@ SCR-29 (danh sách đàn, ô tổng hợp, lọc) → mở SCR-30 của một co
 | 1 | Search / Tìm | Ô chữ | Mã hiển thị hoặc số tai |
 | 2 | Pen, Herd group, Life stage / Chuồng, Nhóm đàn, Giai đoạn | Dropdown | — |
 | 3 | Period / Khoảng ADG | Chọn | 30 / 90 (mặc định) / 180 ngày |
+| 3a | Tabs / Tab tình trạng | Tab | Tất cả / Quá hạn cân (n) / BCS thấp (n) / ADG thấp (n); số trên tab không đổi khi đổi tab. Nút "Xem" ở khối chỉ số mở tab tương ứng (D74) |
 | 4 | Ô: Weighing overdue / Quá hạn cân | Số | Bò ACTIVE không có cân VALID trong chu kỳ cân (tham số, mặc định 30 ngày) |
 | 5 | Ô: ADG below pen average / ADG thấp hơn TB chuồng | Số | Bò có ADG < ADG trung bình của chuồng trong khoảng |
 | 6 | Ô: BCS below 2.5 / BCS dưới 2,5 | Số | BCS mới nhất < 2,5 |
@@ -123,7 +124,7 @@ SCR-29 (danh sách đàn, ô tổng hợp, lọc) → mở SCR-30 của một co
 | 11 | Weighed on / Ngày cân | Cột | Sắp xếp được |
 | 12 | ADG | Cột | kg/ngày theo khoảng đã chọn; "—" khi không tính được |
 | 13 | BCS | Cột | BCS gần nhất |
-| 14 | Status / Tình trạng | Huy hiệu | Quá hạn cân / ADG thấp / BCS thấp / Bình thường |
+| 14 | Status / Tình trạng | Huy hiệu | Đủ các cờ của bò: Quá hạn cân / ADG thấp / BCS thấp; không có cờ → Bình thường (D74) |
 | 15 | Open / Mở | Thao tác dòng | Mở SCR-30 |
 
 ### SCR-30 Tab Cân & BCS
@@ -186,7 +187,7 @@ Tên popup "Ghi nhận cân", không có dòng mô tả dưới tên; các ô kh
 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
-| A1 | Danh sách tăng trưởng đàn | `q?, penId?, herdGroup?, lifeStage?, windowDays (30\|90\|180), page, size, sort?` | `{tiles {weighingOverdue, adgBelowPenAverage, bcsBelow25, weighings30d}, items[{cattleId, displayCode, breed, sex, pen, latestWeight {kg, basis, date}, adg?, bcs?, status}], total}` | COM-03 | `GET /api/farms/{farmId}/growth` |
+| A1 | Danh sách tăng trưởng đàn | `q?, penId?, herdGroup?, lifeStage?, flag? (WEIGHING_OVERDUE\|LOW_ADG\|LOW_BCS, D74), windowDays (30\|90\|180), page, size, sort?` | `{tiles {weighingOverdue, adgBelowPenAverage, bcsBelow25, weighings30d}, items[{cattleId, displayCode, breed, sex, pen, latestWeight {kg, basis, date}, adg?, bcs?, status}], total}` | COM-03 | `GET /api/farms/{farmId}/growth` |
 | A2 | Tăng trưởng một con | `windowDays?` | `{latestWeight {kg, date, basis}, adg90, finishing {target?, projectedDate?, days?, reached, insufficient}, latestBcs {value, scale}, count, correctedCount, chart[{at, kg, basis}], history[{id, measuredAt, weightKg, method, girthCm?, lengthCm?, basis, bcs, adg?, measuredBy, status, corrected, version}], nextWeighingDue}` | COM-08 | `GET /api/farms/{farmId}/cattle/{cattleId}/growth` |
 | A3 | Ghi | `measuredAt, measuredById?, method?, girthCm?, lengthCm?, weightKg?, bcs?, note?, confirmLargeChange?` + `Idempotency-Key` | Bản ghi | FE08-02, FE08-03, FE08-04 (cần `confirmLargeChange`), COM-07, COM-15, COM-13, COM-17, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/growth` |
 | A4 | Sửa / xóa | `action: CORRECT\|EXCLUDE, values?, reason? (ghi chú tùy chọn ≤ 500, D43), expectedVersion` + `Idempotency-Key` | Bản ghi | FE08-02, FE08-03, COM-07, COM-10, COM-05, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/growth/{id}/correction` |
@@ -254,3 +255,4 @@ Tên popup "Ghi nhận cân", không có dòng mô tả dưới tên; các ô kh
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 22/11/2026 | 28/10/2026 | D43: tách Sửa / Xóa (xóa = loại trừ mềm), ghi chú không bắt buộc, popup Xóa lần đo, MSG-FE08-06; popup Ghi nhận cân bỏ "Ước lượng khác" và ô cơ sở; ADG ghi số ngày thực tế | Tuấn |
 | 24/11/2026 | 28/10/2026 | D72: danh sách tăng trưởng và tab hồ sơ theo Bento (khối Cần cân lại / Cần chú ý / Đang nuôi; khối Cân gần nhất cạnh biểu đồ); lịch sử đo bỏ cột Trạng thái | Tuấn |
+| 24/11/2026 | 28/10/2026 | D74: tab lọc theo tình trạng ở danh sách tăng trưởng, nút "Xem" ở khối chỉ số; A1 thêm tham số `flag`; cột Tình trạng hiện đủ các cờ | Tuấn |

@@ -10953,6 +10953,13 @@
             "enum" : [ "UNWEANED_CALF", "WEANED_CALF", "YOUNG_STOCK", "ADULT" ]
           }
         }, {
+          "name" : "flag",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "windowDays",
           "in" : "query",
           "required" : false,

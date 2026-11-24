@@ -15,7 +15,7 @@ export function useGrowthHerd(filters: GrowthFilters, demoMode: string | null) {
   const options = useQuery(() => growthApi.filterOptions(), [])
   const herd = useQuery(
     () => demoMode === 'load-error' ? Promise.reject(new Error('demo')) : growthApi.listHerd(filters),
-    [filters.q, filters.penCode, filters.herdGroup, filters.lifeStage, filters.windowDays, filters.dir, filters.page, demoMode],
+    [filters.q, filters.penCode, filters.herdGroup, filters.lifeStage, filters.windowDays, filters.dir, filters.flag, filters.page, demoMode],
   )
   return { options, herd }
 }
