@@ -477,7 +477,7 @@
                             <include>**/*IntTest*</include>
                         </includes>
                         <!-- Mockito must be loaded as an agent on recent JDKs; self-attachment is no longer reliable. -->
-                        <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar -Dspring.profiles.active=${profile.test}</argLine>
+                        <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar -Dspring.profiles.active=${profile.test} -Duser.timezone=UTC</argLine>
                     </configuration>
                     <executions>
                         <execution>
@@ -512,7 +512,7 @@
                         <!-- Force alphabetical order to have a reproducible build -->
                         <runOrder>alphabetical</runOrder>
                         <!-- Mockito must be loaded as an agent on recent JDKs; self-attachment is no longer reliable. -->
-                        <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                        <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar -Duser.timezone=UTC</argLine>
                         <excludes>
                             <exclude>**/*IT*</exclude>
                             <exclude>**/*IntTest*</exclude>
