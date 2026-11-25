@@ -61,25 +61,40 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
           <Metric label="Chờ khách phản hồi" value={counts.waiting} note="Tự nhắc sau 48 giờ" />
           <Metric label="Đã giải quyết – chờ xác nhận" value={counts.resolved} note="Chủ trại xác nhận để đóng" />
         </div>
-        <div className="flex flex-wrap gap-3">
-          <SearchInput className="w-[300px] max-w-full" aria-label="Tìm kiếm" placeholder="Tìm tên khách hoặc mã yêu cầu…" value={filters.q ?? ''} onChange={(e) => patch({ q: e.target.value })} />
-          <FilterSelect aria-label="Trang trại" value={filters.farm ?? 'all'} onChange={(e) => patch({ farm: e.target.value })}>
-            <option value="all">Trang trại: Tất cả</option>
+        <div role="region" aria-label="Bộ lọc hàng đợi" className="flex flex-nowrap items-end gap-2">
+          <div className="flex min-w-0 flex-[1.35] flex-col gap-1">
+            <label htmlFor="queue-search" className="text-[11px] font-medium text-ink">Tìm kiếm</label>
+            <SearchInput id="queue-search" className="w-full [&>input]:placeholder:text-[11px]" aria-label="Tìm kiếm" placeholder="Tên khách, mã yêu cầu…" value={filters.q ?? ''} onChange={(e) => patch({ q: e.target.value })} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label htmlFor="queue-farm" className="text-[11px] font-medium text-ink">Trang trại</label>
+            <FilterSelect id="queue-farm" aria-label="Trang trại" value={filters.farm ?? 'all'} onChange={(e) => patch({ farm: e.target.value })}>
+            <option value="all">Tất cả</option>
             {(farms ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </FilterSelect>
-          <FilterSelect aria-label="Nhân viên hỗ trợ phụ trách" value={filters.assignment ?? 'all'} onChange={(e) => patch({ assignment: e.target.value })}>
-            <option value="all">Người phụ trách: Tất cả</option>
+            </FilterSelect>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label htmlFor="queue-assignment" className="text-[11px] font-medium text-ink">Người phụ trách</label>
+            <FilterSelect id="queue-assignment" aria-label="Nhân viên hỗ trợ phụ trách" value={filters.assignment ?? 'all'} onChange={(e) => patch({ assignment: e.target.value })}>
+            <option value="all">Tất cả</option>
             <option value="unassigned">Chưa có người nhận</option>
             <option value="unavailable">Người phụ trách không khả dụng</option>
-          </FilterSelect>
-          <FilterSelect aria-label="Danh mục" value={filters.category ?? 'all'} onChange={(e) => patch({ category: e.target.value })}>
-            <option value="all">Danh mục: Tất cả</option>
+            </FilterSelect>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label htmlFor="queue-category" className="text-[11px] font-medium text-ink">Danh mục</label>
+            <FilterSelect id="queue-category" aria-label="Danh mục" value={filters.category ?? 'all'} onChange={(e) => patch({ category: e.target.value })}>
+            <option value="all">Tất cả</option>
             {(Object.keys(CATEGORY_LABEL) as TicketCategory[]).map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
-          </FilterSelect>
-          <FilterSelect aria-label="Ưu tiên" value={filters.priority ?? 'all'} onChange={(e) => patch({ priority: e.target.value })}>
-            <option value="all">Ưu tiên: Tất cả</option>
+            </FilterSelect>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label htmlFor="queue-priority" className="text-[11px] font-medium text-ink">Ưu tiên</label>
+            <FilterSelect id="queue-priority" aria-label="Ưu tiên" value={filters.priority ?? 'all'} onChange={(e) => patch({ priority: e.target.value })}>
+            <option value="all">Tất cả</option>
             {(Object.keys(PRIORITY_LABEL) as TicketPriority[]).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
-          </FilterSelect>
+            </FilterSelect>
+          </div>
         </div>
         <div><Segmented options={tabs} value={filters.tab ?? 'all'} onChange={(v) => patch({ tab: v as QueueTab })} /></div>
         <Card>

@@ -157,8 +157,6 @@ export default function RecordFormPage() {
               </div></Field>
               {fields.sourceType === 'BANK' && <div className="text-[12px] text-muted">{chosen ? `${chosen.evidenceCode} · ${chosen.sourceReference}` : record?.sourceReference || 'Chưa chọn chứng từ.'} <Err text={errors.sourceEvidenceId} /></div>}
               {sourceNotice && <div role="alert"><Note tone="err">{sourceNotice}</Note></div>}
-              <p className="m-0 text-[11px] text-muted">Nếu khoản lấy từ ngân hàng, chọn chứng từ đã xác thực để giữ định danh nguồn. Số chứng từ tự nhập chỉ để tham khảo.</p>
-              <Note tone="info">Số tiền là số nguyên đồng lớn hơn 0; danh mục phải phù hợp loại; chọn &quot;Gắn với trại&quot; thì bắt buộc chọn trại.</Note>
             </div>
           </Card>
           <div className="flex flex-col gap-4">
@@ -177,7 +175,6 @@ export default function RecordFormPage() {
                 </>
               )}
             </Card>
-            <Note>Đây là tài chính nền tảng cơ bản – không phải kế toán trại, ERP hay kế toán thuế. Khoản đã ghi sổ chỉ có thể hủy bỏ kèm lý do.</Note>
           </div>
         </div>
       </div>

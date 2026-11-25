@@ -107,14 +107,14 @@ export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; on
     setErrors(next)
     if (next.reason) return
     void run(() => onSubmit(reason.trim()))
-  }
+    }
   return (
     <Modal title={`Đổi người nhận ${ir.code}`} width={640} onClose={onClose}>
-      <Note tone="warn">Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ {ir.code} hiện tại. Sau khi hủy, hãy tạo một yêu cầu nội bộ mới cho người nhận khác.</Note>
       <Field label="Lý do *" id="ra-reason">
         <Textarea id="ra-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Người nhận cũ vắng mặt; cần tiếp tục xác minh" />
         <FieldError>{errors.reason}</FieldError>
       </Field>
+      <Note tone="info"><span className="font-semibold text-warn-fg">Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ hiện tại</span></Note>
       {error && <Note tone="err">{error}</Note>}
       <ModalFooter><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Hủy để đổi người nhận</ModalButton></ModalFooter>
     </Modal>

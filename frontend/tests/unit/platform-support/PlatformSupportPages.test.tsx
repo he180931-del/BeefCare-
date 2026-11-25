@@ -31,6 +31,8 @@ describe('hàng đợi hỗ trợ', () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/ho-tro')
     expect(await screen.findByRole('button', { name: 'Chưa nhận 4' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Bộ lọc hàng đợi' })).toHaveClass('flex-nowrap', 'gap-2')
+    expect(screen.getByRole('region', { name: 'Bộ lọc hàng đợi' })).not.toHaveClass('overflow-x-auto')
     expect(screen.queryByText(/chưa xử lý trước, rồi theo ưu tiên và thời gian tạo/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chưa nhận 4' }))
     expect(screen.queryByText(/chưa xử lý trước, rồi theo ưu tiên và thời gian tạo/)).not.toBeInTheDocument()
@@ -71,8 +73,8 @@ describe('xử lý ticket', () => {
     const workspace = await screen.findByTestId('cs-ticket-workspace')
     expect(workspace).toHaveClass('lg:grid-cols-[minmax(0,1fr)_336px]')
     expect(within(workspace).getByRole('heading', { name: 'Trao đổi' })).toBeInTheDocument()
-    expect(within(workspace).getByRole('heading', { name: 'Xử lý' })).toBeInTheDocument()
-    expect(within(workspace).getByRole('heading', { name: 'Thao tác được phép' })).toBeInTheDocument()
+    expect(within(workspace).getByRole('heading', { name: /Trạng thái.*Đang xử lý/ })).toBeInTheDocument()
+    expect(within(workspace).getByRole('heading', { name: 'Thao tác' })).toBeInTheDocument()
   })
 
   it('để CS hỏi thêm thông tin bằng chat thay vì một thao tác yêu cầu khách bổ sung riêng', async () => {
@@ -86,11 +88,12 @@ describe('xử lý ticket', () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/ho-tro/TK-1042', 'CS', 1, 'Phạm Thu Hà')
 
-    await user.click(await screen.findByRole('button', { name: 'Xem yêu cầu nội bộ' }))
-    const list = await screen.findByRole('dialog', { name: 'Yêu cầu nội bộ' })
-    expect(within(list).getByText('IR-077')).toBeInTheDocument()
-    expect(within(list).getByText('Đỗ Minh Quân')).toBeInTheDocument()
-    await user.click(within(list).getByRole('button', { name: 'Mở yêu cầu nội bộ IR-077' }))
+    const table = await screen.findByRole('region', { name: 'Danh sách yêu cầu nội bộ' })
+    expect(within(table).getByText('IR-077')).toBeInTheDocument()
+    expect(within(table).queryByText('Đỗ Minh Quân')).not.toBeInTheDocument()
+    expect(within(table).queryByText('TK-1042')).not.toBeInTheDocument()
+    expect(within(table).getByText('18/10 09:55')).toBeInTheDocument()
+    await user.click(within(table).getByRole('button', { name: 'Mở yêu cầu nội bộ IR-077' }))
     const detail = await screen.findByRole('dialog', { name: 'Yêu cầu nội bộ IR-077' })
     expect(within(detail).getByText('Đang mở')).toBeInTheDocument()
     expect(within(detail).getByText(/Khách chuyển 1.200.000đ/)).toBeInTheDocument()
@@ -167,7 +170,7 @@ describe('xử lý ticket', () => {
 
       const viewport = await screen.findByRole('log', { name: 'Danh sách trao đổi' })
       await waitFor(() => expect(viewport.scrollTop).toBe(720))
-      expect(screen.queryByRole('heading', { name: 'Yêu cầu nội bộ' })).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Yêu cầu nội bộ' })).toBeInTheDocument()
 
       viewport.scrollTop = 0
       await user.click(screen.getByRole('button', { name: 'Ghi chú nội bộ (nhân viên hỗ trợ)' }))
@@ -180,7 +183,7 @@ describe('xử lý ticket', () => {
   it('dùng đúng id tài khoản CS đang đăng nhập để mở quyền xử lý ticket đã nhận', async () => {
     renderAt('/nen-tang/ho-tro/TK-1027', 'CS', 2, 'Ngô Minh Khang')
     expect(await screen.findByRole('button', { name: 'Chuyển giao' })).toBeInTheDocument()
-    expect(screen.getByText('Ngô Minh Khang (bạn)')).toBeInTheDocument()
+    expect(screen.queryByText('Ngô Minh Khang (bạn)')).not.toBeInTheDocument()
     expect(screen.queryByText('Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.')).not.toBeInTheDocument()
   })
 
@@ -235,7 +238,7 @@ describe('xử lý ticket', () => {
     await user.click(reassign)
     const dialog = await screen.findByRole('dialog', { name: 'Đổi người nhận IR-082' })
     await user.type(within(dialog).getByLabelText('Lý do *'), 'Người nhận cũ cần được thay thế.')
-    expect(within(dialog).getByText(/Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ IR-082/)).toBeInTheDocument()
+    expect(within(dialog).getByText('Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ hiện tại')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Hủy để đổi người nhận' }))
 
     expect(await screen.findByText('Yêu cầu IR-082 đã được hủy để đổi người nhận.')).toBeInTheDocument()

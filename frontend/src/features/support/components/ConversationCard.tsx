@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Card } from '../../../shared/ui'
-import { initials } from '../domain/format'
+import { formatDayTime, initials } from '../domain/format'
 import type { MessagePage, Ticket, TicketMessage } from '../types'
 
 const messageKey = (message: TicketMessage) => message.id == null
@@ -19,17 +19,18 @@ const uniqueMessages = (items: TicketMessage[]) => {
 
 function Bubble({ message }: { message: TicketMessage }) {
   const mine = message.authorRole === 'OWNER'
-  const who = mine ? `${message.author} (bạn)` : `${message.author} · Bộ phận hỗ trợ`
+  const who = mine ? `${message.author} (bạn)` : 'Bộ phận hỗ trợ'
   const avatar = <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-chip text-[9px] font-semibold text-brand">{initials(message.author)}</span>
   return (
     <div data-message-side={mine ? 'owner' : 'cs'} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[88%] items-start gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex max-w-[60%] items-start gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
         {avatar}
-        <div className={`min-w-0 ${mine ? 'text-right' : ''}`}>
+        <div className={`w-fit max-w-full min-w-0 ${mine ? 'text-right' : ''}`}>
           <p className="mb-0.5 text-[10px] font-medium leading-4 text-muted">{who}</p>
-          <div className={`rounded-lg border p-3 ${mine ? 'border-[#bedbc6] bg-[#e8f4ec]' : 'border-rule bg-page'}`}>
+          <div className={`w-fit max-w-full rounded-lg border p-3 ${mine ? 'ml-auto border-[#bedbc6] bg-[#e8f4ec]' : 'border-rule bg-page'}`}>
             <p className={`m-0 whitespace-pre-wrap break-words text-xs text-ink ${mine ? 'text-right' : ''}`}>{message.text}</p>
           </div>
+          <p className={`mt-0.5 mb-0 text-[10px] text-muted ${mine ? 'text-right' : ''}`}>{formatDayTime(message.createdAt)}</p>
         </div>
       </div>
     </div>
@@ -98,7 +99,7 @@ export function ConversationCard({
         </div>
       )}
       {error && <p role="alert" className="m-0 text-xs text-danger">{error}</p>}
-      <div ref={viewport} data-testid="owner-chat-viewport" className="h-[480px] overflow-y-auto pr-1">
+      <div ref={viewport} data-testid="owner-chat-viewport" className="h-[520px] overflow-y-auto pr-1">
         <div className="flex flex-col gap-2.5">
           {messages.map((m) => (
             <Bubble key={messageKey(m)} message={m} />

@@ -35,6 +35,7 @@ describe('SCR-64 danh sách ticket', () => {
     const user = userEvent.setup()
     renderAt('/ho-tro')
     expect(await screen.findByText('TK-1042')).toBeInTheDocument()
+    expect(screen.getByTitle('Đã chuyển khoản gia hạn nhưng chưa thấy xác nhận')).toHaveClass('truncate')
     expect(screen.getByText('Tất cả (5)')).toBeInTheDocument()
     expect(screen.getByText('Chờ bạn xác nhận')).toBeInTheDocument()
     expect(screen.queryByText('TK-1043')).not.toBeInTheDocument()

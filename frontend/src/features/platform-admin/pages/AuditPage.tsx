@@ -268,6 +268,7 @@ function AuditContent() {
           )}
         </div>
       )}
+      <Foot>Lịch sử audit nền tảng (chỉ Quản trị hệ thống). Mỗi dòng là một thay đổi đã lưu; chọn dòng để xem giá trị trước / sau và mã truy vết. Không có thao tác sửa hay xóa.</Foot>
     </div>
   )
 }
