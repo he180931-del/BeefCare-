@@ -89,13 +89,13 @@ export default function InternalRequestsPage() {
           ]} />
         </div>
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)]">
-          <div className="flex flex-col gap-3">
+          <div role="region" aria-label="Danh sách yêu cầu nội bộ" className="flex max-h-[calc(100vh-260px)] min-h-0 flex-col gap-3 overflow-y-auto pr-1">
             {items.length === 0 && <EmptyBlock title="Không có yêu cầu" sub="Chưa có yêu cầu nào ở tab này." />}
             {visibleItems.map((r) => (
               <button key={r.code} type="button" onClick={() => goTo(r)} aria-current={selected?.code === r.code} className={`flex flex-col gap-1 rounded-md border p-4 text-left ${selected?.code === r.code ? 'border-brand bg-[#eef4ef]' : 'border-edge bg-white'}`}>
                 <span className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-brand">{r.code}</span><Badge tone={irTone(r.status)} icon={r.status === 'OPEN' ? 'clock' : undefined}>{IR_STATUS_LABEL[r.status]}</Badge></span>
                 <span className="text-[13px] font-semibold text-ink">{r.title}</span>
-                <span className="text-[11px] text-muted">{r.ticketCode} · {r.farmName}</span>
+                <span className="text-[11px] text-muted">{[r.ticketCode, r.farmName].filter(Boolean).join(' · ')}</span>
                 <span className="text-[11px] text-muted">Từ nhân viên hỗ trợ {r.from} · {formatStamp(r.createdAt)}</span>
               </button>
             ))}
@@ -152,17 +152,12 @@ function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: RecipientIn
     <Card title={`${ir.code} · [${CATEGORY_LABEL[ir.ticketCategory]}] · ${ir.title}`} actions={<Badge tone={irTone(ir.status)} icon={ir.status === 'OPEN' ? 'clock' : undefined}>{IR_STATUS_LABEL[ir.status]}</Badge>}>
       <Info cols={2} items={[
         ['Người dùng và trang trại', [ir.ticketRequester, ir.farmName].filter(Boolean).join(' · ')],
-        ['Người gửi', `Nhân viên hỗ trợ ${ir.from}`],
-        ['Người nhận', `${ir.recipient} (${ROLE_LABEL[ir.targetRole]})`],
+        ['Người gửi', `${ir.from} (Nhân viên hỗ trợ)`],
       ]} />
-      <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Nội dung yêu cầu từ nhân viên hỗ trợ</b>{requestText}</div>
+              <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Nội dung yêu cầu</b>{requestText}</div>
       <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ</h3>
       {ir.status === 'OPEN' ? (
         <>
-          <div role="status" aria-label={`Đang mở. Người tiếp theo: ${ir.recipient}. Hành động: gửi kết quả`} className="rounded-md bg-[#e8f2fa] px-3 py-2.5 text-xs text-[#296194]">
-            <b className="font-semibold">Đang mở · chờ {ir.recipient}</b>
-            <span className="mt-1 block">Bước tiếp theo: gửi kết quả xử lý trong phạm vi {ROLE_LABEL[ir.targetRole] ?? 'vai trò được giao'}.</span>
-          </div>
           <ResultForm ir={ir} me={me} simulateFailure={simulateFailure} onDone={onDone} onSaveFailed={onSaveFailed} />
         </>
       ) : ir.status === 'WAITING_CS' ? (

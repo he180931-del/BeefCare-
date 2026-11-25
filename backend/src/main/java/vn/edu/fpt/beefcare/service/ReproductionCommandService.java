@@ -36,7 +36,8 @@ public class ReproductionCommandService {
     static final Set<String> SOURCES = Set.of("DIRECT_OBSERVATION", "FARM_NOTEBOOK", "EXTERNAL_REPORT");
     static final Set<String> BREEDING_METHODS = Set.of("NATURAL", "AI");
     static final Set<String> CHECK_RESULTS = Set.of("PREGNANT", "NOT_PREGNANT", "INCONCLUSIVE");
-    static final Set<String> CHECK_METHODS = Set.of("ULTRASOUND", "RECTAL", "OTHER");
+    /** D67: OBSERVATION = xác nhận có thai bằng quan sát (không lên giống lại sau phối), cho trại không siêu âm. */
+    static final Set<String> CHECK_METHODS = Set.of("ULTRASOUND", "RECTAL", "OBSERVATION", "OTHER");
     static final Set<String> UPDATE_TYPES = Set.of("OBSERVATION", "COMPLICATION", "LOSS");
     static final Set<String> COURSES = Set.of("NORMAL", "ASSISTED", "CAESAREAN");
     static final Set<String> DAM_CONDITIONS = Set.of("GOOD", "NEEDS_MONITORING", "CRITICAL");
@@ -452,7 +453,7 @@ public class ReproductionCommandService {
         event.setEventTime(at);
         event.setCorrected(true); event.setUpdatedAt(clock.now()); em.flush();
         reminders.eventCorrected(cattle, event, confirmed);
-        revisions.record(ctx, "ReproductionEvent", eventId, RecordRevisionService.CORRECT, reason, before, eventSnapshot(event));
+        revisions.recordWithOptionalNote(ctx, "ReproductionEvent", eventId, RecordRevisionService.CORRECT, reason, before, eventSnapshot(event));
         audit.log(ctx, "REPRODUCTION_EVENT_CORRECT", "ReproductionEvent", eventId, Map.of("cattleId", cattle.getId()));
         return result(event, cattle, null, null, null, confirmed);
     }
@@ -483,7 +484,7 @@ public class ReproductionCommandService {
         if (confirmed != null) voidEpisode(confirmed, "CONFIRMING_CHECK_VOIDED"); // R-12-16, TC-12-21
         reminders.eventVoided(cattle, event);
         em.flush();
-        revisions.record(ctx, "ReproductionEvent", eventId, RecordRevisionService.VOID, reason, before, eventSnapshot(event));
+        revisions.recordWithOptionalNote(ctx, "ReproductionEvent", eventId, RecordRevisionService.VOID, reason, before, eventSnapshot(event));
         audit.log(ctx, "REPRODUCTION_EVENT_VOID", "ReproductionEvent", eventId, Map.of("cattleId", cattle.getId()));
         return result(event, cattle, null, null, null, confirmed);
     }
@@ -526,7 +527,7 @@ public class ReproductionCommandService {
         if (!"COMPLICATION".equals(type)) update.setHealthCase(null);
         update.setCorrected(Boolean.TRUE);
         em.flush();
-        revisions.record(ctx, "PregnancyUpdate", updateId, RecordRevisionService.CORRECT, reason, before, pregnancyUpdateSnapshot(update));
+        revisions.recordWithOptionalNote(ctx, "PregnancyUpdate", updateId, RecordRevisionService.CORRECT, reason, before, pregnancyUpdateSnapshot(update));
         audit.log(ctx, "PREGNANCY_UPDATE_CORRECT", "PregnancyUpdate", updateId, Map.of("episodeId", episode.getId()));
         return updateResult(update, cattle);
     }
@@ -550,7 +551,7 @@ public class ReproductionCommandService {
         // R-12-15 / TC-12-25: voiding a loss reopens the pregnancy only when no newer pregnancy exists.
         if ("LOSS".equalsIgnoreCase(update.getType())) reopenAfterLossVoided(update.getEpisode(), update.getId(), false);
         em.flush();
-        revisions.record(ctx, "PregnancyUpdate", updateId, RecordRevisionService.VOID, reason, before, pregnancyUpdateSnapshot(update));
+        revisions.recordWithOptionalNote(ctx, "PregnancyUpdate", updateId, RecordRevisionService.VOID, reason, before, pregnancyUpdateSnapshot(update));
         audit.log(ctx, "PREGNANCY_UPDATE_VOID", "PregnancyUpdate", updateId, Map.of("episodeId", update.getEpisode().getId()));
         return updateResult(update, cattle);
     }
@@ -590,7 +591,7 @@ public class ReproductionCommandService {
         calving.setCorrected(Boolean.TRUE); em.flush();
         reminders.calvingCorrected(dam, calving.getId(), calving.getBirthTime());
         em.flush();
-        revisions.record(ctx, "CalvingEvent", calvingId, RecordRevisionService.CORRECT, reason, before, calvingSnapshot(calving));
+        revisions.recordWithOptionalNote(ctx, "CalvingEvent", calvingId, RecordRevisionService.CORRECT, reason, before, calvingSnapshot(calving));
         audit.log(ctx, "CALVING_CORRECT", "CalvingEvent", calvingId, Map.of("damId", dam.getId()));
         return calvingResult(calving, dam);
     }
@@ -626,7 +627,7 @@ public class ReproductionCommandService {
             Map<String, Object> calfBefore = calfSnapshot(calf);
             calf.setStatus("VOIDED"); calf.setStatusReason(reason); entryReminders.cancelCalfReminder(calf); // R-12-16, TC-12-23
             em.flush();
-            revisions.record(ctx, "CalfOutcome", calf.getId(), RecordRevisionService.VOID, reason, calfBefore, calfSnapshot(calf));
+            revisions.recordWithOptionalNote(ctx, "CalfOutcome", calf.getId(), RecordRevisionService.VOID, reason, calfBefore, calfSnapshot(calf));
         }
         calving.setStatus("VOIDED"); calving.setStatusReason(reason);
         PregnancyEpisode episode = calving.getEpisode();
@@ -635,7 +636,7 @@ public class ReproductionCommandService {
         }
         reminders.calvingVoided(dam, calvingId, episode);
         em.flush();
-        revisions.record(ctx, "CalvingEvent", calvingId, RecordRevisionService.VOID, reason, before, calvingSnapshot(calving));
+        revisions.recordWithOptionalNote(ctx, "CalvingEvent", calvingId, RecordRevisionService.VOID, reason, before, calvingSnapshot(calving));
         audit.log(ctx, "CALVING_VOID", "CalvingEvent", calvingId, Map.of("damId", dam.getId(), "calfCount", outcomes.size()));
         return calvingResult(calving, dam);
     }
@@ -696,7 +697,7 @@ public class ReproductionCommandService {
             if (!"NOT_REQUIRED".equalsIgnoreCase(calf.getRegistrationState())) { calf.setRegistrationState("NOT_REQUIRED"); entryReminders.cancelCalfReminder(calf); }
         }
         calf.setCorrected(true); em.flush();
-        revisions.record(ctx, "CalfOutcome", calfId, RecordRevisionService.CORRECT, reason, before, calfSnapshot(calf));
+        revisions.recordWithOptionalNote(ctx, "CalfOutcome", calfId, RecordRevisionService.CORRECT, reason, before, calfSnapshot(calf));
         audit.log(ctx, "CALF_OUTCOME_CORRECT", "CalfOutcome", calfId, Map.of("calvingId", calf.getCalving().getId()));
         return calfResult(calf, null);
     }
@@ -721,7 +722,7 @@ public class ReproductionCommandService {
         Map<String, Object> before = calfSnapshot(calf);
         calf.setStatus("VOIDED"); calf.setStatusReason(reason);
         entryReminders.cancelCalfReminder(calf); em.flush();
-        revisions.record(ctx, "CalfOutcome", calfId, RecordRevisionService.VOID, reason, before, calfSnapshot(calf));
+        revisions.recordWithOptionalNote(ctx, "CalfOutcome", calfId, RecordRevisionService.VOID, reason, before, calfSnapshot(calf));
         audit.log(ctx, "CALF_OUTCOME_VOID", "CalfOutcome", calfId, Map.of("calvingId", calf.getCalving().getId()));
         return calfResult(calf, null);
     }
@@ -1071,8 +1072,12 @@ public class ReproductionCommandService {
         for (String value : values) try { signs.add(EstrusSign.valueOf(normalize(value))); } catch (IllegalArgumentException e) { throw DomainException.invalid("signs"); }
         return signs;
     }
+    /**
+     * Ghi chú khi sửa / xóa bản ghi sinh sản (D69, như D43 / D53): không bắt buộc; trống lưu {@code null}, quá 500 ký tự
+     * → MSG-COM-10. Record Revision vẫn giữ giá trị trước / sau, người và thời điểm (BR-D15).
+     */
     private String reason(String reason) {
-        if (reason == null || reason.isBlank()) throw DomainException.required("reason");
+        if (reason == null || reason.isBlank()) return null;
         if (reason.trim().length() > 500) throw DomainException.invalid("reason");
         return reason.trim();
     }

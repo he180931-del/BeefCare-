@@ -268,6 +268,31 @@ class ReproductionResourceTest extends HerdEntryTestBase {
             .andExpect(jsonPath("$.parity").value(1));
     }
 
+    /** D67: trại không siêu âm xác nhận có thai bằng quan sát – vẫn là một lần khám CÓ THAI nên mở thai và có ngày đẻ dự kiến. */
+    @Test
+    void d67_anObservedPregnancyCheckOpensThePregnancy() throws Exception {
+        JsonNode b = breed(cow, at(25, 8, 0));
+        post_("/cattle/" + cow.getId() + "/pregnancy-checks", manager, body("expectedCattleVersion", v(cow), "checkedAt", at(0, 8, 0), "result", "PREGNANT", "method", "SMELL"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.field").value("method"));
+        JsonNode checked = check(cow, at(0, 9, 0), "PREGNANT", "method", "OBSERVATION", "linkedBreedingId", b.get("eventId").asLong());
+        assertThat(absent(checked, "/episode")).isFalse();
+        get_("/cattle/" + cow.getId() + "/reproduction-history", manager)
+            .andExpect(jsonPath("$.status").value("PREGNANT"));
+    }
+
+    /** D67: bò đã từng đẻ có thêm tiêu chí "Sau đẻ ≥ 45 ngày" (chỉ cảnh báo); bò chưa đẻ không có tiêu chí này. */
+    @Test
+    void d67_eligibilityWarnsWhenTheCowCalvedTooRecently() throws Exception {
+        get_("/cattle/" + cow.getId() + "/reproduction-history", manager)
+            .andExpect(jsonPath("$.eligibility.criteria.length()").value(3));
+        post_("/calvings", manager, calvingBody(at(14, 6, 0), List.of(calf()), "noTrackedPregnancy", true)).andExpect(status().isCreated());
+        get_("/cattle/" + cow.getId() + "/reproduction-history", manager)
+            .andExpect(jsonPath("$.eligibility.criteria[3].name").value("POSTPARTUM_INTERVAL"))
+            .andExpect(jsonPath("$.eligibility.criteria[3].required").value("45"))
+            .andExpect(jsonPath("$.eligibility.criteria[3].value").value("14"))
+            .andExpect(jsonPath("$.eligibility.criteria[3].met").value(false));
+    }
+
     @Test
     void tc11_06_anEstrusWithin12HoursAsksForConfirmation() throws Exception {
         clock.set(TODAY.atTime(16, 0).atZone(ZONE).toInstant());
@@ -419,13 +444,14 @@ class ReproductionResourceTest extends HerdEntryTestBase {
     @Test
     void tc11_18_correctingABreedingKeepsTheRevisionAndRecomputesTheDate() throws Exception {
         long id = breed(cow, at(10, 8, 0)).get("eventId").asLong();
-        post_("/reproduction-events/" + id + "/correction", manager, body("expectedVersion", eventVersion(id)))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-06")).andExpect(jsonPath("$.params.field").value("reason"));
+        // D69: ghi chú không bắt buộc – sửa không ghi chú vẫn lưu, revision có reason null.
+        post_("/reproduction-events/" + id + "/correction", manager, body("expectedVersion", eventVersion(id), "occurredAt", at(11, 8, 0)))
+            .andExpect(status().isOk());
         JsonNode r = read(post_("/reproduction-events/" + id + "/correction", manager, body("expectedVersion", eventVersion(id), "reason", "Sai ngày", "occurredAt", at(12, 8, 0)))
             .andExpect(status().isOk()));
         assertThat(LocalDate.parse(r.get("tentativeCalvingDate").asText())).isEqualTo(TODAY.minusDays(12).plusDays(283));
         assertThat(em.createQuery("select r from RecordRevision r where r.sourceType='ReproductionEvent' and r.sourceId=:id", RecordRevision.class).setParameter("id", id).getResultList())
-            .singleElement().satisfies(rev -> assertThat(rev.getReason()).isEqualTo("Sai ngày"));
+            .extracting(RecordRevision::getReason).containsExactlyInAnyOrder(null, "Sai ngày");
         get_("/cattle/" + cow.getId() + "/reproduction-history", manager).andExpect(jsonPath("$.timeline[0].corrected").value(true));
     }
 

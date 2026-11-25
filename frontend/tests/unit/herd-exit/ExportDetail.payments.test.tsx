@@ -29,7 +29,7 @@ it('lets Owner void a collection and shows server totals consistently in detail,
   expect(state.voidPayment).toHaveBeenCalledWith(21, { reason: 'Thu nhầm', version: 2 })
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(screen.getByText('8.000.000 đ')).toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Ghi nhận thu tiền' }))
+  await user.click(screen.getByRole('button', { name: 'Ghi thu tiền' }))
   expect(screen.getAllByText('2.000.000 đ')).toHaveLength(2)
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy' }))
   await user.click(screen.getByRole('button', { name: 'Hủy phiếu' }))
@@ -39,7 +39,7 @@ it('lets Owner void a collection and shows server totals consistently in detail,
 it('hides collection void and recording from Manager', async () => {
   state.role = 'MANAGER'; page(); await screen.findByText(/Phiếu xuất PX-1/)
   expect(screen.queryByRole('button', { name: 'Hủy' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Ghi nhận thu tiền' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Ghi thu tiền' })).not.toBeInTheDocument()
 })
 it.each(['Nháp', 'Đã hủy'] as const)('hides collection void on %s', async status => {
   state.get.mockResolvedValue({ ...row, status }); page(); await screen.findByText(/Phiếu xuất PX-1/)

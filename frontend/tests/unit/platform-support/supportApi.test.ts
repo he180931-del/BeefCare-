@@ -254,6 +254,21 @@ describe('chế độ backend', () => {
     expect(request).not.toHaveProperty('domainResultAuditId')
   })
 
+  it('maps legacy internal outcomes so old requests do not break the assigned list', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockResolvedValue([
+      { id: 81, code: 'IR-0081', targetRole: 'PM', recipientId: 21, recipient: 'PM', from: 'CS', ticketId: 9, ticketCode: 'TK-0009', createdAt: '2026-11-01T08:00:00Z', requestText: 'Yêu cầu cũ', status: 'DONE', outcome: 'UNABLE', version: 2 },
+      { id: 82, code: 'IR-0082', targetRole: 'PM', recipientId: 21, recipient: 'PM', from: 'CS', ticketId: 9, ticketCode: 'TK-0009', createdAt: '2026-11-01T08:00:00Z', requestText: 'Yêu cầu cũ khác', status: 'DONE', outcome: 'OUTSIDE_DOMAIN', version: 2 },
+    ])
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+
+    await expect(api.listAssigned(PM_QUAN)).resolves.toMatchObject([
+      { code: 'IR-0081', outcome: 'OUT_OF_SCOPE' },
+      { code: 'IR-0082', outcome: 'OUT_OF_SCOPE' },
+    ])
+  })
+
   it('gọi API thật và không đụng vào store', async () => {
     const store = createSupportDemoStore()
     const spy = vi.spyOn(store, 'listQueue')
@@ -447,5 +462,18 @@ describe('chế độ backend', () => {
       internalRequests: [{ farmId: null, fromId: null }],
     })
     await expect(api.listAssigned(PM_QUAN)).resolves.toMatchObject([{ farmId: null, fromId: null }])
+  })
+
+  it('không dùng tiêu đề ticket làm tên trang trại khi yêu cầu không gắn trại', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockResolvedValue([{
+      id: 82, code: 'IR-0082', targetRole: 'PM', recipientId: 21, recipient: 'PM', from: 'CS',
+      ticketId: 9, ticketCode: 'TK-0009', ticketSubject: 'Vấn đề tài khoản', ticketRequester: 'Kiều Đức Lâm', farmId: null,
+      createdAt: '2026-11-01T08:00:00Z', requestText: 'Kiểm tra tài khoản', status: 'OPEN', version: 1,
+    }])
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+
+    await expect(api.listAssigned(PM_QUAN)).resolves.toMatchObject([{ ticketRequester: 'Kiều Đức Lâm', farmName: '' }])
   })
 })

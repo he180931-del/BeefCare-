@@ -5,14 +5,14 @@ import { HealthValidationError } from '../validation/healthValidation'
 import { toFarmTime } from './healthMapper'
 
 export const FIELD_ALIASES: Record<string, string> = {
-  administeredAt: 'treatmentTime', latestProgress: 'progressText', suspectedDiagnosis: 'diagnosis', performerName: 'performer', performerId: 'performer',
-  observerId: 'observer', confirmedById: 'confirmedBy', existingCaseId: 'form', cattleId: 'form', action: 'form',
+  administeredAt: 'treatmentTime', latestProgress: 'description', closedAt: 'observedAt', suspectedDiagnosis: 'diagnosis', performerName: 'performer', performerId: 'performer',
+  observerId: 'observer', confirmedById: 'confirmedBy', cattleId: 'form', action: 'form',
 }
 export const FIELD_LABELS: Record<string, string> = {
-  signs: 'Dấu hiệu / mô tả', description: 'Mô tả', progress: 'Diễn biến', progressText: 'Diễn biến mới', diagnosis: 'Chẩn đoán nghi ngờ', severity: 'Mức độ',
+  signs: 'Dấu hiệu / mô tả', description: 'Mô tả', progress: 'Diễn biến', diagnosis: 'Chẩn đoán nghi ngờ', severity: 'Mức độ',
   temperatureC: 'Thân nhiệt', observedAt: 'Thời điểm', observer: 'Người quan sát', medicineId: 'Thuốc', dose: 'Liều', route: 'Đường dùng', treatmentTime: 'Thời điểm bắt đầu',
-  courseDays: 'Liệu trình (ngày)', withdrawalDays: 'Số ngày ngưng', performer: 'Người thực hiện', veterinaryAdvice: 'Lời khuyên thú y', outcome: 'Kết quả',
-  closedAt: 'Thời điểm đóng', confirmedBy: 'Người xác nhận', reason: 'Lý do', vaccinationId: 'Mũi tiêm liên kết',
+  courseDays: 'Số ngày dùng', withdrawalDays: 'Số ngày ngưng', performer: 'Người thực hiện', veterinaryAdvice: 'Ghi chú', outcome: 'Kết quả',
+  confirmedBy: 'Người xác nhận', reason: 'Lý do', vaccinationId: 'Mũi tiêm liên kết',
 }
 
 /** Backend errors are translated to field-level Vietnamese errors for FE-10 dialogs. */

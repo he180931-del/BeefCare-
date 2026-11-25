@@ -13,7 +13,9 @@ import { lazyObject } from '../../../shared/lib/lazyObject'
 const TARGET_OUTCOMES = new Set(['CONFIRMED', 'NOT_CONFIRMED', 'NEED_MORE_INFO', 'OUT_OF_SCOPE'])
 const targetOutcome = (value: unknown): InternalView['outcome'] => {
   if (value == null) return undefined
-  const outcome = textValue(value)
+  const raw = textValue(value)
+  // Keep old locally-seeded requests readable after FE-20 renamed these outcomes.
+  const outcome = raw === 'UNABLE' || raw === 'OUTSIDE_DOMAIN' ? 'OUT_OF_SCOPE' : raw
   if (!TARGET_OUTCOMES.has(outcome)) throw new SupportError('VALIDATION', `Kết quả không hợp lệ: ${outcome}.`)
   return outcome as InternalView['outcome']
 }
@@ -60,7 +62,7 @@ const mapInternal = (value: unknown): InternalView => {
   const history = mapHistory(row.history)
   return {
     id: requiredId(row.id, 'internal request id'), code: textValue(row.code), title: textValue(row.requestText).slice(0, 80), ticketId: requiredId(row.ticketId, 'ticket id'),
-    ticketCode: textValue(row.ticketCode), ticketSubject: textValue(row.ticketSubject, textValue(row.requestText).slice(0, 80)), ticketCategory: textValue(row.ticketCategory, 'OTHER') as TicketCategory, ticketRequester: textValue(row.ticketRequester, 'Chủ trại'), farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName, 'Vấn đề tài khoản'), targetRole: role,
+    ticketCode: textValue(row.ticketCode), ticketSubject: textValue(row.ticketSubject, textValue(row.requestText).slice(0, 80)), ticketCategory: textValue(row.ticketCategory, 'OTHER') as TicketCategory, ticketRequester: textValue(row.ticketRequester, 'Chủ trại'), farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName), targetRole: role,
     recipientId: requiredId(row.recipientId, 'recipient id'), recipient: textValue(row.recipient), fromId: optionalId(row.fromId, 'sender id'), from: textValue(row.from, 'CS'), createdAt: textValue(row.createdAt),
     requestText: textValue(row.requestText),
     status, outcome: targetOutcome(row.outcome), resultNote: row.resultNote == null ? undefined : textValue(row.resultNote),
@@ -77,7 +79,7 @@ const mapRecipient = (value: unknown): RecipientInternalView => {
   const history = mapHistory(row.history)
   return {
     id: requiredId(row.id, 'internal request id'), code: textValue(row.code), title: textValue(row.requestText).slice(0, 80), ticketId: requiredId(row.ticketId, 'ticket id'),
-    ticketCode: textValue(row.ticketCode), ticketSubject: textValue(row.ticketSubject, textValue(row.requestText).slice(0, 80)), ticketCategory: textValue(row.ticketCategory, 'OTHER') as TicketCategory, ticketRequester: textValue(row.ticketRequester, 'Chủ trại'), farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName, 'Vấn đề tài khoản'), targetRole: role,
+    ticketCode: textValue(row.ticketCode), ticketSubject: textValue(row.ticketSubject, textValue(row.requestText).slice(0, 80)), ticketCategory: textValue(row.ticketCategory, 'OTHER') as TicketCategory, ticketRequester: textValue(row.ticketRequester, 'Chủ trại'), farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName), targetRole: role,
     recipientId: requiredId(row.recipientId, 'recipient id'), recipient: textValue(row.recipient), fromId: optionalId(row.fromId, 'sender id'), from: textValue(row.from, 'CS'), createdAt: textValue(row.createdAt),
     requestText: textValue(row.requestText), status, outcome: targetOutcome(row.outcome),
     resultNote: row.resultNote == null ? undefined : textValue(row.resultNote), completedAt: row.completedAt == null ? undefined : textValue(row.completedAt), completedBy: completionActor(row.history),
@@ -131,7 +133,7 @@ const mapTicket = (value: unknown): Ticket => {
   const messages = asRows(row.messages).map(mapMessage)
   return {
     id: requiredId(row.id, 'ticket id'), code: textValue(row.code), subject: textValue(row.subject), category: textValue(row.category) as Ticket['category'], priority: textValue(row.priority) as Ticket['priority'], status: textValue(row.status) as Ticket['status'],
-    farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName, 'Vấn đề tài khoản'), requesterId: requiredId(row.requesterId, 'requester id'), requester: textValue(row.requester), assignedCsId: assignedId, assignedCs: row.assignedCs == null ? null : textValue(row.assignedCs), assignedAvailable,
+    farmId: nullableNumber(row.farmId), farmName: textValue(row.farmName), requesterId: requiredId(row.requesterId, 'requester id'), requester: textValue(row.requester), assignedCsId: assignedId, assignedCs: row.assignedCs == null ? null : textValue(row.assignedCs), assignedAvailable,
     createdAt: textValue(row.createdAt), updatedAt: textValue(row.updatedAt), version: numberValue(row.version), messages,
     messagesBeforeId: row.messagesBeforeId == null ? null : requiredId(row.messagesBeforeId, 'message cursor'), messagesHasMore: row.messagesHasMore === true,
     resolutions: asRows(row.resolutions).map((r) => ({ id: requiredId(r.id, 'resolution id'), version: numberValue(r.version), content: textValue(r.content), resolvedBy: textValue(r.resolvedBy), resolvedAt: textValue(r.resolvedAt), acknowledged: r.acknowledged === true, acknowledgedAt: r.acknowledgedAt == null ? undefined : textValue(r.acknowledgedAt), acknowledgmentComment: r.acknowledgmentComment == null ? undefined : textValue(r.acknowledgmentComment), reviewed: r.reviewed === true })),

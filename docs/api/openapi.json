@@ -5274,6 +5274,58 @@
         }
       }
     },
+    "/api/farms/{farmId}/health-cases/{caseId}/reopen" : {
+      "post" : {
+        "tags" : [ "health-care-command-resource" ],
+        "operationId" : "reopen_1",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "caseId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReopenCase"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HealthCaseResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/health-cases/{caseId}/observations" : {
       "post" : {
         "tags" : [ "health-care-command-resource" ],
@@ -10948,6 +11000,13 @@
           "schema" : {
             "type" : "string",
             "enum" : [ "UNWEANED_CALF", "WEANED_CALF", "YOUNG_STOCK", "ADULT" ]
+          }
+        }, {
+          "name" : "flag",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         }, {
           "name" : "windowDays",
@@ -18715,6 +18774,9 @@
           },
           "veterinaryAdvice" : {
             "type" : "string"
+          },
+          "returnToOpen" : {
+            "type" : "boolean"
           }
         }
       },
@@ -18791,6 +18853,25 @@
           "confirmedById" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "observedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "temperatureC" : {
+            "type" : "number"
+          }
+        }
+      },
+      "ReopenCase" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
           }
         }
       },
@@ -22205,6 +22286,22 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -22213,10 +22310,17 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "unpaged" : {
-            "type" : "boolean"
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "paged" : {
+            "type" : "boolean"
+          },
+          "unpaged" : {
             "type" : "boolean"
           },
           "pageNumber" : {
@@ -22226,26 +22330,19 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "unsorted" : {
+          "empty" : {
             "type" : "boolean"
           },
           "sorted" : {
             "type" : "boolean"
           },
-          "empty" : {
+          "unsorted" : {
             "type" : "boolean"
           }
         }
@@ -24208,6 +24305,10 @@
             "items" : {
               "$ref" : "#/components/schemas/HealthTimelineRow"
             }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

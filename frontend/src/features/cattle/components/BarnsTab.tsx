@@ -53,7 +53,7 @@ export default function BarnsTab({ cow, barns, canWrite, onOpenModal }: { cow: C
                 <Td className="font-medium">{h.from}</Td>
                 <Td>{h.to}</Td>
                 <Td>{h.barn}</Td>
-                <Td>{h.reason}</Td>
+                <Td>{h.reason}{h.warningReason && <span className="block text-[11px] text-warn-fg">{`Lý do cảnh báo: ${h.warningReason}`}</span>}</Td>
                 <Td>{h.by}</Td>
               </tr>
             ))}

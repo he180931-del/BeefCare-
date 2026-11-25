@@ -21,28 +21,50 @@ public final class CareDtos {
     /** FE-10 A4: one follow-up of an OPEN / CHRONIC case; {@code progress} IMPROVED / UNCHANGED / WORSENED (required). */
     public record FollowUp(Integer expectedVersion, Instant observedAt, BigDecimal temperatureC, String progress, String description, Long observerId) {}
     /**
-     * FE-10 A5 (popup Cập nhật / Đóng ca). {@code action}: KEEP (only the follow-up), TO_CHRONIC (OPEN → CHRONIC),
-     * TO_OPEN (CHRONIC → OPEN), CLOSE (outcome RECOVERED / DIED / MISSING, {@code closedAt} not before the latest
-     * record, {@code confirmedById} an ACTIVE member, default the actor). {@code latestProgress} is stored as one
-     * follow-up ({@code progress} optional, default UNCHANGED): required for KEEP, optional otherwise (Q1).
-     * {@code suspectedDiagnosis} / {@code suspectedContagious} update the case when present.
+     * FE-10 A5 – popup "Cập nhật ca bệnh" (D58): một lần cập nhật gồm phần theo dõi và trạng thái ca, lưu trong một giao dịch.
+     *
+     * <p>{@code action}: KEEP (chỉ ghi theo dõi), TO_CHRONIC (OPEN → CHRONIC), TO_OPEN (CHRONIC → OPEN), CLOSE (kết quả
+     * RECOVERED / DIED / MISSING, {@code confirmedById} là thành viên ACTIVE, mặc định người thao tác).
+     * {@code observedAt}: thời điểm của lần cập nhật – dùng cho lần theo dõi, ngày bắt đầu mạn tính và lúc đóng ca;
+     * không trước bản ghi mới nhất của ca. Thiếu thì lấy {@code closedAt} (bản cũ), rồi đến hiện tại.
+     * Phần theo dõi ({@code latestProgress} = mô tả, {@code progress}, {@code temperatureC}) bắt buộc khi KEEP hoặc khi có
+     * bất kỳ ô nào; khi đó cần cả mô tả và diễn biến (D35). {@code suspectedDiagnosis} / {@code suspectedContagious} cập
+     * nhật ca khi có.
      */
     public record CaseStatus(Integer expectedVersion, String action, String latestProgress, String progress, String suspectedDiagnosis,
-                             Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById) {}
+                             Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById,
+                             Instant observedAt, BigDecimal temperatureC) {
+        /** Bản trước D58: không có thời điểm và thân nhiệt của lần theo dõi. */
+        public CaseStatus(Integer expectedVersion, String action, String latestProgress, String progress, String suspectedDiagnosis,
+                          Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById) {
+            this(expectedVersion, action, latestProgress, progress, suspectedDiagnosis, suspectedContagious, outcome, closedAt, confirmedById, null, null);
+        }
+    }
     /**
      * FE-10 A6: {@code medicineId} an ACTIVE medicine of the farm (name snapshotted), {@code route} one of
      * INTRAMUSCULAR / SUBCUTANEOUS / INTRAVENOUS / ORAL / TOPICAL / OTHER, {@code courseDays} 1–30 (default 1),
      * {@code withdrawalDays} 0–365 (default: the medicine's), {@code performerId} an ACTIVE member or
      * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
+     * {@code returnToOpen} (D59): với ca CHRONIC, {@code false} giữ ca mạn tính (điều trị duy trì); thiếu hoặc
+     * {@code true} đưa ca về OPEN như GBR-45. Bỏ qua với ca OPEN.
      */
     public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer courseDays,
                                    @JsonDeserialize(using = WholeNumberDeserializer.class) Integer withdrawalDays,
-                                   Long performerId, String performerName, String veterinaryAdvice) {}
+                                   Long performerId, String performerName, String veterinaryAdvice, Boolean returnToOpen) {
+        /** Bản trước D59: ca CHRONIC luôn về OPEN khi ghi điều trị. */
+        public TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
+                                Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {
+            this(expectedVersion, medicineId, administeredAt, dose, route, courseDays, withdrawalDays, performerId, performerName, veterinaryAdvice, null);
+        }
+    }
     /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
                                   LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
+    /** Xóa (hủy mềm) một bản ghi; {@code reason} là ghi chú không bắt buộc, tối đa 500 ký tự (D53, D69, D73). */
     public record VoidRecord(Integer expectedVersion, String reason) {}
+    /** D62: mở lại ca đã đóng (Khỏi / Chết / Mất tích); lý do bắt buộc, tối đa 500 ký tự. */
+    public record ReopenCase(Integer expectedVersion, String reason) {}
     /** A8: fields of a follow-up (or the opening observation) to correct; null = unchanged. */
     public record CorrectObservation(Integer expectedVersion, String reason, Instant observedAt, BigDecimal temperatureC,
                                      String signs, String progress, Long observerId) {}
@@ -226,7 +248,8 @@ public final class CareDtos {
                                  Long treatmentCount,Long linkedVaccinationId,Instant latestEntryAt,List<HealthTimelineRow> timeline,Integer version) {}
     /** A2 previous (CLOSED) case: code, opening signs, outcome and the month it was closed ({@code month} yyyy-MM). */
     public record PreviousHealthCase(Long id,String caseCode,String openingSigns,String diagnosis,String severity,LocalDate openedDate,
-                                     String outcome,LocalDate closedDate,String month,String confirmedBy,List<HealthTimelineRow> timeline) {}
+                                     String outcome,LocalDate closedDate,String month,String confirmedBy,List<HealthTimelineRow> timeline,
+                                     Integer version) {}
     /** A2: the PENDING loss voucher (DIED / MISSING) proposed from one of the cattle's cases and awaiting the Owner (GBR-26). */
     public record PendingHealthExit(Long voucherId,String code,String lossKind,LocalDate exitDate,Long caseId,String caseCode) {}
     public record HealthProfile(Long cattleId,String cattleCode,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,

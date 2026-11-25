@@ -24,7 +24,7 @@ export function Chip({ tone = 'grey', icon, className, children }: { tone?: Tone
 // Icon của nhãn trạng thái theo Figma (tab 00).
 const CHIP_ICONS: Record<string, IconName> = {
   ACTIVE: 'circle-check', 'Khỏe': 'heart', 'Khỏe mạnh': 'heart', 'Theo dõi': 'eye', 'Đang điều trị': 'pill',
-  'Mang thai': 'heartbeat', 'Đang mang thai': 'heartbeat', 'Khai báo chửa': 'heartbeat', 'Sắp đẻ': 'baby-carriage', 'Động dục': 'flame', 'Đã phối': 'clock',
+  'Mang thai': 'heartbeat', 'Đang mang thai': 'heartbeat', 'Khai báo chửa': 'heartbeat', 'Sắp đẻ': 'baby-carriage', 'Động dục': 'flame', 'Đã phối': 'clock', 'Đã phối – chờ khám thai': 'clock',
 }
 export const chipIcon = (label: string): IconName | undefined => CHIP_ICONS[label]
 

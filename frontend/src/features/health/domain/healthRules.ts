@@ -6,13 +6,13 @@ export const MSG = {
   future: 'Thời điểm không được ở tương lai.',
   beforeEntry: (date: string) => `Thời điểm không được trước ngày nhập đàn (${fmtDate(date)}).`,
   beforeCase: (at: string, what: string) => `Thời điểm không được trước ${fmtDateTime(at)}, ${what}.`,
-  temperature: 'Thân nhiệt phải trong khoảng 35,0 – 43,0 °C.',
+  temperature: 'Thân nhiệt phải trong khoảng 30,0 – 45,0 °C.',
+  temperatureCheck: 'Số đo nằm ngoài khoảng 35–43 °C. Hãy kiểm tra lại số đo và đơn vị trước khi xác nhận.',
   changed: 'Bản ghi đã được thay đổi hoặc không còn ở trạng thái cho phép thao tác. Vui lòng tải lại và kiểm tra trước khi thử lại.',
   exited: (code: string, date: string, type: string) => `${code} đã rời đàn ngày ${fmtDate(date)} (${type}). Hồ sơ chỉ được xem.`,
   pendingExit: 'Bò đang chờ xác nhận chết / mất nên chưa nhận thêm sự kiện chăm sóc mới.',
   inactiveMedicine: (name: string) => `${name} đã ngưng sử dụng, không thể chọn cho bản ghi mới.`,
-  voidOpening: 'Lần ghi mở ca không thể hủy. Hãy sửa lại, hoặc đóng ca kèm lý do.',
-  chronicNotice: 'Ca đang theo dõi mạn tính. Lưu điều trị sẽ chuyển ca về OPEN.',
+  voidOpening: 'Lần ghi mở ca không thể xóa. Hãy sửa lại, hoặc đóng ca kèm lý do.',
 }
 
 /** Ngày của lần dùng cuối = ngày dùng đầu + (số ngày liệu trình − 1). */

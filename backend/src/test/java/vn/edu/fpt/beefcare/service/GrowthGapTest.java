@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
@@ -153,10 +154,34 @@ class GrowthGapTest extends DomainTestSupport {
         gone.setHerdStatus(vn.edu.fpt.beefcare.domain.enumeration.HerdStatus.EXITED);
         reload();
 
-        GrowthOverviewService.Page all = overview.list(farm.getId(), null, null, null, null, 90, 0, 50, null);
+        GrowthOverviewService.Page all = overview.list(farm.getId(), null, null, null, null, null, 90, 0, 50, null);
         assertThat(all.activeCount()).isEqualTo(2);
-        GrowthOverviewService.Page filtered = overview.list(farm.getId(), "no-such-code", null, "FATTENING", null, 90, 0, 50, null);
+        GrowthOverviewService.Page filtered = overview.list(farm.getId(), "no-such-code", null, "FATTENING", null, null, 90, 0, 50, null);
         assertThat(filtered.total()).isZero();
         assertThat(filtered.activeCount()).isEqualTo(2);
+    }
+
+    // ------------------------------------------------------------ D74
+
+    @Test
+    void flagFilterKeepsTheCountsAndRejectsUnknownFlags() {
+        // Bò chưa cân lần nào luôn có cờ WEIGHING_OVERDUE, không có LOW_BCS.
+        cattle(farm, breed(farm), purpose(farm, PurposeType.BREEDING), Sex.FEMALE, LifeStage.ADULT);
+        cattle(farm, breed(farm), purpose(farm, PurposeType.FATTENING), Sex.MALE, LifeStage.ADULT);
+        reload();
+
+        GrowthOverviewService.Page all = overview.list(farm.getId(), null, null, null, null, null, 90, 0, 50, null);
+        GrowthOverviewService.Page overdue = overview.list(farm.getId(), null, null, null, null, "WEIGHING_OVERDUE", 90, 0, 50, null);
+        assertThat(overdue.total()).isEqualTo(all.summary().get("WEIGHING_OVERDUE")).isGreaterThanOrEqualTo(2);
+        assertThat(overdue.items()).allSatisfy(row -> assertThat(row.flags()).contains("WEIGHING_OVERDUE"));
+        // Số đếm không đổi theo tab đang chọn.
+        assertThat(overdue.summary()).isEqualTo(all.summary());
+
+        GrowthOverviewService.Page lowBcs = overview.list(farm.getId(), null, null, null, null, "LOW_BCS", 90, 0, 50, null);
+        assertThat(lowBcs.total()).isEqualTo(all.summary().get("LOW_BCS"));
+        assertThat(lowBcs.items()).allSatisfy(row -> assertThat(row.flags()).contains("LOW_BCS"));
+
+        assertThatThrownBy(() -> overview.list(farm.getId(), null, null, null, null, "NORMAL", 90, 0, 50, null))
+            .isInstanceOf(DomainException.class);
     }
 }

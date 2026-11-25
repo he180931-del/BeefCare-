@@ -58,6 +58,7 @@ describe('yêu cầu nội bộ trong phiên mock', () => {
         </SessionContext.Provider>,
       )
       expect(await screen.findByRole('heading', { name: 'Yêu cầu nội bộ được giao' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Danh sách yêu cầu nội bộ' })).toHaveClass('max-h-[calc(100vh-260px)]', 'overflow-y-auto')
       mounted.unmount()
     }
   })
@@ -299,7 +300,7 @@ describe('yêu cầu nội bộ được giao', () => {
     expect(screen.queryByText('Đã chuyển khoản gia hạn nhưng chưa thấy xác nhận · Trại bò Yên Bài – Ba Vì')).not.toBeInTheDocument()
     expect(screen.queryByText('Câu hỏi từ nhân viên hỗ trợ · yêu cầu TK-1042')).not.toBeInTheDocument()
     expect(screen.queryByText('Phạm vi')).not.toBeInTheDocument()
-    expect(screen.getByText('Nhân viên hỗ trợ Phạm Thu Hà')).toBeInTheDocument()
+    expect(screen.getByText('Phạm Thu Hà (Nhân viên hỗ trợ)')).toBeInTheDocument()
     expect(screen.queryByText('Nhân viên hỗ trợ Phạm Thu Hà · 18/10/2026 09:55')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mở bàn đối soát' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Kết quả gửi cho nhân viên hỗ trợ phụ trách/)).not.toBeInTheDocument()
@@ -335,16 +336,18 @@ describe('yêu cầu nội bộ được giao', () => {
     }
   })
 
-  it('nói rõ trạng thái Đang mở và người tiếp theo cần gửi kết quả', async () => {
+  it('không hiển thị hộp giải thích trạng thái màu xanh khi yêu cầu đang mở', async () => {
     renderAt('/nen-tang/yeu-cau/IR-077', 'PM')
 
-    expect(await screen.findByRole('status', { name: /Đang mở.*Đỗ Minh Quân.*gửi kết quả/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /IR-077 · / })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: /Đang mở.*Đỗ Minh Quân.*gửi kết quả/i })).not.toBeInTheDocument()
   })
 
   it('does not render the CS context link on the named-recipient screen', async () => {
     renderAt('/nen-tang/yeu-cau/IR-077', 'PM')
 
     expect(await screen.findByRole('heading', { name: /IR-077 · / })).toBeInTheDocument()
+    expect(screen.getByText('Phạm Thu Hà (Nhân viên hỗ trợ)')).toBeInTheDocument()
     expect(screen.queryByText('Liên kết')).not.toBeInTheDocument()
     expect(screen.queryByText('Thanh toán SePay #843')).not.toBeInTheDocument()
   })

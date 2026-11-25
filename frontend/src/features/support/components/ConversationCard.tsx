@@ -86,7 +86,10 @@ export function ConversationCard({
   }
 
   return (
-    <Card variant="panel" title="Trao đổi">
+    <Card variant="panel">
+      <header className="-mb-1 border-b border-rule pb-3">
+        <h2 className="m-0 text-lg font-bold text-ink">Trao đổi</h2>
+      </header>
       {hasMore && beforeId != null && (
         <div className="flex justify-center">
           <Button variant="link" size="sm" disabled={loading} onClick={loadOlder}>

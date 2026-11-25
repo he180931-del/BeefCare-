@@ -32,6 +32,7 @@ describe('ConversationCard', () => {
   it('renders the supplied reply composer at the bottom of the chat column', () => {
     render(<ConversationCard ticket={ticket} onLoadOlder={vi.fn()} composer={<textarea aria-label="Phản hồi công khai" />} />)
 
+    expect(screen.getByRole('heading', { name: 'Trao đổi' }).closest('header')).toHaveClass('border-b', 'border-rule')
     expect(screen.getByLabelText('Phản hồi công khai')).toBeInTheDocument()
     expect(screen.getByTestId('owner-chat-viewport')).toHaveClass('h-[480px]')
   })

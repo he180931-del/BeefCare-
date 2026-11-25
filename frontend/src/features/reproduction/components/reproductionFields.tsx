@@ -1,16 +1,10 @@
 import { useRef, type ReactNode } from 'react'
 import { Field, Icon, inputCls, Radio, Select } from '../../../shared/ui'
-import type { DataSource } from '../types'
 import { reproductionApi } from '../api/reproductionApi'
 import { useReproductionOptions } from './reproductionOptions'
 
-export const SOURCE_OPTIONS: Array<[DataSource, string]> = [
-  ['DIRECT_OBSERVATION', 'Quan sát trực tiếp'], ['FARM_NOTEBOOK', 'Sổ trại'], ['EXTERNAL_REPORT', 'Báo cáo bên ngoài'],
-]
-export const SOURCE_LABEL: Record<DataSource, string> = Object.fromEntries(SOURCE_OPTIONS) as Record<DataSource, string>
-export const SOURCE_HINT = 'Mặc định quan sát trực tiếp · đổi khi ghi từ sổ / báo cáo ngoài'
 export const RESULT_OPTIONS: Array<[string, string]> = [['PREGNANT', 'Có thai'], ['NOT_PREGNANT', 'Không có thai'], ['INCONCLUSIVE', 'Chưa xác định']]
-export const CHECK_METHOD_OPTIONS: Array<[string, string]> = [['ULTRASOUND', 'Siêu âm'], ['RECTAL', 'Khám trực tràng'], ['OTHER', 'Khác']]
+export const CHECK_METHOD_OPTIONS: Array<[string, string]> = [['ULTRASOUND', 'Siêu âm'], ['RECTAL', 'Khám trực tràng'], ['OBSERVATION', 'Quan sát – không lên giống lại'], ['OTHER', 'Khác']]
 export const UPDATE_TYPE_OPTIONS: Array<[string, string]> = [['OBSERVATION', 'Theo dõi'], ['COMPLICATION', 'Biến chứng'], ['LOSS', 'Sẩy thai']]
 export const COURSE_OPTIONS: Array<[string, string]> = [['NORMAL', 'Bình thường'], ['ASSISTED', 'Can thiệp'], ['CAESAREAN', 'Mổ đẻ']]
 export const DAM_CONDITION_OPTIONS: Array<[string, string]> = [['GOOD', 'Tốt'], ['MONITORING', 'Cần theo dõi'], ['CRITICAL', 'Nguy kịch']]

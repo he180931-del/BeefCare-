@@ -1,18 +1,28 @@
-import { Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { DoseInput, Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { DOSE_FORMAT_MESSAGE, isStandardDose, joinDose, splitDose, type DoseUnit } from '../../../shared/lib/dose'
 import { useCatalogueItemPage } from '../hooks/useCatalogueItemPage'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel, PairGrid } from '../components/EditorPanel'
 import { AvailabilityBadge, StatusField, TextInput, UnitInput, fieldError } from '../components/fields'
 import { AddButton, SavedNotice, SplitLayout } from '../components/PageParts'
-import { CODE_HINT, MEDICINE_ROUTES, ROUTE_LABELS, numberToText, parseNumber } from '../domain/catalogueRules'
+import { CODE_HINT, FieldErrors, MEDICINE_ROUTES, ROUTE_LABELS, numberToText, parseNumber } from '../domain/catalogueRules'
 import type { Medicine, Route } from '../types'
 
-interface MedicineDraft { code: string; name: string; dose: string; route: Route | ''; withdrawalDays: string; description: string; available: boolean }
-const newDraft = (): MedicineDraft => ({ code: '', name: '', dose: '', route: '', withdrawalDays: '', description: '', available: true })
-const toDraft = (m: Medicine): MedicineDraft => ({
-  code: m.code, name: m.name, dose: m.dose, route: m.route, withdrawalDays: numberToText(m.withdrawalDays), description: m.description, available: m.available,
-})
+/**
+ * D65: liều tham chiếu nhập số + đơn vị như khi ghi điều trị. Liều cũ không theo chuẩn (`legacyDose`) được giữ nguyên nếu
+ * người dùng không nhập lại, để sửa các trường khác không làm mất dữ liệu.
+ */
+interface MedicineDraft { code: string; name: string; doseAmount: string; doseUnit: DoseUnit; legacyDose: string; route: Route | ''; withdrawalDays: string; description: string; available: boolean }
+const newDraft = (): MedicineDraft => ({ code: '', name: '', doseAmount: '', doseUnit: 'ml', legacyDose: '', route: '', withdrawalDays: '', description: '', available: true })
+const toDraft = (m: Medicine): MedicineDraft => {
+  const dose = splitDose(m.dose)
+  return {
+    code: m.code, name: m.name, doseAmount: dose.amount, doseUnit: dose.unit, legacyDose: dose.legacy ? m.dose : '', route: m.route,
+    withdrawalDays: numberToText(m.withdrawalDays), description: m.description, available: m.available,
+  }
+}
+const doseOf = (d: MedicineDraft) => joinDose(d.doseAmount, d.doseUnit) || d.legacyDose
 
 export default function MedicinesPage() {
   const page = useCatalogueItemPage<Medicine, MedicineDraft>((catalogueApi) => ({
@@ -20,9 +30,14 @@ export default function MedicinesPage() {
     newDraft,
     toDraft,
     usage: (m) => m.usageCount,
-    save: (item, d) => catalogueApi.saveMedicine(item?.id ?? null, {
-      ...d, withdrawalDays: parseNumber(d.withdrawalDays), ...(item ? { expectedVersion: item.version } : {}),
-    }),
+    save: async (item, d) => {
+      const dose = doseOf(d)
+      if (dose && dose !== d.legacyDose && !isStandardDose(dose)) throw new FieldErrors({ dose: DOSE_FORMAT_MESSAGE })
+      const { doseAmount: _amount, doseUnit: _unit, legacyDose: _legacy, ...rest } = d
+      return catalogueApi.saveMedicine(item?.id ?? null, {
+        ...rest, dose, withdrawalDays: parseNumber(d.withdrawalDays), ...(item ? { expectedVersion: item.version } : {}),
+      })
+    },
   }))
   const { draft, item, errors } = page
   const locked = !page.isCreate && (item?.usageCount ?? 0) > 0
@@ -65,12 +80,12 @@ export default function MedicinesPage() {
             <Field label="Mã *" id="medicine-code" hint={fieldError(errors.code, locked ? 'Không sửa được khi đã dùng' : CODE_HINT)}>
               <TextInput id="medicine-code" upper value={draft.code} readOnly={readOnly || locked} invalid={Boolean(errors.code)} onChange={(v) => page.setField('code', v)} />
             </Field>
-            <Field label="Tên thuốc *" id="medicine-name" hint={fieldError(errors.name)}>
+            <Field label="Tên thuốc *" id="medicine-name" hint={fieldError(errors.name, 'Thuốc có nhiều dạng (tiêm / uống) nên tạo mỗi dạng một mục, vì liều và ngày ngưng thịt khác nhau')}>
               <TextInput id="medicine-name" value={draft.name} readOnly={readOnly} invalid={Boolean(errors.name)} onChange={(v) => page.setField('name', v)} />
             </Field>
             <PairGrid>
-              <Field label="Liều tham chiếu" id="medicine-dose" hint={fieldError(errors.dose)}>
-                <TextInput id="medicine-dose" value={draft.dose} readOnly={readOnly} invalid={Boolean(errors.dose)} onChange={(v) => page.setField('dose', v)} />
+              <Field label="Liều tham chiếu" id="medicine-dose" hint={fieldError(errors.dose, draft.legacyDose && !draft.doseAmount ? `Đang lưu: "${draft.legacyDose}" – nhập lại theo số và đơn vị` : 'Mỗi lần dùng theo đường dùng bên cạnh; liều theo thể trọng ghi ở Ghi chú')}>
+                <DoseInput id="medicine-dose" amount={draft.doseAmount} unit={draft.doseUnit} readOnly={readOnly} invalid={Boolean(errors.dose)} onAmount={(v) => page.setField('doseAmount', v)} onUnit={(v) => page.setField('doseUnit', v)} />
               </Field>
               <Field label="Đường dùng" id="medicine-route" hint={fieldError(errors.route)}>
                 <Select id="medicine-route" value={draft.route} disabled={readOnly} onChange={(e) => page.setField('route', e.target.value as Route | '')}>

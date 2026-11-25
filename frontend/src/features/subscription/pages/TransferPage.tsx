@@ -64,13 +64,13 @@ export default function TransferPage() {
 
   const closeTo = from === 'lich-su' ? to('/goi-dich-vu/lich-su') : from === 'onboarding' ? '/chon-trai' : to('/goi-dich-vu')
   const close = () => navigate(closeTo)
+  const farmOverview = overview.data?.farmId === farmId ? overview.data : null
+  const farmName = farmOverview?.farmName ?? ''
   if (current.state === 'PAID') {
-    return shell(<PaidTransfer key={`${farmId}:${current.id}`} farmId={farmId} payment={current}
+    return shell(<PaidTransfer key={`${farmId}:${current.id}`} farmId={farmId} farmName={farmName} payment={current}
       checkAccess={subscription.entersFarmAfterPayment} onClose={close} />)
   }
 
-  const farmOverview = overview.data?.farmId === farmId ? overview.data : null
-  const farmName = farmOverview?.farmName ?? ''
   const firstPurchase = farmOverview != null && farmOverview.periods.every((p) => p.paymentCode === current.quoteRef
     || current.purchasedStart != null && toMs(p.start) > toMs(current.purchasedStart))
   const pending = current.state === 'PENDING'

@@ -11,6 +11,9 @@ import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorre
 import type { CattleViewModel as CowSeed } from '../types'
 import type { CattleEvent } from '../types'
 
+/** MSG-FE16-01 */
+export const TIMELINE_DENIED = 'Vai trò của bạn không được xem chi tiết sự kiện này.'
+
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
 /** SCR-50 #3: "THÁNG 10 2026". */
@@ -72,10 +75,10 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
 
   const openSource = (e: CattleEvent) => {
     setDenied('')
-    if (e.openDenied) return setDenied('Bạn không có quyền xem chi tiết này.')
+    if (e.openDenied) return setDenied(TIMELINE_DENIED)
     if (e.voucher) return nav(e.voucher.kind === 'entry' ? `/herd-entry/${encodeURIComponent(e.voucher.code)}` : `/herd-exit/${encodeURIComponent(e.voucher.code)}`)
-    if (e.cat === 'entryExit') return setDenied('Bạn không có quyền xem chi tiết này.')
-    if (e.tab === undefined) return setDenied('Bạn không có quyền xem chi tiết này.')
+    if (e.cat === 'entryExit') return setDenied(TIMELINE_DENIED)
+    if (e.tab === undefined) return setDenied(TIMELINE_DENIED)
     if (e.sourceId != null && ['growth', 'vaccine', 'health', 'repro'].includes(e.tab)) return nav(sourceLink(e))
     setSelected(e)
   }

@@ -50,6 +50,7 @@ describe('CowList backend mode — SCR-18 Purpose filter', () => {
     render(<MemoryRouter><CowList /></MemoryRouter>)
 
     expect(await screen.findByText('BC-BACKEND-PURPOSE-001')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
     const purpose = screen.getByRole('combobox', { name: /Mục đích/i }) as HTMLSelectElement
     const exclude = [...purpose.options].find((option) => option.textContent?.includes('Bò sinh sản'))
     const include = [...purpose.options].find((option) => option.textContent?.includes('Vỗ béo'))
@@ -74,6 +75,7 @@ describe('CowList backend mode — SCR-18 Purpose filter', () => {
     expect(screen.getByRole('columnheader', { name: 'Bò' })).toHaveAttribute('aria-sort', 'descending')
     await waitFor(() => expect(new URL(requestedCattleUrls.at(-1)!).searchParams.get('sort')).toBe('-displayCode'))
 
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
     await user.selectOptions(screen.getByRole('combobox', { name: 'Sắp xếp' }), 'name')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Dữ liệu cân' }), 'no')
     await waitFor(() => {

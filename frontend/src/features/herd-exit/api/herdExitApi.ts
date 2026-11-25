@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { HerdExit } from '../types'
+import type { ExitBuyer, ExitBuyerInput, ExitCommandOutcome, ExitListQuery, ExitListResult, ExitVoidOutcome, HerdExit } from '../types'
 import type { ExitPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
@@ -7,6 +7,7 @@ import { backendTransport } from '../../../shared/api/backendTransport'
 import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks, type ExitVoidCheck, type ExitVoidSelections } from './herdExitBackendApi'
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import { getExitDraftState } from '../domain/exitDraft'
+import { localExitListResult } from '../domain/exitListPeriod'
 import { demo } from '../../../demo/demoModules'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 import type { Pen } from '../../pen-management'
@@ -28,6 +29,10 @@ export const herdExitApi = {
     const rows = usingBackend ? await backendApi.list() : await demo.exitLocal.localApi.list()
     return predicate ? rows.filter(predicate) : rows
   },
+  /** SCR-41 page: rows, tiles and status counts of the period and type (server-computed in backend mode). */
+  listPage: async (query: ExitListQuery = {}): Promise<ExitListResult> => usingBackend
+    ? backendApi.listPage(query)
+    : localExitListResult(await demo.exitLocal.localApi.list(), query, businessDate()),
   get: (id: string) => usingBackend ? backendApi.get(id) : demo.exitLocal.localApi.get(id),
   checks: async (id: string): Promise<ExitChecks> => {
     if (usingBackend) return backendApi.checks(id)
@@ -85,6 +90,13 @@ export const saveHerdExit = (input: { id?: string; expectedVersion?: number; rec
   })
 }
 
+/** Confirms a voucher and keeps the server's success text (MSG-FE13-02) for the next screen. */
+export const confirmHerdExitOutcome = async (id: string, expectedVersion: number | undefined): Promise<ExitCommandOutcome> => {
+  if (usingBackend) return backendApi.confirmOutcome(id, expectedVersion)
+  const voucher = await confirmHerdExit(id, expectedVersion)
+  return { voucher, message: '' }
+}
+
 export const confirmHerdExit = async (id: string, expectedVersion: number | undefined): Promise<HerdExit> => {
   if (usingBackend) return backendApi.confirm(id, expectedVersion)
   const current = await demo.exitLocal.localApi.get(id)
@@ -105,19 +117,25 @@ export const removeExitAttachment = async (id: string, attachmentId: number): Pr
   await backendApi.removeAttachment(id, attachmentId)
 }
 
-export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot & ExitVoidSelections) => usingBackend
+/** Voids a confirmed voucher (A10); the result carries MSG-FE13-05 and the per-cattle review list. Local mode has no review list. */
+export const cancelHerdExit = async (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot & ExitVoidSelections): Promise<ExitVoidOutcome> => usingBackend
   ? backendApi.voidVoucher(id, { ...snapshot, expectedVersion: snapshot?.expectedVersion, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
-  : demo.exitLocal.cancelExit(id, cattleRows, patch)
+  : { voucher: await demo.exitLocal.cancelExit(id, cattleRows, patch), message: '', reviewList: [] }
 
-export const dismissHerdExit = (id: string, reason: string, expectedVersion: number | undefined, backendId?: number) => usingBackend
+/** Dismisses a pending death / loss proposal (A9); the result carries MSG-FE13-04 / MSG-FE13-10. */
+export const dismissHerdExit = async (id: string, reason: string, expectedVersion: number | undefined, backendId?: number): Promise<ExitCommandOutcome> => usingBackend
   ? backendApi.dismissVoucher(id, reason, expectedVersion, backendId)
-  : demo.exitLocal.localApi.update(id, { status: 'Đã bác', reason })
+  : { voucher: await demo.exitLocal.localApi.update(id, { status: 'Đã bác', reason, cancelReason: reason }), message: '' }
 
 export const listSelectableExitCattle = async (): Promise<ExitCandidate[]> => {
   return usingBackend ? backendApi.selectableCattle() : demo.exitLocal.selectableCattle()
 }
 
-export const listExitBuyers = () => usingBackend ? backendApi.buyers() : Promise.resolve(demo.exitLocal.BUYERS)
+export const listExitBuyers = (): Promise<ExitBuyer[]> => usingBackend ? backendApi.buyers() : demo.exitLocal.listBuyers()
+
+export const saveExitBuyer = (input: ExitBuyerInput, options?: { key?: string }): Promise<ExitBuyer> => usingBackend
+  ? backendApi.saveBuyer(input, options)
+  : demo.exitLocal.saveBuyer(input)
 
 /** Mã phiếu hiển thị trước khi lưu: máy chủ cấp khi lưu (undefined); bản mô phỏng tự đánh số tiếp theo. */
 export const newExitVoucherId = (rows: ReadonlyArray<{ id: string }>): string | undefined => usingBackend
@@ -143,9 +161,9 @@ export function exitPenShift(picked: ReadonlyArray<{ barn: string; penCount?: nu
 }
 
 /** Giá trị ban đầu của popup thu tiền phiếu xuất; bản mô phỏng điền sẵn khoản thu mẫu theo Figma. */
-export function exitCollectionDefaults(): { date: string; reference: string; statement: boolean; note: string; cashReference: string | null } {
+export function exitCollectionDefaults(): { date: string; reference: string; note: string } {
   return usingBackend
-    ? { date: businessDate(), reference: '', statement: false, note: '', cashReference: null }
+    ? { date: businessDate(), reference: '', note: '' }
     : demo.exitLocal.collectionDefaults()
 }
 

@@ -13,13 +13,12 @@ export function Card({ title, sub, actions, variant = 'default', headingAs, chil
   return (
     <section className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
       {(title || actions) && (
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="m-0 text-sm font-semibold">
+        <div className="flex flex-nowrap items-center justify-between gap-3">
+          <h3 className="m-0 min-w-0 flex-1 text-sm font-semibold">
             {title}
             {sub && <small className="mt-[3px] block text-[11px] font-normal text-muted">{sub}</small>}
           </h3>
-          <div className="flex-1" />
-          {actions && <div className="flex gap-2.5">{actions}</div>}
+          {actions && <div className="flex shrink-0 gap-2.5">{actions}</div>}
         </div>
       )}
       {children}

@@ -39,7 +39,7 @@ export interface CattleEvent {
   revisionSource?: { version: number; occurredAt?: string | null; values: Record<string, unknown> }
 }
 export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string; note?: string }
-export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; by: string }
+export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; warningReason?: string; by: string }
 export type ImportRecordField = [key: string, label: string, current: string, next: string]
 export interface ImportRecord { plan: string; date: string; by: string; onlyImportEvents?: boolean; fields: ImportRecordField[] }
 export interface CattleCare {
@@ -83,6 +83,8 @@ export interface Cattle {
   purposeId?: number
   purposeSince?: string
   stage?: string
+  /** dd/mm/yyyy effective date of the current life stage (SCR-19 #13). */
+  stageSince?: string
   /** Backend enum kept separately from the translated display label. */
   lifeStage?: string
   herdGroup?: string
@@ -108,6 +110,16 @@ export interface Cattle {
   care?: CattleCare
   importRecord?: ImportRecord | null
   exitStatusLabel?: string
+  /** EXITED only: exit type and date for MSG-COM-13. */
+  exitTypeLabel?: string
+  exitDateLabel?: string
+  /** An OPEN health case carries the contagious flag (§3.2, SCR-19 #18). */
+  suspectedContagious?: boolean
+  expectedCalvingDate?: string
+  expectedBasis?: string
+  /** GBR-55; only set for females awaiting breeding, in estrus or post-calving. */
+  breedingEligible?: boolean
+  failedBreedingConditions?: string[]
   backendId?: number
   backendVersion?: number
   canUpdate?: boolean

@@ -124,9 +124,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   return (
     <TopbarTitleContext.Provider value={setOverride}>
       <div className="min-h-screen overflow-x-clip">
-        {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
+        {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden print:hidden" onClick={() => setOpen(false)} />}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-[264px] overflow-hidden bg-side transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed inset-y-0 left-0 z-30 w-[264px] overflow-hidden bg-side transition-transform lg:translate-x-0 print:hidden ${open ? 'translate-x-0' : '-translate-x-full'}`}
         >
           <div className="absolute left-[22px] top-5 flex items-center gap-2.5 text-[19px] font-bold text-white">
             <img src={logo} alt="" className="size-[38px] rounded-[10px] object-cover" />
@@ -168,8 +168,8 @@ export default function Layout({ title, user = 'owner', children }: { title: str
           <img src={farm} alt="" className="pointer-events-none absolute bottom-0 left-0 h-[234px] w-[264px] object-cover opacity-[0.72]" />
         </aside>
 
-        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px]" style={{ backgroundImage: `url(${wave})` }}>
-          <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px]">
+        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px] print:ml-0 print:bg-none print:bg-white" style={{ backgroundImage: `url(${wave})` }}>
+          <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px] print:hidden">
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-11 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 wrap-anywhere pr-3 text-sm font-bold leading-tight text-ink">{override || title}</div>
             {!platform && (

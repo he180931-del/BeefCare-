@@ -8,7 +8,7 @@ import { buildProfile } from '../domain/growthSummary'
 import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
 import { validateCorrectionNote, validateMeasurement } from '../validation/growthValidation'
 import type {
-  CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdPage,
+  CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdFlag, GrowthHerdPage,
   GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthProjection, GrowthRecord, GrowthRecordStatus, GrowthRevision, GrowthWindow,
   HerdGroup, LifeStage, RecordGrowthCommand,
 } from '../types'
@@ -118,6 +118,9 @@ export function mapCattle(raw: unknown): GrowthCattle {
   }
 }
 
+const HERD_FLAGS: GrowthHerdFlag[] = ['WEIGHING_OVERDUE', 'LOW_ADG', 'LOW_BCS']
+const rowFlags = (flags: unknown): GrowthHerdFlag[] => (Array.isArray(flags) ? HERD_FLAGS.filter((f) => flags.includes(f)) : [])
+
 const rowStatus = (flags: unknown): GrowthHerdStatus => {
   const list = Array.isArray(flags) ? flags : []
   if (list.includes('WEIGHING_OVERDUE')) return 'OVERDUE'
@@ -140,6 +143,7 @@ export function mapHerdRow(raw: unknown): GrowthHerdRow {
     adg: num(r.adg),
     bcs: num(r.bcs),
     status: rowStatus(r.flags),
+    flags: rowFlags(r.flags),
   }
 }
 
@@ -245,7 +249,7 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
       const size = filters.size ?? HERD_PAGE_SIZE
       const sort = filters.dir === 'asc' ? 'weighedOn' : filters.dir === 'desc' ? '-weighedOn' : undefined
       const body = asRecord(await transport.get(path(`/growth${query({
-        q: filters.q?.trim(), penId, herdGroup: filters.herdGroup, lifeStage: filters.lifeStage,
+        q: filters.q?.trim(), penId, herdGroup: filters.herdGroup, lifeStage: filters.lifeStage, flag: filters.flag,
         windowDays: filters.windowDays ?? 90, page: page - 1, size, sort,
       })}`)))
       const summary = asRecord(body.summary)

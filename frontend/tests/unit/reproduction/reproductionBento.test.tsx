@@ -16,20 +16,15 @@ describe('reproduction Bento layout (Figma Tab 18)', () => {
     await resetReproductionDemo()
   })
 
-  it('makes "Đang động dục" the only emphasis tile and colours the other tiles only when they have cattle', async () => {
+  it('D71: "Việc cần làm" is the only emphasis block; the alert block is light red only when some cows need attention', async () => {
     render(<MemoryRouter><ReproductionWorklistPage /></MemoryRouter>)
     await screen.findByRole('row', { name: /BC-000142/ })
-
-    expect(tileOf('Đang động dục')).toHaveClass('bg-brand-dark')
-    expect(document.querySelectorAll('section[aria-label="Chỉ số sinh sản"] .bg-brand-dark')).toHaveLength(1)
-
-    const window = tileOf('Trong cửa sổ phối')
-    expect(window).toHaveClass(valueOf(window) > 0 ? 'bg-warn-bg' : 'bg-white')
-    const dueSoon = tileOf('Sắp đẻ ≤ 30 ngày')
-    expect(dueSoon).toHaveClass(valueOf(dueSoon) > 0 ? 'bg-ok-bg' : 'bg-white')
-    const notEligible = tileOf('Chưa đủ điều kiện phối')
-    const red = within(notEligible).queryByText(String(valueOf(notEligible)), { selector: '.text-err-fg' })
-    expect(Boolean(red)).toBe(valueOf(notEligible) > 0)
+    const tiles = screen.getByRole('region', { name: 'Chỉ số sinh sản' })
+    expect(tiles.querySelectorAll('.bg-brand-dark')).toHaveLength(1)
+    expect(within(tiles).getByText('Việc cần làm').closest('section')).toHaveClass('bg-brand-dark')
+    const alert = within(tiles).getByText(/^(Cần chú ý|Không có bò cần chú ý)$/).closest('section') as HTMLElement
+    const notEligible = Number(within(alert).getByText('bò chưa đủ điều kiện phối').previousElementSibling?.textContent ?? 0)
+    expect(alert).toHaveClass(notEligible > 0 ? 'bg-err-bg' : 'bg-ok-bg')
   })
 
   it('opens the cow from the keyboard: rows take focus and Enter opens the Sinh sản tab', async () => {
@@ -49,7 +44,7 @@ describe('reproduction Bento layout (Figma Tab 18)', () => {
     expect(await screen.findByRole('heading', { name: 'Hồ sơ bò' })).toBeInTheDocument()
   })
 
-  it('shows the status as the dark block with a white primary button, the window on light green', async () => {
+  it('D68: shows the status as the dark block with the window inside and a white primary button; eligibility met is light green', async () => {
     render(<MemoryRouter><ReproductionProfileTab cattleCode="BC-000142" role="MANAGER" /></MemoryRouter>)
     await screen.findByText('Trạng thái sinh sản')
 
@@ -57,8 +52,17 @@ describe('reproduction Bento layout (Figma Tab 18)', () => {
     expect(status).toHaveClass('bg-brand-dark')
     expect(within(status).getByRole('button', { name: 'Ghi phối giống' })).toHaveClass('bg-white', 'text-brand')
     expect(within(status).getByRole('button', { name: 'Ghi động dục' })).toHaveClass('bg-white/12', 'text-white')
-    expect(panelOf('Cửa sổ phối gợi ý')).toHaveClass('bg-ok-bg')
-    expect(panelOf('Điều kiện xét phối')).toHaveClass('bg-white')
+    expect(within(status).getByText('Cửa sổ phối gợi ý')).toBeInTheDocument()
+    expect(panelOf('Điều kiện xét phối')).toHaveClass('bg-ok-bg')
+  })
+
+  it('D67: cow bred over 21 days ago gets "Xác nhận có thai (quan sát)" which opens the check prefilled with Observation', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ReproductionProfileTab cattleCode="BC-000061" role="MANAGER" /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Xác nhận có thai (quan sát)' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ghi khám thai' })
+    expect(within(dialog).getByRole('combobox', { name: 'Phương pháp' })).toHaveValue('OBSERVATION')
+    expect(within(dialog).getByRole('radio', { name: 'Có thai' })).toBeChecked()
   })
 
   it('tints the current pregnancy yellow only when the cow is due soon', async () => {

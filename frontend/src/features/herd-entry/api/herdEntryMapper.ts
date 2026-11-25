@@ -1,7 +1,6 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { EntryCalf, EntryDetail, EntryDocument, EntryDraft, EntryPayment, EntryStatus, EntryType, HerdEntry } from '../types'
-import { toBusinessTime } from '../../../shared/lib/date/farmTime'
-import { dmy } from '../../../shared/lib/format'
+import { formatEntryHistoryItem } from '../domain/entryVoucherHistory'
 import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Entry voucher DTO ↔ screen model mapping (EntryVoucherResource, PendingCalfResource), moved out of herdEntryBackendApi.ts.
@@ -15,6 +14,7 @@ export const birthAccuracy = (value: unknown) => value === 'Chính xác' || valu
 export { fullDate } from '../domain/entryDate'
 export const lifeStage = (value: unknown, farmBorn = false) => {
   const normalized = textValue(value).toLowerCase()
+  if (['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'].includes(textValue(value))) return textValue(value)
   if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
   if (normalized.includes('theo mẹ') || normalized.includes('sơ sinh')) return 'UNWEANED_CALF'
   if (normalized.includes('bê')) return 'WEANED_CALF'
@@ -101,19 +101,14 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         damCode: textValue(line.damCode ?? data.damCode), sireCode: textValue(line.sireCode ?? data.sireCode),
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
+        herdStatus: textValue(line.currentHerdStatus) || undefined,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
         amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice, hist: mapEntryHistory(line),
       }
     }),
     cowsTotal: numberValue(row.cattleAmount), freight: numberValue(row.transportFee),
     payments: paymentRows(row.payments), docs: mapDocuments(documents, '', 0),
-    history: asRows(row.history).map((item) => {
-      if (item.kind !== 'ENTRY_LINE_CORRECT' && item.kind !== 'ENTRY_LINE_VOID') return textValue(item.message ?? item.text ?? item.kind)
-      const details = asRecord(item.details)
-      const at = toBusinessTime(item.at)
-      const action = item.kind === 'ENTRY_LINE_CORRECT' ? 'Sửa bản ghi nhập' : 'Hủy bản ghi nhập'
-      return [at ? `${dmy(at.slice(0, 10))} ${at.slice(11, 16)}` : '', textValue(item.actor), `${action} ${textValue(details.cattle)}`.trim(), textValue(details.reason)].filter(Boolean).join(' · ')
-    }).filter(Boolean),
+    history: asRows(row.history).map(formatEntryHistoryItem),
   }
   const farmBorn = row.entryType === 'FARM_BORN'
   const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
@@ -138,10 +133,13 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         // drafts placed them under `data`; preserve both so reopening a row
         // does not turn a selected breed into a display-only label and then
         // submit a null breedId.
-        breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
-        dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
+        breed: textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(line.breedId ?? data.breedId)) || ((line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate ?? line.birthDate),
+        dobAccuracy: textValue(data.birthDateAccuracy ?? line.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
         weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
         barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: mapEntryHistory(line),
+        quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil),
+        colourMarkings: textValue(line.colourMarkings ?? data.colourMarkings),
+        warningReason: textValue(line.warningReason ?? data.warningReason),
       }
     }) }),
   } : undefined
@@ -153,6 +151,11 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
     weight: numberValue(row.totalWeightKg), total, paid: nullableNumber(row.amountPaid) ?? undefined, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
     cancelReason: textValue(row.voidReason), pricing, quarantine: textValue(row.quarantineCertNo),
+    damCodes: Array.isArray(row.damCodes) ? row.damCodes.map(code => textValue(code)).filter(Boolean) : [],
+    estimatedWeightCount: numberValue(row.estimatedWeightCount),
+    createdBy: textValue(row.createdBy), createdAt: textValue(row.createdAt),
+    postedBy: textValue(row.postedBy), postedAt: textValue(row.postedAt),
+    voidedBy: textValue(row.voidedBy), voidedAt: textValue(row.voidedAt),
   }
 }
 

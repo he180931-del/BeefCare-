@@ -6,7 +6,7 @@ import DisableModal from '../../../src/features/pen-management/components/Disabl
 import BarnPanel from '../../../src/features/pen-management/components/BarnPanel'
 import MoveDialog from '../../../src/features/pen-management/components/MoveDialog'
 import { penApi } from '../../../src/features/pen-management/api/penApi'
-import { headerSummary } from '../../../src/features/pen-management/domain/penRules'
+import { headerSummary, situationText } from '../../../src/features/pen-management/domain/penRules'
 import { validateAvailability, validatePenForm } from '../../../src/features/pen-management/validation/penValidation'
 import type { Pen } from '../../../src/features/pen-management/types'
 
@@ -81,6 +81,12 @@ describe('FE-04 pen rules', () => {
     const pen = (code: string, count: number, capacity: number, status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE'): Pen => ({ code, name: code, count, capacity, status, cows: [] })
     expect(headerSummary([pen('P1', 10, 20), pen('P2', 5, 10), pen('P3', 0, 5), pen('P4', 3, 10, 'INACTIVE')])).toEqual({ penCount: 4, used: 15, total: 35 })
   })
+
+  it('renders known hint dates and ignores unknown hint codes', () => {
+    expect(situationText([{ code: 'PEN_MOVE_SUGGESTED' }])).toBe('Gợi ý chuyển chuồng')
+    expect(situationText([{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }])).toBe('Mang thai · dự sinh 15/01/2027')
+    expect(situationText([{ code: 'PREGNANT' }, { code: 'UNKNOWN' }])).toBe('Mang thai')
+  })
 })
 
 describe('Create / Edit Pen popup', () => {
@@ -105,7 +111,7 @@ describe('Create / Edit Pen popup', () => {
     await user.type(code, 'C-01')
     await user.type(name, 'Bò tơ')
     await user.type(capacity, '40')
-    expect(screen.getByText('Tiêu chí nhận bò · phiên bản mới từ 07/11/2026')).toBeInTheDocument()
+    expect(screen.getByText('Tiêu chí nhận bò (phiên bản 1, hiệu lực từ 07/11/2026)')).toBeInTheDocument()
 
     const add = screen.getByRole('combobox', { name: 'Thêm tiêu chí' })
     await user.selectOptions(add, 'PURPOSE_TYPE')
@@ -123,7 +129,7 @@ describe('Create / Edit Pen popup', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       code: 'C-01', name: 'Bò tơ', capacity: 40, status: 'INACTIVE',
       receptionCriteria: { purposeTypes: ['BREEDING', 'FATTENING'], lifeStages: [], sex: 'FEMALE', minAgeMonths: null, minWeightKg: null },
-    }))
+    }), true)
   })
 
   it('requires a value for every added criterion', async () => {
@@ -140,13 +146,13 @@ describe('Create / Edit Pen popup', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  it('edits keep the code read-only, hide the initial status and send the loaded lock version', async () => {
+  it('allows editing the code, hides the initial status and sends the loaded lock version', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
     render(<EditModal barn={existingPens[0]} barns={existingPens} onSave={onSave} onClose={vi.fn()} today={TODAY} />)
 
     const [code, , capacity] = screen.getAllByRole('textbox')
-    expect(code).toHaveAttribute('readonly')
+    expect(code).not.toHaveAttribute('readonly')
     expect(screen.queryByText('Trạng thái ban đầu')).not.toBeInTheDocument()
     await user.clear(capacity)
     await user.type(capacity, '2')
@@ -160,7 +166,7 @@ describe('Create / Edit Pen popup', () => {
     while (screen.queryAllByRole('button', { name: 'Xóa' }).length) await user.click(screen.getAllByRole('button', { name: 'Xóa' })[0])
     expect(screen.getByText('Chưa có tiêu chí: chuồng nhận mọi bò.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Lưu chuồng/i }))
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ code: 'A1', capacity: 8, status: 'ACTIVE', lockVersion: 1, version: 'v1' }))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ code: 'A1', capacity: 8, status: 'ACTIVE', lockVersion: 1, version: 'v1' }), false)
     expect(onSave.mock.calls[0][0].receptionCriteria.purposeTypes).toEqual([])
   })
 })
@@ -195,6 +201,25 @@ describe('Stop / Resume Pen popup', () => {
   })
 })
 
+describe('Edit Pen criteria version note (R-04-06)', () => {
+  it('warns about v{n+1} only when the criteria change', async () => {
+    const user = userEvent.setup()
+    render(<EditModal barn={existingPens[0]} barns={existingPens} onSave={vi.fn()} onClose={vi.fn()} today={TODAY} />)
+    expect(screen.getByText('Tiêu chí nhận bò · đang dùng v2 từ 01/09/2026')).toBeInTheDocument()
+    const [, name] = screen.getAllByRole('textbox')
+    await user.type(name, ' mới')
+    expect(screen.queryByText(/sẽ tạo phiên bản v3/)).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Xóa' })[0])
+    expect(screen.getByText(/Đổi tiêu chí sẽ tạo phiên bản v3/)).toBeInTheDocument()
+  })
+
+  it('keeping its own code is not a duplicate; another pen code is', () => {
+    const edit = { isNew: false, currentCode: 'A1', existingCodes: ['A1', 'B1'], headcount: 3 }
+    expect(validatePenForm(form({ code: 'A1' }), edit).code).toBeUndefined()
+    expect(validatePenForm(form({ code: 'b1' }), edit).code).toBe('Mã chuồng b1 đã tồn tại trong trại.')
+  })
+})
+
 describe('Pen detail (SCR-17)', () => {
   const detail = { ...existingPens[0], cattleInPen: [
     { id: 1, code: 'BC-1', situation: '', exitPending: false, hints: [{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }] },
@@ -219,6 +244,18 @@ describe('Pen detail (SCR-17)', () => {
     await user.click(screen.getByLabelText('Chọn BC-2'))
     await user.click(screen.getByRole('button', { name: /Chuyển các con đã chọn \(1\)/ }))
     expect(onMove).toHaveBeenCalledWith([expect.objectContaining({ code: 'BC-2', id: 2 })])
+  })
+
+  it('drops ticks of cattle that left the pen when the detail reloads after a move', async () => {
+    const user = userEvent.setup()
+    const props = { barn: existingPens[0], onEdit: vi.fn(), onToggle: vi.fn(), onMove: vi.fn(), onViewAll: vi.fn() }
+    const { rerender } = render(<BarnPanel {...props} detail={detail} />)
+    await user.click(screen.getByLabelText('Chọn BC-2'))
+    expect(screen.getByRole('button', { name: /Chuyển các con đã chọn \(1\)/ })).toBeEnabled()
+    rerender(<BarnPanel {...props} detail={{ ...detail, cattleInPen: [detail.cattleInPen[0]] }} />)
+    rerender(<BarnPanel {...props} detail={detail} />)
+    expect(screen.getByLabelText('Chọn BC-2')).not.toBeChecked()
+    expect(screen.getByRole('button', { name: /Chuyển các con đã chọn/ })).toBeDisabled()
   })
 
   it('TC-04-24: Technician sees no Edit, Stop, checkbox or Move action', () => {
@@ -261,8 +298,8 @@ describe('Move Pen popup', () => {
     expect(options.some((o) => o.startsWith('A1') || o.startsWith('E '))).toBe(false)
 
     await user.selectOptions(destination, 'B1')
-    await screen.findByText('Chuồng đích ACTIVE và còn 4 chỗ')
-    expect(screen.getByText('Không đạt')).toBeInTheDocument()
+    await screen.findByText('Kiểm tra nhận bò · B1 Đang hoạt động và còn 4 chỗ')
+    expect(screen.getAllByText('Không đạt').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Không áp dụng').length).toBe(1)
     await user.type(screen.getAllByRole('textbox')[0], 'Ghép đàn')
     const confirm = screen.getByRole('button', { name: 'Xác nhận chuyển' })

@@ -20,7 +20,7 @@ describe('reproduction screens', () => {
 
     expect(screen.queryByRole('row', { name: /BC-000061/ })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Đã phối – chờ khám \(1\)/ }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'Tìm bò' }), { target: { value: 'Nâu' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Tìm bò' }), { target: { value: 'Nâu' } })
     expect(screen.getByRole('row', { name: /BC-000061.*Nâu/ })).toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /BC-000142/ })).not.toBeInTheDocument()
   })

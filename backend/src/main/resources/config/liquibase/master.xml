@@ -173,4 +173,5 @@
     <include file="config/liquibase/changelog/20261124000100_argon2_password_hash_width.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261124000200_support_internal_request_active_role.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261124000300_support_internal_request_history.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261124000100_health_optional_void_note.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Badge, Icon, inputCls, Panel, Select, Table, Td, Th } from '../../../shared/ui'
 import { formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionEventType, ReproductionFemale } from '../types'
-import { SOURCE_LABEL, nowLocal } from './reproductionFields'
+import { nowLocal } from './reproductionFields'
 
 export type TimelineRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
 
@@ -40,8 +40,9 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
   const label = custom
     ? custom.from || custom.to ? `${custom.from ? `${shortDate(custom.from)}/${custom.from.slice(0, 4)}` : '…'} – ${custom.to ? `${shortDate(custom.to)}/${custom.to.slice(0, 4)}` : '…'}` : 'Tất cả thời gian'
     : `${shortDate(auto.from)} – ${formatDate(auto.to > nowLocal() ? auto.to : nowLocal())}`
+  // D69: bản ghi đã xóa (VOIDED) không hiện ở dòng thời gian, như lịch sử cân và tiêm.
   const rows = source ? [source] : profile.events
-    .filter((event) => (!type || event.type === type)
+    .filter((event) => event.status !== 'VOIDED' && (!type || event.type === type)
       && (!range.from || event.occurredAt.slice(0, 10) >= range.from) && (!range.to || event.occurredAt.slice(0, 10) <= range.to))
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
 
@@ -76,7 +77,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
       )}
     >
       <Table scroll>
-        <thead><tr><Th>Thời điểm ↓</Th><Th>Sự kiện</Th><Th>Chi tiết</Th><Th>Nguồn dữ liệu</Th><Th>Người ghi</Th><Th>Thao tác</Th></tr></thead>
+        <thead><tr><Th>Thời điểm ↓</Th><Th>Sự kiện</Th><Th>Chi tiết</Th><Th>Người ghi</Th><Th>Thao tác</Th></tr></thead>
         <tbody>
           {rows.map((event) => {
             const voided = event.status === 'VOIDED'
@@ -86,21 +87,20 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
                 <Td className="whitespace-nowrap font-medium">{stamp}</Td>
                 <Td><div className="flex flex-wrap items-center gap-1.5"><EventBadge type={event.type} />{voided ? <span className="text-[11px]">Đã hủy</span> : event.corrected && <span className="whitespace-nowrap text-[11px] text-muted">Đã sửa</span>}</div></Td>
                 <Td className={voided ? 'line-through' : ''}>{event.details || event.summary}{voided && event.voidReason && <div className="text-[11px] no-underline">Lý do hủy: {event.voidReason}</div>}</Td>
-                <Td>{SOURCE_LABEL[event.dataSource ?? 'DIRECT_OBSERVATION']}</Td>
                 <Td className="whitespace-nowrap">{event.recorder}</Td>
                 <Td className="whitespace-nowrap font-semibold text-brand">
                   {canManage && !voided && (
                     <>
                       <button type="button" aria-label={`Sửa ${stamp}`} className="cursor-pointer font-semibold" onClick={() => open(event, 'correct')}>Sửa</button>
                       <span className="mx-1 text-muted">·</span>
-                      <button type="button" aria-label={`Hủy ${stamp}`} className="cursor-pointer font-semibold" onClick={() => open(event, 'void')}>Hủy</button>
+                      <button type="button" aria-label={`Xóa ${stamp}`} className="cursor-pointer font-semibold text-err-fg" onClick={() => open(event, 'void')}>Xóa</button>
                     </>
                   )}
                 </Td>
               </tr>
             )
           })}
-          {!rows.length && <tr><Td colSpan={6} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản trong khoảng đã chọn.</Td></tr>}
+          {!rows.length && <tr><Td colSpan={5} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản trong khoảng đã chọn.</Td></tr>}
         </tbody>
       </Table>
     </Panel>
