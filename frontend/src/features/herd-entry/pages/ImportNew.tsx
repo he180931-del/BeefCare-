@@ -373,12 +373,15 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       <Th className={`${TH} w-[60px]`}>Tuổi</Th>
                       <Th className={`${TH} w-[70px]`}>Cân nặng</Th>
                       <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                      <Th className={`${TH} w-[90px]`}>{`Đơn giá/${pricing === 'con' ? 'con' : 'kg'}`}</Th>
+                      {pricing === 'kg' && <Th className={`${TH} w-[90px]`}>Đơn giá/kg</Th>}
                       <Th className={`${TH} w-[80px]`}>Thành tiền</Th>
                       <Th className={`${TH} w-[20px]`} />
                     </tr>
                   </thead>
                   <tbody>
+                    {cows.length === 0 && (
+                      <tr><Td colSpan={pricing === 'kg' ? 9 : 8} className={`${TH} py-6 text-center text-muted`}>Trống</Td></tr>
+                    )}
                     {cows.map((c, i) => (
                       <tr key={i}>
                         <Td className={TH}>{i + 1}</Td>
@@ -389,7 +392,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
+                        {pricing === 'kg' && <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>}
                         <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
@@ -398,17 +401,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
+                  {cows.length > 0 && <tfoot>
                     <tr className="font-semibold">
                       <Td className={TH} />
                       <Td className={TH}>{cows.length} con</Td>
                       <Td className={TH} /><Td className={TH} />
                       <Td className={`${TH} whitespace-nowrap`}>{`${money(totalWeight)} kg`}</Td>
-                      <Td className={TH} /><Td className={TH} />
+                      <Td className={TH} />{pricing === 'kg' && <Td className={TH} />}
                       <Td className={`${TH} whitespace-nowrap`}>{money(cowsMoney)}</Td>
                       <Td className={TH} />
                     </tr>
-                  </tfoot>
+                  </tfoot>}
                 </Table>
                 <p className="m-0 text-[11px] text-muted">
                   UT = cân nặng ước tính. Con chưa có thẻ tai vẫn được tạo hồ sơ & QR, gắn thẻ sau. Mỗi dòng được kiểm tra tiêu chí và sức chứa của chuồng nhận.
