@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
-import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, Info, interactiveRowClass, LoadingBlock, Metric, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { financeError } from '../api/financeError'
 import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
-import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
-import { formatDate, formatDateTime, formatShort, formatVnd } from '../domain/financeRules'
+import { FilterField, PAYMENT_ROUTE, REPORT_BASE } from '../components/common'
+import { formatDate, formatShort, formatVnd } from '../domain/financeRules'
 import type { Receipt } from '../types'
 
 const TITLE = 'Biên nhận gói'
@@ -15,7 +14,6 @@ const confirmText = (r: Receipt) => `${r.confirmedAt.slice(11, 16)} ${formatDate
 /** SCR-70: biên nhận gói chỉ đọc, truy vết về thanh toán và chứng từ nguồn. */
 export default function ReceiptRoutes() {
   const navigate = useNavigate()
-  const [m, open, close] = useModalParam()
   const [search, setSearch] = useState('')
   const [farmId, setFarmId] = useState<number | ''>('')
   const useCases = usePlatformFinanceUseCases()
@@ -46,40 +44,42 @@ export default function ReceiptRoutes() {
     ? selectedDetail
     : ((picked && data.rows.find((r) => r.code === picked.code)) || data.rows[0] || null)
   const changeFilter = (update: () => void) => { update(); setPage(1); setPicked(null) }
-  const reset = () => { setSearch(''); setFarmId(''); setPage(1); setPicked(null) }
+  const reset = () => { setSearch(''); setFarmId(''); setFrom(initialRange.from); setTo(initialRange.to); setPage(1); setPicked(null) }
   const month = Number(to.slice(5, 7))
-  const openReceipt = (receipt: Receipt) => { setPicked(receipt); open('xem') }
+  const openReceipt = (receipt: Receipt) => setPicked(receipt)
+
+  const filterBar = (
+    <div data-testid="receipt-filters" className="flex flex-wrap items-end gap-3">
+      <FilterField label="Tìm kiếm" width={260}><SearchInput className="[&_input]:!h-[38px] [&_input]:!rounded-md [&_input]:!py-0 [&_input]:!text-xs" aria-label="Tìm biên nhận" placeholder="Mã biên nhận / thanh toán…" value={search} onChange={(e) => changeFilter(() => setSearch(e.target.value))} /></FilterField>
+      <FilterField label="Trang trại" width={220}>
+        <FilterSelect aria-label="Trang trại" value={String(farmId)} onChange={(e) => changeFilter(() => setFarmId(e.target.value ? Number(e.target.value) : ''))}>
+          <option value="">Tất cả</option>
+          {(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </FilterSelect>
+      </FilterField>
+      <FilterField label="Từ ngày" width={160}><DateInput compact id="rc-from" value={from} onChange={(v) => changeFilter(() => setFrom(v))} /></FilterField>
+      <FilterField label="Đến ngày" width={160}><DateInput compact id="rc-to" value={to} onChange={(v) => changeFilter(() => setTo(v))} /></FilterField>
+    </div>
+  )
 
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
-        <PageHeader title={TITLE} sub="Biên nhận chỉ đọc, sinh từ thanh toán đã chấp nhận – không sửa, không xóa">
+        <PageHeader title={TITLE}>
           <Button onClick={() => navigate(REPORT_BASE)}><Icon name="report-analytics" size={16} /> Mở báo cáo dòng tiền</Button>
         </PageHeader>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-[260px] max-w-full"><SearchInput aria-label="Tìm biên nhận" placeholder="Mã biên nhận / thanh toán…" value={search} onChange={(e) => changeFilter(() => setSearch(e.target.value))} /></div>
-          <div className="w-[200px] max-w-full">
-            <FilterSelect aria-label="Trang trại" value={String(farmId)} onChange={(e) => changeFilter(() => setFarmId(e.target.value ? Number(e.target.value) : ''))}>
-              <option value="">Trang trại: Tất cả</option>
-              {(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </FilterSelect>
-          </div>
-          <div className="flex items-center gap-2 text-[12px] text-muted">
-            Ngày ngân hàng
-            <div className="w-[150px]"><DateInput id="rc-from" value={from} onChange={(v) => changeFilter(() => setFrom(v))} /></div>–
-            <div className="w-[150px]"><DateInput id="rc-to" value={to} onChange={(v) => changeFilter(() => setTo(v))} /></div>
-          </div>
-        </div>
         <div className="grid gap-4 md:grid-cols-3">
           <Metric label={`Biên nhận tháng ${month}`} value={String(data.total)} note={`tính đến ${formatDate(to)}`} />
           <Metric label={`Tổng thu tháng ${month}`} value={`${formatVnd(data.totalAmount)} đ`} note="theo thời điểm ngân hàng ghi nhận" />
           <Metric label="Múi giờ tính" value="Giờ Việt Nam" note="Asia/Ho_Chi_Minh" />
         </div>
-        {data.total === 0 ? (
-          <Card><EmptyBlock title="Không có biên nhận phù hợp" sub="Thử xóa bộ lọc để xem dữ liệu được phép." action={<Button onClick={reset}><Icon name="filter-off" size={16} /> Xóa bộ lọc</Button>} /></Card>
-        ) : (
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_436px]">
-            <Card title="Danh sách biên nhận">
+        <Card>{filterBar}</Card>
+        <div className={data.total > 0 ? 'grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_436px]' : ''}>
+          <Card title="Danh sách biên nhận">
+            {data.total === 0 ? (
+              <EmptyBlock title="Không có biên nhận phù hợp" sub="Thử xóa bộ lọc để xem dữ liệu được phép." action={<Button onClick={reset}><Icon name="filter-off" size={16} /> Xóa bộ lọc</Button>} />
+            ) : (
+              <>
               <Table stack={false}>
                 <thead><tr><Th>Biên nhận</Th><Th>Trang trại</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Ngân hàng ghi</Th></tr></thead>
                 <tbody>
@@ -94,7 +94,7 @@ export default function ReceiptRoutes() {
                       onKeyDown={(event) => activateTableRowByKey(event, () => openReceipt(r))}
                     >
                       <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => openReceipt(r)}>{r.code}</button></Td>
-                      <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left text-[12px] text-ink" onClick={() => setPicked(r)}>{r.farmName}</button></Td>
+                      <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left text-[12px] text-ink" onClick={() => openReceipt(r)}>{r.farmName}</button></Td>
                       <Td>{r.termYears} năm</Td>
                       <Td>{formatVnd(r.amountVnd)}</Td>
                       <Td>{formatShort(r.bankPaidAt)}</Td>
@@ -103,30 +103,12 @@ export default function ReceiptRoutes() {
                 </tbody>
               </Table>
               <Pagination page={data.page} pageCount={data.pageCount} onChange={(nextPage) => { setPage(nextPage); setPicked(null) }} summary={`Hiển thị ${data.rows.length} / ${data.total} biên nhận`} />
-            </Card>
-            {current && <ReceiptDetail receipt={current} onTrace={() => navigate(PAYMENT_ROUTE)} />}
-          </div>
-        )}
+              </>
+            )}
+          </Card>
+          {data.total > 0 && current && <ReceiptDetail receipt={current} onTrace={() => navigate(PAYMENT_ROUTE)} />}
+        </div>
       </div>
-      {m === 'xem' && current && (
-        <Modal title={`Biên nhận ${current.code} · Chỉ đọc`} width={640} onClose={close}>
-          <div className="flex flex-col gap-3">
-            <RoField label="Trại / Thanh toán" value={`${current.farmName} · ${current.paymentCode} · Đã thanh toán`} />
-            <RoField label="Giá / thời hạn / số tiền" value={`${current.priceVersion} · ${current.termYears} năm · ${formatVnd(current.amountVnd)} VND`} />
-            <RoField label="Chứng từ nguồn" value={`${current.evidenceCode} · ${current.evidenceLabel}`} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <RoField label="Ngân hàng / nhận lần đầu" value={`${formatDateTime(current.bankPaidAt)} / ${current.bankFirstSeenAt.slice(11, 19)}`} />
-              <RoField label="Hệ thống xác nhận" value={formatDateTime(current.confirmedAt)} />
-            </div>
-            <RoField label="Kỳ mua bất biến" value={`${formatDate(current.periodStart)} – ${formatDate(current.periodEnd)}`} />
-            <Note tone="info">Không có sửa, Hủy bỏ hay xuất biên nhận riêng. Xuất tài chính từ báo cáo bản chốt.</Note>
-          </div>
-          <ModalFooter>
-            <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về biên nhận</ModalButton>
-            <ModalButton variant="primary" onClick={() => navigate(PAYMENT_ROUTE)}>Mở chứng từ nguồn</ModalButton>
-          </ModalFooter>
-        </Modal>
-      )}
     </Layout>
   )
 }
@@ -146,7 +128,6 @@ function ReceiptDetail({ receipt: r, onTrace }: { receipt: Receipt; onTrace: () 
           ['Chứng từ nguồn', r.evidenceCode],
         ]} />
         <Button block onClick={onTrace}>Mở thanh toán / chứng từ nguồn</Button>
-        <Note tone="info">Chứng từ chưa khớp, trùng hoặc chưa được chấp nhận không phải doanh thu và không tạo biên nhận.</Note>
       </div>
     </Card>
   )

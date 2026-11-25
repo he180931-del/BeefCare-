@@ -58,7 +58,7 @@ describe('SCR-72 phân trang lịch sử thao tác', () => {
       history: history.slice(0, 3),
     } as never)
     vi.spyOn(financeApi, 'saveDraft').mockResolvedValue({ recordCode: 'FR-0001' } as never)
-    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await user.click(screen.getAllByRole('button', { name: 'Lưu nháp' })[0])
     await waitFor(() => expect(screen.queryByText(/^Thao tác 11 ·/)).toBeNull())
     await waitFor(() => expect(getRecord).toHaveBeenCalled())
   })

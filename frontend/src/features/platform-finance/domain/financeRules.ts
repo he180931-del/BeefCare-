@@ -9,7 +9,7 @@ export const TYPE_LABEL: Record<RecordType, string> = { INCOME: 'Thu', EXPENSE: 
 export const STATE_LABEL: Record<RecordState, string> = { DRAFT: 'Nháp', POSTED: 'Đã ghi sổ', VOID: 'Đã hủy ghi sổ', DISCARDED: 'Đã bỏ nháp' }
 
 export const CATEGORY_LABEL: Record<string, string> = {
-  IMPLEMENTATION_SUPPORT: 'Phí hỗ trợ triển khai', USER_TRAINING: 'Phí hướng dẫn sử dụng', COST_REIMBURSEMENT: 'Hoàn lại chi phí', OTHER_INCOME: 'Thu khác',
+  IMPLEMENTATION_SUPPORT: 'Phí hỗ trợ triển khai', USER_TRAINING: 'Phí hướng dẫn sử dụng', COST_REIMBURSEMENT: 'Hoàn lại chi phí', OTHER_INCOME: 'Thu khác', SUBSCRIPTION: 'Gói đăng ký',
   SERVER_STORAGE: 'Máy chủ và lưu trữ', DOMAIN_SOFTWARE: 'Tên miền và phần mềm', EMAIL_NOTIFICATIONS: 'Email và thông báo', OTHER_EXPENSE: 'Chi khác',
 }
 export const categoryLabel = (category: string) => CATEGORY_LABEL[category] ?? category

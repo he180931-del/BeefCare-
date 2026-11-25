@@ -114,11 +114,18 @@ E1 → MSG-FE21-09 / 10 · E2 → MSG-FE21-08 · E3 → MSG-COM-05 · E4 → MSG
 E1 thiếu lý do → MSG-COM-06 · E2 đã VOID / đổi → MSG-COM-05.
 
 ### UC-FE21-08 Chạy báo cáo
-Chọn kỳ *, trại, nguồn → **Chạy / Làm mới** → tạo snapshot → MSG-FE21-11 → hiện banner, tổng, biểu đồ, bảng theo phạm vi.
+Chọn Từ ngày *, Đến ngày *, trại, nguồn trên một hàng lọc → **Chạy báo cáo** (cuối hàng lọc) → tạo snapshot → MSG-FE21-11 → hiện dòng thông tin bản chốt, 3 ô tổng, biểu đồ, bảng **Dòng tiền theo trại**. Đổi bộ lọc mà chưa chạy lại → nhắc "Bộ lọc đã đổi". Snapshot không có giao dịch → báo ngay trên trang (không mở hộp thoại).
+
+AF1 xem theo trại: bấm tên trại trong bảng → hộp thoại **Giao dịch của {trại}**: 3 ô Tổng thu / Tổng chi / Ròng trên một hàng; hàng lọc gồm ô tìm (mã, nguồn, danh mục), Loại (Thu & chi / Thu / Chi), Danh mục (chỉ danh mục có trong trại) và nút **Tìm** — chỉ áp dụng khi bấm Tìm hoặc Enter; danh sách giao dịch phân trang. Bấm một dòng → hộp thoại **Chi tiết {mã}** (ô chỉ đọc): loại giao dịch, số tiền, ngày dòng tiền, danh mục, phạm vi, trạng thái, nguồn (thanh toán / chứng từ hoặc diễn giải), phiên bản nguồn.
 
 ### UC-FE21-09 Xuất XLSX
-1. **Xuất XLSX**. 2. Kiểm quyền PM, snapshot còn hiệu lực. 3. File: sheet **Summary** (kỳ, lọc trại, lọc nguồn, tiền tệ VND, thời điểm tạo, tổng theo phạm vi + tổng nền tảng) và **Details** (loại nguồn + mã, phạm vi, trại, chiều, danh mục / mô tả, số tiền, ngày dòng tiền, trạng thái, tham chiếu nguồn). 4. Trả file → MSG-FE21-13.
-AF1 báo cáo rỗng → file có tiêu đề + tổng 0.
+1. **Xuất báo cáo** → hộp thoại **Xem trước báo cáo**: mô phỏng bảng tính (tiêu đề cột A, B, C…, số dòng, thẻ sheet phía dưới) đúng nội dung tệp sẽ tải. 2. **Tải xuống XLSX** → kiểm quyền PM, snapshot còn hiệu lực. 3. Tệp gồm 4 sheet, nhãn tiếng Việt, số tiền VND, giờ Việt Nam:
+   - **Tổng hợp** (không lặp nội dung các sheet sau): thông tin báo cáo (kỳ, trại / nguồn đang lọc, mã bản chốt + giờ tạo, đơn vị); kết quả chính (Tổng thu – trong đó thu từ gói đăng ký, thu khác; Tổng chi; Dòng tiền ròng; Tỷ lệ chi / thu); theo tháng (mỗi tháng trong kỳ, kể cả tháng trống: thu, chi, ròng, ròng lũy kế); theo danh mục (thu và chi, số tiền + tỷ trọng); điểm nổi bật (số giao dịch thu, số giao dịch chi, trại thu nhiều nhất, danh mục chi lớn nhất).
+   - **Theo trại**: trại, thu từ gói đăng ký, thu khác, tổng thu, chi, ròng; dòng Chung nền tảng và dòng tổng.
+   - **Thu** / **Chi**: mỗi giao dịch một dòng (ngày, mã, loại nguồn, danh mục, trại, số tiền, trạng thái, nguồn, phiên bản nguồn) + dòng tổng có số giao dịch.
+4. Trả file → MSG-FE21-13.
+AF1 báo cáo rỗng → file có đủ 4 sheet, tổng 0 và hàng tiêu đề.
+Ghi chú triển khai: bản xem trước (FE, `buildWorkbookPreview`) là mẫu đích. Backend `GET …/reports/{id}/xlsx` hiện vẫn xuất 2 sheet Summary / Details nhãn tiếng Anh — cần sửa cho khớp mẫu này.
 E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không phải PM → MSG-COM-01.
 
 ---
@@ -173,6 +180,9 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | 12 | Bank transaction / Giao dịch NH | Chọn | * khi nguồn NH | Giao dịch đã xác thực; đề xuất số tiền + ngày | MSG-FE21-08 |
 | 13 | History / Lịch sử | Bảng | — | Thời điểm / Hành động / Người | — |
 | 14 | Note / Lưu ý | Chữ | — | "Sổ thu chi cơ bản của nền tảng, không phải kế toán theo luật định." | — |
+| 15 | Save at bottom / Lưu cuối phiếu | Nút | — | Nút **Lưu nháp** thứ hai ở cuối biểu mẫu, cùng việc với nút đầu trang (DRAFT / mới) | MSG-FE21-01 |
+
+Bố cục SCR-72 từ trên xuống: **Loại** (kèm **Danh mục** bên dưới) cạnh **Nguồn khoản** (kèm nút **Chọn chứng từ ngân hàng**: sáng khi nguồn là Giao dịch NH, mờ khi Nhập tay); hàng **Gắn với trại (Không / Có) – Trang trại (mờ khi Không) – Số chứng từ**; **Số tiền** và **Ngày phát sinh** (luôn hiện; mờ và không nhập được khi nguồn là giao dịch NH vì lấy theo giao dịch); **Diễn giải**; nút **Lưu nháp** ở cuối. Ghi sổ chỉ dùng bản đã lưu: có thay đổi chưa lưu thì khóa Ghi sổ và nhắc Lưu nháp.
 
 ### SCR-73 Báo cáo dòng tiền nền tảng
 
@@ -181,15 +191,16 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | 1 | Period / Kỳ | Khoảng ngày | * | Asia/Ho_Chi_Minh, ≤ 24 tháng | MSG-COM-11, MSG-COM-10 |
 | 2 | Farm / Trại | Dropdown | — | Tất cả (mặc định) / 1 trại | — |
 | 3 | Sources / Nguồn | Radio | — | Biên lai + thủ công (mặc định) / Chỉ biên lai / Chỉ thủ công | — |
-| 4 | Run / Refresh report / Chạy / Làm mới | Nút | — | Tạo snapshot mới; MSG-FE21-11 | MSG-COM-02 |
-| 5 | Snapshot banner | Chỉ đọc | — | Mã snapshot, thời điểm tạo, múi giờ | MSG-FE21-12 |
+| 4 | Run report / Chạy báo cáo | Nút | — | Cuối hàng lọc; tạo snapshot mới; MSG-FE21-11 | MSG-COM-02 |
+| 5 | Snapshot info / Thông tin bản chốt | Chỉ đọc | — | Một dòng: mã snapshot, thời điểm chốt, kỳ, trại, múi giờ, VND. Thông báo (lỗi / hết hạn / bộ lọc đã đổi) gom một chỗ | MSG-FE21-12 |
 | 6 | Total income / Tổng thu | Số | — | Biên lai + thu khác POSTED, có tách | — |
 | 7 | Total expense / Tổng chi | Số | — | Chi POSTED | — |
 | 8 | Net cash flow / Dòng tiền ròng | Số | — | Thu − chi; nhãn "không phải lợi nhuận theo luật định" | — |
-| 9 | Income by day / Thu theo ngày | Biểu đồ | — | — | — |
-| 10 | Cash flow by scope / Theo phạm vi | Bảng | — | Cột Phạm vi / Biên lai / Thu khác / Chi / Ròng. Dòng: Chung nền tảng, từng trại có nguồn, trại khác (gộp), Tổng nền tảng. Lọc 1 trại → chỉ trại đó, không có Chung | — |
-| 11 | View transaction details / Xem chi tiết | Link | — | Danh sách chi tiết snapshot | — |
-| 12 | Export XLSX / Xuất XLSX | Nút | — | — | MSG-FE21-13 / MSG-FE21-14 / MSG-FE21-12 |
+| 9 | Charts / Biểu đồ | Biểu đồ | — | Tính từ dòng của snapshot: Thu và chi theo ngày (cột đôi); Xu hướng dòng tiền ròng (đường lũy kế); Cơ cấu thu theo danh mục; Chi theo danh mục; Thu theo trại (thanh xếp hạng có %) | — |
+| 10 | Cash flow by farm / Dòng tiền theo trại | Bảng | — | Cột Trại / Thu từ gói đăng ký / Thu khác / Chi / Ròng. Dòng: Chung nền tảng, từng trại có nguồn, trại khác (gộp), Tổng nền tảng. Lọc 1 trại → chỉ trại đó, không có Chung. Bấm trại → UC-FE21-08 AF1 | — |
+| 11 | Export report / Xuất báo cáo | Nút | — | Mở Xem trước báo cáo (mô phỏng Excel, 4 sheet) → Tải xuống XLSX (UC-FE21-09) | MSG-FE21-13 / MSG-FE21-14 / MSG-FE21-12 |
+
+Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ "Phạm vi tính"; giao dịch xem qua từng trại.
 
 ---
 
@@ -207,7 +218,7 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | A8 | Bỏ / ghi sổ / hủy / tạo thay thế | `VersionedAction {version, reason?}` + `Idempotency-Key` | `RecordDTO` | COM-05, COM-06, FE21-08, FE21-09, FE21-10 | `POST …/records/{id}/discard` · `…/post` · `…/void` · `…/replacement` |
 | A9 | Chạy báo cáo | `ReportRequest {from, to, farmId?, sources}` + `Idempotency-Key` | `CashReport {snapshotCode, generatedAt, timeZone, totals{income{receipts, other}, expense, net}, byDay[], byScope[], details[]?, status}` | COM-11, COM-10, COM-02 | `POST /api/platform/finance/reports` |
 | A10 | Xem snapshot | — | `CashReport` / 410 khi EXPIRED | FE21-12 | `GET …/reports/{id}` |
-| A11 | Xuất XLSX | — | File XLSX (Summary + Details) | FE21-12, FE21-14, COM-01 | `GET …/reports/{id}/xlsx` |
+| A11 | Xuất XLSX | — | File XLSX 4 sheet: Tổng hợp, Theo trại, Thu, Chi (UC-FE21-09) | FE21-12, FE21-14, COM-01 | `GET …/reports/{id}/xlsx` |
 
 ---
 
@@ -225,7 +236,7 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | MSG-FE21-08 | Trên form | Giao dịch ngân hàng này đã được ghi nhận là {target}. Không thể ghi là thu khác. |
 | MSG-FE21-09 | Dưới trường | Số tiền phải là số nguyên VND lớn hơn 0. |
 | MSG-FE21-10 | Dưới trường | Danh mục {category} không dùng được cho {type}. |
-| MSG-FE21-11 | Toast thành công | Đã tạo báo cáo {code} lúc {time}. |
+| MSG-FE21-11 | Toast thành công | Đã làm mới báo cáo {code} lúc {time}. |
 | MSG-FE21-12 | Banner | Kết quả báo cáo đã hết hạn. Hãy chạy lại báo cáo. |
 | MSG-FE21-13 | Toast thành công | File xuất {file} đã sẵn sàng. |
 | MSG-FE21-14 | Toast lỗi | Không xuất được báo cáo. [Thử lại] |
@@ -254,7 +265,7 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | TC-21-16 | Khoản GENERAL + khoản trại A | Lọc trại A | Chỉ khoản trại A; không có dòng Chung | I | R-21-06 |
 | TC-21-17 | Yêu cầu PENDING, chứng từ HOLD | Báo cáo | Không tính | I | R-21-06 |
 | TC-21-18 | Snapshot S1 chứa khoản X; sau đó X bị hủy | Xem S1 / chạy S2 | S1 vẫn có X; S2 không có | I | R-21-07 |
-| TC-21-19 | Đang xem S1 | Xuất XLSX | File đúng số của S1, 2 sheet | I, E | R-21-07 |
+| TC-21-19 | Đang xem S1 | Xuất XLSX | File đúng số của S1, 4 sheet khớp bản xem trước | I, E | R-21-07 |
 | TC-21-20 | S1 EXPIRED | Xuất | MSG-FE21-12 | I | UC-09 E1 |
 | TC-21-21 | Kỳ không có dữ liệu | Xuất | File có tiêu đề, tổng 0 | I | UC-09 AF1 |
 | TC-21-22 | Kỳ 25 tháng | Chạy | Lỗi tối đa 24 tháng | U, H | R-21-08 |
@@ -280,4 +291,6 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | Ngày | Phiên bản SRS | Thay đổi | Người |
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
+| 26/11/2026 | 28/10/2026 | Bố cục SCR-72 mới (luồng Loại → Nguồn → Gắn trại), ô Số tiền / Ngày mờ khi nguồn là giao dịch NH, nút Lưu cuối phiếu | Claude (theo yêu cầu LamKD) |
+| 26/11/2026 | 28/10/2026 | SCR-73: hàng lọc có nút Chạy báo cáo, 5 biểu đồ từ snapshot, bảng "Dòng tiền theo trại", hộp thoại giao dịch theo trại (lọc + nút Tìm) và chi tiết giao dịch; bỏ "Xem chi tiết giao dịch", "Phạm vi tính" và các hộp thoại Đã làm mới / Báo cáo rỗng. UC-FE21-09: nút Xuất báo cáo mở bản xem trước mô phỏng Excel; tệp 4 sheet Tổng hợp / Theo trại / Thu / Chi (backend chưa khớp) | Claude (theo yêu cầu LamKD) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |

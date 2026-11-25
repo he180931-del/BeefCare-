@@ -63,13 +63,14 @@ export function SearchInput({ className, ...p }: InputHTMLAttributes<HTMLInputEl
  * `label` names the hidden native input for assistive technology; it falls back to "Chọn ngày".
  * Pass it whenever the field has a visible label, since an aria-label would otherwise hide that label.
  */
-export function DateInput({ value, onChange, className, readOnly, id, label }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string; label?: string }) {
+/** `compact` làm ô ngày cao bằng FilterSelect (38px) để đứng cùng hàng bộ lọc. */
+export function DateInput({ value, onChange, className, readOnly, id, label, compact }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string; label?: string; compact?: boolean }) {
   const ref = useRef<HTMLInputElement>(null)
   const [y, m, d] = value ? value.split('-') : []
   return (
     <div className={cx('relative', className)}>
       {/* fieldCls, not inputCls: a <div> always matches :read-only, which greyed every date field out like a locked one. */}
-      <div className={cx(fieldCls, 'flex items-center gap-1.5', readOnly && '!bg-page !text-muted')}>
+      <div className={cx(fieldCls, 'flex items-center gap-1.5', compact && '!h-[38px] !rounded-md !border-edge !py-0 !pl-[15px] !pr-2.5 !text-xs !text-[#173629]', readOnly && '!bg-page !text-muted')}>
         <span className={cx('min-w-0 flex-1', !value && 'text-subtle')}>{value ? `${d}/${m}/${y}` : 'dd/mm/yyyy'}</span>
         <Icon name="calendar-event" className="text-muted" />
       </div>
