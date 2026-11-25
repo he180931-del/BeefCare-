@@ -346,12 +346,19 @@ test('exit backend void and dismiss commands keep the backend id and version', a
     command: async (path, body, options) => {
       commands.push({ path, body })
       keys.push(options?.key)
-      return { voucher: voucher(path.endsWith('/dismiss') ? 'DISMISSED' : 'VOIDED') }
+      return path.endsWith('/dismiss')
+        ? { voucher: voucher('DISMISSED'), message: { code: 'MSG-FE13-10', text: 'Đã bác phiếu PX-2026-0061. BC-1 vẫn ở trong đàn; ca HC-7 đã mở lại.' } }
+        : { voucher: voucher('VOIDED'), message: { code: 'MSG-FE13-05', text: 'Đã hủy phiếu PX-2026-0061.' }, reviewList: [{ cattleId: 7, cattleCode: 'BC-1', cancelledDoseIds: [1, 2], cancelledReminderIds: [3], closedCaseIds: [], closedPregnancyId: null, pendingCalfIds: [] }] }
     },
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
-  assert.equal((await api.voidVoucher('PX-2026-0061', { reason: 'Khách trả lại', expectedVersion: 5 })).status, 'Đã hủy')
-  assert.equal((await api.dismissVoucher('PX-2026-0061', 'Ca sức khỏe sai', 9)).status, 'Đã bác')
+  const voided = await api.voidVoucher('PX-2026-0061', { reason: 'Khách trả lại', expectedVersion: 5 })
+  assert.equal(voided.voucher.status, 'Đã hủy')
+  assert.equal(voided.message, 'Đã hủy phiếu PX-2026-0061.')
+  assert.deepEqual(voided.reviewList, [{ cattleId: 7, cattleCode: 'BC-1', cancelledDoseIds: [1, 2], cancelledReminderIds: [3], closedCaseIds: [], closedPregnancyId: null, pendingCalfIds: [] }])
+  const dismissed = await api.dismissVoucher('PX-2026-0061', 'Ca sức khỏe sai', 9)
+  assert.equal(dismissed.voucher.status, 'Đã bác')
+  assert.match(dismissed.message, /ca HC-7 đã mở lại/)
   assert.deepEqual(commands, [
     { path: '/api/farms/9/exit-vouchers/61/void', body: { reason: 'Khách trả lại', penOverrides: {}, warningReasons: {}, expectedVersion: 5 } },
     { path: '/api/farms/9/exit-vouchers/61/dismiss', body: { reason: 'Ca sức khỏe sai', expectedVersion: 9 } },
@@ -671,4 +678,46 @@ test('exit backend uses bounded content digests for stable save and upload idemp
   assert.notEqual(keys[4]?.key, firstSaveKey)
   await api.save({ ...input, documents: [new File(['changed-content'], longName, { type: 'application/pdf' })] })
   assert.notEqual(keys[6]?.key, firstUploadKey)
+})
+
+test('exit list sends period and type, and keeps server tiles and status counts (SCR-41)', async () => {
+  const paths: string[] = []
+  const api = createHerdExitBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async (path) => {
+      paths.push(path)
+      return {
+        from: '2026-07-01', to: '2026-11-25',
+        tiles: { cattleExitedByType: { SALE: 4, CULL: 1, DEATH: 0, OTHER: 2 }, cattleExited: 7, salesRevenue: 155400000, toCollect: 12400000, vouchersToCollect: 1, awaitingOwner: 1 },
+        statusCounts: { ALL: 5, DRAFT: 1, PENDING: 1, CONFIRMED: 2, VOIDED: 1, DISMISSED: 0 },
+        vouchers: [{ id: 7, code: 'PX-2026-0007', exitType: 'SALE', status: 'CONFIRMED', exitDate: '2026-10-15', cattleCount: 4, totalWeightKg: 1380, weightEstimated: true, pens: ['B1', 'B2'], closeReason: null, version: 3 }],
+      }
+    },
+    command: async () => { throw new Error('no command') },
+  } })
+  const page = await api.listPage()
+  assert.equal(paths[0], '/api/farms/9/exit-vouchers')
+  assert.deepEqual([page.from, page.to], ['2026-07-01', '2026-11-25'])
+  assert.deepEqual(page.tiles.cattleExitedByType, { 'Bán': 4, 'Loại thải': 1, 'Chết / mất': 0, 'Khác': 2 })
+  assert.equal(page.tiles.salesRevenue, 155400000)
+  assert.equal(page.statusCounts.CONFIRMED, 2)
+  assert.deepEqual([page.vouchers[0].weightKg, page.vouchers[0].weightEstimated, page.vouchers[0].pens], [1380, true, ['B1', 'B2']])
+  await api.listPage({ from: '2026-01-01', to: '2026-11-25', type: 'Loại thải' })
+  assert.equal(paths[1], '/api/farms/9/exit-vouchers?from=2026-01-01&to=2026-11-25&type=CULL')
+})
+
+test('exit detail maps weight basis, unknown sex, actors and history time (SCR-76)', () => {
+  const mapped = mapVoucher({
+    code: 'PX-1', exitType: 'OTHER', status: 'DISMISSED', destination: 'Trại giống Ba Vì', totalWeightKg: null, estimatedWeightCount: 0,
+    createdAt: '2026-10-14T13:30:00Z', confirmedBy: { id: 1, label: 'An' }, confirmedAt: '2026-10-15T00:10:00Z', closedBy: { id: 2, label: 'Bình' }, closedAt: '2026-10-16T02:00:00Z',
+    lines: [{ cattleCode: 'BC-1', sex: null, breedName: 'Lai Sind', exitWeightKg: 180, weightBasis: 'ESTIMATED', estimated: true }],
+    history: [{ time: '2026-10-14T13:30:00Z', type: 'CREATED', actor: 'An', text: 'Tạo phiếu' }, { time: '2026-10-14T13:30:00Z', type: 'CREATED', actor: 'An', text: 'Tạo phiếu' }],
+  })
+  assert.equal(mapped.weightKg, null)
+  assert.equal(mapped.detail!.destination, 'Trại giống Ba Vì')
+  assert.deepEqual([mapped.detail!.confirmedBy, mapped.detail!.closedBy], ['An', 'Bình'])
+  const cow = mapped.detail!.cows![0]
+  assert.deepEqual([cow.sex, cow.breed, cow.weight, cow.weightBasis], ['—', 'Lai Sind', 180, 'ESTIMATED'])
+  assert.deepEqual(mapped.detail!.history![0], { time: '2026-10-14T13:30:00Z', type: 'CREATED', actor: 'An', text: 'Tạo phiếu' })
+  assert.equal(mapped.detail!.history!.length, 2)
 })

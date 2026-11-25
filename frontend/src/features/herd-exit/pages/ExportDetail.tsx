@@ -3,18 +3,21 @@ import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { AttachmentList, Badge, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { dmy, kg, money } from '../../../shared/lib/format'
+import { dmy, money } from '../../../shared/lib/format'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
 import { PaymentTable } from '../components/PaymentTable'
-import type { ExitDetail, ExitPayment } from '../types'
+import type { ExitDetail, ExitPayment, ExitVoidOutcome } from '../types'
 import { useExitDetail } from '../hooks/useExitDetail'
 import { exitCattleStatus } from '../domain/exitCattleStatus'
 import { exitPaymentTotals } from '../domain/exitPaymentTotals'
 import { exitPaymentVoidEnabled, voidExitPayment } from '../api'
 import { VoidVoucherPaymentModal } from '../../../shared/ui/VoidVoucherPaymentModal'
+import { cattleWeightLabel, exitWeightLabel, farmDateTime, historyEntries, historyLine } from '../domain/exitDisplay'
+import { useRouteNotice } from '../hooks/useRouteNotice'
+import ExitReviewList from '../components/ExitReviewList'
 
 export default function ExportDetail() {
   const { id } = useParams()
@@ -24,7 +27,8 @@ export default function ExportDetail() {
   const { record: r, loading, refetch, reload, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
   const [reloadRevision, setReloadRevision] = useState(0)
   const [paymentToVoid, setPaymentToVoid] = useState<ExitPayment | null>(null)
-  const [paymentNotice, setPaymentNotice] = useState('')
+  const [paymentNotice, setPaymentNotice] = useRouteNotice()
+  const [voidOutcome, setVoidOutcome] = useState<ExitVoidOutcome | null>(null)
   const closePaymentVoid = () => { setPaymentToVoid(null); closeModal() }
   const reloadRecord = async () => { await reload(); closeModal(); setReloadRevision((value) => value + 1) }
 
@@ -37,12 +41,22 @@ export default function ExportDetail() {
       </Layout>
     )
   }
-  if (r.detail?.death) return <DeathView key={`${r.id}-${reloadRevision}`} row={r} onReload={reloadRecord} />
+  if (r.detail?.death) return <DeathView key={`${r.id}-${reloadRevision}`} row={r} onReload={reloadRecord} notice={paymentNotice} />
 
   const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
   const { collected, outstanding: owed } = exitPaymentTotals(r)
   const isSold = r.status === 'Đã xuất'
   const paymentActions = exitPaymentVoidEnabled && isOwner && isSold
+  const hasBuyer = r.type === 'Bán' || r.type === 'Loại thải'
+  const weight = exitWeightLabel(r)
+  const actor = (name?: string, time?: string) => [name, farmDateTime(time)].filter(Boolean).join(' · ') || '—'
+  const history = historyEntries(d.history)
+  const cancelled = (outcome: ExitVoidOutcome) => {
+    setVoidOutcome(outcome)
+    setPaymentNotice(outcome.message || `Đã hủy phiếu ${r.id}. ${r.count ?? outcome.reviewList.length} con đã trở lại đàn. Các mục bị hủy do xuất được liệt kê để xem lại.`)
+    closeModal()
+    void refetch()
+  }
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -52,13 +66,14 @@ export default function ExportDetail() {
           <ExitStatusBadge status={r.status} />
         </div>
         <div className="flex-1" />
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-2.5 print:hidden">
           <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
-          {isOwner && <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>}
+          {isOwner && isSold && <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>}
         </div>
       </div>
 
-      {paymentNotice && <Note tone="ok">{paymentNotice}</Note>}
+      {paymentNotice && <div className="print:hidden"><Note tone="ok">{paymentNotice}</Note></div>}
+      {voidOutcome && voidOutcome.reviewList.length > 0 && <ExitReviewList items={voidOutcome.reviewList} />}
       <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="Thông tin phiếu" gap="gap-[14px]">
@@ -66,18 +81,23 @@ export default function ExportDetail() {
               items={[
                 ['Ngày xuất', dmy(r.date)],
                 ['Loại xuất', r.type],
-                ['Số giấy kiểm dịch vận chuyển', d?.quarantine || '—'],
-                [r.type === 'Bán' || r.type === 'Loại thải' ? 'Người mua' : 'Lý do', d?.buyer || r.who],
-                ['Liên hệ', d?.buyerPhone || d?.phone || '—'],
-                ['Biển số xe', d?.plate || '—'],
-                ['Người lập & xác nhận', d?.by || '—'],
-                ['Ghi chú', d?.note || r.sub],
-                ...(r.status === 'Đã hủy' ? [['Lý do hủy', r.cancelReason || '—']] : []),
+                ['Số giấy kiểm dịch vận chuyển', d.quarantine || '—'],
+                ...(hasBuyer
+                  ? [['Người mua', d.buyer || r.who || '—'], ['Liên hệ', d.buyerPhone || d.phone || '—']]
+                  : [['Nơi đến', d.destination || r.who || '—']]),
+                ['Biển số xe', d.plate || '—'],
+                ['Tạo lúc', farmDateTime(d.createdAt) || '—'],
+                ...(d.confirmedBy || d.confirmedAt ? [['Xác nhận', actor(d.confirmedBy, d.confirmedAt)]] : d.by ? [['Xác nhận', d.by]] : []),
+                ...(r.status === 'Đã hủy' || r.status === 'Đã bác' ? [
+                  [r.status === 'Đã hủy' ? 'Hủy bởi' : 'Bác bởi', actor(d.closedBy, d.closedAt)],
+                  [r.status === 'Đã hủy' ? 'Lý do hủy' : 'Lý do bác', r.cancelReason || r.reason || '—'],
+                ] : []),
+                ['Ghi chú', d.note || '—'],
               ]}
             />
           </Box>
 
-          <Box title="Bò trong phiếu" sub={`${r.count} con${r.weight ? ` · ${r.weight}` : ''}`} gap="gap-3">
+          <Box title="Bò trong phiếu" sub={`${r.count} con${weight !== '—' ? ` · ${weight}` : ''}`} gap="gap-3">
             <Table scroll>
               <thead>
                 <tr>
@@ -90,8 +110,8 @@ export default function ExportDetail() {
                   const cattleStatus = exitCattleStatus(c.current, r.status)
                   return (
                     <tr key={c.code}>
-                      <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
-                      <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
+                      <Td className={`${TH} !py-3 font-medium`}>{c.code ? <Link to={`/cattle/${encodeURIComponent(c.code)}`} className="text-brand hover:underline">{c.code}</Link> : '—'}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
+                      <Td className={`${TH} !py-3`}>{[c.breed, c.sex].filter(Boolean).join(' · ') || '—'}</Td><Td className={`${TH} !py-3 whitespace-nowrap`}>{cattleWeightLabel(c)}</Td>
                       <Td className={`${TH} !py-3`}>{c.barn}</Td>
                       <Td className={`${TH} !py-3`}>{cattleStatus === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : cattleStatus === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
                       <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
@@ -104,11 +124,12 @@ export default function ExportDetail() {
               </tbody>
               {d && (
                 <tfoot>
-                  <tr className="font-semibold"><Td className={TH}>{r.count} con</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{r.weight}</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{money(d.cowsTotal)}</Td></tr>
+                  <tr className="font-semibold"><Td className={TH}>{r.count} con</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{weight}</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{money(d.cowsTotal)}</Td></tr>
                 </tfoot>
               )}
             </Table>
-            <Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE (GBR-26).</Note>
+            {isSold && <Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note>}
+            {r.status === 'Đã hủy' && <Note>Phiếu đã hủy, các con đã trở lại đàn.</Note>}
           </Box>
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
@@ -131,21 +152,24 @@ export default function ExportDetail() {
                 ]}
               />
               <PaymentTable payments={d.payments ?? []} onVoid={paymentActions ? payment => { setPaymentToVoid(payment); openModal('void-payment') } : undefined} />
-              {isOwner && isSold && owed > 0 && <Button block onClick={() => openModal('collect')}><Icon name="cash" />Ghi nhận thu tiền</Button>}
+              {isOwner && isSold && owed > 0 && <div className="print:hidden"><Button block onClick={() => openModal('collect')}><Icon name="cash" />Ghi thu tiền</Button></div>}
             </Box>
           )}
           <Box title="Lịch sử phiếu" gap="gap-2">
-            <div className="flex flex-col gap-2 text-xs">
-              {(d?.history || [`${dmy(r.date)} · Phiếu ở trạng thái ${r.status}`]).map((h) => <span key={h}>{h}</span>)}
-            </div>
+            {/* Cũ nhất ở trên, mới nhất ở dưới – theo thứ tự máy chủ ghi. */}
+            <ol className="m-0 flex list-none flex-col gap-2 p-0 text-xs">
+              {history.length
+                ? history.map((entry, index) => <li key={`${index}:${entry.time ?? ''}`}>{historyLine(entry)}</li>)
+                : <li className="text-muted">Chưa có lịch sử phiếu</li>}
+            </ol>
           </Box>
         </div>
       </div>
 
-      <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
+      <div className="print:hidden"><Foot>Chủ trại in phiếu, ghi thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot></div>
 
-      {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={() => { void refetch(); closeModal() }} />}
-      {m === 'collect' && isOwner && isSold && owed > 0 && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={refetch} />}
+      {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={cancelled} />}
+      {m === 'collect' && isOwner && isSold && owed > 0 && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={(message) => { setPaymentNotice(message); void refetch() }} />}
       {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidExitPayment} onClose={closePaymentVoid} onReload={async () => { await reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await refetch() }} />}
     </Layout>
   )

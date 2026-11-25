@@ -259,7 +259,7 @@ const parseExitDetail = (value: unknown): CollectionRow => {
   optionalArray(row, 'cows', parseCattleDetail, 'exit detail')
   optionalArray(row, 'payments', parsePayment, 'exit detail')
   optionalArray(row, 'docs', parseDocument, 'exit detail')
-  if (row.history !== undefined) stringArray(row.history, 'exit detail history')
+  if (row.history !== undefined && (!Array.isArray(row.history) || row.history.some((item) => typeof item !== 'string' && (typeof item !== 'object' || item === null || typeof (item as { text?: unknown }).text !== 'string')))) throw new Error('Invalid exit detail history')
   if (row.checks !== undefined) {
     if (!Array.isArray(row.checks) || row.checks.some((check) => !Array.isArray(check) || check.length < 2 || typeof check[0] !== 'string' || typeof check[1] !== 'string' || (check[2] !== undefined && typeof check[2] !== 'boolean'))) throw new Error('Invalid exit detail checks')
   }
@@ -352,6 +352,9 @@ export const parseHerdExit = (value: unknown): HerdExit => {
   for (const key of ['date', 'who', 'sub', 'dueNote', 'reason', 'note']) optionalString(row, key, 'herd exit')
   for (const key of ['count']) optionalNumber(row, key, 'herd exit')
   optionalStringNumberOrNull(row, 'weight', 'herd exit')
+  optionalNumberOrNull(row, 'weightKg', 'herd exit')
+  optionalBoolean(row, 'weightEstimated', 'herd exit')
+  if (row.pens !== undefined) stringArray(row.pens, 'herd exit pens')
   for (const key of ['total', 'due']) optionalNumberOrNull(row, key, 'herd exit')
   enumValue(row, 'type', ['Bán', 'Chết / mất', 'Loại thải', 'Khác'], 'herd exit')
   if (row.detail !== undefined) parseExitDetail(row.detail)
