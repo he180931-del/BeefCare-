@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
@@ -107,7 +107,6 @@ export default function ReceiptRoutes() {
             {current && <ReceiptDetail receipt={current} onTrace={() => navigate(PAYMENT_ROUTE)} />}
           </div>
         )}
-        <Foot>Biên nhận gói (PM, chỉ xem). Mỗi biên nhận sinh tự động khi một thanh toán được chấp nhận; chọn dòng để xem chi tiết và truy vết về thanh toán, chứng từ ngân hàng nguồn.</Foot>
       </div>
       {m === 'xem' && current && (
         <Modal title={`Biên nhận ${current.code} · Chỉ đọc`} width={640} onClose={close}>

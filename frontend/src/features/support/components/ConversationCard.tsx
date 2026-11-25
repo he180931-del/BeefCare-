@@ -1,22 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Card } from '../../../shared/ui'
 import { formatDayTime, initials } from '../domain/format'
 import type { MessagePage, Ticket, TicketMessage } from '../types'
 
+const messageKey = (message: TicketMessage) => message.id == null
+  ? `${message.code}:${message.authorRole}:${message.author}:${message.createdAt}:${message.text}`
+  : `id:${message.id}`
+
+const uniqueMessages = (items: TicketMessage[]) => {
+  const seen = new Set<string>()
+  return items.filter((message) => {
+    const key = messageKey(message)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function Bubble({ message }: { message: TicketMessage }) {
   const mine = message.authorRole === 'OWNER'
-  const who = mine ? `${message.author} (bạn)` : `${message.author} · Bộ phận hỗ trợ`
+  const who = mine ? `${message.author} (bạn)` : 'Bộ phận hỗ trợ'
+  const avatar = <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-chip text-[9px] font-semibold text-brand">{initials(message.author)}</span>
   return (
-    <div className={`rounded-lg border border-rule p-3 ${mine ? 'bg-white' : 'bg-page'}`}>
-      <div className="mb-1 flex items-center gap-2">
-        <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-chip text-[9px] font-semibold text-brand">
-          {initials(message.author)}
-        </span>
-        <span className="text-xs font-semibold text-ink">
-          {who} · {formatDayTime(message.createdAt)}
-        </span>
+    <div data-message-side={mine ? 'owner' : 'cs'} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex max-w-[60%] items-start gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+        {avatar}
+        <div className={`w-fit max-w-full min-w-0 ${mine ? 'text-right' : ''}`}>
+          <p className="mb-0.5 text-[10px] font-medium leading-4 text-muted">{who}</p>
+          <div className={`w-fit max-w-full rounded-lg border p-3 ${mine ? 'ml-auto border-[#bedbc6] bg-[#e8f4ec]' : 'border-rule bg-page'}`}>
+            <p className={`m-0 whitespace-pre-wrap break-words text-xs text-ink ${mine ? 'text-right' : ''}`}>{message.text}</p>
+          </div>
+          <p className={`mt-0.5 mb-0 text-[10px] text-muted ${mine ? 'text-right' : ''}`}>{formatDayTime(message.createdAt)}</p>
+        </div>
       </div>
-      <p className="m-0 whitespace-pre-wrap break-words text-xs text-ink">{message.text}</p>
     </div>
   )
 }
@@ -25,11 +41,13 @@ function Bubble({ message }: { message: TicketMessage }) {
 export function ConversationCard({
   ticket,
   onLoadOlder,
+  composer,
 }: {
   ticket: Ticket
   onLoadOlder: (beforeId: number) => Promise<MessagePage>
+  composer?: ReactNode
 }) {
-  const [messages, setMessages] = useState(ticket.messages)
+  const [messages, setMessages] = useState(() => uniqueMessages(ticket.messages))
   const [beforeId, setBeforeId] = useState(ticket.messagesBeforeId ?? null)
   const [hasMore, setHasMore] = useState(ticket.messagesHasMore === true)
   const [loading, setLoading] = useState(false)
@@ -37,7 +55,7 @@ export function ConversationCard({
   const viewport = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMessages(ticket.messages)
+    setMessages(uniqueMessages(ticket.messages))
     setBeforeId(ticket.messagesBeforeId ?? null)
     setHasMore(ticket.messagesHasMore === true)
     setError('')
@@ -54,8 +72,7 @@ export function ConversationCard({
     try {
       const page = await onLoadOlder(beforeId)
       setMessages((current) => {
-        const existing = new Set(current.map((message) => message.id ?? message.code))
-        return [...page.items.filter((message) => !existing.has(message.id ?? message.code)), ...current]
+        return uniqueMessages([...page.items, ...current])
       })
       setBeforeId(page.nextBeforeId)
       setHasMore(page.hasMore)
@@ -70,7 +87,10 @@ export function ConversationCard({
   }
 
   return (
-    <Card variant="panel" title="Trao đổi">
+    <Card variant="panel">
+      <header className="-mb-1 border-b border-rule pb-3">
+        <h2 className="m-0 text-lg font-bold text-ink">Trao đổi</h2>
+      </header>
       {hasMore && beforeId != null && (
         <div className="flex justify-center">
           <Button variant="link" size="sm" disabled={loading} onClick={loadOlder}>
@@ -79,13 +99,14 @@ export function ConversationCard({
         </div>
       )}
       {error && <p role="alert" className="m-0 text-xs text-danger">{error}</p>}
-      <div ref={viewport} className="max-h-[480px] overflow-y-auto pr-1">
+      <div ref={viewport} data-testid="owner-chat-viewport" className="h-[520px] overflow-y-auto pr-1">
         <div className="flex flex-col gap-2.5">
           {messages.map((m) => (
-            <Bubble key={m.id ?? m.code} message={m} />
+            <Bubble key={messageKey(m)} message={m} />
           ))}
         </div>
       </div>
+      {composer && <div className="border-t border-rule pt-3">{composer}</div>}
     </Card>
   )
 }

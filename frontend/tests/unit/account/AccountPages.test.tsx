@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { useEffect } from 'react'
@@ -30,6 +30,14 @@ const renderAs = (who: string, path: string, tab: AccountDialogTab = 'profile') 
   </SessionContext.Provider>,
 )
 
+const renderFromRoute = (who: string, path: string) => render(
+  <SessionContext.Provider value={sessions[who]}>
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AccountDialogProvider><div>Trang nền</div></AccountDialogProvider>
+    </MemoryRouter>
+  </SessionContext.Provider>,
+)
+
 beforeEach(async () => {
   vi.clearAllMocks()
   await accountDemoStore.reset()
@@ -45,12 +53,21 @@ describe('account dialog profile panel', () => {
     expect(screen.queryByText('Quyền của tôi trong trại này')).not.toBeInTheDocument()
   })
 
+  it('mở Hồ sơ của tôi từ route m=ho-so cho vai trò nền tảng', async () => {
+    renderFromRoute('pm', '/nen-tang/dich-vu?m=ho-so')
+
+    expect(await screen.findByRole('heading', { name: 'Hồ sơ của tôi' })).toBeInTheDocument()
+    expect(screen.getByText('pm@beefcare.local')).toBeInTheDocument()
+  })
+
   it('saves the profile and reports field errors', async () => {
     const user = userEvent.setup()
     renderAs('manager', '/chon-trai')
     const name = await screen.findByLabelText('Họ và tên *')
+    await waitFor(() => expect(name).toHaveValue('Trần Quốc Long'))
 
     await user.clear(name)
+    await waitFor(() => expect(name).toHaveValue(''))
     await user.type(name, 'A')
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
     expect(await screen.findByText('Họ và tên cần từ 2 đến 100 ký tự.')).toBeInTheDocument()

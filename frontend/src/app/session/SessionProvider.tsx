@@ -64,7 +64,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const acceptGoogleTerms = async () => {
     await acceptTerms()
     const profile = await loadSessionProfile()
-    setUser(sessionFromProfile(profile, readCurrentFarmId()))
+    const nextSession = sessionFromProfile(profile, readCurrentFarmId())
+    setUser(nextSession)
   }
 
   if (error) return <div role="alert" className="grid min-h-screen place-items-center px-4 text-center text-sm text-err-fg">{error}</div>

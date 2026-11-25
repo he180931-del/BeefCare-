@@ -153,6 +153,7 @@ class AuthenticateControllerIT {
             .content(om.writeValueAsBytes(login("session-google-only", "secret"))))
             .andExpect(status().isUnauthorized())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-01"));
+        org.assertj.core.api.Assertions.assertThat(userRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow().getFailedPasswordAttempts()).isZero();
     }
 
     @Test

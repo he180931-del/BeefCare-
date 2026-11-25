@@ -58,6 +58,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
       { label: 'DỊCH VỤ', items: [item('Dịch vụ trang trại', '/nen-tang/dich-vu', 'building-community'), item('Gói đăng ký', '/nen-tang/goi-dang-ky', 'calendar-dollar'), item('Thanh toán & đối soát', '/nen-tang/thanh-toan', 'arrows-exchange'), item('Bảng giá gói', '/nen-tang/bang-gia', 'currency-dong'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'TÀI CHÍNH NỀN TẢNG', items: [item('Biên nhận gói', '/nen-tang/bien-nhan', 'receipt'), item('Thu chi khác', '/nen-tang/thu-chi', 'cash'), item('Báo cáo dòng tiền', '/nen-tang/bao-cao-dong-tien', 'chart-line')] },
       { label: 'KHÁC', items: [item('Thông báo đối soát', '/nen-tang/thong-bao-doi-soat', 'bell'), item('Thông báo hỗ trợ', '/nen-tang/thong-bao-ho-tro', 'bell')] },
+      { label: 'TÀI KHOẢN', items: [item('Hồ sơ của tôi', `${PLATFORM_PROFILE}?m=ho-so`, 'user-circle')] },
     ],
   },
   SA: {
@@ -66,6 +67,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     groups: [
       { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'KHÁC', items: [item('Thông báo', '/nen-tang/thong-bao', 'bell')] },
+      { label: 'TÀI KHOẢN', items: [item('Hồ sơ của tôi', `${PLATFORM_PROFILE}?m=ho-so`, 'user-circle')] },
     ],
   },
 }

@@ -286,13 +286,12 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
     expect(screen.queryByRole('button', { name: 'Sao chép mã truy vết' })).not.toBeInTheDocument()
   })
 
-  it('hai ô ngày có tên riêng; khoảng ngày sai thì hai ô viền đỏ và chân trang dùng "Quản trị hệ thống"', async () => {
+  it('hai ô ngày có tên riêng; khoảng ngày sai thì hai ô viền đỏ', async () => {
     renderAt('/nen-tang/audit')
     expect(await screen.findByText('Hiển thị 1–5 trong 5 mục')).toBeInTheDocument()
     const from = screen.getByLabelText('Từ ngày')
     const to = screen.getByLabelText('Đến ngày')
     expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
-    expect(screen.getByText(/chỉ Quản trị hệ thống/)).toBeInTheDocument()
     fireEvent.change(from, { target: { value: '2026-12-31' } })
     expect(await screen.findByRole('alert')).toHaveTextContent('Ngày bắt đầu không được sau ngày kết thúc.')
     for (const input of [from, to]) expect(input.parentElement!.className).toContain('border-err-fg')

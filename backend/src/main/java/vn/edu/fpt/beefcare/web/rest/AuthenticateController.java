@@ -33,6 +33,9 @@ import vn.edu.fpt.beefcare.web.rest.vm.LoginVM;
 @RestController
 public class AuthenticateController {
 
+    public static final String REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE = "beefcare.security.session.absolute-expiry";
+    private static final long REMEMBERED_SESSION_ABSOLUTE_CAP_SECONDS = 30L * 24 * 3600;
+
     private final AuthenticationManager authenticationManager;
     private final FarmAccessService farmAccessService;
     private final SessionRegistry sessionRegistry;
@@ -96,6 +99,12 @@ public class AuthenticateController {
         }
         HttpSession session = request.getSession(true);
         session.setMaxInactiveInterval(loginVM.isRememberMe() ? rememberMeTimeoutSeconds : standardTimeoutSeconds);
+        if (loginVM.isRememberMe()) {
+            session.setAttribute(
+                REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE,
+                java.time.Instant.now().plusSeconds(REMEMBERED_SESSION_ABSOLUTE_CAP_SECONDS)
+            );
+        }
         try {
             farmAccessService.currentActiveUser();
         } catch (DomainException ex) {

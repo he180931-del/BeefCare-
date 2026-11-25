@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { ROLE_LABEL, closeConditions, formatStamp, openIrOf } from '../domain/supportRules'
+import { INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON, ROLE_LABEL, closeConditions, defaultInternalRequestRole, formatStamp, internalRequestRoles, openIrOf } from '../domain/supportRules'
 import type { InternalView, TargetRole, Ticket } from '../types'
 import { FieldError, useActor, useSubmit } from './common'
 import { useSupportCs, useSupportRecipients } from '../hooks/usePlatformSupportUseCase'
@@ -45,33 +45,32 @@ export function HandOverDialog({ onSubmit, onClose }: { onSubmit: (toCsId: numbe
 export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExisting, onClose }: {
   ticket: Ticket
   initialRole: TargetRole
-  onSubmit: (cmd: { targetRole: TargetRole; recipientId: number; question: string; context: Ticket['contextOptions']['PM'] }) => Promise<void>
+  onSubmit: (cmd: { targetRole: TargetRole; recipientId: number; requestText: string }) => Promise<void>
   onViewExisting: (ir: InternalView) => void
   onClose: () => void
 }) {
-  const [role, setRole] = useState<TargetRole>(initialRole)
+  const allowedRoles = internalRequestRoles(ticket.category)
+  const initialAllowedRole = allowedRoles.includes(initialRole) ? initialRole : defaultInternalRequestRole(ticket.category)
+  const [role, setRole] = useState<TargetRole>(initialAllowedRole)
   const { data } = useSupportRecipients(role)
   const [recipient, setRecipient] = useState('')
-  const [question, setQuestion] = useState('')
-  const [ctx, setCtx] = useState('')
-  const [errors, setErrors] = useState<{ recipient?: string; question?: string }>({})
+  const [requestText, setRequestText] = useState('')
+  const [errors, setErrors] = useState<{ recipient?: string; requestText?: string }>({})
   const { busy, error, run } = useSubmit()
   const existing = openIrOf(ticket, role)
   const stateOk = ticket.status === 'IN_PROGRESS' || ticket.status === 'WAITING_CUSTOMER'
   const submit = () => {
-    const next = { recipient: recipient ? undefined : 'Người nhận cụ thể là bắt buộc.', question: question.trim() ? undefined : 'Câu hỏi / lý do là bắt buộc.' }
+    const next = { recipient: recipient ? undefined : 'Người nhận cụ thể là bắt buộc.', requestText: requestText.trim() ? undefined : 'Nội dung yêu cầu là bắt buộc.' }
     setErrors(next)
-    if (next.recipient || next.question) return
-    const context = ticket.contextOptions[role].filter((c) => String(c.id) === ctx)
-    void run(() => onSubmit({ targetRole: role, recipientId: Number(recipient), question: question.trim(), context }))
+    if (next.recipient || next.requestText) return
+    void run(() => onSubmit({ targetRole: role, recipientId: Number(recipient), requestText: requestText.trim() }))
   }
   return (
-    <Modal title={initialRole === 'SA' ? 'Tạo yêu cầu nội bộ cho quản trị hệ thống' : 'Tạo yêu cầu nội bộ'} width={640} onClose={onClose}>
+    <Modal title="Tạo yêu cầu nội bộ" width={640} onClose={onClose}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Vai trò đích *" id="ir-role">
-          <Select id="ir-role" value={role} onChange={(e) => { setRole(e.target.value as TargetRole); setRecipient(''); setCtx('') }}>
-            <option value="PM">{ROLE_LABEL.PM}</option>
-            <option value="SA">{ROLE_LABEL.SA}</option>
+          <Select id="ir-role" value={role} onChange={(e) => { setRole(e.target.value as TargetRole); setRecipient('') }}>
+            {allowedRoles.map((targetRole) => <option key={targetRole} value={targetRole}>{ROLE_LABEL[targetRole]}</option>)}
           </Select>
         </Field>
         <Field label="Người nhận cụ thể *" id="ir-to">
@@ -82,17 +81,10 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
           <FieldError>{errors.recipient}</FieldError>
         </Field>
       </div>
-      <Field label="Câu hỏi / lý do *" id="ir-q">
-        <Textarea id="ir-q" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Kiểm tra Thanh toán BCF7K2Q9 và chứng từ mã chưa khớp" />
-        <FieldError>{errors.question}</FieldError>
+      <Field label="Nội dung yêu cầu *" id="ir-q">
+        <Textarea id="ir-q" value={requestText} onChange={(e) => setRequestText(e.target.value)} placeholder="Kiểm tra Thanh toán BCF7K2Q9 và chứng từ mã chưa khớp" />
+        <FieldError>{errors.requestText}</FieldError>
       </Field>
-      <Field label="Ngữ cảnh được chia sẻ" id="ir-ctx">
-        <Select id="ir-ctx" value={ctx} onChange={(e) => setCtx(e.target.value)}>
-          <option value="">Không chia sẻ liên kết</option>
-          {ticket.contextOptions[role].map((c) => <option key={`${c.type}${c.id}`} value={c.id}>{c.label}</option>)}
-        </Select>
-      </Field>
-      <Note tone="info">Chỉ chia sẻ câu hỏi và liên kết miền được phép. Không gửi toàn bộ hội thoại, ghi chú nội bộ hoặc dữ liệu ngân hàng.</Note>
       {existing && <Note tone="info">Mỗi yêu cầu chỉ có một yêu cầu nội bộ đang mở cho mỗi vai trò. Hiện {existing.code} đã mở: cần xử lý yêu cầu hiện có trước khi tạo thêm.</Note>}
       {!stateOk && <Note tone="warn">Chỉ tạo khi yêu cầu đang Đang xử lý / Chờ khách phản hồi. Không thay đổi trạng thái yêu cầu.</Note>}
       {error && <Note tone="err">{error}</Note>}
@@ -106,48 +98,39 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
   )
 }
 
-export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; onSubmit: (recipientId: number, reason: string) => Promise<void>; onClose: () => void }) {
-  const { data } = useSupportRecipients(ir.targetRole)
-  const [to, setTo] = useState('')
+export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; onSubmit: (reason: string) => Promise<void>; onClose: () => void }) {
   const [reason, setReason] = useState('')
-  const [errors, setErrors] = useState<{ to?: string; reason?: string }>({})
+  const [errors, setErrors] = useState<{ reason?: string }>({})
   const { busy, error, run } = useSubmit()
   const submit = () => {
-    const next = { to: to ? undefined : 'Người nhận mới là bắt buộc.', reason: reason.trim() ? undefined : 'Lý do là bắt buộc.' }
+    const next = { reason: reason.trim() ? undefined : 'Lý do là bắt buộc.' }
     setErrors(next)
-    if (next.to || next.reason) return
-    void run(() => onSubmit(Number(to), reason.trim()))
-  }
+    if (next.reason) return
+    void run(() => onSubmit(reason.trim()))
+    }
   return (
     <Modal title={`Đổi người nhận ${ir.code}`} width={640} onClose={onClose}>
-      <Field label="Người nhận mới *" id="ra-to">
-        <Select id="ra-to" value={to} onChange={(e) => setTo(e.target.value)}>
-          <option value="">Chọn người nhận mới</option>
-          {(data ?? []).filter((s) => s.id !== ir.recipientId).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role} đang khả dụng</option>)}
-        </Select>
-        <FieldError>{errors.to}</FieldError>
-      </Field>
       <Field label="Lý do *" id="ra-reason">
         <Textarea id="ra-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Người nhận cũ vắng mặt; cần tiếp tục xác minh" />
         <FieldError>{errors.reason}</FieldError>
       </Field>
-      <Note tone="info">Chỉ nhân viên hỗ trợ được giao mới đổi người nhận yêu cầu nội bộ đang mở. Người nhận cũ mất quyền xem/ghi ngay sau chuyển; giữ lịch sử cũ.</Note>
+      <Note tone="info"><span className="font-semibold text-warn-fg">Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ hiện tại</span></Note>
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Chuyển người nhận</ModalButton></ModalFooter>
+      <ModalFooter><Back onClick={onClose} /><ModalButton variant="primary" onClick={submit} disabled={busy}>Hủy để đổi người nhận</ModalButton></ModalFooter>
     </Modal>
   )
 }
 
 export function CloseDialog({ ticket, onSubmit, onReload, onClose }: { ticket: Ticket; onSubmit: (reviewed: boolean, note: string) => Promise<void>; onReload: () => void; onClose: () => void }) {
   const cond = closeConditions(ticket)
+  const openInternal = ticket.internalRequests.filter((request) => request.status === 'OPEN' || request.status === 'WAITING_CS')
   const [note, setNote] = useState('')
   const [reviewed, setReviewed] = useState(false)
   const [tickError, setTickError] = useState(false)
   const { busy, error, run } = useSubmit()
-  if (!cond.all) {
+  if (!cond.resolved.ok || !cond.acknowledged.ok) {
     const unmet = [
       !cond.resolved.ok && 'Yêu cầu chưa ở trạng thái Đã giải quyết',
-      !cond.noOpenIr.ok && `Yêu cầu nội bộ ${cond.noOpenIr.code} vẫn đang mở`,
       !cond.acknowledged.ok && cond.resolved.ok && `Chủ trại chưa xác nhận kết quả phiên bản ${cond.acknowledged.version}`,
     ].filter(Boolean).join(' / ')
     return (
@@ -170,24 +153,27 @@ export function CloseDialog({ ticket, onSubmit, onReload, onClose }: { ticket: T
         <p className="m-0 mb-2 text-xs font-semibold text-ink">Điều kiện đóng</p>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {ok(`Yêu cầu đã giải quyết (kết quả phiên bản ${cond.resolved.version} – ${formatStamp(cond.resolved.at ?? '')})`)}
-          {ok('Không còn yêu cầu nội bộ đang mở')}
+          {openInternal.length === 0 ? ok('Không còn yêu cầu nội bộ đang mở') : (
+            <li className="flex items-start gap-2 text-xs text-ink"><Icon name="alert-triangle" size={16} className="mt-px shrink-0 text-warn-fg" /> Đang có {openInternal.length} yêu cầu nội bộ đang mở; khi xác nhận đóng ticket, các yêu cầu này sẽ chuyển sang Đã hủy.</li>
+          )}
           {ok(`Chủ trại đã bấm Xác nhận cho kết quả phiên bản ${cond.acknowledged.version} · ${formatStamp(cond.acknowledged.at ?? '')}`)}
         </ul>
       </div>
       <Note tone="info">Xác nhận phải là thao tác "Xác nhận" của Chủ trại gắn với kết quả phiên bản {cond.acknowledged.version}; một câu trả lời thông thường không thay thế được.</Note>
+      {openInternal.length > 0 && <Note tone="warn">Đóng ticket cũng đồng nghĩa đóng các yêu cầu nội bộ đang mở. Nguyên nhân hủy mặc định: {INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON}</Note>}
       <Field label="Ghi chú đóng (không bắt buộc)" id="cl-note"><input id="cl-note" className={inputCls} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Chủ trại đã xác nhận vấn đề được giải quyết" /></Field>
       <div>
         <Checkbox checked={reviewed} onChange={(e) => setReviewed(e.target.checked)}>Tôi đã xem xác nhận của Chủ trại và đồng ý đóng yêu cầu.</Checkbox>
         <FieldError>{tickError ? 'Hãy tick xác nhận để tiếp tục.' : null}</FieldError>
       </div>
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter><ModalButton onClick={onClose}>Hủy</ModalButton><ModalButton variant="primary" onClick={submit} disabled={busy}>Đóng yêu cầu</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton onClick={onClose}>Hủy</ModalButton><ModalButton variant="primary" onClick={submit} disabled={busy}>{openInternal.length > 0 ? 'OK, đóng ticket và hủy yêu cầu nội bộ' : 'Đóng yêu cầu'}</ModalButton></ModalFooter>
     </Modal>
   )
 }
 
 export function ClosedDialog({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
-  const last = ticket.history[ticket.history.length - 1]
+  const last = ticket.history?.[ticket.history.length - 1]
   const res = ticket.resolutions[ticket.resolutions.length - 1]
   return (
     <Modal title={`Yêu cầu ${ticket.code} đã đóng`} width={640} onClose={onClose}>

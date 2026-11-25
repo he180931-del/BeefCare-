@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../../shared/api/backendClient'
 import { userFacingError } from '../../../shared/api/userFacingError'
@@ -61,9 +61,18 @@ export function ResetPasswordPage({ client }: { client: AuthClient }) {
   const auth = useAuthenticationUseCase(client)
   const location = useLocation()
   const navigate = useNavigate()
-  const query = useMemo(() => new URLSearchParams(location.search), [location.search])
-  const token = query.get('token') || ''
-  const initialEmail = normalizeEmail(query.get('email') || '')
+  const [resetRoute] = useState(() => {
+    const query = new URLSearchParams(location.search)
+    const captured = {
+      token: query.get('token') || '',
+      initialEmail: normalizeEmail(query.get('email') || ''),
+    }
+    if (captured.token || query.has('email')) {
+      window.history.replaceState(window.history.state, '', `${location.pathname}${location.hash}`)
+    }
+    return captured
+  })
+  const { token, initialEmail } = resetRoute
   const [validation, setValidation] = useState<PasswordResetValidation | null>(null)
   const [checking, setChecking] = useState(true)
   const [checkError, setCheckError] = useState<string | null>(null)

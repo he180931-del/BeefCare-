@@ -931,6 +931,38 @@ Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google 
 4. Khi chưa chấp thuận, backend vẫn cho đọc hồ sơ, lấy CSRF, chấp thuận và đăng xuất; API nghiệp vụ khác trả `403` + `MSG-FE01-14` nhưng không hủy phiên. OAuth redirect ưu tiên `/chap-nhan-dieu-khoan` trước luồng Owner/chọn trại; frontend kiểm lại profile để không phụ thuộc riêng redirect.
 5. Dùng hai cột hiện có `terms_accepted`, `terms_accepted_at`; chưa thêm phiên bản điều khoản hoặc migration. Khi có quy trình ban hành nhiều phiên bản sẽ quyết định migration và luồng chấp thuận lại riêng.
 
+### D58 — FE-20: Product chốt hướng priority, evidence, IR attachment và deadline (24/11/2026)
+
+Chủ dự án chốt hướng nghiệp vụ FE-20 sau khi xem phiếu D-FE20-01…06:
+
+1. Hệ thống tự tính và sắp xếp priority ban đầu của ticket. Owner có quyền sửa
+   priority của ticket của mình sau khi ticket được tạo; giao diện không để Owner
+   tự đặt priority ban đầu. Hợp đồng tiếp theo phải chốt thời điểm cuối được sửa,
+   optimistic version và history/audit cho thay đổi đó.
+2. Evidence attachment chỉ nhận **PDF, JPEG, PNG**. Các giới hạn số lượng/dung
+   lượng, quarantine, kiểm signature/MIME, malware scan, trạng thái reject,
+   retention/xóa/legal hold và audit chưa được chốt; implementation không được
+   lấy giá trị mặc định làm policy.
+3. CS không phụ trách vẫn được xem và tải evidence bình thường. Contract Security
+   còn phải xác định chính xác role boundary, audit download và thu hồi quyền khi
+   role bị mất; quyền này không cấp mutation ticket cho CS không phụ trách.
+4. PM/SA được nhận evidence khi **CS chủ động chọn đính kèm** vào IR gửi named
+   recipient. Không auto-share toàn bộ attachment của ticket. Contract phải có
+   attachment selection bất biến theo IR revision, authorization/revoke khi IR
+   reassign/cancel, download audit và không public URL/storage key.
+5. Với `SYSTEM_USAGE` và `OTHER`, CS phụ trách chọn gửi IR cho PM hoặc SA theo
+   tình huống. Server phải kiểm named recipient đang khả dụng và không được suy
+   ra/đổi role bằng UI fallback. Matrix hiện hành giữ `ACCOUNT_ACCESS → SA` và
+   `PAYMENT`/`FARM_SERVICE → PM`.
+6. Supplement có deadline, reminder và `EXPIRED`; timeout không được tự đóng
+   ticket. Trước implementation cần chốt bắt buộc/tùy chọn, timezone, cadence/
+   channel reminder, transition/blocker khi hết hạn, action Owner/CS, waiver/
+   cancel actor, retention file nháp/upload và audit.
+
+Ảnh hưởng: đồng bộ spec FE-20 và phiếu quyết định. D58 là quyết định Product;
+không thay thế Security sign-off cho file/download/retention hoặc expiry policy.
+Vì vậy implementation supplement/attachment/deadline vẫn bị chặn ở contract
+gate; các slice không phụ thuộc các gap phải tuân WBS và impact analysis riêng.
 ### D58 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
 
 TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:

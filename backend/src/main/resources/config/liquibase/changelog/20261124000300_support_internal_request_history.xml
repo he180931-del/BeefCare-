@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261124000300-support-internal-request-history" author="beefcare">
+    <createTable tableName="internal_request_history">
+      <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="internal_request_id" type="bigint"><constraints nullable="false"/></column>
+      <column name="event_type" type="varchar(30)"><constraints nullable="false"/></column>
+      <column name="note" type="varchar(2000)"/>
+      <column name="actor_id" type="bigint"><constraints nullable="false"/></column>
+      <column name="actor_role" type="varchar(30)"><constraints nullable="false"/></column>
+      <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+      <column name="request_version" type="integer"><constraints nullable="false"/></column>
+      <column name="state" type="varchar(30)"><constraints nullable="false"/></column>
+      <column name="outcome" type="varchar(30)"/>
+    </createTable>
+    <addForeignKeyConstraint baseTableName="internal_request_history" baseColumnNames="internal_request_id"
+      constraintName="fk_internal_request_history_request" referencedTableName="internal_request" referencedColumnNames="id"/>
+    <addForeignKeyConstraint baseTableName="internal_request_history" baseColumnNames="actor_id"
+      constraintName="fk_internal_request_history_actor" referencedTableName="app_user" referencedColumnNames="id"/>
+    <createIndex tableName="internal_request_history" indexName="ix_internal_request_history_request_time">
+      <column name="internal_request_id"/><column name="occurred_at"/><column name="id"/>
+    </createIndex>
+  </changeSet>
+</databaseChangeLog>

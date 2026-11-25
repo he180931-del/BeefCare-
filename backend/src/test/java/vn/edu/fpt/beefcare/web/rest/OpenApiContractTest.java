@@ -226,6 +226,201 @@ class OpenApiContractTest {
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 
+    @Test
+    void fe20InternalRequestContractExposesTargetFieldsAndAudienceSafeResponses() throws Exception {
+        JsonNode api = readGeneratedApi();
+        JsonNode paths = api.path("paths");
+        JsonNode schemas = api.path("components").path("schemas");
+
+        JsonNode management = schemas.path("InternalManage");
+        assertThat(management.path("properties").path("action").path("enum").toString())
+            .contains("CLARIFY", "REASSIGN", "CANCEL");
+        assertThat(management.path("properties").path("clarificationText").path("maxLength").asInt()).isEqualTo(2000);
+        assertThat(management.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(1000);
+
+        assertThat(schemas.path("InternalCreate").path("properties").path("requestText").path("maxLength").asInt()).isEqualTo(2000);
+        JsonNode complete = schemas.path("Complete");
+        assertThat(complete.path("properties").path("resultNote").path("maxLength").asInt()).isEqualTo(2000);
+        assertThat(complete.path("properties").path("result").isMissingNode()).isTrue();
+        assertThat(complete.path("properties").path("domainResultAuditId").isMissingNode()).isTrue();
+        assertThat(complete.path("properties").path("outcome").path("enum").toString())
+            .isEqualTo("[\"CONFIRMED\",\"NOT_CONFIRMED\",\"NEED_MORE_INFO\",\"OUT_OF_SCOPE\"]");
+
+        assertThat(schemas.has("InternalHistory")).isTrue();
+        JsonNode internal = schemas.path("InternalView");
+        assertThat(internal.path("properties").path("history").path("items").path("$ref").asText())
+            .isEqualTo("#/components/schemas/InternalHistory");
+        assertThat(internal.path("properties").has("requestText")).isTrue();
+        assertThat(internal.path("properties").has("resultNote")).isTrue();
+        assertThat(internal.path("properties").has("question")).isFalse();
+        assertThat(internal.path("properties").has("context")).isFalse();
+        assertThat(internal.path("properties").has("result")).isFalse();
+        assertThat(internal.path("properties").has("domainResultAuditId")).isFalse();
+        assertThat(schemas.has("RecipientInternalView")).isTrue();
+        JsonNode recipient = schemas.path("RecipientInternalView");
+        assertThat(recipient.path("properties").has("requestText")).isTrue();
+        assertThat(recipient.path("properties").has("resultNote")).isTrue();
+        assertThat(recipient.path("properties").has("question")).isFalse();
+        assertThat(recipient.path("properties").has("context")).isFalse();
+        assertThat(recipient.path("properties").has("result")).isFalse();
+        assertThat(recipient.path("properties").has("domainResultAuditId")).isFalse();
+
+        assertThat(paths.path("/api/platform/internal-requests/{id}/completion").path("post")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.path("/api/platform/internal-requests").path("get")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.path("/api/platform/internal-requests/{id}").path("get")
+            .path("responses").path("200").path("content").toString()).contains("RecipientInternalView");
+        assertThat(paths.has("/api/platform/internal-requests/{id}/domain-results")).isFalse();
+    }
+
+    @Test
+    void fe01AuthOperationsExposeRuntimeStatusesAndNoBogusCsrfQuery() throws Exception {
+        JsonNode api = readGeneratedApi();
+        JsonNode paths = api.path("paths");
+
+        assertResponse(paths, "/api/authenticate", "get", "204");
+        assertResponse(paths, "/api/authenticate", "post", "204");
+        assertResponse(paths, "/api/register", "post", "201");
+        assertResponse(paths, "/api/account/google-reauthentication", "post", "204");
+        assertResponse(paths, "/api/account/reset-password/init", "post", "200");
+        assertResponse(paths, "/api/account/reset-password/validate", "get", "200");
+        assertResponse(paths, "/api/account/reset-password/finish", "post", "200");
+        assertResponse(paths, "/api/activate", "get", "303");
+
+        JsonNode csrf = paths.path("/api/csrf").path("get");
+        assertThat(csrf.path("responses").has("200")).isTrue();
+        assertThat(csrf.path("parameters").toString()).doesNotContain("\"token\"");
+    }
+
+    @Test
+    void fe01PublicAndAuthenticatedSecurityOverridesAreDeclared() throws Exception {
+        JsonNode paths = readGeneratedApi().path("paths");
+
+        assertPublic(paths, "/api/csrf", "get");
+        assertPublic(paths, "/api/authenticate", "get");
+        assertPublic(paths, "/api/activate", "get");
+        assertPublic(paths, "/api/account/reset-password/validate", "get");
+        assertCsrfOnly(paths, "/api/authenticate", "post");
+        assertCsrfOnly(paths, "/api/register", "post");
+        assertCsrfOnly(paths, "/api/account/reset-password/init", "post");
+        assertCsrfOnly(paths, "/api/account/reset-password/finish", "post");
+        assertCsrfOnly(paths, "/api/account/verification/resend", "post");
+        assertSessionAndCsrf(paths, "/api/account/terms-acceptance", "post");
+        assertSessionAndCsrf(paths, "/api/account/profile", "post");
+        assertSessionAndCsrf(paths, "/api/account/change-password", "post");
+        assertSessionAndCsrf(paths, "/api/account/google-reauthentication", "post");
+
+        // Logout is installed by Spring Security's filter, not a controller; its curated declaration must still be checked.
+        assertThat(paths.has("/api/logout")).as("curated/generated logout operation").isTrue();
+        assertProblemResponse(paths.path("/api/authenticate").path("post"), "400");
+        assertProblemResponse(paths.path("/api/authenticate").path("post"), "401");
+        assertProblemResponse(paths.path("/api/authenticate").path("post"), "403");
+        assertProblemResponse(paths.path("/api/authenticate").path("post"), "423");
+        assertProblemResponse(paths.path("/api/authenticate").path("get"), "401");
+    }
+
+    @Test
+    void fe01PasswordAndConditionalSchemasExposeSourceOfTruth() throws Exception {
+        JsonNode schemas = readGeneratedApi().path("components").path("schemas");
+
+        JsonNode registration = schemas.path("RegistrationRequest");
+        assertRequired(registration, "fullName", "email", "password", "confirmPassword", "termsAccepted");
+        assertPasswordSchema(registration.path("properties").path("password"));
+        assertPasswordSchema(registration.path("properties").path("confirmPassword"));
+        assertThat(registration.path("properties").path("password").path("description").asText())
+            .containsIgnoringCase("email");
+
+        JsonNode reset = schemas.path("KeyAndPasswordVM");
+        assertRequired(reset, "key", "newPassword", "confirmPassword");
+        assertPasswordSchema(reset.path("properties").path("newPassword"));
+        assertPasswordSchema(reset.path("properties").path("confirmPassword"));
+
+        JsonNode change = schemas.path("PasswordChangeDTO");
+        assertRequired(change, "newPassword", "confirmPassword");
+        assertPasswordSchema(change.path("properties").path("newPassword"));
+        assertPasswordSchema(change.path("properties").path("confirmPassword"));
+        assertThat(change.path("properties").path("currentPassword").path("description").asText())
+            .containsIgnoringCase("Google");
+
+        // Sign-in credentials are intentionally separate from password-creation policy: only max-128 is asserted here.
+        JsonNode login = schemas.path("LoginVM");
+        assertRequired(login, "username", "password");
+        assertThat(login.path("properties").path("password").path("maxLength").asInt()).isEqualTo(128);
+        assertThat(login.path("properties").path("password").toString()).doesNotContain("uppercase", "lowercase", "digit", "symbol");
+    }
+
+    @Test
+    void fe01ResetAndErrorSchemasAreGenericAndNullable() throws Exception {
+        JsonNode api = readGeneratedApi();
+        JsonNode paths = api.path("paths");
+        JsonNode schemas = api.path("components").path("schemas");
+
+        JsonNode init = paths.path("/api/account/reset-password/init").path("post");
+        assertResponse(init, "200");
+        assertThat(init.path("responses").path("200").path("content").isMissingNode())
+            .as("reset-init must not disclose account or token data").isTrue();
+
+        assertRequired(schemas.path("EmailRequest"), "email");
+        assertRequired(schemas.path("KeyAndPasswordVM"), "key", "newPassword", "confirmPassword");
+
+        JsonNode validation = schemas.path("ResetLinkValidation");
+        assertRequired(validation, "valid", "email");
+        assertThat(allowsNull(validation.path("properties").path("email"))).isTrue();
+
+        JsonNode problem = schemas.path("ProblemDetail");
+        assertThat(problem.path("properties").has("code")).isTrue();
+        assertThat(problem.path("properties").has("params")).isTrue();
+        assertThat(problem.path("properties").has("message")).isTrue();
+        assertThat(problem.path("properties").has("path")).isTrue();
+    }
+
+    private JsonNode readGeneratedApi() throws Exception {
+        String json = mvc.perform(get("/v3/api-docs/beefcare").with(user("contract-reviewer").roles("ADMIN")))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        return mapper.readTree(json);
+    }
+
+    private void assertResponse(JsonNode paths, String path, String method, String statusCode) {
+        assertResponse(paths.path(path).path(method), statusCode);
+    }
+
+    private void assertResponse(JsonNode operation, String statusCode) {
+        assertThat(operation.path("responses").has(statusCode)).as("response %s in %s", statusCode, operation).isTrue();
+    }
+
+    private void assertRequired(JsonNode schema, String... names) {
+        for (String name : names) assertThat(schema.path("required").toString()).as("required %s", name).contains(name);
+    }
+
+    private void assertPasswordSchema(JsonNode schema) {
+        assertThat(schema.path("minLength").asInt()).isEqualTo(8);
+        assertThat(schema.path("maxLength").asInt()).isEqualTo(128);
+        assertThat(schema.toString()).doesNotContain("(?=.*", "uppercase", "lowercase", "digit", "symbol");
+    }
+
+    private void assertPublic(JsonNode paths, String path, String method) {
+        JsonNode security = paths.path(path).path(method).path("security");
+        assertThat(security.isArray()).as("explicit public security override for %s %s", method, path).isTrue();
+        assertThat(security.size()).isZero();
+    }
+
+    private void assertCsrfOnly(JsonNode paths, String path, String method) {
+        JsonNode security = paths.path(path).path(method).path("security");
+        assertThat(security.toString()).contains("csrf").doesNotContain("session");
+    }
+
+    private void assertSessionAndCsrf(JsonNode paths, String path, String method) {
+        JsonNode security = paths.path(path).path(method).path("security");
+        assertThat(security.toString()).contains("session", "csrf");
+        assertThat(security.size()).isEqualTo(1);
+    }
+
+    private void assertProblemResponse(JsonNode operation, String statusCode) {
+        assertThat(operation.path("responses").path(statusCode).toString())
+            .as("ProblemDetail response %s", statusCode).contains("#/components/schemas/ProblemDetail");
+    }
+
     private boolean allowsNull(JsonNode schema) {
         JsonNode type = schema.path("type");
         if (type.isTextual() && "null".equals(type.asText())) return true;
