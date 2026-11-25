@@ -180,7 +180,6 @@ function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: RecipientIn
             ['Người hoàn thành', ir.completedBy ?? '—'],
           ]} />
           {resultNote && <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]">{resultNote}</div>}
-          <Note tone="grey">Chỉ nhân viên hỗ trợ và bạn thấy kết quả này – không gửi trực tiếp cho Chủ trại. Yêu cầu đã hoàn thành hoặc đã hủy chỉ đọc.</Note>
           <div><Button variant="primary" onClick={() => navigate(BASE)}><Icon name="arrow-left" size={16} /> Về danh sách được giao</Button></div>
         </>
       )}
