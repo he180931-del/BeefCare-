@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { useEffect } from 'react'
@@ -64,8 +64,10 @@ describe('account dialog profile panel', () => {
     const user = userEvent.setup()
     renderAs('manager', '/chon-trai')
     const name = await screen.findByLabelText('Họ và tên *')
+    await waitFor(() => expect(name).toHaveValue('Trần Quốc Long'))
 
     await user.clear(name)
+    await waitFor(() => expect(name).toHaveValue(''))
     await user.type(name, 'A')
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
     expect(await screen.findByText('Họ và tên cần từ 2 đến 100 ký tự.')).toBeInTheDocument()
