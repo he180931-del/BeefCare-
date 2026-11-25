@@ -1130,3 +1130,15 @@ An chốt, điều chỉnh D63 cho popup thêm / sửa con của phiếu mua ngo
 4. Bảng **Danh sách bò trong phiếu** chưa có con nào hiện một dòng **Trống** và ẩn dòng tổng.
 
 Không đổi backend, OpenAPI, migration hay nhập Excel.
+
+### D77 — FE-06: mẫu Excel nhập bò tiếng Việt, in phiếu không có nút (25/11/2026)
+
+An yêu cầu "bản Excel chuẩn để input vào thành phiếu nhập" và in phiếu không lẫn nút:
+
+1. `GET …/entry-vouchers/import-template` trả file 3 trang: **Danh sách bò** (trang đầu, trang duy nhất được đọc khi nhập; chỉ dòng tiêu đề), **Hướng dẫn** (từng cột: bắt buộc, cách nhập, giá trị hợp lệ, 2 dòng ví dụ) và **Danh mục** (giống, mục đích đang dùng và chuồng ACTIVE của trại). Trang 1 có danh sách chọn cho Giới tính, Độ chính xác, Cơ sở cân, Giống, Chuồng, Mục đích; cột Số tai định dạng văn bản để giữ số 0 ở đầu.
+2. Tiêu đề cột theo nhãn tiếng Việt của spec FE-06 (popup Nhập bò từ Excel #1): Số tai, Giống, Giới tính, Ngày sinh hoặc Tuổi (tháng), Độ chính xác, Màu lông, Cân, Cơ sở cân, Chuồng, Mục đích, Đơn giá, Cách ly đến. Thứ tự và số cột giữ đúng SRS; file dùng tiêu đề tiếng Anh của SRS vẫn nhập được.
+3. Bộ nhập nhận thêm giá trị tiếng Việt: Độ chính xác `Chính xác / Ước tính / Không rõ`, Cơ sở cân `Cân thực tế / Ước tính`; Đơn giá ở ô chữ bỏ dấu chấm phân cách nghìn ("85.000" = 85000).
+4. Popup nhập Excel hiện lỗi / cảnh báo từng dòng bằng tiếng Việt theo tên cột (dựng từ `code` + `field`), không hiện mã `CHK-…` hay câu tiếng Anh. Dòng đã thêm giữ nguyên tuổi (tháng), màu lông, cách ly đến khi lưu nháp lại.
+5. In / xuất PDF chi tiết phiếu nhập, phiếu xuất: ẩn mọi nút, cột Thao tác, ghi chú hướng dẫn, nền trang; hai cột xếp thành một cột để nội dung không bị đẩy sang trang sau.
+
+Không đổi route, DTO, OpenAPI hay migration.

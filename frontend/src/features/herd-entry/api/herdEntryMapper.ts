@@ -139,7 +139,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         // does not turn a selected breed into a display-only label and then
         // submit a null breedId.
         breed: textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(line.breedId ?? data.breedId)) || ((line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate ?? line.birthDate),
-        dobAccuracy: textValue(data.birthDateAccuracy ?? line.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
+        dobAccuracy: textValue(data.birthDateAccuracy ?? line.birthDateAccuracy, 'UNKNOWN'), ageMonths: nullableNumber(data.ageMonths) ?? undefined, stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
         weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
         barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: mapEntryHistory(line),
         quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil),
