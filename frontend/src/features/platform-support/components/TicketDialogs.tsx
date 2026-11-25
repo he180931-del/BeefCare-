@@ -85,7 +85,6 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
         <Textarea id="ir-q" value={requestText} onChange={(e) => setRequestText(e.target.value)} placeholder="Kiểm tra Thanh toán BCF7K2Q9 và chứng từ mã chưa khớp" />
         <FieldError>{errors.requestText}</FieldError>
       </Field>
-      <Note tone="info">Chỉ gửi câu hỏi và hint tối thiểu trong nội dung yêu cầu. Không chia sẻ liên kết miền, toàn bộ hội thoại, ghi chú nội bộ hoặc dữ liệu ngân hàng.</Note>
       {existing && <Note tone="info">Mỗi yêu cầu chỉ có một yêu cầu nội bộ đang mở cho mỗi vai trò. Hiện {existing.code} đã mở: cần xử lý yêu cầu hiện có trước khi tạo thêm.</Note>}
       {!stateOk && <Note tone="warn">Chỉ tạo khi yêu cầu đang Đang xử lý / Chờ khách phản hồi. Không thay đổi trạng thái yêu cầu.</Note>}
       {error && <Note tone="err">{error}</Note>}
