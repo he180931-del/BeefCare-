@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSession } from '../../../app/session/sessionContext'
 import { Button, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { penError } from '../api/penError'
 import { BackendError } from '../../../shared/api/backendClient'
-import type { MoveCattle, PenMoveCheckResult } from '../api/penApi'
-import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
+import { penApi, type MoveCattle, type PenMember, type PenMoveCheckResult } from '../api/penApi'
+import { CRITERION_LABELS, dmy, PEN_STATUS_LABELS, SEX_LABELS, STAGE_LABELS, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../types'
 import { usePenMove } from '../hooks/usePenMove'
@@ -27,6 +28,7 @@ function cattleErrorText(error: { code?: string; params?: Record<string, unknown
  * destination / date change; the backend checks everything again on confirm (R-04-12) and moves all or nothing.
  */
 export default function MoveDialog({ from, cattle, pens, onClose, onReload = onClose, onMoved, today: fixedDate }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onReload?: () => void; onMoved: (message: string) => void; today?: string }) {
+  const session = useSession()
   const today = fixedDate ?? todayIso()
   const destinations = pens.filter((p) => p.status === 'ACTIVE' && p.code !== from.code)
   const [toCode, setToCode] = useState('')
@@ -42,8 +44,27 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [tried, setTried] = useState(false)
+  const [members, setMembers] = useState<PenMember[]>([])
+  const [performerId, setPerformerId] = useState('')
+  const [membersError, setMembersError] = useState('')
   const { checkMove, move } = usePenMove()
   const to = destinations.find((p) => p.code === toCode)
+
+  useEffect(() => {
+    let active = true
+    penApi.listPenMembers().then((rows) => {
+      if (!active) return
+      setMembers(rows)
+      const current = session?.id != null ? rows.find((row) => row.userId === session.id) : rows[0]
+      setPerformerId(String(current?.userId ?? session?.id ?? rows[0]?.userId ?? ''))
+    }).catch(() => {
+      if (active) {
+        setMembersError('Không tải được danh sách thành viên; vẫn có thể chuyển với người đang đăng nhập.')
+        setPerformerId(session?.id == null ? '' : String(session.id))
+      }
+    })
+    return () => { active = false }
+  }, [session?.id])
 
   useEffect(() => {
     if (!to || !date) { setCheck(null); setChecking(false); return }
@@ -67,6 +88,15 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
     : ''
   const reasonError = !reason.trim() ? 'Vui lòng nhập Lý do.' : reason.trim().length > 500 ? 'Lý do tối đa 500 ký tự.' : ''
   const missingWarnings = needWarning.filter((r) => !(warnings[r.cattleCode] ?? '').trim())
+  /** Copies the first filled warning reason into every still-empty warning reason (UX helper, never overwrites). */
+  const applySharedWarning = () => {
+    const shared = needWarning.map((r) => (warnings[r.cattleCode] ?? '').trim()).find(Boolean)
+    if (!shared) return
+    setWarnings((current) => ({
+      ...current,
+      ...Object.fromEntries(needWarning.filter((r) => !(current[r.cattleCode] ?? '').trim()).map((r) => [r.cattleCode, shared])),
+    }))
+  }
   const blockText = check?.blocked
     ? `${to?.code ?? ''} không nhận được ${check.movingCount} con: chuồng đã ngưng hoặc chỉ còn ${check.destinationActive ? check.freePlaces : 0} chỗ trống.`
     : ''
@@ -85,7 +115,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
     setSaving(true)
     setSaveError('')
     try {
-      const result = await move({ cattle, from, to, moveDate: date, reason: reason.trim(), warningReasons: warnings })
+      const result = await move({ cattle, from, to, moveDate: date, reason: reason.trim(), warningReasons: warnings, ...(performerId ? { performedBy: Number(performerId) } : {}) })
       onMoved(`Đã chuyển ${result.moved} con sang ${to.code}.`)
     } catch (e) {
       setSaveError(penError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
@@ -116,67 +146,57 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
           <DateInput value={date} readOnly={!today} onChange={setDate} />
           {dateError && (tried || date > today || !!latestStart) && <span className="text-[11px] text-err-fg">{dateError}</span>}
         </Field>
-        <KV k="Người thực hiện">Bạn (người đang đăng nhập)</KV>
+        <Field label="Người thực hiện *">
+          <Select value={performerId} onChange={(e) => setPerformerId(e.target.value)} aria-label="Người thực hiện">
+            {!performerId && <option value="">Người đang đăng nhập</option>}
+            {members.map((member) => <option key={member.userId} value={member.userId}>{member.fullName || member.email} · {member.role}</option>)}
+          </Select>
+          {membersError && <span className="text-[11px] text-muted">{membersError}</span>}
+        </Field>
         <div className="sm:col-span-2">
           <Field label="Lý do *">
             <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder='Nhập "Correction" khi chuyển ngược để sửa nhầm' />
+            <Button small variant="link" onClick={() => setReason('Correction')}>Sửa nhầm (chuyển ngược)</Button>
             {tried && reasonError && <span className="text-[11px] text-err-fg">{reasonError}</span>}
           </Field>
         </div>
       </div>
 
-      <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò</p>
+      <p className="m-0 text-[14px] font-semibold text-[#212121]">Bò được chọn</p>
+      <Table stack={false}>
+        <thead><tr><Th className={TH}>Mã</Th><Th className={TH}>Thẻ tai</Th><Th className={TH}>Giới tính</Th><Th className={TH}>Giai đoạn</Th><Th className={TH}>Ở chuồng từ</Th><Th className={TH}>Cân gần nhất</Th></tr></thead>
+        <tbody>{cattle.map((cow) => <tr key={cow.code}>
+          <Td className={cx(TH, 'font-medium')}>{cow.code}</Td>
+          <Td className={TH}>{cow.earTag ?? '—'}</Td>
+          <Td className={TH}>{cow.sex ? (SEX_LABELS[cow.sex as keyof typeof SEX_LABELS] ?? cow.sex) : '—'}</Td>
+          <Td className={TH}>{cow.lifeStage ? (STAGE_LABELS[cow.lifeStage as keyof typeof STAGE_LABELS] ?? cow.lifeStage) : '—'}</Td>
+          <Td className={TH}>{cow.sinceDate ? dmy(cow.sinceDate) : '—'}</Td>
+          <Td className={TH}>{cow.latestWeightKg == null ? '—' : `${cow.latestWeightKg} kg`}</Td>
+        </tr>)}</tbody>
+      </Table>
+
+      <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò{to && ` · ${to.code} ${PEN_STATUS_LABELS.ACTIVE} và còn ${check?.freePlaces ?? Math.max(0, to.capacity - to.count)} chỗ`}</p>
       {checking && <Note>Đang kiểm tra…</Note>}
       {checkError && <Note tone="err">{checkError}</Note>}
       {blockText && <Note tone="err">{blockText}</Note>}
       {rowErrors.map((r) => <Note key={r.cattleCode} tone="err">{cattleErrorText(r.error!, r.cattleCode)}</Note>)}
       {rows.filter((r) => r.alreadyInDestination).map((r) => <Note key={r.cattleCode} tone="warn">{`${r.cattleCode} đã ở ${to?.code ?? ''} và sẽ được bỏ qua.`}</Note>)}
 
-      {check && to && (
+      {check && to && <>
         <Table stack={false}>
-          <thead>
-            <tr>
-              <Th className={cx(TH, 'w-[260px]')}>Kiểm tra</Th>
-              {moving.map((r) => <Th key={r.cattleCode} className={TH}>{r.cattleCode}</Th>)}
+          <thead><tr><Th className={TH}>Bò</Th><Th className={TH}>Chuồng đích</Th>{criteriaRows.map((criterion) => <Th key={criterion} className={TH}>{CRITERION_LABELS[criterion as CriterionType] ?? criterion}</Th>)}<Th className={TH}>Lý do cảnh báo</Th></tr></thead>
+          <tbody>{moving.map((r) => {
+            const failed = Boolean(r.error) || check.blocked || r.results.some((res) => res.outcome === 'NOT_MET')
+            return <tr key={r.cattleCode} className={failed ? 'bg-[#fff0f0]' : undefined}>
+              <Td className={cx(TH, 'font-medium')}>{r.cattleCode}</Td>
+              <Td className={cx(TH, failed ? OUTCOME_TONE.NOT_MET : OUTCOME_TONE.MET)}>{failed ? 'Không đạt' : 'Đạt'}</Td>
+              {criteriaRows.map((criterion) => { const res = r.results.find((x) => x.criterion === criterion); const outcome = res?.outcome ?? 'NOT_APPLICABLE'; return <Td key={criterion} className={cx(TH, OUTCOME_TONE[outcome])} title={res?.expected ? `Yêu cầu ${res.expected}${res.actual ? ` · thực tế ${res.actual}` : ''}` : undefined}>{OUTCOME_TEXT[outcome]}</Td> })}
+              <Td className={TH}>{r.warningReasonRequired && <Textarea rows={2} maxLength={500} aria-label={`Lý do cảnh báo ${r.cattleCode}`} value={warnings[r.cattleCode] ?? ''} onChange={(e) => setWarnings((current) => ({ ...current, [r.cattleCode]: e.target.value }))} />}{tried && r.warningReasonRequired && !(warnings[r.cattleCode] ?? '').trim() && <span className="text-[11px] text-err-fg">Vui lòng nhập Lý do cảnh báo.</span>}</Td>
             </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <Td className={TH}>{`Chuồng đích ACTIVE và còn ${check.freePlaces} chỗ`}</Td>
-              {moving.map((r) => (
-                <Td key={r.cattleCode} className={cx(TH, check.blocked ? OUTCOME_TONE.NOT_MET : OUTCOME_TONE.MET)}>{check.blocked ? 'Không đạt' : 'Đạt'}</Td>
-              ))}
-            </tr>
-            {criteriaRows.map((criterion) => (
-              <tr key={criterion}>
-                <Td className={TH}>{CRITERION_LABELS[criterion as CriterionType] ?? criterion}</Td>
-                {moving.map((r) => {
-                  const res = r.results.find((x) => x.criterion === criterion)
-                  const outcome = res?.outcome ?? 'NOT_APPLICABLE'
-                  return (
-                    <Td key={r.cattleCode} className={cx(TH, OUTCOME_TONE[outcome])} title={res?.expected ? `Yêu cầu ${res.expected}${res.actual ? ` · thực tế ${res.actual}` : ''}` : undefined}>
-                      {OUTCOME_TEXT[outcome]}
-                    </Td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
+          })}</tbody>
         </Table>
-      )}
-
-      {needWarning.map((r) => (
-        <Field key={r.cattleCode} label={`Lý do cảnh báo – ${r.cattleCode} *`}>
-          <Note tone="warn">{`${r.cattleCode} không đạt tiêu chí nhận bò của ${to?.code ?? ''}. Nhập lý do để tiếp tục.`}</Note>
-          <Textarea
-            rows={2}
-            maxLength={500}
-            value={warnings[r.cattleCode] ?? ''}
-            onChange={(e) => setWarnings((current) => ({ ...current, [r.cattleCode]: e.target.value }))}
-          />
-          {tried && !(warnings[r.cattleCode] ?? '').trim() && <span className="text-[11px] text-err-fg">Vui lòng nhập Lý do cảnh báo.</span>}
-        </Field>
-      ))}
+        {needWarning.length >= 2 && <Button small variant="link" onClick={applySharedWarning}>Dùng chung lý do cho các con không đạt</Button>}
+      </>}
 
       <ModalFooter>
         <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">

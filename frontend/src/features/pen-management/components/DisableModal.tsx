@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Badge, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { penError } from '../api/penError'
-import { todayIso } from '../domain/penRules'
+import { PEN_STATUS_LABELS, todayIso } from '../domain/penRules'
 import { validateAvailability } from '../validation/penValidation'
 import type { Pen, PenStatus } from '../types'
 
 const ErrorText = ({ children }: { children: string }) => <span className="text-[11px] text-err-fg">{children}</span>
-const statusBadge = (status: PenStatus) => (status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>)
+const statusBadge = (status: PenStatus) => (status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">{PEN_STATUS_LABELS.ACTIVE}</Badge> : <Badge>{PEN_STATUS_LABELS.INACTIVE}</Badge>)
 
 /**
  * Stop / Resume Pen popup (UC-FE04-04). The new status is always the opposite of the current one (field 3); the

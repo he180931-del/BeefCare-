@@ -9,6 +9,11 @@ export type PurposeType = typeof PURPOSE_TYPES[number]
 export type LifeStage = typeof LIFE_STAGES[number]
 export type CriteriaSex = typeof SEXES[number]
 
+export const PEN_STATUS_LABELS: Record<Pen['status'], string> = {
+  ACTIVE: 'Đang hoạt động',
+  INACTIVE: 'Ngừng hoạt động',
+}
+
 export const PURPOSE_LABELS: Record<PurposeType, string> = {
   BREEDING: 'Sinh sản',
   FATTENING: 'Vỗ béo',

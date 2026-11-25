@@ -11,6 +11,8 @@ export interface Pen {
   name: string
   count: number
   capacity: number
+  /** Backend-computed free places; use this for availability displays when present. */
+  freePlaces?: number
   status: PenStatus
   cows: PenCowLink[]
   accept?: string

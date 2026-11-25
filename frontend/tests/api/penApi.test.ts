@@ -26,7 +26,7 @@ test('backend pen mapping reads constraints from the current-criteria envelope',
   })
 
   assert.equal(mapped.purpose, 'Sinh sản')
-  assert.equal(mapped.stage, 'Bò trưởng thành')
+  assert.equal(mapped.stage, 'Trưởng thành')
   assert.equal(mapped.sex, 'Cái')
   assert.equal(mapped.minAge, 12)
   assert.equal(mapped.minAgeOp, '≥')
@@ -46,9 +46,9 @@ test('backend pen mapping translates the compact accepts summary when list omits
     acceptsSummary: 'BREEDING | ADULT | FEMALE | age >= 45 months | weight >= 200 kg',
   })
 
-  assert.equal(mapped.accept, 'Sinh sản | Bò trưởng thành | Cái | tuổi ≥ 45 tháng · cân ≥ 200 kg')
+  assert.equal(mapped.accept, 'Sinh sản | Trưởng thành | Cái | tuổi ≥ 45 tháng · cân ≥ 200 kg')
   assert.equal(mapped.purpose, 'Sinh sản')
-  assert.equal(mapped.stage, 'Bò trưởng thành')
+  assert.equal(mapped.stage, 'Trưởng thành')
   assert.equal(mapped.sex, 'Cái')
   assert.equal(mapped.minAge, 45)
   assert.equal(mapped.minWeight, 200)
@@ -59,7 +59,7 @@ test('backend pen mapping keeps the lock version apart from the criteria version
   const mapped = mapBackendPenDetail({
     id: 9, code: 'A2', name: 'Bò chửa', capacity: 30, headcount: 2, status: 'ACTIVE', version: 4,
     currentCriteria: { versionNo: 2, effectiveFrom: '2026-09-01', criteria: { purposeTypes: ['BREEDING', 'FATTENING'], lifeStages: [], sex: 'FEMALE', minAgeMonths: null, minWeightKg: 230 } },
-    cattle: [{ id: 5, code: 'BC-5', exitPending: false, hints: [{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }] }],
+    cattle: [{ id: 5, version: 0, code: 'BC-5', earTagNumber: 'ET-5', sex: 'FEMALE', lifeStage: 'ADULT', sinceDate: '2026-08-01', latestWeightKg: 320, exitPending: false, hints: [{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }] }],
   })
 
   assert.equal(mapped.lockVersion, 4)
@@ -69,6 +69,11 @@ test('backend pen mapping keeps the lock version apart from the criteria version
   assert.equal(mapped.cattleInPen.length, 1)
   assert.equal(mapped.cattleInPen[0].id, 5)
   assert.equal(mapped.cattleInPen[0].hints[0].code, 'PREGNANT')
+  assert.equal(mapped.cattleInPen[0].earTag, 'ET-5')
+  assert.equal(mapped.cattleInPen[0].sex, 'FEMALE')
+  assert.equal(mapped.cattleInPen[0].lifeStage, 'ADULT')
+  assert.equal(mapped.cattleInPen[0].sinceDate, '2026-08-01')
+  assert.equal(mapped.cattleInPen[0].latestWeightKg, 320)
 })
 
 test('backend accepts summary with several purposes is split on "/"', async () => {
