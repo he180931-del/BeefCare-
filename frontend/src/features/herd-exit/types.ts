@@ -48,6 +48,28 @@ export interface ExitDraftCow {
   [key: string]: unknown
 }
 
+export interface ExitCandidateCow {
+  code: string
+  backendId?: number
+  tag: string
+  breed: string
+  sex: string
+  age: string
+  group: string
+  groupKey?: string
+  stage: string
+  stageKey?: string
+  barn: string
+  weight: number
+  weightNote: string
+  estimated: boolean
+  unitPrice: number
+  withdrawalUntil?: string
+  openCase?: string
+  penCount?: number
+  penCapacity?: number
+}
+
 export interface ExitDetail {
   death?: boolean
   lossKind?: LossKind

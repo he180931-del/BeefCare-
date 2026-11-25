@@ -9,10 +9,11 @@ type UseExitQrPickOptions<T extends QrCandidate> = {
   candidates: readonly T[]
   onPick: (candidate: T) => void
   selectedCodes?: ReadonlySet<string>
+  blockedMessages?: ReadonlyMap<string, string>
 }
 
 /** Coordinates manual and camera QR input for the exit picker. */
-export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selectedCodes }: UseExitQrPickOptions<T>) {
+export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selectedCodes, blockedMessages }: UseExitQrPickOptions<T>) {
   const [showQr, setShowQr] = useState(false)
   const [qrCode, setQrCode] = useState('')
   const [checkingQr, setCheckingQr] = useState(false)
@@ -33,7 +34,7 @@ export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selec
       }
       const candidate = candidates.find((row) => row.code === result.cow.code)
       if (!candidate) {
-        setQrFeedback({ message: `Bò ${result.cow.code} hiện không thể thêm vào phiếu này.`, ok: false })
+        setQrFeedback({ message: blockedMessages?.get(result.cow.code) ?? `Bò ${result.cow.code} hiện không thể thêm vào phiếu này.`, ok: false })
         return
       }
       if (selectedCodes?.has(candidate.code)) {
@@ -42,14 +43,14 @@ export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selec
       }
       onPick(candidate)
       setQrCode('')
-      setRecentCodes((current) => [candidate.code, ...current.filter((code) => code !== candidate.code)].slice(0, 5))
+      setRecentCodes((current) => [candidate.code, ...current.filter((code) => code !== candidate.code)])
       setQrFeedback({ message: `Đã chọn bò ${candidate.code}.`, ok: true })
     } catch {
       setQrFeedback({ message: 'Không tra được mã bò. Vui lòng thử lại.', ok: false })
     } finally {
       setCheckingQr(false)
     }
-  }, [candidates, checkingQr, onPick, selectedCodes])
+  }, [blockedMessages, candidates, checkingQr, onPick, selectedCodes])
 
   return { showQr, setShowQr, qrCode, setQrCode, checkingQr, qrFeedback, recentCodes, selectFromQr }
 }

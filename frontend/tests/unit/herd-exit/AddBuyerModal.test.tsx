@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import AddBuyerModal from '../../../src/features/herd-exit/components/AddBuyerModal'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 describe('AddBuyerModal', () => {
   it('requires a name before saving', async () => {
@@ -24,5 +25,14 @@ describe('AddBuyerModal', () => {
     await user.type(screen.getByLabelText('Khu vực'), '  Ba Vì ')
     await user.click(screen.getByRole('button', { name: 'Lưu người mua' }))
     expect(onSave).toHaveBeenCalledWith({ name: 'Lò mổ mới', phone: '0900', area: 'Ba Vì' }, expect.objectContaining({ key: expect.stringMatching(/^beefcare-exit-buyer-/) }))
+  })
+
+  it('shows the duplicate partner message under the name field', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn().mockRejectedValue(new BackendError(422, { code: 'MSG-FE06-25' }))
+    render(<AddBuyerModal onClose={vi.fn()} onSave={onSave} />)
+    await user.type(screen.getByLabelText('Tên người mua / thương lái *'), 'Lò mổ trùng')
+    await user.click(screen.getByRole('button', { name: 'Lưu người mua' }))
+    expect(await screen.findByText('Tên đối tác đã có trong danh bạ của trại.')).toBeInTheDocument()
   })
 })

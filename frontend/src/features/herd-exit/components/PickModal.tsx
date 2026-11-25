@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Badge, Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, QrCamera, Select, Table, Td, Th } from '../../../shared/ui'
 import { money } from '../../../shared/lib/format'
 import { TH } from './parts'
-import type { HerdExit } from '../types'
+import type { ExitCandidateCow, HerdExit } from '../types'
 import { useExitQrPick } from '../hooks/useExitQrPick'
-type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }
+type HerdCow = ExitCandidateCow
 
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.
 const ACTIVE_STATUSES = ['Nháp', 'Chờ xác nhận', 'Đã xuất']
@@ -40,6 +40,10 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
   const recentRows = candidates.filter((candidate) => recentOrder.has(candidate.code))
   const rows = [...new Map([...recentRows, ...filteredRows].map((row) => [row.code, row])).values()]
     .sort((left, right) => (recentOrder.get(left.code) ?? Number.MAX_SAFE_INTEGER) - (recentOrder.get(right.code) ?? Number.MAX_SAFE_INTEGER))
+  useEffect(() => {
+    const code = recentCodes[0]
+    if (code) document.querySelector<HTMLElement>(`[role="dialog"] [data-cow-code="${code}"]`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [recentCodes])
 
   const toggle = (code: string) => {
     const next = new Set(selected)
@@ -109,7 +113,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
         </thead>
         <tbody>
           {rows.map((c) => (
-            <tr key={c.code} className="cursor-pointer" onClick={() => toggle(c.code)}>
+            <tr key={c.code} data-cow-code={c.code} className={`cursor-pointer ${recentOrder.has(c.code) ? 'bg-page' : ''}`} onClick={() => toggle(c.code)}>
               <Td className={TH}><Checkbox checked={selected.has(c.code)} onChange={() => toggle(c.code)} aria-label={c.code} /></Td>
               <Td className={TH}>{c.code} / {c.tag}</Td>
               <Td className={TH}>{c.group}<br />{c.stage}</Td>
@@ -121,7 +125,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
                 {selected.has(c.code) && <Badge tone="ok">Đã chọn</Badge>}
                 {c.withdrawalUntil && <Badge tone="err" icon="ban">Ngưng GM → {c.withdrawalUntil.slice(8)}/{c.withdrawalUntil.slice(5, 7)}</Badge>}
                 {c.openCase && <Badge tone="warn">Ca mở {c.openCase}</Badge>}
-                {!c.withdrawalUntil && !c.openCase && '—'}
+                {!recentOrder.has(c.code) && !selected.has(c.code) && !c.withdrawalUntil && !c.openCase && '—'}
               </Td>
             </tr>
           ))}

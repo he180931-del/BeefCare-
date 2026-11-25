@@ -2,7 +2,7 @@ import { MoneyInput } from '../../../shared/ui'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, QrCamera, SearchSelect, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, QrCamera, Radio, SearchSelect, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
@@ -12,7 +12,7 @@ import { getExitDraftState, herdExitApi, listExitBuyers, saveExitBuyer, listSele
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitBuyer, ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
+import type { ExitBuyer, ExitCandidateCow, ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { useExitEditor } from '../hooks/useExitEditor'
 import { useExitWorkflow } from '../hooks/useExitWorkflow'
 import { useExitDocuments } from '../hooks/useExitDocuments'
@@ -24,7 +24,7 @@ import AddBuyerModal from '../components/AddBuyerModal'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = userFacingError
-type HerdCow = { code: string; backendId?: number; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }
+type HerdCow = ExitCandidateCow
 const normalizeHerdCow = (cow: ExitDraftCow, source?: HerdCow): HerdCow => {
   return {
     code: cow.code || source?.code || '',
@@ -109,17 +109,26 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
     deathCause: d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''), carcassDisposal: d.carcassDisposal ?? '', date: d?.date ?? todayIso(),
     pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', note: d?.note ?? '',
     picked: (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))),
-    deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? '', dueDate: d?.dueDate ?? todayIso(),
+    deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? '', dueDate: d?.dueDate ?? '',
   })
   const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [menu, setMenu] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const selectedQrCodes = new Set(picked.map((cow) => cow.code))
+  const blockedQrMessages = new Map(
+    exports
+      .filter((row) => row.id !== id && ['Nháp', 'Chờ xác nhận', 'Đã xuất'].includes(row.status))
+      .flatMap((row) => (row.draft?.cows ?? row.detail?.cows ?? [])
+        .filter((cow): cow is typeof cow & { code: string } => Boolean(cow.code))
+        .map((cow) => [cow.code, `Bò ${cow.code} đã có trên phiếu ${row.id}.`] as const)),
+  )
   const qrPick = useExitQrPick({
     candidates: selectableCattle,
     selectedCodes: selectedQrCodes,
-    onPick: (candidate) => setPicked((current) => [...current, { ...candidate, unitPrice: candidate.unitPrice ?? 0 }]),
+    blockedMessages: blockedQrMessages,
+    onPick: (candidate) => setPicked((current) => [{ ...candidate, unitPrice: candidate.unitPrice ?? 0 }, ...current]),
   })
+  const recentQrCodes = new Set(qrPick.recentCodes)
 
   const needsBuyer = type === 'Bán' || type === 'Loại thải'
   const isLoss = type === 'Chết / mất'
@@ -155,7 +164,8 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
     draft: {
       type, lossKind: isLoss ? lossKind : undefined, deathCause: isLoss ? deathCause : undefined, carcassDisposal: isLoss && lossKind === 'DIED' ? carcassDisposal : undefined,
       date, buyerId, quarantine, plate, note: isLoss ? deathCause : note, pricing, deduction, collected,
-      ...(collected > 0 ? { method, dueDate } : {}),
+      ...(collected > 0 ? { method } : {}),
+      dueDate: remaining > 0 ? dueDate : '',
       docs: documentRows,
       cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
     },
@@ -323,7 +333,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                 {picked.map((c, i) => {
                   const blocked = needsBuyer && c.withdrawalUntil && date < c.withdrawalUntil
                   return (
-                    <tr key={c.code}>
+                    <tr key={c.code} className={recentQrCodes.has(c.code) ? 'bg-page' : undefined}>
                       <Td className={TH}>{i + 1}</Td>
                       <Td className={cx(TH, 'whitespace-nowrap')}>{c.code}<br />{c.tag}</Td>
                       <Td className={TH}>{c.breed} · {c.sex}<br />{c.age} · {c.group}<br />{c.stage}</Td>
@@ -346,7 +356,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                           <Td className={TH}>{money(amount(c))}</Td>
                         </>
                       )}
-                            <Td className={TH}>{blocked ? <Badge tone="err">Ngưng GM → {dmy(c.withdrawalUntil)}</Badge> : <Badge tone="ok" icon="circle-check">OK</Badge>}</Td>
+                      <Td className={TH}>{recentQrCodes.has(c.code) && <Badge tone="ok">Vừa quét</Badge>}{blocked ? <Badge tone="err">Ngưng GM → {dmy(c.withdrawalUntil)}</Badge> : <Badge tone="ok" icon="circle-check">OK</Badge>}</Td>
                       <Td className={cx(TH, 'relative')}>
                         <button type="button" className="cursor-pointer px-1 text-muted" onClick={() => setMenu(menu === c.code ? null : c.code)}>⋯</button>
                         {menu === c.code && (
@@ -406,16 +416,11 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                 <div className="grid grid-cols-2 gap-3.5">
                   <Field label={`Phương thức${collected > 0 ? ' *' : ''}`}>
                     <div role="radiogroup" aria-label="Phương thức" className="flex flex-wrap gap-3 pt-2">
-                      {PAY_METHODS.map((paymentMethod) => (
-                        <label key={paymentMethod} className="inline-flex items-center gap-2 text-xs">
-                          <input type="radio" name="exit-payment-method" value={paymentMethod} checked={method === paymentMethod} onChange={() => setMethod(paymentMethod)} />
-                          {paymentMethod}
-                        </label>
-                      ))}
+                      {PAY_METHODS.map((paymentMethod) => <Radio key={paymentMethod} name="exit-payment-method" checked={method === paymentMethod} onChange={() => setMethod(paymentMethod)}>{paymentMethod}</Radio>)}
                     </div>
                     {methodInvalid && <span className="text-[11px] text-err-fg">Vui lòng chọn hình thức thu.</span>}
                   </Field>
-                  <Field label="Hạn thu phần còn lại"><DateInput value={collected > 0 ? dueDate : ''} onChange={setDueDate} /></Field>
+                  {remaining > 0 && <Field label="Hạn thu phần còn lại"><DateInput value={dueDate} onChange={setDueDate} /></Field>}
                 </div>
               </Box>
             )}
