@@ -6,9 +6,11 @@ spring:
     oauth2:
       client:
         registration:
+          # Spring Boot rejects an empty client id even while Google login is off, so an unset id falls back to a
+          # placeholder. SecurityConfiguration refuses to start with BEEFCARE_GOOGLE_ENABLED=true and this placeholder.
           google:
-            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID:}
-            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET:}
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID:google-login-disabled}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET:google-login-disabled}
   datasource:
     url: ${BEEFCARE_DB_URL:jdbc:postgresql://localhost:15432/beefcare}
     username: ${BEEFCARE_DB_USERNAME:beefcare}

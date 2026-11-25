@@ -48,6 +48,12 @@ public class SecurityConfiguration {
     @Value("${beefcare.security.google.enabled:false}")
     private boolean googleLoginEnabled;
 
+    /** Placeholder client id of the local profile while Google login is off (application-local.yml). */
+    static final String GOOGLE_DISABLED_CLIENT_ID = "google-login-disabled";
+
+    @Value("${spring.security.oauth2.client.registration.google.client-id:}")
+    private String googleClientId;
+
     private final JHipsterProperties jHipsterProperties;
 
     public SecurityConfiguration(JHipsterProperties jHipsterProperties) {
@@ -145,6 +151,9 @@ public class SecurityConfiguration {
             )
             .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> response.sendError(401)));
 
+        if (googleLoginEnabled && GOOGLE_DISABLED_CLIENT_ID.equals(googleClientId)) {
+            throw new IllegalStateException("BEEFCARE_GOOGLE_ENABLED=true needs SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID and _CLIENT_SECRET");
+        }
         if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler).failureHandler(googleFailureHandler));
 
         return http.build();
