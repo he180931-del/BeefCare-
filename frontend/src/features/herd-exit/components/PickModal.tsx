@@ -114,7 +114,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
         <tbody>
           {rows.map((c) => (
             <tr key={c.code} data-cow-code={c.code} className={`cursor-pointer ${recentOrder.has(c.code) ? 'bg-page' : ''}`} onClick={() => toggle(c.code)}>
-              <Td className={TH}><Checkbox checked={selected.has(c.code)} onChange={() => toggle(c.code)} aria-label={c.code} /></Td>
+              <Td className={TH} onClick={(e) => e.stopPropagation()}><Checkbox checked={selected.has(c.code)} onChange={() => toggle(c.code)} aria-label={c.code} /></Td>
               <Td className={TH}>{c.code} / {c.tag}</Td>
               <Td className={TH}>{c.group}<br />{c.stage}</Td>
               <Td className={TH}>{c.barn}</Td>

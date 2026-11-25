@@ -106,15 +106,15 @@ export default function ImportDetail() {
             </Card>
 
             <Card variant="panel" title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
-              <Table stack={false} scroll>
+              <Table stack={false}>
                 <thead>
                   <tr>
                     <Th className={`${TH} w-[90px]`}>Mã bò</Th>
                     <Th className={`${TH} w-[65px]`}>Thẻ tai</Th>
-                    <Th className={`${TH} w-[120px]`}>Giống · giới tính</Th>
+                    <Th className={TH}>Giống · giới tính</Th>
                     <Th className={`${TH} w-[65px]`}>Cân nhập</Th>
-                    <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                    <Th className={`${TH} w-[90px]`}>Hiện tại</Th>
+                    <Th className={TH}>Chuồng nhận</Th>
+                    <Th className={TH}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
                     {(lineActions || historyActions) && <Th className={TH}>Thao tác</Th>}
                   </tr>
@@ -133,7 +133,7 @@ export default function ImportDetail() {
                       <Td className={TH}>{c.current}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
                       {historyActions && <Td className={TH}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
-                      {lineActions && <Td className={TH}>{c.lineStatus === 'VALID' && c.herdStatus === 'ACTIVE' && c.entryId != null && <Button onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
+                      {lineActions && <Td className={`${TH} whitespace-nowrap`}>{c.lineStatus === 'VALID' && c.herdStatus === 'ACTIVE' && c.entryId != null && <Button small onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (

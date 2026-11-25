@@ -310,7 +310,7 @@ test('exit backend keeps backend selectable cattle DTOs and defaults their unit 
 
   assert.deepEqual(await api.selectableCattle(), [{
     code: 'BC-BACKEND-ONLY', backendId: 991, tag: 'TAG-991', breed: 'Brahman', sex: 'Cái', age: '31 tháng', group: 'Bò cái sinh sản', groupKey: 'BREEDING_FEMALES', stage: 'Bò trưởng thành', stageKey: 'ADULT', barn: 'C9',
-    weight: 512, weightNote: 'cân 2026-10-28', estimated: false, unitPrice: 0, withdrawalUntil: '2026-11-03', openCase: 'HC-77',
+    weight: 512, weightNote: 'cân 28/10/2026', estimated: false, unitPrice: 0, withdrawalUntil: '2026-11-03', openCase: 'HC-77',
   }])
 })
 
