@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.service;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -21,6 +22,7 @@ import vn.edu.fpt.beefcare.domain.HerdEntry;
 import vn.edu.fpt.beefcare.domain.HerdEntryVoucher;
 import vn.edu.fpt.beefcare.domain.Pen;
 import vn.edu.fpt.beefcare.domain.ProductionPurpose;
+import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.BirthDateAccuracy;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryType;
 import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
@@ -59,6 +61,24 @@ public class HerdEntryImportService {
         "Unit price",
         "Quarantine until"
     );
+    /** The same columns with the Vietnamese labels of the FE-06 spec (popup Nhập bò từ Excel #1); the template uses these. */
+    public static final List<String> COLUMNS_VI = List.of(
+        "Số tai",
+        "Giống",
+        "Giới tính",
+        "Ngày sinh hoặc Tuổi (tháng)",
+        "Độ chính xác",
+        "Màu lông",
+        "Cân",
+        "Cơ sở cân",
+        "Chuồng",
+        "Mục đích",
+        "Đơn giá",
+        "Cách ly đến"
+    );
+    public static final String DATA_SHEET = "Danh sách bò";
+    static final String GUIDE_SHEET = "Hướng dẫn";
+    static final String CATALOG_SHEET = "Danh mục";
 
     private static final LocalDate EXCEL_EPOCH = LocalDate.of(1899, 12, 30);
 
@@ -94,10 +114,18 @@ public class HerdEntryImportService {
         this.mapper = mapper;
     }
 
-    /** The BeefCare template: the header row only. */
+    /**
+     * The BeefCare template: sheet 1 "Danh sách bò" holds the header row only (the sheet that is imported), with drop-downs
+     * for sex, accuracy, weight basis and the farm's breeds, ACTIVE pens and purposes; "Hướng dẫn" explains each column
+     * with an example; "Danh mục" lists the values of the farm.
+     */
+    @Transactional(readOnly = true)
     public byte[] template(Long farmId) {
         access.require(farmId, FarmAction.VIEW_ENTRY_VOUCHERS);
-        return XlsxSupport.write(List.of(COLUMNS));
+        List<String> breeds = em.createQuery("select b.name from Breed b where b.farm.id = :f and (b.available is null or b.available = true) order by b.name", String.class).setParameter("f", farmId).getResultList();
+        List<Pen> pens = em.createQuery("select p from Pen p where p.farm.id = :f and p.status = :s order by p.code", Pen.class).setParameter("f", farmId).setParameter("s", ActiveStatus.ACTIVE).getResultList();
+        List<String> purposes = em.createQuery("select p.name from ProductionPurpose p where p.farm.id = :f and (p.available is null or p.available = true) order by p.name", String.class).setParameter("f", farmId).getResultList();
+        return EntryImportTemplate.build(breeds, pens, purposes);
     }
 
     /**
@@ -241,13 +269,14 @@ public class HerdEntryImportService {
     }
 
     private static String key(String s) {
-        return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+        return s == null ? "" : Normalizer.normalize(s.trim(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
-    private static boolean headerMatches(List<Cell> header) {
+    /** Each column, in order, carries its English (SRS) or Vietnamese (FE-06 spec) label. */
+    static boolean headerMatches(List<Cell> header) {
         for (int i = 0; i < COLUMNS.size(); i++) {
             String actual = i < header.size() && header.get(i) != null && header.get(i).value() != null ? header.get(i).value().trim() : "";
-            if (!actual.equalsIgnoreCase(COLUMNS.get(i))) {
+            if (!actual.equalsIgnoreCase(COLUMNS.get(i)) && !key(actual).equals(key(COLUMNS_VI.get(i)))) {
                 return false;
             }
         }
@@ -324,9 +353,9 @@ public class HerdEntryImportService {
         String basisText = text(row, 7);
         if (basisText != null) {
             String b = key(basisText);
-            if (b.equals("measured") || b.equals("m") || b.equals("can")) {
+            if (List.of("measured", "m", "can", "cân", "cân thực tế", "đã cân").contains(b)) {
                 basis = WeightBasis.MEASURED;
-            } else if (b.equals("estimated") || b.equals("ut") || b.equals("e")) {
+            } else if (List.of("estimated", "ut", "e", "ước tính", "uoc tinh").contains(b)) {
                 basis = WeightBasis.ESTIMATED;
             } else {
                 issues.add(rowError(sheetRow, HttpStatus.BAD_REQUEST, MessageCodes.COM_10, "weightBasis", "field", "weightBasis"));
@@ -361,7 +390,9 @@ public class HerdEntryImportService {
         String priceText = text(row, 10);
         if (priceText != null) {
             try {
-                price = new BigDecimal(priceText.replace(",", "")).longValueExact();
+                // a text cell may carry Vietnamese thousand separators ("50.000"); a number cell is a plain number
+                String digits = row.get(10).numeric() ? priceText : priceText.replaceAll("[.,\\s]", "");
+                price = new BigDecimal(digits).longValueExact();
             } catch (RuntimeException e) {
                 issues.add(rowError(sheetRow, HttpStatus.BAD_REQUEST, MessageCodes.COM_10, "unitPrice", "field", "unitPrice"));
             }
@@ -434,6 +465,20 @@ public class HerdEntryImportService {
     private static BirthDateAccuracy parseAccuracy(String s, List<Issue> issues, int sheetRow) {
         if (s == null) {
             return null;
+        }
+        switch (key(s)) {
+            case "chính xác", "chinh xac" -> {
+                return BirthDateAccuracy.EXACT;
+            }
+            case "ước tính", "uoc tinh" -> {
+                return BirthDateAccuracy.ESTIMATED;
+            }
+            case "không rõ", "khong ro" -> {
+                return BirthDateAccuracy.UNKNOWN;
+            }
+            default -> {
+                // English enum names below
+            }
         }
         try {
             return BirthDateAccuracy.valueOf(s.trim().toUpperCase(Locale.ROOT));

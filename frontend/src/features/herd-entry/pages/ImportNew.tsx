@@ -387,7 +387,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                         <Td className={TH}>{i + 1}</Td>
                         <Td className={TH}>{c.tag || <span className="text-muted">Gắn sau</span>}</Td>
                         <Td className={TH}>{`${c.breed || '—'} · ${c.sex} · ${c.stage}`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : '—'}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : c.ageMonths != null ? `~${c.ageMonths} th` : '—'}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
@@ -650,7 +650,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           onBackendCommit={entryExcelBackendEnabled ? commitBackendExcel : undefined}
           onDownloadTemplate={entryExcelBackendEnabled ? downloadEntryImportTemplate : undefined}
           onAdd={(added) => {
-            const mapped = added.map((cow) => ({
+            // Backend mode: the lines come back from the server already mapped (ids, age, markings, quarantine); keep them whole.
+            const mapped = entryExcelBackendEnabled ? added.map((cow) => ({ ...cow, pricing })) : added.map((cow) => ({
               tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '',
               dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0,
               estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,

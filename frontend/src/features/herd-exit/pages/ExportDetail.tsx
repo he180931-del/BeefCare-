@@ -74,7 +74,7 @@ export default function ExportDetail() {
 
       {paymentNotice && <div className="print:hidden"><Note tone="ok">{paymentNotice}</Note></div>}
       {voidOutcome && voidOutcome.reviewList.length > 0 && <ExitReviewList items={voidOutcome.reviewList} />}
-      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+      <div className="grid grid-cols-1 items-start gap-4 print:flex print:flex-col print:items-stretch @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="Thông tin phiếu" gap="gap-[14px]">
             <Info
@@ -128,7 +128,7 @@ export default function ExportDetail() {
                 </tfoot>
               )}
             </Table>
-            {isSold && <Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note>}
+            {isSold && <div className="print:hidden"><Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note></div>}
             {r.status === 'Đã hủy' && <Note>Phiếu đã hủy, các con đã trở lại đàn.</Note>}
           </Box>
 

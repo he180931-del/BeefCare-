@@ -168,7 +168,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
           <img src={farm} alt="" className="pointer-events-none absolute bottom-0 left-0 h-[234px] w-[264px] object-cover opacity-[0.72]" />
         </aside>
 
-        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px] print:ml-0 print:bg-none print:bg-white" style={{ backgroundImage: `url(${wave})` }}>
+        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px] print:ml-0 print:bg-none! print:bg-white" style={{ backgroundImage: `url(${wave})` }}>
           <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px] print:hidden">
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-11 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 wrap-anywhere pr-3 text-sm font-bold leading-tight text-ink">{override || title}</div>

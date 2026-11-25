@@ -9,7 +9,7 @@ export function PageHeader({ title, sub, badge, children }: { title: ReactNode; 
         {badge && <div className="mt-1">{badge}</div>}
       </div>
       <div className="flex-1" />
-      <div className="flex flex-wrap gap-2.5">{children}</div>
+      <div className="flex flex-wrap gap-2.5 print:hidden">{children}</div>
     </div>
   )
 }
