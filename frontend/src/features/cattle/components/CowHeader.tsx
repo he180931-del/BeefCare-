@@ -4,6 +4,7 @@ import { Button, Icon, type IconName } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import CowPhoto from './CowPhoto'
+import { isFemale } from '../domain/profileRules'
 import type { CattleViewModel as CowSeed } from '../types'
 
 export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
@@ -16,6 +17,17 @@ export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['barns', 'Lịch sử chuồng', 'fence'],
   ['qr', 'Thẻ QR', 'qrcode'],
 ]
+
+/** SCR-19: the Reproduction tab is shown for females only. */
+export const cowTabs = (cow: CowSeed) => COW_TABS.filter(([value]) => value !== 'repro' || isFemale(cow))
+
+/** Herd status badge (§3.2, SCR-19 #4): Đang nuôi, or Chờ xuất while on a pending exit voucher; EXITED / VOIDED alone. */
+export function HerdStatusChip({ cow }: { cow: CowSeed }) {
+  if (cow.status === 'VOIDED') return <Chip tone="err">Nhập nhầm – đã hủy</Chip>
+  if (cow.status === 'EXITED') return <Chip>{cow.exitStatusLabel ?? 'Đã xuất đàn'}</Chip>
+  if (cow.exitPending || cow.status === 'EXIT_PENDING') return <Chip tone="warn">Chờ xuất</Chip>
+  return <Chip tone="ok" icon="circle-check">Đang nuôi</Chip>
+}
 
 // Nút chính bên phải thay đổi theo tab; hộp thoại ?m= do tab chăm sóc tương ứng mở, tiêm phòng có trang ghi nhận riêng.
 const TAB_ACTIONS: Record<string, { label: string; modal?: string; page?: (code: string) => string }> = {
@@ -30,7 +42,7 @@ const TAB_ACTIONS: Record<string, { label: string; modal?: string; page?: (code:
 /** Mô tả dòng 2 của header: "Số tai X · giống · giới · tuổi · Chuồng X". */
 export const cowDesc = (cow: CowSeed): string =>
   [
-    cow.tag && `Số tai ${cow.tag}`,
+    cow.tag ? `Số tai ${cow.tag}` : 'Gắn tai sau',
     cow.breed,
     cow.sex,
     cow.headerAge !== false && cow.ageLong,
@@ -50,8 +62,6 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
     else done()
   }
   const hasActiveTag = cow.qrHistory.some((q) => q.status === 'ACTIVE')
-  const voided = cow.status === 'VOIDED'
-  const exited = cow.status === 'EXITED'
   const active = cow.status === 'ACTIVE'
   // Chủ trại và Quản lý ghi nhận chăm sóc (GBR-08, D41); Kỹ thuật viên không thấy nút này.
   const canRecord = useCanRecordCare()
@@ -73,7 +83,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
           </div>
           <div className="text-xs leading-[normal] text-muted">{cowDesc(cow)}</div>
           <div className="flex flex-wrap gap-1.5">
-            {voided ? <Chip tone="err">Đã hủy</Chip> : exited ? <Chip>{cow.exitStatusLabel ?? 'Đã xuất đàn'}</Chip> : <Chip tone="ok" icon="circle-check">Đang hoạt động</Chip>}
+            <HerdStatusChip cow={cow} />
             {active && cow.headerBadges.map(([label, tone]) => (
               <Chip key={label} tone={tone} icon={chipIcon(label)}>{label}</Chip>
             ))}
@@ -93,7 +103,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
         </div>
       </div>
       <div className="flex flex-wrap items-start gap-x-1">
-        {COW_TABS.map(([v, l, icon]) => (
+        {cowTabs(cow).map(([v, l, icon]) => (
           <button
             key={v}
             type="button"

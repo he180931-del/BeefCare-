@@ -33,8 +33,12 @@ export type BackendProfile = {
   healthState?: string | null
   withdrawalActive?: boolean
   withdrawalEndDate?: string | null
+  suspectedContagious?: boolean | null
   reproductiveStatus?: string | null
   expectedCalvingDate?: string | null
+  expectedBasis?: string | null
+  breedingEligible?: boolean | null
+  failedBreedingConditions?: string[] | null
   colourMarkings?: string | null
   notes?: string | null
   canUpdate?: boolean

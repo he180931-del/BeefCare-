@@ -4,6 +4,7 @@ import {
   listBreeds,
   listCattleTimeline,
   listCows,
+  listCattleReminders,
   listCowsPage,
   listPurposes,
   loadProfile,
@@ -51,4 +52,10 @@ export function useCattleTimelineQuery(cow: CowSeed, showCorrections: boolean) {
     ? query.data.events
     : cow.events
   return { ...query, cattleId, events }
+}
+
+/** SCR-19 #22 / #13: backend reminders of the cattle; a failure stays inside the reminders block. */
+export function useCattleRemindersQuery(cow: CowSeed | undefined) {
+  const cattleId = cow?.backendId
+  return useQuery(async () => (cattleId != null ? listCattleReminders(cattleId) : null), [cattleId])
 }
