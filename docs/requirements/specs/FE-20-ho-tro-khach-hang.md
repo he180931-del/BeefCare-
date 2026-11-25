@@ -5,12 +5,101 @@
 | Feature | FE-20 Customer Support Ticket Management |
 | Use case | UC-FE20-01 → UC-FE20-13 |
 | Người phụ trách | LamKD (BE + FE + test) · Review BE: DucNV · Review FE: AnNT |
-| Nguồn tham chiếu | SRS 28/10/2026/D12 là baseline lịch sử; code hiện có là evidence. Spec này là **target product/contract thống nhất** sau review logic và nghiên cứu mô hình support, cần Product/Security duyệt trước implementation. |
-| Trạng thái | **DRAFT PRODUCT/CONTRACT** — mô tả một luồng nhất quán từ mục 1 đến 12; khi phê duyệt phải cập nhật decision/SRS/OpenAPI/implementation cùng nhau. |
+| Nguồn tham chiếu | SRS 28/10/2026/D12 là baseline lịch sử; `REQUIREMENT_DECISIONS.md` và code hiện tại là evidence. |
+| Trạng thái | **AS-BUILT — 25/11/2026.** §0 là luồng triển khai hiện hành và là phần duy nhất dùng để đối chiếu code/test. Các mục cũ §1–12 còn giữ làm proposal lịch sử, không được dùng làm contract triển khai. |
 
-> Đây là spec target. SRS và route/code hiện có chỉ là nguồn đối chiếu; nếu khác với tài liệu này, implementation **không được** tự chọn một bên mà phải chờ phê duyệt update source-of-truth liên quan. Mục 12 giải thích chi tiết UX/contract của cùng một luồng, không phải luồng thứ hai.
+> **Quy tắc đọc tài liệu từ 25/11/2026:** nếu §0 khác bất kỳ nội dung nào ở §1–12, §0 thắng. §1–12 có nhiều giả định target (supplement, deadline, evidence workflow, context selector…) chưa được code; không được coi chúng là hành vi hiện hữu. Khi mở phase mới, tách proposal đó thành spec/version mới thay vì trộn với luồng đang chạy.
 
 ---
+
+## 0. Luồng triển khai hiện hành (as-built)
+
+### 0.1 Phạm vi đã có và chưa có
+
+| Nội dung | Trạng thái hiện tại |
+|---|---|
+| Owner tạo ticket | Có. Form chỉ có **Danh mục, Tiêu đề, Mô tả**; ticket luôn gắn với trang trại đang mở. Owner không chọn scope, trại hoặc ưu tiên. |
+| Tệp ở form tạo ticket | Có nút chọn PDF/JPEG/PNG để hiển thị danh sách file đã chọn ở giao diện; **chưa có upload/persistence/API attachment trong command tạo ticket**. Không được ghi là evidence đã được lưu hay PM/SA đã nhận file. |
+| Chat Owner ↔ CS | Có tin PUBLIC, tối đa 3.000 ký tự, lịch sử tải thêm theo cursor. Chưa có payload/API lưu tệp đính kèm trong chat. |
+| CS ghi chú nội bộ | Có; chỉ CS thấy, tối đa 3.000 ký tự. Lịch sử hiển thị tên actor thực tế. |
+| CS yêu cầu Owner bổ sung | Backend còn command `ASK_CUSTOMER`, nhưng CTA đã bị bỏ khỏi workspace CS. Luồng nghiệp vụ đang dùng là trao đổi PUBLIC trong chat, không phải một form supplement riêng. |
+| Priority | Ticket mới hiện được backend gán `NORMAL`; chỉ CS phụ trách sửa category/priority. Owner **chưa** có command/UI sửa priority. Quyết định D58 về Owner sửa priority vẫn là future work. |
+| Evidence/deadline/supplement | Chưa triển khai contract/upload/scan/deadline. D58 là quyết định product chưa biến thành hành vi hệ thống. |
+| IR gửi PM/SA | Có text request, named recipient, kết quả text và lịch sử. Không có attachment selection, context selector, deep-link hoặc tra soát nhúng. |
+
+### 0.2 Dữ liệu và phạm vi ticket
+
+| Trường | Hành vi hiện tại |
+|---|---|
+| Mã | `TK-…`, hệ thống tạo. |
+| Người gửi | Owner tạo ticket; không đổi. |
+| Danh mục | `ACCOUNT_ACCESS`, `PAYMENT`, `FARM_SERVICE`, `SYSTEM_USAGE`, `OTHER`. |
+| Trại | Form Owner lấy trại đang mở và gửi `scope=FARM`; không hiển thị control chọn/đổi trại. Backend vẫn kiểm ma trận category/scope khi nhận API. |
+| Tiêu đề / mô tả | Bắt buộc; tối đa 150 / 3.000 ký tự. Mô tả tạo tin PUBLIC đầu tiên. |
+| Ưu tiên | `LOW`, `NORMAL`, `HIGH`; ticket mới `NORMAL`, CS phụ trách mới sửa. |
+| Trạng thái | `OPEN → IN_PROGRESS → RESOLVED → CLOSED`; command legacy có thể đưa `IN_PROGRESS ↔ WAITING_CUSTOMER`. Owner trả lời khi `WAITING_CUSTOMER` đưa ticket về `IN_PROGRESS`; UI hiện không mở action “yêu cầu bổ sung” riêng. |
+| Version | Mọi mutation dùng optimistic version; conflict yêu cầu tải lại. |
+
+### 0.3 Luồng Owner
+
+1. Owner đang ở một trang trại bấm **Gửi yêu cầu hỗ trợ**, chọn danh mục, nhập tiêu đề/mô tả và có thể chọn tệp PDF/JPEG/PNG ở UI.
+2. Hệ thống tạo ticket `OPEN`, priority `NORMAL`, PUBLIC opening message và lịch sử. Tệp được chọn chưa được gửi/lưu bởi API hiện tại.
+3. Trang chi tiết Owner có hai cột: trái là chat PUBLIC cố định chiều cao; phải là thông tin ticket và lịch sử trạng thái có cuộn/phân trang. Owner chỉ thấy tin PUBLIC và nhãn CS chung “Nhân viên hỗ trợ”.
+4. Khi CS ghi kết quả, Owner mở popup **Kết quả giải quyết** để xem bảng các phiên kết quả, rồi xác nhận phiên mới nhất hoặc mở lại bằng lý do.
+5. Xác nhận không tự đóng ticket. Ticket chỉ `CLOSED` sau khi CS phụ trách review xác nhận và bấm đóng. Ticket đóng là chỉ đọc; Owner muốn hỗ trợ mới thì tạo ticket mới.
+
+### 0.4 Luồng CS
+
+1. CS xem hàng đợi chưa đóng. Bộ lọc tách nhãn/giá trị: tìm kiếm, trang trại, người phụ trách, danh mục, ưu tiên. Hàng đợi sắp ticket chưa có người nhận trước, sau đó priority và thời gian tạo.
+2. CS nhận ticket chưa giao hoặc ticket có CS cũ không còn khả dụng. `OPEN` đổi sang `IN_PROGRESS`; ticket `RESOLVED` giữ trạng thái khi nhận lại.
+3. Chỉ CS đang phụ trách và còn khả dụng được chat, thêm ghi chú nội bộ, phân loại, chuyển giao, trả về hàng đợi, tạo/hủy IR, ghi kết quả và đóng.
+4. Chat PUBLIC: tin Owner ở bên trái/nền trắng; tin CS ở bên phải/nền xanh, tên hiển thị “Nhân viên hỗ trợ”. Ghi chú nội bộ hiển thị tên thật của người viết, không xuất hiện ở Owner/PM/SA.
+5. CS sửa danh mục/ưu tiên trong khung **Trạng thái**. Không có control Owner hoặc CS khác sửa trực tiếp.
+6. **Trả về hàng đợi** cần lý do, bỏ CS phụ trách, giữ ticket status/history và hủy mọi IR `OPEN`/`WAITING_CS` với lý do mặc định `Hiện không có chăm sóc khách hàng hỗ trợ yêu cầu này.`
+7. **Chuyển giao** cần lý do và đổi sang CS được chọn. Khi UI đổi người nhận của IR, UI hủy IR hiện tại trước; CS phải tạo IR mới cho người nhận mới. API backend có action `REASSIGN`, nhưng không phải luồng UI chính hiện tại.
+8. CS ghi kết quả PUBLIC khi không còn IR active. Kết quả là phiên bản bất biến, ticket sang `RESOLVED`, Owner nhận thông báo. CS đóng sau khi Owner xác nhận phiên mới nhất và tick review; thao tác đóng cũng hủy IR active còn lại theo lý do mặc định.
+
+### 0.5 Yêu cầu nội bộ (IR)
+
+| Nội dung | Hành vi hiện tại |
+|---|---|
+| Tạo | CS phụ trách tạo `IR-…` với target role, named recipient và `requestText` ≤ 2.000 ký tự. |
+| Role matrix | `ACCOUNT_ACCESS → SA`; `PAYMENT`/`FARM_SERVICE → PM`; `SYSTEM_USAGE`/`OTHER → PM hoặc SA`. |
+| Số IR active | Tối đa một IR `OPEN`/`WAITING_CS` cho **mỗi ticket + target role**. Vì vậy `SYSTEM_USAGE`/`OTHER` có thể đồng thời một PM IR và một SA IR. |
+| Trạng thái | `OPEN → DONE` hoặc `OPEN → WAITING_CS → OPEN`; mọi IR active cũng có thể `CANCELLED`. |
+| PM/SA nhận | Danh sách theo trạng thái, có pagination; chọn dòng mở popup detail. Chỉ named recipient cùng role mở/hoàn thành được. |
+| Kết quả | `CONFIRMED`, `NOT_CONFIRMED`, `NEED_MORE_INFO`, `OUT_OF_SCOPE` + `resultNote` ≤ 2.000. `NEED_MORE_INFO` đưa IR sang `WAITING_CS`; CS bổ sung clarification để về `OPEN`. Các outcome khác đưa IR sang `DONE`. |
+| Boundary | PM/SA thấy request text, người gửi, user + trại hiển thị, trạng thái/lịch sử và result. Họ không thấy public conversation, CS note, dữ liệu vận hành trại, chứng từ ngân hàng chi tiết hay attachment ticket. |
+| Owner | Không thấy IR hoặc kết quả IR. CS tự viết kết quả PUBLIC cho Owner. |
+
+### 0.6 Lịch sử, actor và hiển thị
+
+Lịch sử ticket ghi theo tên người thực hiện (`fullName`); role là metadata riêng, không thay tên. UI dịch các event kỹ thuật thành tiếng Việt: tạo ticket, nhận xử lý, chuyển giao, trả về hàng đợi, cập nhật danh mục/ưu tiên, gửi phản hồi, thêm ghi chú, tạo/hoàn thành IR, ghi kết quả, Owner xác nhận, mở lại và đóng.
+
+### 0.7 Điều kiện không được suy diễn
+
+- Không coi file đã chọn trong UI là attachment đã lưu/gửi; chưa có round-trip API/database cho file FE-20.
+- Không coi PM/SA được tự động chia sẻ file, toàn bộ hội thoại, ghi chú nội bộ, dữ liệu ngân hàng hoặc account detail.
+- Không coi deadline, reminder, expiry hay timeout là đang hoạt động.
+- Không coi Owner có thể chọn/sửa priority hoặc đổi trại/scope trong UI hiện hành.
+- Không thêm luồng “yêu cầu Owner bổ sung” riêng vào UI khi chưa có product/API contract mới; hiện chỉ dùng chat PUBLIC.
+
+### 0.8 Contract/API thực tế cần giữ
+
+| Actor | Command chính |
+|---|---|
+| Owner | `POST /api/support/tickets`, `/{id}/replies`, `/{id}/acknowledgments`, `/{id}/reopen`, `/{id}/messages` |
+| CS | `GET /api/platform/support/tickets`, `/{id}/processing`, `/{id}/replies`, `/{id}/internal-notes`, `/{id}/resolutions`, `/{id}/close`, `/{id}/internal-requests` |
+| CS quản lý IR | `POST /api/platform/support/tickets/{ticketId}/internal-requests/{irId}/management` |
+| PM/SA recipient | `GET /api/platform/internal-requests`, `/{id}`, `POST /{id}/completion` |
+
+**Kiểm chứng:** phần as-built trên được đối chiếu với `NewTicketForm.tsx`, Owner `TicketDetailPage.tsx`, CS `QueuePage.tsx`/`TicketPage.tsx`, `InternalRequestsPage.tsx`, `SupportTicketCommandService.java` và `InternalSupportRequestService.java` ở commit `9e3e232b`.
+
+---
+
+## Phụ lục A — Proposal/target lịch sử (không phải contract triển khai)
+
+> Phần dưới phản ánh phương án thiết kế trước ngày 25/11/2026. Nó được giữ lại để truy vết quyết định, nhưng có thể mâu thuẫn với §0 — ví dụ scope/trại do Owner chọn, lưu/tải tệp đính kèm, yêu cầu bổ sung/hạn xử lý, Owner sửa ưu tiên và tệp của yêu cầu nội bộ. Mọi thay đổi code/test phải theo §0; khi duyệt phase mới, tạo spec/version mới rồi mới cập nhật contract, API và code.
 
 ## 1. Phạm vi
 
