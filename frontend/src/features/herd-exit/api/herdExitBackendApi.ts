@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { HerdExit } from '../types'
+import type { ExitBuyer, ExitBuyerInput, HerdExit } from '../types'
 import type { ExitPayment } from '../types'
 import type { Pen } from '../../pen-management'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
@@ -8,7 +8,7 @@ import { isoDate } from '../../../shared/lib/date/isoDate'
 import { voidVoucherPayment } from '../../../shared/api/voucherPayments'
 import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
-import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapVoidCheck, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
+import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, optionalPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapVoidCheck, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
@@ -149,7 +149,7 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       deathCause: backendLossKind ? textValue(draft.deathCause ?? detail.reason ?? record.reason ?? record.note) || null : null,
       carcassDisposal: backendLossKind === 'DIED' ? textValue(draft.carcassDisposal ?? detail.disposal) || null : null,
       pricingBasis: pricingBasis(draft.pricing), deductions: numberValue(draft.deduction ?? detail.deduction),
-      depositCollected: numberValue(draft.collected), paymentMethod: enumPaymentMethod(draft.method), collectionDueDate: textValue(draft.dueDate) || null,
+      depositCollected: numberValue(draft.collected), paymentMethod: optionalPaymentMethod(draft.method), collectionDueDate: textValue(draft.dueDate) || null,
       lines: cattleRows.map((cow) => {
         const match = selectableRows.find((item) => textValue(item.cattleCode) === textValue(cow.code))
         const cattleId = nullableNumber(cow.backendId) ?? nullableNumber(match?.cattleId)
@@ -256,9 +256,24 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     if (openCaseId) result.openCase = `HC-${openCaseId}`
     return result
   })
-  const buyers = async () => asRows(await transport.get(transport.farmPath(farmId, '/trading-partners?role=BUYER'))).map((row) => ({
-    id: String(numberValue(row.id)), name: textValue(row.name), phone: textValue(row.phone),
+  const buyers = async (): Promise<ExitBuyer[]> => asRows(await transport.get(transport.farmPath(farmId, '/trading-partners?role=BUYER'))).map((row) => ({
+    id: String(numberValue(row.id)), name: textValue(row.name), phone: textValue(row.phone), area: textValue(row.area), note: textValue(row.note),
+    active: textValue(row.status, 'ACTIVE') === 'ACTIVE', version: numberValue(row.version),
   }))
+  const saveBuyer = async (input: ExitBuyerInput, options: { key?: string } = {}): Promise<ExitBuyer> => {
+    const name = input.name.trim()
+    const phone = input.phone.trim()
+    const area = input.area?.trim() ?? ''
+    if (!name) throw new Error('Tên người mua là bắt buộc.')
+    const response = await transport.command(transport.farmPath(farmId, '/trading-partners'), {
+      name, phone, area, note: '', seller: false, buyer: true, supplier: false,
+    }, { method: 'POST', ...(options.key ? { key: options.key } : {}) })
+    const row = asRecord(response)
+    return {
+      id: String(numberValue(row.id)), name: textValue(row.name, name), phone: textValue(row.phone, phone),
+      area: textValue(row.area), note: textValue(row.note), active: textValue(row.status, 'ACTIVE') === 'ACTIVE', version: numberValue(row.version),
+    }
+  }
   const voidPayment = (paymentId: number, input: VoidVoucherPaymentInput) => voidVoucherPayment(transport, farmId, paymentId, input)
-  return { list, get, checks, voidCheck, listPens, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, voidPayment, selectableCattle, buyers }
+  return { list, get, checks, voidCheck, listPens, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, voidPayment, selectableCattle, buyers, saveBuyer }
 }

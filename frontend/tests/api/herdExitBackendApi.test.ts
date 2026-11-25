@@ -36,6 +36,21 @@ test('exit payment void uses the payment snapshot, trimmed reason, farm path and
   assert.equal(calls.length, 5)
 })
 
+test('exit backend creates a buyer as an active BUYER trading partner', async () => {
+  const calls: Array<{ path: string; body: unknown; method?: string; key?: string }> = []
+  const api = createHerdExitBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => [],
+    command: async (path, body, options) => {
+      calls.push({ path, body, method: options?.method, key: options?.key })
+      return { id: 42, name: 'Lò mổ mới', phone: '0900', status: 'ACTIVE', version: 0 }
+    },
+  } })
+  const buyer = await api.saveBuyer({ name: '  Lò mổ mới  ', phone: ' 0900 ', area: ' Ba Vì ' }, { key: 'buyer-key-1' })
+  assert.deepEqual(calls, [{ path: '/api/farms/9/trading-partners', method: 'POST', key: 'buyer-key-1', body: { name: 'Lò mổ mới', phone: '0900', area: 'Ba Vì', note: '', seller: false, buyer: true, supplier: false } }])
+  assert.deepEqual(buyer, { id: '42', name: 'Lò mổ mới', phone: '0900', area: '', note: '', active: true, version: 0 })
+})
+
 const voucher = (status = 'DRAFT') => ({
   id: 61, code: 'PX-2026-0061', exitType: 'SALE', status, exitDate: '2026-10-29', buyer: { id: 8, name: 'Lò mổ Hà Đông' },
   destination: null, transportCertNo: 'VC-61', vehiclePlate: '30H-12345', note: 'Bán lứa 1', pricingBasis: 'PER_KG',

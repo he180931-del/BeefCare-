@@ -43,8 +43,8 @@ export default function SearchSelect({ id, options, value, onChange, allLabel = 
     const words = query == null ? [] : searchKey(query).split(' ').filter(Boolean)
     const matches = words.length === 0 ? options
       : options.filter((o) => { const key = searchKey(`${o.label} ${o.hint ?? ''} ${o.keywords ?? ''}`); return words.every((w) => key.includes(w)) })
-    return words.length === 0 ? [{ value: '', label: allLabel }, ...matches] : matches
-  }, [options, query, allLabel])
+    return words.length === 0 && clearable ? [{ value: '', label: allLabel }, ...matches] : matches
+  }, [options, query, allLabel, clearable])
 
   const close = () => { setOpen(false); setQuery(null) }
   const pick = (next: string) => { onChange(next); close() }

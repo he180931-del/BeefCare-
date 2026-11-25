@@ -12,7 +12,7 @@ const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 620:
  * `width`: 560 | 600 | 620 | 640 | 700 | 720 | 760 | 820 | 840 | 1040 | 1100 | 1180 | 1200 (px, theo từng frame Figma).
  * Chân modal: dùng <ModalFooter> (nút cao 46px, bo 12px, căn phải).
  */
-export default function Modal({ title, sub, topTitle, width = 600, maxHeight, onClose, top, compact = false, dialogClassName = '', bodyClassName = '', children }: { title: string; sub?: ReactNode; topTitle?: string; width?: number; maxHeight?: string; onClose: () => void; top?: number; compact?: boolean; dialogClassName?: string; bodyClassName?: string; children: ReactNode }) {
+export default function Modal({ title, sub, topTitle, width = 600, maxHeight, onClose, top, compact = false, dialogClassName = '', bodyClassName = '', footer, children }: { title: string; sub?: ReactNode; topTitle?: string; width?: number; maxHeight?: string; onClose: () => void; top?: number; compact?: boolean; dialogClassName?: string; bodyClassName?: string; footer?: ReactNode; children: ReactNode }) {
   useTopbarTitle(topTitle || title)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -33,6 +33,7 @@ export default function Modal({ title, sub, topTitle, width = 600, maxHeight, on
           <div className={`mt-4 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto pb-0 ${compact ? 'max-h-[calc(100vh-8rem)] flex-1' : 'flex-1'} ${bodyClassName}`}>
             <div className="flex min-w-0 flex-col gap-4">{children}</div>
           </div>
+          {footer && <div className="mt-4 shrink-0">{footer}</div>}
         </div>
       </div>
     </div>

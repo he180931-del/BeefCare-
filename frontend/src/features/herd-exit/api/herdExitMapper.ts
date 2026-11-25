@@ -111,6 +111,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   const detail: ExitDetail = {
     death: isLoss, ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind } : {}), lossType: lossTypeLabel(row.lossKind), date: textValue(row.exitDate),
     reason: textValue(row.deathCause), disposal: textValue(row.carcassDisposal), buyer: buyerName,
+    buyerPhone: textValue(buyer.phone ?? row.buyerPhone), phone: textValue(buyer.phone ?? row.buyerPhone),
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note),
     by: textValue(asRecord(row.confirmedBy).label ?? row.confirmedBy, '—'),
     cows,
@@ -130,7 +131,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind, deathCause: textValue(row.deathCause), carcassDisposal: textValue(row.carcassDisposal) } : {}),
     note: textValue(row.exitType === 'OTHER' && !isLoss ? row.destination ?? row.note : isLoss ? row.deathCause ?? row.note : row.note),
     pricing: row.pricingBasis === 'PER_HEAD' ? 'con' : 'kg', deduction: numberValue(row.deductions), collected: numberValue(row.depositCollected ?? row.amountCollected),
-    method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', dueDate: textValue(row.collectionDueDate),
+    ...(row.paymentMethod == null ? {} : { method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản' }),
+    ...(textValue(row.collectionDueDate) ? { dueDate: textValue(row.collectionDueDate) } : {}),
     docs: mapDocuments(documents, root, voucherId),
     cows: lines.map((line) => ({
       code: textValue(line.cattleCode), backendId: numberValue(line.cattleId), tag: textValue(line.earTagNumber), breed: textValue(line.breedName), sex: line.sex === 'MALE' ? 'Đực' : 'Cái',
@@ -157,6 +159,12 @@ export const findNamedId = (rows: unknown, name: string): number | null => {
 // Moved from api/backendTransport.ts (refactor phase 2b): each voucher feature owns its payment/voucher envelope mapping.
 export const enumPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' =>
   value === 'Tiền mặt' || value === 'CASH' ? 'CASH' : 'BANK_TRANSFER'
+
+export const optionalPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' | null => {
+  if (value === 'Tiền mặt' || value === 'CASH') return 'CASH'
+  if (value === 'Chuyển khoản' || value === 'BANK_TRANSFER') return 'BANK_TRANSFER'
+  return null
+}
 
 export const unwrapVoucher = (value: unknown): Record<string, unknown> => {
   const body = asRecord(value)
