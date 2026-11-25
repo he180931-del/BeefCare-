@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { HerdExit } from '../types'
+import type { ExitBuyer, ExitBuyerInput, HerdExit } from '../types'
 import type { ExitPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
@@ -117,7 +117,11 @@ export const listSelectableExitCattle = async (): Promise<ExitCandidate[]> => {
   return usingBackend ? backendApi.selectableCattle() : demo.exitLocal.selectableCattle()
 }
 
-export const listExitBuyers = () => usingBackend ? backendApi.buyers() : Promise.resolve(demo.exitLocal.BUYERS)
+export const listExitBuyers = (): Promise<ExitBuyer[]> => usingBackend ? backendApi.buyers() : demo.exitLocal.listBuyers()
+
+export const saveExitBuyer = (input: ExitBuyerInput, options?: { key?: string }): Promise<ExitBuyer> => usingBackend
+  ? backendApi.saveBuyer(input, options)
+  : demo.exitLocal.saveBuyer(input)
 
 /** Mã phiếu hiển thị trước khi lưu: máy chủ cấp khi lưu (undefined); bản mô phỏng tự đánh số tiếp theo. */
 export const newExitVoucherId = (rows: ReadonlyArray<{ id: string }>): string | undefined => usingBackend

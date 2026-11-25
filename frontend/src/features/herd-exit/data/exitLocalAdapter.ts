@@ -11,7 +11,27 @@ import {
 import { EXPORT_HERD, TODAY as DEMO_TODAY } from './exportsData'
 import { BARNS, BUYERS } from './exitData'
 
+let localBuyers = BUYERS.map((buyer) => ({ ...buyer }))
+
 export { cattle, localApi, pens, saveLocal, BUYERS }
+
+export async function listBuyers() {
+  return localBuyers.map((buyer) => ({ ...buyer }))
+}
+
+export async function saveBuyer(input: { name: string; phone: string; area?: string }) {
+  const name = input.name.trim()
+  const phone = input.phone.trim()
+  if (!name) throw new Error('Tên người mua là bắt buộc.')
+  const nextId = `b${localBuyers.length + 1}`
+  const buyer = { id: nextId, name, phone, area: input.area?.trim() ?? '' }
+  localBuyers = [...localBuyers, buyer]
+  return { ...buyer }
+}
+
+export function resetBuyers() {
+  localBuyers = BUYERS.map((buyer) => ({ ...buyer }))
+}
 
 /** Bò chọn được: theo collection bò chuẩn; bò đã gắn phiếu xuất khác không được chọn lại. */
 export async function selectableCattle(): Promise<ExitCandidate[]> {
