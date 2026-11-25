@@ -40,6 +40,7 @@ export function internalRequestRoles(category: TicketCategory): TargetRole[] {
 
 export const defaultInternalRequestRole = (category: TicketCategory): TargetRole => internalRequestRoles(category)[0]
 export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', WAITING_CS: 'Chờ CS bổ sung', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
+export const INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON = 'Hiện không có chăm sóc khách hàng hỗ trợ yêu cầu này.'
 export const OUTCOME_LABEL: Record<InternalOutcome, string> = {
   CONFIRMED: 'Đã xác nhận', NOT_CONFIRMED: 'Không xác nhận', NEED_MORE_INFO: 'Cần bổ sung thông tin', OUT_OF_SCOPE: 'Ngoài phạm vi',
 }

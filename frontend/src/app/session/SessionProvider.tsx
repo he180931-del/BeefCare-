@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { asRecord, asRows, numberValue } from '../../shared/api/parse'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from './currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
@@ -7,6 +8,7 @@ import { demo } from '../../demo/demoModules'
 import { markOwnerRegistrationCompleted, SessionContext } from './sessionContext'
 import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
 import { sessionFromProfile } from './sessionProfile'
+import { needsOwnerRegistration } from '../../features/authorization/roles'
 import type { Session, SessionUser } from './sessionTypes'
 
 /** UC-FE02-02 E1: the farm entered in this tab is no longer one of the account's farms (membership ended or changed). */
@@ -16,6 +18,7 @@ export function isStaleFarmSelection(profile: unknown, selected: number | null):
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
   const { mode, logout } = useAuth()
   const { loadSessionProfile, acceptTerms } = useAuthenticationUseCase()
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -64,7 +67,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const acceptGoogleTerms = async () => {
     await acceptTerms()
     const profile = await loadSessionProfile()
-    setUser(sessionFromProfile(profile, readCurrentFarmId()))
+    const nextSession = sessionFromProfile(profile, readCurrentFarmId())
+    setUser(nextSession)
+    if (needsOwnerRegistration(nextSession)) navigate('/owner-registration', { replace: true })
   }
 
   if (error) return <div role="alert" className="grid min-h-screen place-items-center px-4 text-center text-sm text-err-fg">{error}</div>

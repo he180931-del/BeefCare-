@@ -87,10 +87,13 @@ describe('xử lý ticket', () => {
     renderAt('/nen-tang/ho-tro/TK-1042', 'CS', 1, 'Phạm Thu Hà')
 
     await user.click(await screen.findByRole('button', { name: 'Xem yêu cầu nội bộ' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Yêu cầu nội bộ IR-077' })
-    expect(within(dialog).getByText('Đang mở')).toBeInTheDocument()
-    expect(within(dialog).getByText('Đỗ Minh Quân')).toBeInTheDocument()
-    expect(within(dialog).getByText(/Khách chuyển 1.200.000đ/)).toBeInTheDocument()
+    const list = await screen.findByRole('dialog', { name: 'Yêu cầu nội bộ' })
+    expect(within(list).getByText('IR-077')).toBeInTheDocument()
+    expect(within(list).getByText('Đỗ Minh Quân')).toBeInTheDocument()
+    await user.click(within(list).getByRole('button', { name: 'Mở yêu cầu nội bộ IR-077' }))
+    const detail = await screen.findByRole('dialog', { name: 'Yêu cầu nội bộ IR-077' })
+    expect(within(detail).getByText('Đang mở')).toBeInTheDocument()
+    expect(within(detail).getByText(/Khách chuyển 1.200.000đ/)).toBeInTheDocument()
   })
 
   it('hiển thị lịch sử ticket theo thứ tự thời gian tăng dần với nhãn truy cập rõ ràng', async () => {
@@ -197,6 +200,19 @@ describe('xử lý ticket', () => {
     expect(within(dialog).getByRole('button', { name: /Gửi kết quả và Đã giải quyết/ })).toBeDisabled()
   })
 
+  it('cảnh báo và hủy yêu cầu nội bộ khi trả ticket về hàng đợi', async () => {
+    const user = userEvent.setup()
+    const actor = { id: 1, name: 'Phạm Thu Hà', role: 'CS' as const }
+    renderAt('/nen-tang/ho-tro/TK-1042', 'CS', actor.id, actor.name)
+    await user.click(await screen.findByRole('button', { name: 'Trả về hàng đợi' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Trả yêu cầu về hàng đợi' })
+    expect(within(dialog).getByText(/Trả về hàng đợi đồng nghĩa hủy các yêu cầu nội bộ đang mở/)).toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText('Lý do *'), 'Cần nhân viên hỗ trợ phù hợp hơn.')
+    await user.click(within(dialog).getByRole('button', { name: 'Trả về hàng đợi' }))
+    expect(await screen.findByText('Yêu cầu TK-1042 đã trả về hàng đợi.')).toBeInTheDocument()
+    await waitFor(async () => expect((await supportDemoStore.getTicket(actor, 'TK-1042')).internalRequests.find((r) => r.code === 'IR-077')?.status).toBe('CANCELLED'))
+  })
+
   it('CS không phụ trách chỉ xem; ticket không tồn tại báo không tìm thấy', async () => {
     renderAt('/nen-tang/ho-tro/TK-1027')
     expect(await screen.findByText('Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.')).toBeInTheDocument()
@@ -209,7 +225,7 @@ describe('xử lý ticket', () => {
     expect(await screen.findByText('Không tìm thấy yêu cầu TK-9999')).toBeInTheDocument()
   })
 
-  it('cho phép đổi người nhận yêu cầu nội bộ đang Chờ CS bổ sung', async () => {
+  it('cảnh báo và hủy yêu cầu nội bộ khi đổi người nhận', async () => {
     const user = userEvent.setup()
     const actor = { id: 1, name: 'Phạm Thu Hà', role: 'CS' as const }
     renderAt('/nen-tang/ho-tro/TK-1019?ir=IR-082', 'CS', actor.id, actor.name)
@@ -218,12 +234,12 @@ describe('xử lý ticket', () => {
     expect(reassign).toBeEnabled()
     await user.click(reassign)
     const dialog = await screen.findByRole('dialog', { name: 'Đổi người nhận IR-082' })
-    await user.selectOptions(within(dialog).getByLabelText('Người nhận mới *'), '22')
     await user.type(within(dialog).getByLabelText('Lý do *'), 'Người nhận cũ cần được thay thế.')
-    await user.click(within(dialog).getByRole('button', { name: 'Chuyển người nhận' }))
+    expect(within(dialog).getByText(/Đổi người nhận đồng nghĩa hủy yêu cầu nội bộ IR-082/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy để đổi người nhận' }))
 
-    expect(await screen.findByText('Yêu cầu IR-082 đã được chuyển người nhận.')).toBeInTheDocument()
-    await waitFor(async () => expect((await supportDemoStore.getTicket(actor, 'TK-1019')).internalRequests.find((r) => r.code === 'IR-082')).toMatchObject({ status: 'WAITING_CS', recipientId: 22, recipient: 'Trần Minh Đức' }))
+    expect(await screen.findByText('Yêu cầu IR-082 đã được hủy để đổi người nhận.')).toBeInTheDocument()
+    await waitFor(async () => expect((await supportDemoStore.getTicket(actor, 'TK-1019')).internalRequests.find((r) => r.code === 'IR-082')?.status).toBe('CANCELLED'))
   })
 
   it('cho phép hủy yêu cầu nội bộ đang Chờ CS bổ sung và vẫn chặn trạng thái kết thúc', async () => {

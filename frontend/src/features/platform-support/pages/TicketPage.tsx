@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, inputCls, LoadingBlock, Modal, Note, PageHeader, Pagination, Segmented, smInputCls } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, inputCls, LoadingBlock, Modal, Note, PageHeader, Pagination, Segmented, smInputCls, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Avatar, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
 import { ClosedDialog, CloseDialog, CreateInternalDialog, HandOverDialog, ReassignDialog } from '../components/TicketDialogs'
-import { CATEGORY_LABEL, PRIORITY_LABEL, STATUS_LABEL, SupportError, defaultInternalRequestRole, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
+import { CATEGORY_LABEL, INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON, PRIORITY_LABEL, ROLE_LABEL, STATUS_LABEL, SupportError, defaultInternalRequestRole, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
 import type { InternalView, Ticket, TicketCategory, TicketMessage, TicketPriority } from '../types'
 import { useSupportCommands, useSupportTicket } from '../hooks/usePlatformSupportUseCase'
 
@@ -36,7 +36,7 @@ export default function TicketPage() {
   const [replySending, setReplySending] = useState(false)
   const replySendingRef = useRef(false)
   const { data: t, loading, error, refetch, setData: setTicket } = useSupportTicket(me, id)
-  const { claim: claimCommand, classify: classifyCommand, reply: replyCommand, getMessages } = useSupportCommands()
+  const { claim: claimCommand, classify: classifyCommand, reply: replyCommand, getMessages, manageInternal: manageInternalCommand, close: closeCommand } = useSupportCommands()
   const [loadedMessages, setLoadedMessages] = useState<TicketMessage[]>([])
   const [messagesBeforeId, setMessagesBeforeId] = useState<number | null>(null)
   const [messagesHasMore, setMessagesHasMore] = useState(false)
@@ -164,6 +164,19 @@ export default function TicketPage() {
   const action = (label: string, onClick: () => void, enabled: boolean, icon?: 'circle-plus') => (
     <Button block onClick={onClick} disabled={!enabled}>{icon && <Icon name={icon} size={16} />} {label}</Button>
   )
+  const closeTicket = async (reviewed: boolean, note: string) => {
+    const current = await cancelOpenInternalRequests(t)
+    await closeCommand(me, current.code, { reviewed, note, expectedVersion: current.version })
+  }
+  const cancelOpenInternalRequests = async (initial: Ticket) => {
+    let current = initial
+    const openInternal = current.internalRequests.filter((request) => request.status === 'OPEN' || request.status === 'WAITING_CS')
+    for (const request of openInternal) {
+      await manageInternalCommand(me, current.code, request.code, { action: 'CANCEL', reason: INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON })
+      current = (await refetch()) ?? current
+    }
+    return current
+  }
   const selectConversationTab = (nextTab: ConvTab) => {
     setTab(nextTab)
     if (nextTab === 'history') setHistoryPage(1)
@@ -259,8 +272,7 @@ export default function TicketPage() {
                 <b className="font-semibold">{openIr.code} · {openIr.status === 'WAITING_CS' ? 'Chờ CS bổ sung' : 'Đang mở'}</b>
                 <span className="mt-1 block">{openIr.status === 'WAITING_CS'
                   ? `Bước tiếp theo: bạn bổ sung thông tin cho ${openIr.recipient}; sau đó yêu cầu sẽ mở lại cho người nhận xử lý.`
-                  : `Bước tiếp theo: ${openIr.recipient} gửi kết quả trong phạm vi ${openIr.targetRole === 'PM' ? 'quản lý nền tảng' : 'quản trị hệ thống'}.`}</span>
-                <span className="mt-1 block">Chưa thể ghi kết quả giải quyết hoặc đóng yêu cầu khi yêu cầu nội bộ này còn mở.</span>
+                  : `Chờ ${openIr.recipient} (${ROLE_LABEL[openIr.targetRole]}) gửi kết quả.`}</span>
               </div>}
             </Card>
             <Card title="Thao tác được phép">
@@ -278,7 +290,8 @@ export default function TicketPage() {
         </div>
       </div>
       <TicketDialogsHost
-        ticket={t} modal={m} targetIr={targetIr} me={me} closeModal={closeModal} act={act} reload={() => { void refetch(); closeModal() }}
+        ticket={t} modal={m} targetIr={targetIr} internalRequests={t.internalRequests} me={me} closeModal={closeModal} act={act} reload={() => { void refetch(); closeModal() }}
+        closeTicket={closeTicket} cancelOpenInternalRequests={cancelOpenInternalRequests}
         onPublic={() => { selectConversationTab('public'); closeModal() }} onViewExisting={() => { selectConversationTab('public'); closeModal() }}
       />
       {flash}
@@ -286,14 +299,17 @@ export default function TicketPage() {
   )
 }
 
-function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, reload, onPublic, onViewExisting }: {
+function TicketDialogsHost({ ticket: t, modal, targetIr, internalRequests, me, closeModal, act, reload, closeTicket, cancelOpenInternalRequests, onPublic, onViewExisting }: {
   ticket: Ticket
   modal: string | null
   targetIr: InternalView | undefined
+  internalRequests: InternalView[]
   me: ReturnType<typeof useActor>
   closeModal: () => void
   act: (fn: () => Promise<unknown>, ok: string, next?: string) => Promise<void>
   reload: () => void
+  closeTicket: (reviewed: boolean, note: string) => Promise<void>
+  cancelOpenInternalRequests: (ticket: Ticket) => Promise<Ticket>
   onPublic: () => void
   onViewExisting: () => void
 }) {
@@ -307,8 +323,8 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
       return <ReasonDialog title="Yêu cầu khách bổ sung thông tin" label="Nội dung gửi công khai *" max={3000} placeholder="Anh vui lòng gửi mã giao dịch và thời điểm ngân hàng ghi nhận." submitLabel="Gửi và chờ khách" submitIcon="send" note="Yêu cầu chuyển Đang xử lý → Chờ khách phản hồi và lưu câu hỏi công khai. Chủ trại phản hồi thì chuyển lại Đang xử lý." onClose={closeModal}
         onSubmit={(question) => act(() => commands.askCustomer(me, t.code, { question, expectedVersion: v }), `Yêu cầu ${t.code} hiện ở trạng thái Chờ khách phản hồi.`)} />
     case 'tra-ve':
-      return <ReasonDialog title="Trả yêu cầu về hàng đợi" label="Lý do *" placeholder="Chưa có đủ thông tin chuyên môn, cần nhân viên hỗ trợ phù hợp nhận lại" submitLabel="Trả về hàng đợi" note="Yêu cầu được bỏ người phụ trách, giữ nguyên trạng thái và lịch sử. Các yêu cầu nội bộ giữ nguyên trạng thái/người nhận." onClose={closeModal}
-        onSubmit={(reason) => act(() => commands.returnToQueue(me, t.code, { reason, expectedVersion: v }), `Yêu cầu ${t.code} đã trả về hàng đợi.`)} />
+      return <ReasonDialog title="Trả yêu cầu về hàng đợi" label="Lý do *" placeholder="Chưa có đủ thông tin chuyên môn, cần nhân viên hỗ trợ phù hợp nhận lại" submitLabel="Trả về hàng đợi" note={<><span className="block">Yêu cầu sẽ được bỏ người phụ trách, giữ nguyên trạng thái và lịch sử.</span>{t.internalRequests.some((request) => request.status === 'OPEN' || request.status === 'WAITING_CS') && <span className="mt-1 block font-semibold text-warn-fg">Trả về hàng đợi đồng nghĩa hủy các yêu cầu nội bộ đang mở với nguyên nhân: {INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON}</span>}</>} onClose={closeModal}
+        onSubmit={async (reason) => { const current = await cancelOpenInternalRequests(t); await commands.returnToQueue(me, current.code, { reason, expectedVersion: current.version }); await act(async () => undefined, `Yêu cầu ${t.code} đã trả về hàng đợi.`) }} />
     case 'ghi-chu':
       return <ReasonDialog title="Ghi chú nội bộ của nhân viên hỗ trợ" label="Ghi chú mới *" max={3000} placeholder="Cần xác minh mã chính xác; không xác nhận thanh toán từ lời khách." submitLabel="Lưu ghi chú (chỉ nhân viên hỗ trợ thấy)" onClose={closeModal} secondary={{ label: 'Trao đổi công khai', onClick: onPublic }}
         note={<>{lastNote && <span className="mb-1 block">Lịch sử (chỉ nhân viên hỗ trợ thấy): {lastNote.author} · {formatStamp(lastNote.at)}.</span>}Chỉ nhân viên hỗ trợ được phép xem; ghi chú này không xuất hiện ở hội thoại Chủ trại hoặc phần nhận của quản lý/quản trị hệ thống.</>}
@@ -318,7 +334,7 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
       return <CreateInternalDialog ticket={t} initialRole={modal === 'tao-yeu-cau-sa' ? 'SA' : defaultInternalRequestRole(t.category)} onClose={closeModal} onViewExisting={onViewExisting}
         onSubmit={(cmd) => act(() => commands.createInternal(me, t.code, cmd), `Đã gửi yêu cầu nội bộ cho ${cmd.targetRole}.`)} />
     case 'doi-nguoi-nhan':
-      return targetIr ? <ReassignDialog ir={targetIr} onClose={closeModal} onSubmit={(rid, reason) => act(() => commands.manageInternal(me, t.code, targetIr.code, { action: 'REASSIGN', recipientId: rid, reason }), `Yêu cầu ${targetIr.code} đã được chuyển người nhận.`)} /> : null
+      return targetIr ? <ReassignDialog ir={targetIr} onClose={closeModal} onSubmit={(reason) => act(() => commands.manageInternal(me, t.code, targetIr.code, { action: 'CANCEL', reason: `${INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON} ${reason}` }), `Yêu cầu ${targetIr.code} đã được hủy để đổi người nhận.`)} /> : null
     case 'huy-yeu-cau':
       return targetIr ? (
         <ReasonDialog title={`Hủy yêu cầu nội bộ ${targetIr.code}`} label="Lý do hủy *" placeholder="Yêu cầu sai phạm vi; sẽ gửi lại đúng vai trò" submitLabel="Xác nhận hủy IR" onClose={closeModal}
@@ -326,7 +342,7 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
           onSubmit={(reason) => act(() => commands.manageInternal(me, t.code, targetIr.code, { action: 'CANCEL', reason }), `Yêu cầu ${targetIr.code} đã được hủy.`)} />
       ) : null
     case 'xem-yeu-cau-noi-bo':
-      return targetIr ? <InternalRequestStatusDialog ir={targetIr} onClose={closeModal} /> : null
+      return <InternalRequestListDialog requests={internalRequests} onClose={closeModal} />
     case 'ghi-ket-qua': {
       const open = openIrOf(t)
       return (
@@ -339,7 +355,7 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
     }
     case 'dong-ticket':
       return <CloseDialog ticket={t} onClose={closeModal} onReload={reload}
-        onSubmit={(reviewed, note) => act(() => commands.close(me, t.code, { reviewed, note, expectedVersion: v }), `Yêu cầu ${t.code} đã được đóng.`, 'da-dong')} />
+        onSubmit={(reviewed, note) => act(() => closeTicket(reviewed, note), `Yêu cầu ${t.code} đã được đóng.`, 'da-dong')} />
     case 'da-dong':
       return t.status === 'CLOSED' ? <ClosedDialog ticket={t} onClose={closeModal} /> : null
     case 'nhan-lai':
@@ -382,6 +398,47 @@ function InternalRequestStatusDialog({ ir, onClose }: { ir: InternalView; onClos
       )}
       <div className="flex justify-end"><Button onClick={onClose}>Đóng</Button></div>
     </Modal>
+  )
+}
+
+function InternalRequestListDialog({ requests, onClose }: { requests: InternalView[]; onClose: () => void }) {
+  const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<InternalView | null>(null)
+  const pageSize = 10
+  const pageCount = Math.max(1, Math.ceil(requests.length / pageSize))
+  const safePage = Math.min(page, pageCount)
+  const rows = requests.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const statusLabel: Record<InternalView['status'], string> = { OPEN: 'Đang mở', WAITING_CS: 'Chờ nhân viên hỗ trợ', DONE: 'Đã hoàn thành', CANCELLED: 'Đã hủy' }
+  const statusTone = (status: InternalView['status']) => status === 'OPEN' ? 'info' : status === 'WAITING_CS' ? 'warn' : status === 'DONE' ? 'ok' : 'outline'
+  return (
+    <>
+      <Modal title="Yêu cầu nội bộ" sub="Chọn một yêu cầu để xem đầy đủ thông tin xử lý" width={960} onClose={onClose}>
+        {requests.length === 0 ? <EmptyBlock title="Chưa có yêu cầu nội bộ" sub="Ticket này chưa có yêu cầu gửi PM hoặc SA." /> : (
+          <div className="flex min-h-0 flex-col gap-3">
+            <div className="max-h-[calc(100vh-320px)] overflow-auto">
+              <Table stack={false}>
+                <thead><tr><Th>Thời gian</Th><Th>Yêu cầu</Th><Th>Người nhận</Th><Th>Trạng thái</Th></tr></thead>
+                <tbody>
+                  {rows.map((ir) => {
+                    const text = ir.requestText || ir.title
+                    return (
+                      <tr key={ir.code} className="cursor-pointer hover:bg-[#f6faf7]" onClick={() => setSelected(ir)}>
+                        <Td className="whitespace-nowrap text-xs text-muted">{formatStamp(ir.createdAt, true)}</Td>
+                        <Td className="max-w-[min(42vw,520px)]"><button type="button" aria-label={`Mở yêu cầu nội bộ ${ir.code}`} title={text} className="block max-w-full truncate text-left font-medium text-ink" onClick={() => setSelected(ir)}>{text}</button><span className="block text-[11px] text-muted">{ir.code}</span></Td>
+                        <Td className="whitespace-nowrap text-xs text-ink">{ir.recipient}</Td>
+                        <Td><Badge tone={statusTone(ir.status)}>{statusLabel[ir.status]}</Badge></Td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </Table>
+            </div>
+            {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${rows.length} / ${requests.length} yêu cầu`} />}
+          </div>
+        )}
+      </Modal>
+      {selected && <InternalRequestStatusDialog ir={selected} onClose={() => setSelected(null)} />}
+    </>
   )
 }
 

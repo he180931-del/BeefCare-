@@ -137,6 +137,11 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       const t = findTicket(code)
       guard(t, actor, cmd.expectedVersion)
       const reason = required(cmd.reason, 'Lý do', 1000)
+      const openRequests = t.internalRequests.filter((r) => r.status === 'OPEN' || r.status === 'WAITING_CS')
+      for (const r of openRequests) {
+        r.status = 'CANCELLED'
+        irHistory(r, actor, 'Hủy yêu cầu do ticket được trả về hàng đợi. Nguyên nhân: Hiện không có chăm sóc khách hàng hỗ trợ yêu cầu này.')
+      }
       t.assignedCsId = null
       t.assignedCs = null
       t.assignedAvailable = true

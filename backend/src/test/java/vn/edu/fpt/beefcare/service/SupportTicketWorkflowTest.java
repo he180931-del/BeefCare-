@@ -373,8 +373,12 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
             1, "Đã xác nhận", resolved.version()
         ));
         actAs(cs);
-        assertThatThrownBy(() -> tickets.close(ticket.id(), new SupportDtos.Close(true, null, acknowledged.version())))
-            .isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-FE20-12"));
+        SupportDtos.Ticket closed = tickets.close(ticket.id(), new SupportDtos.Close(true, null, acknowledged.version()));
+        assertThat(closed.status()).isEqualTo("CLOSED");
+        assertThat(em.find(InternalRequest.class, request.id()).getState()).isEqualTo("CANCELLED");
+        assertThat(em.createQuery("select h from InternalRequestHistory h where h.internalRequest.id=:id order by h.id desc", InternalRequestHistory.class)
+            .setParameter("id", request.id()).setMaxResults(1).getSingleResult().getNote())
+            .isEqualTo(SupportTicketCommandService.INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON);
     }
 
     @Test void clarificationRequestRequiresANonblankComment() {
