@@ -107,11 +107,11 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
   const editor = useExitEditor({
     type: (d.type as ExitType | undefined) ?? 'Bán', lossKind: d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'),
     deathCause: d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''), carcassDisposal: d.carcassDisposal ?? '', date: d?.date ?? todayIso(),
-    pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', note: d?.note ?? '',
+    pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', destination: d?.destination ?? '', note: d?.note ?? '',
     picked: (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))),
     deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? '', dueDate: d?.dueDate ?? '',
   })
-  const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
+  const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, destination, setDestination, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [menu, setMenu] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const selectedQrCodes = new Set(picked.map((cow) => cow.code))
@@ -153,7 +153,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
-    who: needsBuyer ? (buyer?.name ?? '') : note,
+    who: needsBuyer ? (buyer?.name ?? '') : isLoss ? note : destination,
     sub: `${picked.length} con · chuồng ${[...new Set(picked.map((c) => c.barn))].join(', ')}`,
     count: picked.length,
     weight: `${money(totalWeight)} kg`,
@@ -163,7 +163,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
     status: 'Nháp',
     draft: {
       type, lossKind: isLoss ? lossKind : undefined, deathCause: isLoss ? deathCause : undefined, carcassDisposal: isLoss && lossKind === 'DIED' ? carcassDisposal : undefined,
-      date, buyerId, quarantine, plate, note: isLoss ? deathCause : note, pricing, deduction, collected,
+      date, buyerId, quarantine, plate, ...(type === 'Khác' ? { destination } : {}), note: isLoss ? deathCause : note, pricing, deduction, collected,
       ...(collected > 0 ? { method } : {}),
       dueDate: remaining > 0 ? dueDate : '',
       docs: documentRows,
@@ -176,7 +176,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
       setFormError('Vui lòng chọn người mua.')
       return true
     }
-    if (!needsBuyer && !(isLoss ? deathCause : note).trim()) {
+    if (!needsBuyer && !(isLoss ? deathCause : destination).trim()) {
       setFormError(isLoss ? 'Vui lòng nhập nguyên nhân.' : 'Vui lòng nhập nơi đến.')
       return true
     }
@@ -287,9 +287,16 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                 )}
               </>
             ) : (
-              <Field label={needsBuyer ? 'Ghi chú' : 'Nơi đến *'}>
-                <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : 1000} onChange={(e) => setNote(e.target.value)} />
-              </Field>
+              <>
+                {!needsBuyer && (
+                  <Field id="exit-destination" label="Nơi đến *">
+                    <input id="exit-destination" className={inputCls} value={destination} maxLength={150} onChange={(e) => setDestination(e.target.value)} />
+                  </Field>
+                )}
+                <Field id="exit-note" label="Ghi chú">
+                  <input id="exit-note" className={inputCls} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} />
+                </Field>
+              </>
             )}
           </Box>
 
@@ -320,7 +327,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                 <span className="text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · cân lại để ghi thực tế</span>
               </div>
             )}
-            <Table scroll>
+            <Table stack={false}>
               <thead>
                 <tr>
                   <Th className={TH}>#</Th><Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Chuồng</Th>
@@ -338,13 +345,14 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
                       <Td className={cx(TH, 'whitespace-nowrap')}>{c.code}<br />{c.tag}</Td>
                       <Td className={TH}>{c.breed} · {c.sex}<br />{c.age} · {c.group}<br />{c.stage}</Td>
                       <Td className={TH}>{c.barn}</Td>
-                      <Td className={TH}>
+                      <Td className={cx(TH, 'whitespace-nowrap')}>
                         <input
                           aria-label={`Cân xuất ${c.code}`}
                           inputMode="numeric"
                           value={c.weight || ''}
                           onChange={(e) => patch(c.code, { weight: Number(e.target.value.replace(/\D/g, '')) || 0, estimated: false })}
-                          className="w-[4ch] border-0 bg-transparent p-0 text-xs outline-none focus:bg-chip"
+                          placeholder="0"
+                          className="h-8 w-[7ch] rounded-lg border border-field bg-white px-2 text-right text-xs outline-none focus:border-brand"
                         />
                         {' kg'}{c.estimated && ' UT'}
                       </Td>

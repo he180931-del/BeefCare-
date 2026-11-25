@@ -56,21 +56,21 @@ afterEach(() => {
 })
 
 describe('pen members (popup Chuyển chuồng #5)', () => {
-  it('reads the bare member list returned by GET /members and keeps ACTIVE members only', async () => {
-    stubBackend((path) => path === '/api/farms/9/members' ? json([
+  it('reads MemberList.items returned by GET /members and keeps ACTIVE members only', async () => {
+    stubBackend((path) => path === '/api/farms/9/members' ? json({ farmName: 'Trại 9', counts: { all: 2 }, items: [
       { id: 3, userId: 11, fullName: 'Nguyễn An', email: 'a@example.test', role: 'MANAGER', status: 'ACTIVE' },
       { id: 4, userId: 12, fullName: 'Trần Bình', email: 'b@example.test', role: 'WORKER', status: 'REMOVED' },
-    ]) : undefined)
+    ] }) : undefined)
     const { penApi } = await import('../../../src/features/pen-management/api/penApi')
     expect(await penApi.listPenMembers()).toEqual([{ id: 3, userId: 11, fullName: 'Nguyễn An', email: 'a@example.test', role: 'MANAGER' }])
   })
 
   it('shows the selected cattle and sends the chosen performer as performedBy (app-user id)', async () => {
     const calls = stubBackend((path) => {
-      if (path === '/api/farms/9/members') return json([
+      if (path === '/api/farms/9/members') return json({ items: [
         { id: 3, userId: 11, fullName: 'Nguyễn An', role: 'MANAGER', status: 'ACTIVE' },
         { id: 5, userId: 15, fullName: 'Lê Cường', role: 'TECHNICIAN', status: 'ACTIVE' },
-      ])
+      ] })
       if (path === '/api/farms/9/pen-moves/check') return json({ destinationActive: true, capacity: 10, freePlaces: 8, movingCount: 2, blocked: false,
         cattle: cattle.map((c) => ({ cattleId: c.id, cattleCode: c.code, currentPenCode: 'A', currentFromDate: '2026-11-01', results: [] })) })
       if (path === '/api/farms/9/pen-moves') return json({ moved: [{ cattleId: 41 }, { cattleId: 42 }], skipped: [] })
@@ -109,7 +109,7 @@ describe('pen members (popup Chuyển chuồng #5)', () => {
   it('"Dùng chung lý do" fills only the empty warning reasons', async () => {
     const three = [...cattle, { ...cattle[1], id: 43, code: 'BC-0043' }]
     stubBackend((path) => {
-      if (path === '/api/farms/9/members') return json([])
+      if (path === '/api/farms/9/members') return json({ items: [] })
       if (path === '/api/farms/9/pen-moves/check') return json({ destinationActive: true, capacity: 10, freePlaces: 8, movingCount: 3, blocked: false,
         cattle: three.map((c) => ({ cattleId: c.id, cattleCode: c.code, currentPenCode: 'A', currentFromDate: '2026-11-01', warningReasonRequired: true,
           results: [{ criterion: 'SEX', outcome: 'NOT_MET' }] })) })

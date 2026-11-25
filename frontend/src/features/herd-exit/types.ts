@@ -130,6 +130,8 @@ export interface ExitDraft {
   buyerId?: string
   quarantine?: string
   plate?: string
+  /** Nơi đến (SCR-42 #5), chỉ cho loại Khác; tách khỏi Ghi chú. */
+  destination?: string
   note?: string
   pricing?: 'kg' | 'con'
   deduction?: number

@@ -5,6 +5,7 @@ import type { Pen } from '../../pen-management'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
+import { dmy } from '../../../shared/lib/format'
 import { voidVoucherPayment } from '../../../shared/api/voucherPayments'
 import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
@@ -251,7 +252,7 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       code: textValue(row.cattleCode), ...(cattleId !== null ? { backendId: cattleId } : {}), tag: textValue(row.earTagNumber), breed: textValue(row.breedName),
       sex: row.sex === 'MALE' ? 'Đực' : 'Cái', age: months ? `${months} tháng` : '—', group: HERD_GROUP_LABELS[groupKey] ?? groupKey, groupKey,
       stage: LIFE_STAGE_LABELS[stageKey] ?? stageKey, stageKey, barn: textValue(row.penCode), weight: numberValue(latest.weightKg),
-      weightNote: latest.weightKg == null ? 'Chưa có lần cân' : latest.basis === 'ESTIMATED' ? `ước tính ${textValue(latest.date)}` : `cân ${textValue(latest.date)}`,
+      weightNote: latest.weightKg == null ? 'Chưa có lần cân' : latest.basis === 'ESTIMATED' ? `ước tính ${dmy(textValue(latest.date))}` : `cân ${dmy(textValue(latest.date))}`,
       estimated: latest.basis === 'ESTIMATED', unitPrice: 0,
     }
     const penCount = nullableNumber(row.penCount ?? row.penOccupancy ?? row.occupancy)
