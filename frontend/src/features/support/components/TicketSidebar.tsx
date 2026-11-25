@@ -28,31 +28,33 @@ export function TicketInfoCard({ ticket, onViewResults }: { ticket: Ticket; onVi
 }
 
 export function StatusHistoryCard({ ticket }: { ticket: Ticket }) {
-  const pageSize = 50
+  const pageSize = 10
   const [page, setPage] = useState(1)
   const pageCount = Math.max(1, Math.ceil(ticket.history.length / pageSize))
   const safePage = Math.min(page, pageCount)
   const rows = ticket.history.slice((safePage - 1) * pageSize, safePage * pageSize)
   return (
     <Card variant="panel" title="Lịch sử trạng thái">
-      <Table variant="panel" stack={false}>
-        <thead>
-          <tr>
-            <Th>Thời điểm</Th>
-            <Th>Trạng thái</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((e) => (
-            <tr key={`${e.at}-${e.event}`}>
-              <Td className="font-medium">{formatDayTime(e.at)}</Td>
-              <Td>
-                <Badge tone={HISTORY_EVENTS[e.event].tone}>{HISTORY_EVENTS[e.event].label}</Badge>
-              </Td>
+      <div role="region" aria-label="Danh sách lịch sử trạng thái" className="max-h-[360px] overflow-y-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10">
+        <Table variant="panel" stack={false}>
+          <thead>
+            <tr>
+              <Th>Thời điểm</Th>
+              <Th>Trạng thái</Th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {rows.map((e) => (
+              <tr key={`${e.at}-${e.event}`}>
+                <Td className="font-medium">{formatDayTime(e.at)}</Td>
+                <Td>
+                  <Badge tone={HISTORY_EVENTS[e.event].tone}>{HISTORY_EVENTS[e.event].label}</Badge>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
       {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${rows.length} / ${ticket.history.length} sự kiện`} />}
     </Card>
   )

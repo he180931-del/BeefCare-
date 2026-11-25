@@ -41,7 +41,7 @@ export function NewTicketForm({ activeFarmId, initialCategory = '', onSubmit, on
     <form onSubmit={submit} noValidate>
       <Panel title="Nội dung yêu cầu">
         <div className="flex flex-col gap-4">
-          <div className="grid min-w-0 gap-4 @min-[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div>
             <Field label="Danh mục *" id="tk-category">
               <Select id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
                 <option value="">Danh mục</option>
@@ -52,9 +52,6 @@ export function NewTicketForm({ activeFarmId, initialCategory = '', onSubmit, on
                 ))}
               </Select>
               <FieldError>{errors.category}</FieldError>
-            </Field>
-            <Field label="Trang trại áp dụng">
-              <div className="rounded-md border border-edge bg-page px-3 py-2.5 text-sm text-muted">Tự động gắn với trại bạn đang mở.</div>
             </Field>
           </div>
           <div>

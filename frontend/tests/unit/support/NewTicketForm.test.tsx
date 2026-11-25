@@ -11,6 +11,8 @@ describe('NewTicketForm (Owner ticket composer)', () => {
 
     expect(screen.getByRole('combobox', { name: 'Danh mục' })).toBeInTheDocument()
     expect(screen.queryByLabelText(/Trang trại liên quan/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Trang trại áp dụng')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tự động gắn với trại bạn đang mở.')).not.toBeInTheDocument()
     expect(screen.queryByText('Phạm vi *')).not.toBeInTheDocument()
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Danh mục' }), 'PAYMENT')
