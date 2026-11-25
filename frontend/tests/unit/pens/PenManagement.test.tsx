@@ -201,6 +201,25 @@ describe('Stop / Resume Pen popup', () => {
   })
 })
 
+describe('Edit Pen criteria version note (R-04-06)', () => {
+  it('warns about v{n+1} only when the criteria change', async () => {
+    const user = userEvent.setup()
+    render(<EditModal barn={existingPens[0]} barns={existingPens} onSave={vi.fn()} onClose={vi.fn()} today={TODAY} />)
+    expect(screen.getByText('Tiêu chí nhận bò · đang dùng v2 từ 01/09/2026')).toBeInTheDocument()
+    const [, name] = screen.getAllByRole('textbox')
+    await user.type(name, ' mới')
+    expect(screen.queryByText(/sẽ tạo phiên bản v3/)).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Xóa' })[0])
+    expect(screen.getByText(/Đổi tiêu chí sẽ tạo phiên bản v3/)).toBeInTheDocument()
+  })
+
+  it('keeping its own code is not a duplicate; another pen code is', () => {
+    const edit = { isNew: false, currentCode: 'A1', existingCodes: ['A1', 'B1'], headcount: 3 }
+    expect(validatePenForm(form({ code: 'A1' }), edit).code).toBeUndefined()
+    expect(validatePenForm(form({ code: 'b1' }), edit).code).toBe('Mã chuồng b1 đã tồn tại trong trại.')
+  })
+})
+
 describe('Pen detail (SCR-17)', () => {
   const detail = { ...existingPens[0], cattleInPen: [
     { id: 1, code: 'BC-1', situation: '', exitPending: false, hints: [{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }] },
@@ -225,6 +244,18 @@ describe('Pen detail (SCR-17)', () => {
     await user.click(screen.getByLabelText('Chọn BC-2'))
     await user.click(screen.getByRole('button', { name: /Chuyển các con đã chọn \(1\)/ }))
     expect(onMove).toHaveBeenCalledWith([expect.objectContaining({ code: 'BC-2', id: 2 })])
+  })
+
+  it('drops ticks of cattle that left the pen when the detail reloads after a move', async () => {
+    const user = userEvent.setup()
+    const props = { barn: existingPens[0], onEdit: vi.fn(), onToggle: vi.fn(), onMove: vi.fn(), onViewAll: vi.fn() }
+    const { rerender } = render(<BarnPanel {...props} detail={detail} />)
+    await user.click(screen.getByLabelText('Chọn BC-2'))
+    expect(screen.getByRole('button', { name: /Chuyển các con đã chọn \(1\)/ })).toBeEnabled()
+    rerender(<BarnPanel {...props} detail={{ ...detail, cattleInPen: [detail.cattleInPen[0]] }} />)
+    rerender(<BarnPanel {...props} detail={detail} />)
+    expect(screen.getByLabelText('Chọn BC-2')).not.toBeChecked()
+    expect(screen.getByRole('button', { name: /Chuyển các con đã chọn/ })).toBeDisabled()
   })
 
   it('TC-04-24: Technician sees no Edit, Stop, checkbox or Move action', () => {

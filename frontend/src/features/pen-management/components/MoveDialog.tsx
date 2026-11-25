@@ -4,7 +4,7 @@ import { Button, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Se
 import { penError } from '../api/penError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { penApi, type MoveCattle, type PenMember, type PenMoveCheckResult } from '../api/penApi'
-import { CRITERION_LABELS, dmy, PEN_STATUS_LABELS, STAGE_LABELS, todayIso, type CriterionType } from '../domain/penRules'
+import { CRITERION_LABELS, dmy, PEN_STATUS_LABELS, SEX_LABELS, STAGE_LABELS, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../types'
 import { usePenMove } from '../hooks/usePenMove'
@@ -88,6 +88,15 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
     : ''
   const reasonError = !reason.trim() ? 'Vui lòng nhập Lý do.' : reason.trim().length > 500 ? 'Lý do tối đa 500 ký tự.' : ''
   const missingWarnings = needWarning.filter((r) => !(warnings[r.cattleCode] ?? '').trim())
+  /** Copies the first filled warning reason into every still-empty warning reason (UX helper, never overwrites). */
+  const applySharedWarning = () => {
+    const shared = needWarning.map((r) => (warnings[r.cattleCode] ?? '').trim()).find(Boolean)
+    if (!shared) return
+    setWarnings((current) => ({
+      ...current,
+      ...Object.fromEntries(needWarning.filter((r) => !(current[r.cattleCode] ?? '').trim()).map((r) => [r.cattleCode, shared])),
+    }))
+  }
   const blockText = check?.blocked
     ? `${to?.code ?? ''} không nhận được ${check.movingCount} con: chuồng đã ngưng hoặc chỉ còn ${check.destinationActive ? check.freePlaces : 0} chỗ trống.`
     : ''
@@ -159,7 +168,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
         <tbody>{cattle.map((cow) => <tr key={cow.code}>
           <Td className={cx(TH, 'font-medium')}>{cow.code}</Td>
           <Td className={TH}>{cow.earTag ?? '—'}</Td>
-          <Td className={TH}>{cow.sex === 'MALE' ? 'Đực' : cow.sex === 'FEMALE' ? 'Cái' : cow.sex ?? '—'}</Td>
+          <Td className={TH}>{cow.sex ? (SEX_LABELS[cow.sex as keyof typeof SEX_LABELS] ?? cow.sex) : '—'}</Td>
           <Td className={TH}>{cow.lifeStage ? (STAGE_LABELS[cow.lifeStage as keyof typeof STAGE_LABELS] ?? cow.lifeStage) : '—'}</Td>
           <Td className={TH}>{cow.sinceDate ? dmy(cow.sinceDate) : '—'}</Td>
           <Td className={TH}>{cow.latestWeightKg == null ? '—' : `${cow.latestWeightKg} kg`}</Td>
@@ -186,7 +195,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
             </tr>
           })}</tbody>
         </Table>
-        {needWarning.length >= 2 && <Button small variant="link" onClick={() => { const value = warnings[needWarning.find((r) => (warnings[r.cattleCode] ?? '').trim())?.cattleCode ?? ''] ?? ''; if (value.trim()) setWarnings((current) => Object.fromEntries(needWarning.map((r) => [r.cattleCode, (current[r.cattleCode] ?? '').trim() ? current[r.cattleCode] : value])) ) }}>Dùng chung lý do cho các con không đạt</Button>}
+        {needWarning.length >= 2 && <Button small variant="link" onClick={applySharedWarning}>Dùng chung lý do cho các con không đạt</Button>}
       </>}
 
       <ModalFooter>

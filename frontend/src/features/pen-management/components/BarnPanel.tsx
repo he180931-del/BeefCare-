@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge, Button, Checkbox, Icon, KV, Note, Table, Td, Th } from '../../../shared/ui'
 import { criteriaOf, criteriaRows, dmy, PEN_STATUS_LABELS, situationText } from '../domain/penRules'
 import { Box, TH } from './parts'
@@ -12,6 +12,10 @@ export default function BarnPanel({ barn, detail, detailError, onRetry, loading 
   const shown = detail ?? barn
   const cattle = detail?.cattleInPen ?? []
   const [selected, setSelected] = useState<string[]>([])
+  // A reloaded detail (e.g. after a move) drops ticks of cattle that are no longer in this pen.
+  useEffect(() => {
+    setSelected((current) => current.filter((code) => cattle.some((c) => c.code === code)))
+  }, [detail])
   const rows = criteriaRows(criteriaOf(shown))
   const versionNo = shown.criteriaVersionNo
   const versionText = versionNo != null

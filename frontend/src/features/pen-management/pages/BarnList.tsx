@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -67,15 +67,13 @@ export default function BarnList() {
     setParams(next)
   }
 
-  const selectBarn = (code: string) => updateParams({ barn: code })
-
-  useEffect(() => {
-    if (selected && selected.code !== params.get('barn')) updateParams({ barn: selected.code })
-  }, [selected?.code])
-
-  useEffect(() => {
-    if (selected && typeof window !== 'undefined' && window.innerWidth < 880) detailRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  }, [selected?.code])
+  // The URL only changes on a user choice or after a save; a filtered-out `?barn=` falls back to the first visible pen
+  // without rewriting the URL, so a refetch that still holds the old list cannot overwrite the pen just saved.
+  const selectBarn = (code: string) => {
+    updateParams({ barn: code })
+    // Narrow screens stack the detail below the list: bring it into view after a click (never on page load).
+    if (typeof window !== 'undefined' && window.innerWidth < 880) detailRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }
 
   const savePen = async (pen: Pen, isNew: boolean) => {
     setNotice(null)
@@ -84,7 +82,7 @@ export default function BarnList() {
     } catch {
       return // lỗi hiện trong popup
     }
-    refetch()
+    await refetch()
     setNotice(`Đã lưu chuồng ${pen.code}.`)
     updateParams({ barn: pen.code, m: null })
   }
@@ -107,7 +105,8 @@ export default function BarnList() {
     if (!selected) return
     // Backend pens filter by id; demo pens have no id and filter by code.
     const pen = selected.id != null ? String(selected.id) : selected.code
-    navigate(`${technician ? '/kt/dan-bo' : '/cattle'}?pen=${encodeURIComponent(pen)}`)
+    // Technician herd (/kt/dan-bo) does not read `pen` yet, so the link stays hidden for Technician (onViewAll below).
+    navigate(`/cattle?pen=${encodeURIComponent(pen)}`)
   }
 
   const content = (

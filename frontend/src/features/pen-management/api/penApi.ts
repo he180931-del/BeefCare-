@@ -216,8 +216,8 @@ const backendApi = {
     return (Array.isArray(response) ? asRows(response) : asRows(body.pens)).map(mapBackendPen)
   },
   listPenMembers: async (): Promise<PenMember[]> => {
-    const body = asRecord(await backendTransport.get(backendTransport.farmPath(activeFarmId, '/members')))
-    return asRows(body.items).filter((row) => textValue(row.status) === 'ACTIVE').map(mapPenMember)
+    // GET /members returns a bare List<MemberView>; performedBy is the member's app-user id (PenMoveService.performer).
+    return asRows(await backendTransport.get(backendTransport.farmPath(activeFarmId, '/members'))).filter((row) => textValue(row.status) === 'ACTIVE').map(mapPenMember)
   },
   detail: async (pen: Pen): Promise<PenDetail> => {
     if (pen.id == null) return { ...pen, cattleInPen: [] }
