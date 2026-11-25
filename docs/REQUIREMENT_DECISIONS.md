@@ -1118,3 +1118,15 @@ TuanPQ: ghi trực tiếp hay ghi bù từ sổ tay thì ý nghĩa vẫn là lư
 3. Bảng còn 6 cột: Bò (dòng phụ giống · giới tính · tuổi), Chuồng, Mục đích · Giai đoạn, Cân gần nhất (dòng phụ ngày cân), Tình trạng, Sinh sản. Trạng thái đàn chỉ hiện khi khác Đang nuôi (Chờ xuất, Đã xuất, Đã hủy).
 4. Màu chỉ bật khi có chuyện: "Khỏe" là chữ xám; Sinh sản "Không áp dụng" để trống; vạch đầu dòng đỏ khi đang điều trị, vàng khi theo dõi / cách ly thịt / chờ xuất. Đang điều trị luôn đỏ kể cả khi nhãn gộp với ngưng thịt.
 5. Cả dòng bấm được (chuột, Enter / Space) mở hồ sơ bò; 10 con mỗi trang, theo `size` máy chủ trả về nếu có.
+
+### D76 — FE-06: popup Thêm / Sửa con nhập thành tiền, chọn năm sinh, chỉ tên vaccine (25/11/2026)
+
+An chốt, điều chỉnh D63 cho popup thêm / sửa con của phiếu mua ngoài (SCR-24):
+
+1. Phiếu mới mặc định **Theo con**; popup chỉ có ô **Thành tiền (đ)** của con đó, lưu vào `unitPrice` với `pricingBasis = PER_HEAD` như trước. Bảng dòng bò không hiện cột đơn giá khi tính theo con. Nút **Theo kg** vẫn giữ (GBR-91/92): theo kg vẫn nhập đơn giá (đ/kg) và thành tiền chỉ đọc. Nháp / phiếu cũ giữ cách tính đã lưu. Không suy ngược đơn giá từ thành tiền vì `unitPrice` là số nguyên VND.
+2. **Tháng sinh (ước tính)** chọn bằng hai ô **Năm** (năm nhập lùi 20 năm, khớp tuổi tối đa 240 tháng) và **Tháng** (tháng sau tháng nhập bị khóa trong năm nhập). Đủ cả hai → `YYYY-MM-01` / ESTIMATED; trống cả hai → UNKNOWN; chỉ chọn một trong hai → chặn lưu "Chọn đủ tháng và năm sinh, hoặc để trống cả hai.". Xóa tháng sinh không xóa giai đoạn đã chọn.
+3. Chi tiết tiêm phòng trước nhập đàn còn một ô **Tên vaccine** (gợi ý tên vaccine ACTIVE của danh mục, không hiện mã); tên trùng danh mục (không phân biệt hoa thường) gửi kèm `vaccineId`, còn lại là chữ tự do `vaccineName` — đúng §3.3 "vắc-xin ACTIVE hoặc chữ tự do".
+
+4. Bảng **Danh sách bò trong phiếu** chưa có con nào hiện một dòng **Trống** và ẩn dòng tổng.
+
+Không đổi backend, OpenAPI, migration hay nhập Excel.

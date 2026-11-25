@@ -83,6 +83,10 @@ describe('purchase entry page in backend mode', () => {
     const first = render(<MemoryRouter initialEntries={['/herd-entry/new']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
 
     await screen.findByDisplayValue('Mua ngoài')
+    // D76: a new voucher is priced per head, so the line table has no unit-price column; no line yet shows "Trống".
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('cell', { name: 'Trống' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Đơn giá/kg' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
     await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
@@ -97,7 +101,7 @@ describe('purchase entry page in backend mode', () => {
     const amount = dialog.querySelector('#entry-cow-unit-price') as HTMLInputElement
     await user.clear(amount)
     await user.type(amount, '85000')
-    await user.selectOptions(comboBoxes[3], 'B1')
+    await user.selectOptions(dialog.querySelector('#entry-cow-barn') as HTMLSelectElement, 'B1')
     const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
     await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
     await user.selectOptions(selectWith('Vỗ béo · Vỗ béo'), '31')

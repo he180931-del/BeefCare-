@@ -322,7 +322,7 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     const row = state.details['PN-2026-0041']
     row.draft = { ...row.draft, pricing: 'con', receiver: 'An', cows: [{ ...cow, pricing: 'kg', unitPrice: 8_500_000, weight: 0, weightBasis: null }] }
     renderPage('/herd-entry/new?id=PN-2026-0041&m=row-1')
-    expect(await screen.findByText('Theo con – áp cho cả phiếu')).toBeInTheDocument()
+    expect(await screen.findByText('Số tiền mua con này')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     await user.click(screen.getByRole('button', { name: /Lưu.*tạo hồ sơ/ }))
     await waitFor(() => expect(state.saved).toHaveLength(1))
