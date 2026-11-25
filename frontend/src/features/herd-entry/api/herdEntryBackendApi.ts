@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineNotice, EntryLineVoidCheck, EntryLineVoidInput, EntryPayment, HerdEntry } from '../types'
+import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineNotice, EntryLineVoidCheck, EntryLineVoidInput, EntryPayment, EntryVoidOutcome, EntryVoucherVoidCheck, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
@@ -50,6 +50,15 @@ const lineNotice = (value: unknown): EntryLineNotice | null => {
   const row = asRecord(value)
   return { code: textValue(row.code), params: asRecord(row.params), message: textValue(row.message) }
 }
+const voidCheckRow = (value: unknown): EntryLineVoidCheck => {
+  const row = asRecord(value)
+  return {
+    entryId: nullableNumber(row.entryId) ?? undefined, lineNo: nullableNumber(row.lineNo) ?? undefined,
+    cattleId: nullableNumber(row.cattleId) ?? undefined, cattleCode: textValue(row.cattleCode),
+    eventsAfterEntry: Array.isArray(row.eventsAfterEntry) ? row.eventsAfterEntry.map(item => textValue(item)).filter(Boolean) : [],
+    canVoid: row.canVoid === true, reason: textValue(row.reason) || null,
+  }
+}
 const lineResult = (value: unknown): EntryLineCommandResult => {
   const row = asRecord(value)
   return { notice: lineNotice(row.notice), overpaidNotice: lineNotice(row.overpaidNotice) }
@@ -87,15 +96,7 @@ const fileDigest = async (file: File): Promise<string> => {
 export function createHerdEntryBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number | null }) {
   const root = transport.farmPath(farmId, '/entry-vouchers')
   const entryPath = (entryId: number) => transport.farmPath(farmId, `/herd-entries/${entryId}`)
-  const entryVoidCheck = async (entryId: number): Promise<EntryLineVoidCheck> => {
-    const row = asRecord(await transport.get(`${entryPath(entryId)}/void-check`))
-    return {
-      entryId: nullableNumber(row.entryId) ?? undefined, lineNo: nullableNumber(row.lineNo) ?? undefined,
-      cattleId: nullableNumber(row.cattleId) ?? undefined, cattleCode: textValue(row.cattleCode),
-      eventsAfterEntry: Array.isArray(row.eventsAfterEntry) ? row.eventsAfterEntry.map(item => textValue(item)).filter(Boolean) : [],
-      canVoid: row.canVoid === true, reason: textValue(row.reason) || null,
-    }
-  }
+  const entryVoidCheck = async (entryId: number): Promise<EntryLineVoidCheck> => voidCheckRow(await transport.get(`${entryPath(entryId)}/void-check`))
   const voidEntryLine = async (entryId: number, input: EntryLineVoidInput): Promise<EntryLineCommandResult> => {
     const body = { reason: input.reason.trim(), expectedVersion: requireVersion(input.expectedVersion) }
     return lineResult(await transport.command(`${entryPath(entryId)}/void`, body, {
@@ -274,11 +275,23 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     result.detail = { ...result.detail, docs: mergeDocuments(persistedDocuments, detail.docs, mapDocuments(uploadedDocuments, root, voucherId)) }
     return result
   }
-  const voidVoucher = async (code: string, { reason, expectedVersion, backendId }: VoucherSnapshot & { reason: string }): Promise<HerdEntry> => {
+  // GET …/entry-vouchers/{id}/void-check: per cattle the events after entry (R-06-15, popup Hủy phiếu #2).
+  const voucherVoidCheck = async (code: string, backendId?: number): Promise<EntryVoucherVoidCheck> => {
+    const current = await resolve(code, backendId)
+    const body = asRecord(await transport.get(`${root}/${current.backendId}/void-check`))
+    return {
+      canVoid: body.canVoid === true, paid: numberValue(body.paid), rows: asRows(body.rows).map(voidCheckRow),
+      confirm: lineNotice(body.confirm), blocked: lineNotice(body.blocked),
+    }
+  }
+  const voidVoucher = async (code: string, { reason, expectedVersion, backendId }: VoucherSnapshot & { reason: string }): Promise<EntryVoidOutcome> => {
     const version = requireVersion(expectedVersion)
     const current = await resolve(code, backendId)
-    const result = await transport.command(`${root}/${current.backendId}/void`, { reason, expectedVersion: version })
-    return mapVoucher(unwrapVoucher(result))
+    const body = { reason, expectedVersion: version }
+    const result = asRecord(await transport.command(`${root}/${current.backendId}/void`, body, { key: requestKey('entry-void', { voucherId: current.backendId, ...body }) }))
+    const record = mapVoucher(unwrapVoucher(result))
+    // MSG-FE06-22 from EntryDtos.VoidResult.notice; the spec text is the fallback.
+    return { record, notice: lineNotice(result.notice)?.message || `Đã hủy phiếu ${record.id || code}.` }
   }
   const recordPayment = async (code: string, payment: PaymentInput, snapshot: VoucherPaymentSnapshot): Promise<HerdEntry> => {
     const version = requireVersion(snapshot?.voucherVersion)
@@ -317,5 +330,5 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   const purposes = async (): Promise<EntryPurposeOption[]> => asRows(await transport.get(transport.farmPath(farmId, '/catalogues/production-purposes'))).map(row => ({
     id: numberValue(row.id), name: textValue(row.name), purposeType: textValue(row.purposeType), available: row.available !== false && row.status !== 'INACTIVE',
   })).filter(row => row.id > 0 && row.available)
-  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, sellers, vaccines, breeds, purposes, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
+  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, sellers, vaccines, breeds, purposes, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voucherVoidCheck, voidEntryLine, correctEntryLine }
 }

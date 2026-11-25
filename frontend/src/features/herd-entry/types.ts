@@ -22,6 +22,8 @@ export interface EntryCattleDetail {
   weight?: number | null
   amount?: number
   current?: string
+  /** Line.currentHerdStatus (ACTIVE, EXITED, VOIDED…); SCR-75 #7 offers corrections only for ACTIVE cattle. */
+  herdStatus?: string
   name?: string
   dob?: string
   dobAccuracy?: string
@@ -162,6 +164,17 @@ export interface HerdEntry {
   cancelReason?: string
   pricing?: 'kg' | 'con'
   quarantine?: string
+  /** SCR-23 #14: dams of the calves of a farm-born voucher. */
+  damCodes?: string[]
+  /** SCR-23 #15: cattle whose entry weight is estimated. */
+  estimatedWeightCount?: number
+  /** SCR-75 #2: actors (full names) and instants of create / post / void. */
+  createdBy?: string
+  createdAt?: string
+  postedBy?: string
+  postedAt?: string
+  voidedBy?: string
+  voidedAt?: string
   [key: string]: unknown
 }
 
@@ -196,5 +209,14 @@ export type EntryLineVoidCheck = {
   canVoid: boolean
   reason: string | null
 }
+/** GET …/entry-vouchers/{id}/void-check (EntryDtos.VoidCheck). */
+export type EntryVoucherVoidCheck = {
+  canVoid: boolean
+  paid: number
+  rows: EntryLineVoidCheck[]
+  confirm: EntryLineNotice | null
+  blocked: EntryLineNotice | null
+}
+export type EntryVoidOutcome = { record: HerdEntry; notice: string }
 export type EntryLineNotice = { code: string; params: Record<string, unknown>; message: string }
 export type EntryLineCommandResult = { notice: EntryLineNotice | null; overpaidNotice: EntryLineNotice | null }

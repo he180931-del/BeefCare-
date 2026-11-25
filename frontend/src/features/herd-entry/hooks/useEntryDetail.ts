@@ -3,30 +3,35 @@ import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import type { CattleInput } from '../../cattle'
-import type { EntryDetail, EntryPayment, HerdEntry } from '../types'
+import type { EntryDetail, EntryPayment, EntryVoidOutcome, HerdEntry } from '../types'
 import { herdEntryError } from '../api/herdEntryError'
 import type { VoucherPaymentSnapshot, VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 import { entryPaymentTotals } from '../domain/entryPaymentTotals'
+import { money } from '../../../shared/lib/format'
 
 export function useEntryDetail(recordId: string) {
   const [documentError, setDocumentError] = useState<string | null>(null)
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
   const payment = useMutation<{ recordId: string; payment: EntryPayment & { note?: string }; snapshot: VoucherPaymentSnapshot }, HerdEntry>(({ recordId: targetId, payment: value, snapshot }) => herdEntryApi.recordPayment(targetId, value, snapshot))
-  const cancellation = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry>; snapshot: VoucherSnapshot }, HerdEntry>(({ recordId: targetId, cattleRows, patch, snapshot }) => voidHerdEntry(targetId, cattleRows, patch, snapshot))
+  const cancellation = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry>; snapshot: VoucherSnapshot }, EntryVoidOutcome>(({ recordId: targetId, cattleRows, patch, snapshot }) => voidHerdEntry(targetId, cattleRows, patch, snapshot))
   const record = query.data
   const detail: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...record?.detail }
   const canPay = Boolean(record && entryPaymentTotals(record).outstanding > 0 && record.status === 'Đã nhập')
   const canCancel = Boolean(record && record.status === 'Đã nhập' && detail.cows?.length)
 
-  const savePayment = async (value: EntryPayment) => {
-    if (!record) return
+  /** Records a payment and returns MSG-FE06-14 with the outstanding amount of the reloaded voucher. */
+  const savePayment = async (value: EntryPayment): Promise<string | undefined> => {
+    if (!record) return undefined
     await payment.mutate({ recordId: record.id, payment: value, snapshot: { voucherVersion: record.version, backendId: record.backendId } })
-    await query.refetch()
+    const latest = await query.refetch()
+    if (!latest) return undefined
+    return `Đã ghi ${money(value.amount)} đ cho ${latest.id}. Còn lại: ${money(entryPaymentTotals(latest).outstanding)} đ.`
   }
 
-  const cancelRecord = async (reason: string) => {
-    if (!record) return
-    await cancellation.mutate({
+  /** Voids the whole voucher and returns MSG-FE06-22. */
+  const cancelRecord = async (reason: string): Promise<string | undefined> => {
+    if (!record) return undefined
+    const outcome = await cancellation.mutate({
       recordId: record.id,
       snapshot: { expectedVersion: record.version, backendId: record.backendId },
       cattleRows: detail.cows ?? [],
@@ -38,6 +43,7 @@ export function useEntryDetail(recordId: string) {
       },
     })
     await query.refetch()
+    return outcome.notice
   }
 
   const viewDocument = async (index: number) => {
