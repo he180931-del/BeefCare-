@@ -4,6 +4,11 @@ import { formatEntryHistoryItem } from '../domain/entryVoucherHistory'
 import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Entry voucher DTO ↔ screen model mapping (EntryVoucherResource, PendingCalfResource), moved out of herdEntryBackendApi.ts.
+/** Line.currentHerdStatus → SCR-75 "Hiện tại" label; draft lines have no cattle yet. */
+const CURRENT_HERD_STATUS_LABELS: Record<string, string> = { ACTIVE: 'Đang nuôi', EXITED: 'Đã xuất', VOIDED: 'Đã hủy' }
+const currentStatusLabel = (herdStatus: string, voucherStatus: string) =>
+  CURRENT_HERD_STATUS_LABELS[herdStatus] ?? (herdStatus || (voucherStatus === 'Đã nhập' ? 'Đang nuôi' : 'Nháp'))
+
 export const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
 export const typeFromBackend = (type: unknown): EntryType => type === 'FARM_BORN' ? 'Bê sinh tại trại' : 'Mua ngoài'
 export const entryType = (type: unknown) => type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE'
@@ -102,7 +107,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         herdStatus: textValue(line.currentHerdStatus) || undefined,
-        weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
+        weight, barn: textValue(line.penCode), current: [currentStatusLabel(textValue(line.currentHerdStatus), statusFromBackend(row.status)), textValue(line.currentPenCode ?? (textValue(line.currentHerdStatus, 'ACTIVE') === 'ACTIVE' ? line.penCode : ''))].filter(Boolean).join(' · '),
         amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice, hist: mapEntryHistory(line),
       }
     }),

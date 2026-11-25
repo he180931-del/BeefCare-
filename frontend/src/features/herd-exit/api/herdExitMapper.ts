@@ -2,6 +2,7 @@ import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../
 import type { ExitCommandOutcome, ExitDetail, ExitDraft, ExitHistoryEntry, ExitListResult, ExitPayment, ExitReviewItem, ExitStatus, ExitStatusCountKey, ExitType, ExitVoidOutcome, HerdExit, LossKind } from '../types'
 import type { ExitChecks, ExitVoidCheck } from './herdExitBackendApi'
 import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
+import { money } from '../../../shared/lib/format'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
 export const LIFE_STAGE_LABELS: Record<string, string> = {
@@ -97,8 +98,34 @@ const weightBasis = (basis: unknown, estimated: unknown): 'MEASURED' | 'ESTIMATE
 const refLabel = (value: unknown) => typeof value === 'string' ? value : textValue(asRecord(value).label)
 
 /** Voucher history keeps the server's time and actor (SCR-76 #7); entries without text fall back to the event type. */
+const PAYMENT_METHOD_LABELS: Record<string, string> = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' }
+const withReason = (text: string, reason: unknown) => {
+  const value = textValue(reason)
+  return value && value !== 'null' ? `${text} – lý do: ${value}` : text
+}
+
+/** HistoryEvent.type + data → Vietnamese line; the backend `text` is an English fallback only for unknown types (SCR-76 #7). */
+const historyText = (type: string, data: Record<string, unknown>, fallback: string): string => {
+  const amount = () => `${money(numberValue(data.amount))} đ`
+  const method = PAYMENT_METHOD_LABELS[textValue(data.method)]
+  switch (type) {
+    case 'CREATED': return 'Tạo phiếu'
+    case 'CONFIRMED': return 'Xác nhận xuất đàn'
+    case 'ITEMS_CANCELLED': return `Hủy ${numberValue(data.doses)} mũi tiêm và ${numberValue(data.reminders)} nhắc việc sau ngày xuất`
+    case 'COLLECTION_RECORDED': return `Ghi thu ${amount()}${method ? ` (${method})` : ''}`
+    case 'COLLECTION_VOIDED': return withReason(`Hủy khoản thu ${amount()}`, data.reason)
+    case 'VOIDED': return withReason('Hủy phiếu', data.reason)
+    case 'DISMISSED': return withReason('Bác đề xuất', data.reason)
+    default: return fallback
+  }
+}
+
 export const mapHistory = (value: unknown): ExitHistoryEntry[] => asRows(value)
-  .map((item) => ({ time: textValue(item.time), type: textValue(item.type), actor: textValue(item.actor), text: textValue(item.text ?? item.type) }))
+  .map((item) => {
+    const type = textValue(item.type)
+    const actor = textValue(item.actor)
+    return { time: textValue(item.time), type, actor: actor === 'system' ? 'Hệ thống' : actor, text: historyText(type, asRecord(item.data), textValue(item.text ?? item.type)) }
+  })
   .filter((item) => item.text)
 
 const BACKEND_TYPES: Record<string, ExitType> = { SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết / mất', OTHER: 'Khác' }
@@ -182,7 +209,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     type: typeFromBackend(row.exitType, isLoss), date: textValue(row.exitDate), buyerId: buyer.id == null ? '' : String(buyer.id),
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate),
     ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind, deathCause: textValue(row.deathCause), carcassDisposal: textValue(row.carcassDisposal) } : {}),
-    note: textValue(row.exitType === 'OTHER' && !isLoss ? row.destination ?? row.note : isLoss ? row.deathCause ?? row.note : row.note),
+    ...(row.exitType === 'OTHER' && !isLoss ? { destination: textValue(row.destination) } : {}),
+    note: textValue(isLoss ? row.deathCause ?? row.note : row.note),
     pricing: row.pricingBasis === 'PER_HEAD' ? 'con' : 'kg', deduction: numberValue(row.deductions), collected: numberValue(row.depositCollected ?? row.amountCollected),
     ...(row.paymentMethod == null ? {} : { method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản' }),
     ...(textValue(row.collectionDueDate) ? { dueDate: textValue(row.collectionDueDate) } : {}),

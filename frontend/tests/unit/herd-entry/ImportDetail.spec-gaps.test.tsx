@@ -19,7 +19,7 @@ const posted: HerdEntry = {
   id: 'PN-2026-0041', backendId: 41, version: 3, date: '2026-10-29', type: 'Mua ngoài', entryType: 'PURCHASE', status: 'Đã nhập', source: 'Trại Mộc Châu', count: 2,
   total: 10000000, paid: 0, debt: 10000000, createdBy: 'Nguyễn A', createdAt: '2026-10-29T01:00:00Z', postedBy: 'Trần B', postedAt: '2026-10-29T02:30:00Z',
   detail: { sourceName: 'Trại Mộc Châu', payments: [], docs: [], history: ['29/10/2026 09:30 · Trần B · Ghi sổ, tạo 2 con: BC-1, BC-2'], cows: [
-    { entryId: 1, lineStatus: 'VALID', herdStatus: 'ACTIVE', code: 'BC-1', tag: 'VN1', barn: 'A1', weight: 300, weightBasis: 'ESTIMATED', current: 'ACTIVE · A1' },
+    { entryId: 1, lineStatus: 'VALID', herdStatus: 'ACTIVE', code: 'BC-1', tag: 'VN1', barn: 'A1', weight: 300, weightBasis: 'ESTIMATED', current: 'Đang nuôi · A1' },
     { entryId: 2, lineStatus: 'VALID', herdStatus: 'EXITED', code: 'BC-2', tag: 'VN2', barn: 'A1', weight: 310, weightBasis: 'MEASURED', current: 'EXITED · A1' },
   ] },
 }
