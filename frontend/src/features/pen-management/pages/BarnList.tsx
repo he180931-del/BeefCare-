@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -13,7 +13,7 @@ import EditModal from '../components/EditModal'
 import DisableModal from '../components/DisableModal'
 import MoveDialog from '../components/MoveDialog'
 import { cx } from '../components/parts'
-import { headerSummary } from '../domain/penRules'
+import { headerSummary, PEN_STATUS_LABELS } from '../domain/penRules'
 import type { Pen, PenStatus } from '../types'
 import { usePenCommands } from '../hooks/usePenCommands'
 import { usePenDetail, usePenList } from '../hooks/usePenList'
@@ -21,8 +21,8 @@ import { usePenDetail, usePenList } from '../hooks/usePenList'
 const ALL_STATUS = 'all'
 const STATUS_OPTIONS = [
   [ALL_STATUS, 'Trạng thái: Tất cả'],
-  ['ACTIVE', 'ACTIVE'],
-  ['INACTIVE', 'INACTIVE'],
+  ['ACTIVE', PEN_STATUS_LABELS.ACTIVE],
+  ['INACTIVE', PEN_STATUS_LABELS.INACTIVE],
 ] as const
 
 // Bỏ dấu, đổi thường để tìm không phân biệt hoa/thường và dấu
@@ -41,9 +41,15 @@ export default function BarnList() {
   const [statusFilter, setStatusFilter] = useState(ALL_STATUS)
   const [notice, setNotice] = useState<string | null>(null)
   const [moving, setMoving] = useState<PenCattle[] | null>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   const { data, loading, error: loadError, refetch, pens: barns } = usePenList()
-  const { data: detail, loading: detailLoading, refetch: refetchDetail } = usePenDetail(barns.find((b) => b.code === params.get('barn')) ?? barns[0])
+  const visibleBarns = useMemo(() => {
+    const key = normalize(query.trim())
+    return barns.filter((b) => (statusFilter === ALL_STATUS || b.status === statusFilter) && (!key || normalize(b.code).includes(key) || normalize(b.name).includes(key)))
+  }, [barns, query, statusFilter])
+  const selected = visibleBarns.find((b) => b.code === params.get('barn')) ?? visibleBarns[0]
+  const { data: detail, loading: detailLoading, error: detailError, refetch: refetchDetail } = usePenDetail(selected)
   const {
     createPen,
     creating,
@@ -55,8 +61,6 @@ export default function BarnList() {
     changingAvailability,
     availabilityError,
   } = usePenCommands()
-  const selected = barns.find((b) => b.code === params.get('barn')) ?? barns[0]
-
   const updateParams = (changes: Record<string, string | null | undefined>) => {
     const next = new URLSearchParams(params)
     Object.entries(changes).forEach(([key, value]) => (value == null ? next.delete(key) : next.set(key, value)))
@@ -65,11 +69,18 @@ export default function BarnList() {
 
   const selectBarn = (code: string) => updateParams({ barn: code })
 
-  const savePen = async (pen: Pen) => {
+  useEffect(() => {
+    if (selected && selected.code !== params.get('barn')) updateParams({ barn: selected.code })
+  }, [selected?.code])
+
+  useEffect(() => {
+    if (selected && typeof window !== 'undefined' && window.innerWidth < 880) detailRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [selected?.code])
+
+  const savePen = async (pen: Pen, isNew: boolean) => {
     setNotice(null)
-    const exists = barns.some((b) => b.code === pen.code)
     try {
-      await (exists ? updatePen(pen) : createPen(pen))
+      await (isNew ? createPen(pen) : updatePen(pen))
     } catch {
       return // lỗi hiện trong popup
     }
@@ -87,25 +98,16 @@ export default function BarnList() {
       return // lỗi hiện trong popup
     }
     refetch()
-    setNotice(`Chuồng ${selected.code} hiện là ${status}. Bò đang ở trong chuồng giữ nguyên.`)
+    setNotice(`Chuồng ${selected.code} hiện là ${PEN_STATUS_LABELS[status]}. Bò đang ở trong chuồng giữ nguyên.`)
     updateParams({ m: null })
   }
-
-  const visibleBarns = useMemo(() => {
-    const key = normalize(query.trim())
-    return barns.filter(
-      (b) =>
-        (statusFilter === ALL_STATUS || b.status === statusFilter) &&
-        (!key || normalize(b.code).includes(key) || normalize(b.name).includes(key)),
-    )
-  }, [barns, query, statusFilter])
 
   const header = headerSummary(barns)
   const viewAll = () => {
     if (!selected) return
     // Backend pens filter by id; demo pens have no id and filter by code.
     const pen = selected.id != null ? String(selected.id) : selected.code
-    navigate(`/cattle?pen=${encodeURIComponent(pen)}`)
+    navigate(`${technician ? '/kt/dan-bo' : '/cattle'}?pen=${encodeURIComponent(pen)}`)
   }
 
   const content = (
@@ -142,12 +144,14 @@ export default function BarnList() {
             emptyText={barns.length === 0 ? 'Trại chưa có chuồng.' : 'Không có kết quả phù hợp.'}
           />
         </div>
-        <div className="min-w-0">
+        <div ref={detailRef} className="min-w-0">
           {selected && (
             <BarnPanel
               key={selected.code}
               barn={selected}
               detail={detail}
+              detailError={detailError}
+              onRetry={refetchDetail}
               loading={detailLoading}
               canManage={canManage}
               onEdit={() => openModal('edit')}

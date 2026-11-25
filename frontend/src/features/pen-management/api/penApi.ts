@@ -5,7 +5,7 @@ import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import type { Pen } from '../types'
-import type { ReceptionCriteria } from '../domain/penRules'
+import { PURPOSE_LABELS, STAGE_LABELS, SEX_LABELS, type ReceptionCriteria } from '../domain/penRules'
 import { demo } from '../../../demo/demoModules'
 
 
@@ -19,8 +19,8 @@ const normalize = (pen: Pen): Pen => ({
 type BackendHint = { code?: string; params?: Record<string, unknown> }
 type BackendPen = {
   id?: number; code?: string; name?: string; capacity?: number; description?: string
-  status?: string; headcount?: number; acceptsSummary?: string; version?: number
-  cattle?: Array<{ id?: number; version?: number; code?: string; exitPending?: boolean; hints?: BackendHint[] }>
+  status?: string; headcount?: number; freePlaces?: number; acceptsSummary?: string; version?: number
+  cattle?: Array<{ id?: number; version?: number; code?: string; earTagNumber?: string | null; sex?: string | null; lifeStage?: string | null; sinceDate?: string | null; latestWeightKg?: number | null; exitPending?: boolean; hints?: BackendHint[] }>
   currentCriteria?: {
     versionNo?: number; effectiveFrom?: string
     purposeTypes?: string[]; lifeStages?: string[]; sex?: string; minAgeMonths?: number; minWeightKg?: number
@@ -32,23 +32,9 @@ type BackendPen = {
 // Vietnamese labels. Never send those labels back to Jackson: a label such as
 // "Sinh sản" is not a valid PurposeType and results in a 400 before the
 // controller can run its normal validation.
-const PURPOSE_LABELS: Record<string, string> = {
-  BREEDING: 'Sinh sản',
-  FATTENING: 'Vỗ béo',
-  SIRE: 'Đực giống',
-  UNDECIDED: 'Chưa xác định',
-}
-const STAGE_LABELS: Record<string, string> = {
-  UNWEANED_CALF: 'Bê theo mẹ',
-  WEANED_CALF: 'Bê cai sữa',
-  YOUNG_STOCK: 'Bò tơ',
-  ADULT: 'Bò trưởng thành',
-}
-const SEX_LABELS: Record<string, string> = {
-  MALE: 'Đực',
-  FEMALE: 'Cái',
-  BOTH: 'Cả hai',
-}
+const PURPOSE_LABELS_BY_CODE: Record<string, string> = PURPOSE_LABELS
+const STAGE_LABELS_BY_CODE: Record<string, string> = STAGE_LABELS
+const SEX_LABELS_BY_CODE: Record<string, string> = { ...SEX_LABELS, BOTH: 'Cả hai' }
 const PURPOSE_CODES: Record<string, string> = {
   'Sinh sản': 'BREEDING',
   'Nuôi thương phẩm': 'FATTENING',
@@ -76,9 +62,9 @@ const STAGE_CODES: Record<string, string> = {
  */
 const criteriaFromSummary = (summary: string) => {
   const tokens = summary.split('|').flatMap((token) => token.split('/')).map((token) => token.trim()).filter(Boolean)
-  const purposeTypes = tokens.filter((token) => Object.prototype.hasOwnProperty.call(PURPOSE_LABELS, token))
-  const lifeStages = tokens.filter((token) => Object.prototype.hasOwnProperty.call(STAGE_LABELS, token))
-  const sex = tokens.find((token) => Object.prototype.hasOwnProperty.call(SEX_LABELS, token))
+  const purposeTypes = tokens.filter((token) => Object.prototype.hasOwnProperty.call(PURPOSE_LABELS_BY_CODE, token))
+  const lifeStages = tokens.filter((token) => Object.prototype.hasOwnProperty.call(STAGE_LABELS_BY_CODE, token))
+  const sex = tokens.find((token) => Object.prototype.hasOwnProperty.call(SEX_LABELS_BY_CODE, token))
   const age = summary.match(/age\s*>=\s*(\d+)\s*months?/i)
   const weight = summary.match(/weight\s*>=\s*([\d.]+)\s*kg/i)
   return {
@@ -104,9 +90,9 @@ export const mapBackendPen = (value: unknown): Pen => {
     minAgeMonths: nestedCriteria.minAgeMonths ?? summaryCriteria.minAgeMonths,
     minWeightKg: nestedCriteria.minWeightKg ?? summaryCriteria.minWeightKg,
   }
-  const mappedPurpose = criteria.purposeTypes?.map((value) => PURPOSE_LABELS[value] ?? value).join(', ') ?? ''
-  const mappedStage = criteria.lifeStages?.map((value) => STAGE_LABELS[value] ?? value).join(', ') ?? ''
-  const mappedSex = SEX_LABELS[textValue(criteria.sex)] ?? textValue(criteria.sex)
+  const mappedPurpose = criteria.purposeTypes?.map((value) => PURPOSE_LABELS_BY_CODE[value] ?? value).join(', ') ?? ''
+  const mappedStage = criteria.lifeStages?.map((value) => STAGE_LABELS_BY_CODE[value] ?? value).join(', ') ?? ''
+  const mappedSex = SEX_LABELS_BY_CODE[textValue(criteria.sex)] ?? textValue(criteria.sex)
   const mappedThresholds = [
     criteria.minAgeMonths == null ? '' : `tuổi ≥ ${criteria.minAgeMonths} tháng`,
     criteria.minWeightKg == null ? '' : `cân ≥ ${criteria.minWeightKg} kg`,
@@ -114,7 +100,7 @@ export const mapBackendPen = (value: unknown): Pen => {
   const mappedAccept = [mappedPurpose, mappedStage, mappedSex, mappedThresholds].filter(Boolean).join(' | ')
   return {
     id: numberValue(row.id), code: textValue(row.code), name: textValue(row.name, textValue(row.code)),
-    count: numberValue(row.headcount), capacity: numberValue(row.capacity),
+    count: numberValue(row.headcount), capacity: numberValue(row.capacity), freePlaces: typeof row.freePlaces === 'number' ? row.freePlaces : undefined,
     status: row.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE', cows: [],
     accept: mappedAccept || (textValue(row.acceptsSummary) === 'All' ? 'Mọi mục đích' : ''), purpose: mappedPurpose,
     stage: mappedStage, minAge: criteria.minAgeMonths ?? null,
@@ -136,7 +122,7 @@ export const mapBackendPen = (value: unknown): Pen => {
 }
 
 /** A cattle currently in a pen (A2 cattle[]): id, version, code and short situation hints. */
-export type PenCattle = MoveCattle & { situation: string; hints: BackendHint[]; exitPending: boolean }
+export type PenCattle = MoveCattle & { earTag?: string | null; sex?: string | null; lifeStage?: string | null; sinceDate?: string | null; latestWeightKg?: number | null; situation: string; hints: BackendHint[]; exitPending: boolean }
 export type PenDetail = Pen & { cattleInPen: PenCattle[] }
 
 /** Pen detail (A2): the list fields plus the cattle currently in the pen. */
@@ -145,7 +131,10 @@ export const mapBackendPenDetail = (value: unknown): PenDetail => {
   return {
     ...mapBackendPen(value),
     cattleInPen: (row.cattle ?? []).map((c) => ({
-      id: c.id, version: c.version, code: textValue(c.code), hints: c.hints ?? [], exitPending: c.exitPending === true, situation: '',
+      id: c.id, version: c.version, code: textValue(c.code), earTag: typeof c.earTagNumber === 'string' ? c.earTagNumber : null,
+      sex: typeof c.sex === 'string' ? c.sex : null, lifeStage: typeof c.lifeStage === 'string' ? c.lifeStage : null,
+      sinceDate: typeof c.sinceDate === 'string' ? c.sinceDate : null, latestWeightKg: typeof c.latestWeightKg === 'number' ? c.latestWeightKg : null,
+      hints: c.hints ?? [], exitPending: c.exitPending === true, situation: '',
     })),
   }
 }
@@ -200,7 +189,7 @@ export type PenMoveCheckResult = {
   block?: BackendHint | null
   cattle: PenMoveCheckRow[]
 }
-export type MoveCattle = { id?: number; version?: number; code: string }
+export type MoveCattle = { id?: number; version?: number; code: string; earTag?: string | null; sex?: string | null; lifeStage?: string | null; sinceDate?: string | null; latestWeightKg?: number | null }
 export type PenMoveCommand = {
   cattle: MoveCattle[]
   from: Pen
@@ -208,8 +197,14 @@ export type PenMoveCommand = {
   moveDate: string
   reason: string
   warningReasons: Record<string, string>
+  performedBy?: number
 }
 export type PenMoveResult = { moved: number; skipped: Array<{ cattleCode: string }> }
+export type PenMember = { id: number; userId: number; fullName: string; email: string; role: string }
+
+const mapPenMember = (row: Record<string, unknown>): PenMember => ({
+  id: numberValue(row.id), userId: numberValue(row.userId), fullName: textValue(row.fullName), email: textValue(row.email), role: textValue(row.role),
+})
 
 const outcome = (value: unknown): PenMoveCheckRow['results'][number]['outcome'] =>
   value === 'MET' || value === 'NOT_MET' ? value : 'NOT_APPLICABLE'
@@ -219,6 +214,10 @@ const backendApi = {
     const response = await backendTransport.get(backendTransport.farmPath(activeFarmId, '/pens'))
     const body = asRecord(response)
     return (Array.isArray(response) ? asRows(response) : asRows(body.pens)).map(mapBackendPen)
+  },
+  listPenMembers: async (): Promise<PenMember[]> => {
+    const body = asRecord(await backendTransport.get(backendTransport.farmPath(activeFarmId, '/members')))
+    return asRows(body.items).filter((row) => textValue(row.status) === 'ACTIVE').map(mapPenMember)
   },
   detail: async (pen: Pen): Promise<PenDetail> => {
     if (pen.id == null) return { ...pen, cattleInPen: [] }
@@ -289,6 +288,7 @@ const backendApi = {
     )
     const body = asRecord(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pen-moves'), {
       cattleIds, toPenId: command.to.id, moveDate: command.moveDate, reason: command.reason, warningReasons, cattleVersions,
+      ...(command.performedBy == null ? {} : { performedBy: command.performedBy }),
     }, { method: 'POST' }))
     return { moved: asRows(body.moved).length, skipped: asRows(body.skipped).map((row) => ({ cattleCode: textValue(row.cattleCode) })) }
   },
@@ -314,9 +314,14 @@ const localCheckMove = async (cattle: MoveCattle[], from: Pen, to: Pen): Promise
 // Chuồng trại: mã chuồng là khoá. Backend mode never consults localStorage.
 export const penApi = backendMode === 'backend' ? backendApi : {
   list: () => demo.penLocal.pens!.list(),
+  listPenMembers: async (): Promise<PenMember[]> => {
+    if (activeFarmId == null) return []
+    const list = await demo.farmWorkspace.farmWorkspaceDemoStore.listMembers(activeFarmId, 'OWNER')
+    return list.items.filter((member) => member.status === 'ACTIVE').map((member) => ({ id: member.id, userId: member.userId, fullName: member.fullName, email: member.email, role: member.role }))
+  },
   detail: async (pen: Pen): Promise<PenDetail> => ({
     ...pen,
-    cattleInPen: pen.cows.map(([code, situation]) => ({ code, situation, hints: [], exitPending: false })),
+    cattleInPen: pen.cows.map(([code, situation]) => ({ code, earTag: null, sex: null, lifeStage: null, sinceDate: null, latestWeightKg: null, situation, hints: [], exitPending: false })),
   }),
   create: (pen: Pen) => demo.penLocal.pens!.create(normalize(pen)),
   update: (pen: Pen) => demo.penLocal.pens!.update(pen.code, normalize(pen)),

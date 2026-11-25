@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Radio, Table, Td, Th } from '../../../shared/ui'
+import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Table, Td, Th } from '../../../shared/ui'
 import { penError } from '../api/penError'
 import { CRITERION_LABELS, CRITERION_TYPES, LIFE_STAGES, PURPOSE_LABELS, PURPOSE_TYPES, SEXES, SEX_LABELS, STAGE_LABELS, criteriaFromForm, criteriaOf, dmy, formFromCriteria, todayIso, type CriterionType, type PenFormValues } from '../domain/penRules'
 import { validatePenForm } from '../validation/penValidation'
@@ -12,6 +12,10 @@ const ErrorText = ({ children }: { children: ReactNode }) => <span className="te
 
 const PURPOSE_OPTIONS = PURPOSE_TYPES.map((v) => [v, PURPOSE_LABELS[v]] as const)
 const STAGE_OPTIONS = LIFE_STAGES.map((v) => [v, STAGE_LABELS[v]] as const)
+const comparableCriteria = (value: ReturnType<typeof criteriaFromForm>) => ({
+  purposeTypes: [...(value.purposeTypes ?? [])], lifeStages: [...(value.lifeStages ?? [])], sex: value.sex ?? null,
+  minAgeMonths: value.minAgeMonths ?? null, minWeightKg: value.minWeightKg ?? null,
+})
 
 /** Multi-select of enum values shown as checkboxes (Loại mục đích, Giai đoạn). */
 function MultiValue({ value, options, onChange }: { value: string[]; options: ReadonlyArray<readonly [string, string]>; onChange: (next: string[]) => void }) {
@@ -34,7 +38,7 @@ function MultiValue({ value, options, onChange }: { value: string[]; options: Re
  * Create / Edit Pen popup (UC-FE04-02, UC-FE04-03). Saving changed criteria makes a new criteria version from today
  * (R-04-06); the backend decides whether the criteria changed, and remains authoritative for MSG-FE04-02 / -03.
  */
-export default function EditModal({ barn, barns, onSave, onClose, saving = false, saveError, today = todayIso() }: { barn: Pen | null; barns: Pen[]; onSave: (pen: Pen) => void | Promise<void>; onClose: () => void; saving?: boolean; saveError?: unknown; today?: string }) {
+export default function EditModal({ barn, barns, onSave, onClose, saving = false, saveError, today = todayIso() }: { barn: Pen | null; barns: Pen[]; onSave: (pen: Pen, isNew: boolean) => void | Promise<void>; onClose: () => void; saving?: boolean; saveError?: unknown; today?: string }) {
   const isNew = !barn
   const [code, setCode] = useState(barn?.code ?? '')
   const [name, setName] = useState(barn ? penName(barn) : '')
@@ -45,7 +49,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
   const [tried, setTried] = useState(false)
 
   const values: PenFormValues = { code, name, capacity, description: desc, criteria }
-  const errors = validatePenForm(values, { isNew, existingCodes: barns.map((b) => b.code), headcount: barn?.count ?? 0 })
+  const errors = validatePenForm(values, { isNew, currentCode: barn?.code, existingCodes: barns.map((b) => b.code), headcount: barn?.count ?? 0 })
   const invalid = Object.values(errors).some(Boolean)
   const unusedTypes = CRITERION_TYPES.filter((type) => !(type in criteria))
 
@@ -63,9 +67,9 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
     const receptionCriteria = criteriaFromForm(criteria)
     const next: Pen = {
       ...(barn ?? { code: code.trim(), count: 0, cows: [], status: 'ACTIVE' as PenStatus }),
-      code: barn?.code ?? code.trim(),
+      code: code.trim(),
       // Giữ nguyên tiền tố mã nếu tên đang lưu có tiền tố; ô nhập chỉ hiện phần tên như frame.
-      name: barn && barn.name !== penName(barn) ? `${barn.code} – ${name.trim()}` : name.trim(),
+      name: barn && barn.name !== penName(barn) ? `${code.trim()} – ${name.trim()}` : name.trim(),
       capacity: Number(capacity.trim()),
       desc: desc.trim(),
       // Trạng thái chỉ chọn khi tạo (field 8); khi sửa, đổi trạng thái qua popup Ngưng / Dùng lại.
@@ -83,7 +87,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
       version: barn?.version,
       lockVersion: barn?.lockVersion,
     }
-    onSave(next)
+    onSave(next, isNew)
   }
 
   const valueCell = (type: CriterionType) => {
@@ -128,14 +132,14 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[150px_minmax(0,1fr)_120px]">
         <Field label="Mã chuồng *">
           <input
-            value={isNew ? code : barn.code}
-            readOnly={!isNew}
+            value={code}
             maxLength={20}
             onChange={(e) => setCode(e.target.value)}
-            className={cx(inputCls, 'read-only:!bg-white read-only:!text-ink')}
+            className={inputCls}
             placeholder="Ví dụ: C-01"
           />
           {tried && errors.code && <ErrorText>{errors.code}</ErrorText>}
+          {!isNew && barn && code.trim() !== barn.code && <span className="text-[11px] text-muted">Mã mới sẽ hiện ở mọi màn, kể cả lịch sử cũ. Nhớ đổi biển chuồng.</span>}
         </Field>
         <Field label="Tên chuồng *">
           <input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Tên chuồng (tối đa 100 ký tự)" />
@@ -143,7 +147,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
         </Field>
         <Field label="Sức chứa *">
           <div className="relative">
-            <input inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} className={cx(inputCls, 'pr-10')} />
+            <input inputMode="numeric" maxLength={4} value={capacity} onChange={(e) => setCapacity(e.target.value)} className={cx(inputCls, 'pr-10')} />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-subtle">con</span>
           </div>
           {tried && errors.capacity && <ErrorText>{errors.capacity}</ErrorText>}
@@ -155,7 +159,14 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
         <span className="text-[11px] text-subtle">{desc.length}/500 ký tự</span>
       </Field>
 
-      <div className="text-[13px] font-semibold text-[#212121]">Tiêu chí nhận bò · phiên bản mới từ {dmy(today)}</div>
+      <div className="text-[13px] font-semibold text-[#212121]">
+        {isNew
+          ? `Tiêu chí nhận bò (phiên bản 1, hiệu lực từ ${dmy(today)})`
+          : `Tiêu chí nhận bò · đang dùng v${barn?.criteriaVersionNo ?? 1}${barn?.criteriaEffectiveFrom ? ` từ ${dmy(barn.criteriaEffectiveFrom)}` : ''}`}
+      </div>
+      {!isNew && barn && JSON.stringify(comparableCriteria(criteriaFromForm(criteria))) !== JSON.stringify(comparableCriteria(criteriaOf(barn))) && (
+        <Note tone="warn">Đổi tiêu chí sẽ tạo phiên bản v{(barn.criteriaVersionNo ?? 1) + 1} hiệu lực từ hôm nay; bò đang ở chuồng không bị ảnh hưởng.</Note>
+      )}
       <Table variant="panel" stack={false}>
         <thead>
           <tr>

@@ -10,6 +10,7 @@ export type PenMoveCheckCommand = {
   moveDate: string
 }
 
+
 /**
  * Feature command boundary for reception checks and all-or-nothing pen moves.
  * MoveDialog retains presentation-specific validation and stale-response

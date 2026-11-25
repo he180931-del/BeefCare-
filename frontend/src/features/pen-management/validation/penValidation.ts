@@ -10,10 +10,10 @@ const DECIMAL = /^\d+(\.\d+)?$/
  * Validation of the Create / Edit Pen popup (SCR-17 popup fields 1–7, R-04-01, R-04-02).
  * Uniqueness is checked case-insensitively, as on the backend; the backend remains authoritative (MSG-FE04-02).
  */
-export function validatePenForm(values: PenFormValues, context: { isNew: boolean; existingCodes: string[]; headcount: number }): PenFormErrors {
+export function validatePenForm(values: PenFormValues, context: { isNew: boolean; existingCodes: string[]; headcount: number; currentCode?: string }): PenFormErrors {
   const errors: PenFormErrors = {}
   const code = values.code.trim()
-  if (context.isNew) {
+  if (context.isNew || code.toLowerCase() !== context.currentCode?.trim().toLowerCase()) {
     if (!code) errors.code = 'Vui lòng nhập Mã chuồng.'
     else if (!PEN_CODE_PATTERN.test(code)) errors.code = 'Mã chuồng gồm 1–20 ký tự: chữ, số hoặc dấu "-".'
     else if (context.existingCodes.some((c) => c.toLowerCase() === code.toLowerCase())) errors.code = `Mã chuồng ${code} đã tồn tại trong trại.`
