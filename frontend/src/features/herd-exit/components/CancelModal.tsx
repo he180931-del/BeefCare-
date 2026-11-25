@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { money } from '../../../shared/lib/format'
+import { dmy, money } from '../../../shared/lib/format'
 import { penCode, restoreCounts } from '../domain/occupancy'
-import type { HerdExit } from '../types'
+import type { ExitVoidOutcome, HerdExit } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 import { useExitVoid } from '../hooks/useExitVoid'
 import { exitVoidError } from '../api/exitVoidError'
@@ -10,7 +10,7 @@ import { exitPaymentTotals } from '../domain/exitPaymentTotals'
 
 const MAX_REASON = 500
 
-export default function CancelModal({ row, onClose, onCancelled, onReload }: { row: HerdExit; onClose: () => void; onCancelled: () => void; onReload: () => Promise<unknown> }) {
+export default function CancelModal({ row, onClose, onCancelled, onReload }: { row: HerdExit; onClose: () => void; onCancelled: (outcome: ExitVoidOutcome) => void; onReload: () => Promise<unknown> }) {
   const form = useExitVoid(row, onCancelled)
   const { canonicalPens, check, cancelReason, setCancelReason } = form
   const warningInputs = useRef<Record<number, HTMLTextAreaElement | null>>({})
@@ -32,7 +32,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
     : 'Chuồng sẽ được kiểm tra theo dữ liệu hiện tại'
 
   return (
-    <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={`${row.type} · ${(row.date ?? '').slice(8)}/${(row.date ?? '').slice(5, 7)}/${(row.date ?? '').slice(0, 4)} · ${barnCount ?? 0} con · ${row.who ?? ''}`} topTitle="Hủy phiếu xuất" onClose={onClose}>
+    <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={[row.type, dmy(row.date), `${barnCount ?? 0} con`, row.who].filter(Boolean).join(' · ')} topTitle="Hủy phiếu xuất" onClose={form.saving ? () => undefined : onClose}>
       <div className="flex flex-col gap-2.5">
         <div className="text-sm font-semibold">Khi xác nhận hủy</div>
         <Note tone="ok">
@@ -85,7 +85,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
       <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
       <VoucherCommandError error={form.error} onReload={onReload} formatError={exitVoidError} />
       <ModalFooter>
-        <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
+        <ModalButton className="text-ink" disabled={form.saving} onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={!form.canSubmit} onClick={() => { void form.confirm() }}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
       </ModalFooter>
     </Modal>

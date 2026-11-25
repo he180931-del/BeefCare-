@@ -54,7 +54,7 @@ test('list pages normalize the initial null query data before filtering', () => 
   assert.match(entryHook, /const imports = view\?\.rows \?\? \[\]/)
   assert.match(entryHook, /pendingCalves|listPendingEntryCalves/)
   assert.match(exitList, /useExitList\(/)
-  assert.match(exitHook, /const rows = data \?\? \[\]/)
+  assert.match(exitHook, /result\?\.vouchers \?\? \[\]/)
 })
 
 test('draft actions preserve the selected voucher id and new pages only restore explicit drafts', () => {

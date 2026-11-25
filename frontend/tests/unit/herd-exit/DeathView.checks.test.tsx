@@ -1,4 +1,4 @@
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,7 +16,7 @@ const apiState = vi.hoisted(() => ({
 
 vi.mock('../../../src/features/herd-exit/api/index', () => ({
   herdExitApi: { checks: apiState.checks },
-  confirmHerdExit: apiState.confirmed,
+  confirmHerdExitOutcome: apiState.confirmed,
   dismissHerdExit: apiState.dismissed,
   downloadExitAttachment: vi.fn(),
   removeExitAttachment: apiState.removedAttachment,
@@ -43,7 +43,7 @@ beforeEach(() => {
     voucherId: 8, code: pendingDeath.id, version: 7, exitDate: pendingDeath.date, occupancy: [],
     cattle: [{ cattleId: 156, cattleCode: 'BC-000156', penId: 2, penCode: 'A2', hasWarnings: true, messages: [{ code: 'MSG-FE13-07', text: 'Cảnh báo cần xem' }] }],
   })
-  apiState.confirmed.mockResolvedValue({ ...pendingDeath, status: 'Đã xuất' })
+  apiState.confirmed.mockResolvedValue({ voucher: { ...pendingDeath, status: 'Đã xuất' }, message: 'Đã xác nhận phiếu PX-2026-0008: 1 con đã rời đàn.' })
 })
 
 describe('pending death/missing exit checks', () => {
@@ -70,7 +70,7 @@ describe('pending death/missing exit checks', () => {
     render(<SessionContext.Provider value={manager}><MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter></SessionContext.Provider>)
 
     await screen.findByText('Cảnh báo cần xem')
-    expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Chọn ngày chết / mất')).not.toBeInTheDocument()
     expect(screen.getByDisplayValue('Tiêu chảy cấp')).toHaveAttribute('readonly')
 
     const otherDisposal = screen.getByLabelText('Giao thú y địa phương') as HTMLInputElement
@@ -127,7 +127,7 @@ describe('pending death/missing exit checks', () => {
   })
 
   it('dismisses a pending proposal with the loaded voucher version', async () => {
-    apiState.dismissed.mockResolvedValue({ ...pendingDeath, status: 'Đã bác' })
+    apiState.dismissed.mockResolvedValue({ voucher: { ...pendingDeath, status: 'Đã bác' }, message: '' })
     const user = userEvent.setup()
     render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
 
@@ -152,14 +152,14 @@ describe('pending death/missing exit checks', () => {
 
     await screen.findByText('Cảnh báo cần xem')
     await user.click(screen.getByLabelText(/Tôi đã xem các mục trên/))
-    const date = screen.getAllByLabelText('Chọn ngày')[0]
+    const date = screen.getByLabelText('Chọn ngày chết / mất')
     fireEvent.change(date, { target: { value: '2026-10-22' } })
 
     expect(screen.getByLabelText(/Tôi đã xem các mục trên/)).not.toBeChecked()
     expect(screen.getByRole('button', { name: 'Xác nhận xuất đàn' })).toBeDisabled()
     expect(apiState.confirmed).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Kiểm tra lại' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu và kiểm tra lại' }))
     expect(apiState.checks).toHaveBeenCalledTimes(2)
     expect(apiState.saved).toHaveBeenCalledTimes(1)
     await user.click(screen.getByLabelText(/Tôi đã xem các mục trên/))
@@ -167,5 +167,75 @@ describe('pending death/missing exit checks', () => {
 
     expect(apiState.saved).toHaveBeenCalledTimes(1)
     expect(apiState.confirmed).toHaveBeenCalledWith(pendingDeath.id, 8)
+  })
+
+  it('confirms and opens the voucher detail with the server notice (SCR-43 #13)', async () => {
+    const user = userEvent.setup()
+    function Notice() { const location = useLocation(); return <div>{`${location.pathname}|${(location.state as { notice?: string } | null)?.notice ?? ''}`}</div> }
+    render(<MemoryRouter initialEntries={['/pending']}><Routes>
+      <Route path="/pending" element={<DeathView row={pendingDeath} onReload={vi.fn()} />} />
+      <Route path="/herd-exit/:id" element={<Notice />} />
+    </Routes></MemoryRouter>)
+    await screen.findByText('Cảnh báo cần xem')
+    await user.click(screen.getByLabelText(/Tôi đã xem các mục trên/))
+    await user.click(screen.getByRole('button', { name: 'Xác nhận xuất đàn' }))
+    expect(await screen.findByText('/herd-exit/PX-2026-0008|Đã xác nhận phiếu PX-2026-0008: 1 con đã rời đàn.')).toBeInTheDocument()
+  })
+
+  it('dismisses even when the checks failed to load and returns to the list with the reopened-case notice', async () => {
+    apiState.checks.mockReset().mockRejectedValue(new Error('down'))
+    apiState.dismissed.mockResolvedValue({ voucher: { ...pendingDeath, status: 'Đã bác' }, message: '' })
+    const user = userEvent.setup()
+    function Notice() { const location = useLocation(); return <div>{`list|${(location.state as { notice?: string } | null)?.notice ?? ''}`}</div> }
+    render(<MemoryRouter initialEntries={['/herd-exit/PX-2026-0008']}><Routes>
+      <Route path="/herd-exit/PX-2026-0008" element={<DeathView row={{ ...pendingDeath, detail: { ...pendingDeath.detail, sourceHealthCaseCode: 'HC-0418' } }} onReload={vi.fn()} />} />
+      <Route path="/herd-exit" element={<Notice />} />
+    </Routes></MemoryRouter>)
+    await screen.findByText(/Không tải được kiểm tra/)
+    await user.click(screen.getByRole('button', { name: 'Bác đề xuất' }))
+    await user.type(screen.getAllByRole('textbox').at(-1)!, 'Bò còn sống')
+    await user.click(screen.getAllByRole('button', { name: 'Bác đề xuất' }).at(-1)!)
+    expect(apiState.dismissed).toHaveBeenCalledWith(pendingDeath.id, 'Bò còn sống', 7, 8)
+    expect(await screen.findByText('list|Đã bác phiếu PX-2026-0008. BC-000156 vẫn ở trong đàn; ca HC-0418 đã mở lại.')).toBeInTheDocument()
+  })
+
+  it('requires text for "Khác" disposal, sends "Khác: …" and never writes history or a hardcoded name', async () => {
+    apiState.saved.mockResolvedValue({ ...pendingDeath, status: 'Nháp' })
+    const user = userEvent.setup()
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
+    await screen.findByText('Cảnh báo cần xem')
+    await user.click(screen.getByLabelText('Khác'))
+    expect(screen.getByText('Nội dung xử lý xác là bắt buộc.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lưu và kiểm tra lại' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Xử lý xác khác'), 'Giao cơ sở xử lý')
+    await user.click(screen.getByRole('button', { name: 'Lưu và kiểm tra lại' }))
+    const request = apiState.saved.mock.calls[0][0]
+    expect(request.record.detail.disposal).toBe('Khác: Giao cơ sở xử lý')
+    expect(request.record.detail.history).toEqual([])
+    expect(JSON.stringify(request)).not.toContain('N. V. Hùng')
+  })
+
+  it('reads a stored free-text disposal back as "Khác" and blocks an empty cause', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><DeathView row={{ ...pendingDeath, detail: { ...pendingDeath.detail, disposal: 'Khác: Bán cho cơ sở chế biến' } }} onReload={vi.fn()} /></MemoryRouter>)
+    await screen.findByText('Cảnh báo cần xem')
+    expect(screen.getByLabelText('Khác')).toBeChecked()
+    expect(screen.getByLabelText('Xử lý xác khác')).toHaveValue('Bán cho cơ sở chế biến')
+    expect(screen.getByRole('textbox', { name: 'Nguyên nhân / ghi chú' })).toHaveAttribute('maxlength', '1000')
+    await user.clear(screen.getByRole('textbox', { name: 'Nguyên nhân / ghi chú' }))
+    expect(screen.getByText('Nguyên nhân / ghi chú là bắt buộc.')).toBeInTheDocument()
+  })
+
+  it('shows "Chủ trại ghi trực tiếp" without a source case, and links the source case otherwise', async () => {
+    const { detail } = pendingDeath
+    const direct = { ...pendingDeath, detail: { ...detail, sourceHealthCaseId: undefined, source: '' } }
+    const { unmount } = render(<MemoryRouter><DeathView row={direct} onReload={vi.fn()} /></MemoryRouter>)
+    await screen.findByText('Cảnh báo cần xem')
+    expect(screen.getByText('Chủ trại ghi trực tiếp')).toBeInTheDocument()
+    expect(screen.queryByText(/Tạo tự động khi ca sức khỏe đóng/)).not.toBeInTheDocument()
+    expect(screen.getByText('~180 kg · UT')).toBeInTheDocument()
+    unmount()
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
+    expect(await screen.findByRole('link', { name: 'Ca sức khỏe HC-0418' })).toHaveAttribute('href', '/cattle/BC-000156?tab=health')
   })
 })

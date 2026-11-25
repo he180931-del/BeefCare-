@@ -10,6 +10,7 @@ import {
 } from '../api/herdExitLocalApi'
 import { EXPORT_HERD, TODAY as DEMO_TODAY } from './exportsData'
 import { BARNS, BUYERS } from './exitData'
+import { BUSINESS_OFFSET, businessDateTime } from '../../../shared/lib/date/farmTime'
 
 let localBuyers = BUYERS.map((buyer) => ({ ...buyer }))
 
@@ -50,14 +51,14 @@ export const penShift = (picked: ReadonlyArray<{ barn: string }>) => BARNS
   .filter((pen) => pen.out)
 
 /** Khoản thu mẫu theo Figma điền sẵn cho popup thu tiền. */
-export const collectionDefaults = () => ({ date: DEMO_TODAY, reference: 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007', statement: true, note: 'Thu đủ phần còn lại', cashReference: 'PT-2210-01' })
+export const collectionDefaults = () => ({ date: DEMO_TODAY, reference: 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007', note: 'Thu đủ phần còn lại' })
 
 /** Lý do mẫu theo Figma điền sẵn cho popup hủy phiếu. */
 export const cancelDefaults = () => ({ reason: 'Lò mổ trả lại 4 con do đổi lịch giết mổ' })
 
-/** Hủy phiếu và ghi dòng lịch sử với ngày và người làm của dữ liệu mẫu. */
+/** Hủy phiếu và ghi dòng lịch sử theo giờ trại; bản mô phỏng không biết tên người dùng nên ghi "Người dùng hiện tại". */
 export function cancelExit(id: string, cattleRows: CattleInput[], patch: Partial<HerdExit>) {
-  const line = `22/10 ${new Date().toTimeString().slice(0, 5)} · N. V. Hùng hủy phiếu: ${patch.cancelReason ?? ''}`
+  const line = { time: `${businessDateTime()}${BUSINESS_OFFSET}`, type: 'VOIDED', actor: 'Người dùng hiện tại', text: `Hủy phiếu: ${patch.cancelReason ?? ''}` }
   const detail = patch.detail ? { ...patch.detail, history: [...(patch.detail.history ?? []), line] } : patch.detail
   return cancelLocal(id, cattleRows, detail ? { ...patch, detail } : patch)
 }
