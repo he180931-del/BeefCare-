@@ -48,7 +48,7 @@ describe('Google terms acceptance session gate', () => {
     vi.mocked(client.logout).mockResolvedValue(undefined)
   })
 
-  it('keeps an unconsented Google account outside the application until acceptance succeeds', async () => {
+  it('keeps an unconsented Google account outside the application until acceptance succeeds without owning route policy', async () => {
     const user = userEvent.setup()
     transport.get.mockResolvedValueOnce(profile()).mockResolvedValueOnce(profile({ termsAccepted: true }))
     transport.command.mockResolvedValue({ termsAccepted: true, termsAcceptedAt: '2026-11-23T08:00:00Z' })
@@ -64,7 +64,7 @@ describe('Google terms acceptance session gate', () => {
 
     await waitFor(() => expect(transport.command).toHaveBeenCalledWith('/api/account/terms-acceptance', { accepted: true }, { method: 'POST' }))
     expect(await screen.findByText('Nội dung ứng dụng')).toBeInTheDocument()
-    expect(screen.getByLabelText('route')).toHaveTextContent('/owner-registration')
+    expect(screen.getByLabelText('route')).toHaveTextContent('/')
   })
 
   it.each([

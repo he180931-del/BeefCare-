@@ -34,7 +34,7 @@ describe('ConversationCard', () => {
 
     expect(screen.getByRole('heading', { name: 'Trao đổi' }).closest('header')).toHaveClass('border-b', 'border-rule')
     expect(screen.getByLabelText('Phản hồi công khai')).toBeInTheDocument()
-    expect(screen.getByTestId('owner-chat-viewport')).toHaveClass('h-[480px]')
+    expect(screen.getByTestId('owner-chat-viewport')).toHaveClass('h-[520px]')
   })
 
   it('phân biệt màu trao đổi của Chủ trại và CS, không hiển thị thời gian trong bong bóng chat', () => {
@@ -45,8 +45,8 @@ describe('ConversationCard', () => {
 
     expect(screen.getByText('Tin mới').closest('.rounded-lg')).toHaveClass('bg-page')
     expect(screen.getByText('Tin của Chủ trại').closest('.rounded-lg')).toHaveClass('bg-[#e8f4ec]')
-    expect(screen.getByText('CS · Bộ phận hỗ trợ')).toHaveClass('text-[10px]')
-    expect(screen.getByText('CS · Bộ phận hỗ trợ').closest('[data-message-side]')).toHaveClass('justify-start')
+    expect(screen.getByText('Bộ phận hỗ trợ')).toHaveClass('text-[10px]')
+    expect(screen.getByText('Bộ phận hỗ trợ').closest('[data-message-side]')).toHaveClass('justify-start')
     expect(screen.getByText('Chủ trại (bạn)').closest('[data-message-side]')).toHaveClass('justify-end')
     expect(screen.queryByText('09/11/2026 18:00')).not.toBeInTheDocument()
   })

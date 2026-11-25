@@ -87,7 +87,8 @@ describe('SCR-65 gửi yêu cầu', () => {
 
   it('không hiển thị điều khiển gán trại vì ticket luôn dùng trại đang mở', async () => {
     renderAt('/ho-tro/moi')
-    expect(await screen.findByText('Tự động gắn với trại bạn đang mở.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Gửi yêu cầu/ })).toBeInTheDocument()
+    expect(screen.queryByText('Tự động gắn với trại bạn đang mở.')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Trang trại liên quan', { selector: 'select' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Danh mục hỗ trợ' })).not.toBeInTheDocument()
   })
