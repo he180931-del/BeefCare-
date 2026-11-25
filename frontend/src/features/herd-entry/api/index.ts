@@ -7,6 +7,7 @@ export {
   entryHistoryDemoEnabled,
   correctEntryHistoryDemo,
   entryVoidCheck,
+  entryVoucherVoidCheck,
   voidEntryLine,
   correctEntryLine,
   commitEntryExcel,

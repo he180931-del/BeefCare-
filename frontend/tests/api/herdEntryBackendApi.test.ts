@@ -100,11 +100,11 @@ test('entry detail resolves current breed labels from the farm catalogue, includ
 })
 test('entry line correction and void history include UTC+7 time, actor, cattle and reason without changing other history', () => {
   const loaded = mapVoucher({ ...voucher('POSTED'), history: [
-    { kind: 'ENTRY_POST' },
+    { kind: 'ENTRY_POST', at: '2026-11-22T11:00:00Z', actor: 'Owner test', details: { count: 2, cattle: ['BC-501', 'BC-502'] } },
     { kind: 'ENTRY_LINE_CORRECT', at: '2026-11-22T12:00:00Z', actor: 'Manager test', details: { cattle: 'BC-501', reason: 'Sửa cân' } },
     { kind: 'ENTRY_LINE_VOID', at: '2026-11-22T12:05:00Z', actor: 'Owner test', details: { cattle: 'BC-502', reason: 'Nhập nhầm' } },
   ] })
-  assert.equal(loaded.detail?.history?.[0], 'ENTRY_POST')
+  assert.equal(loaded.detail?.history?.[0], '22/11/2026 18:00 · Owner test · Ghi sổ, tạo 2 con: BC-501, BC-502')
   assert.match(loaded.detail!.history![1], /22\/11\/2026 19:00.*Manager test.*Sửa bản ghi nhập BC-501.*Sửa cân/)
   assert.match(loaded.detail!.history![2], /19:05.*Owner test.*Hủy bản ghi nhập BC-502.*Nhập nhầm/)
 })
@@ -464,16 +464,42 @@ test('entry backend records payment against the backend voucher id and version',
 })
 
 test('entry backend voids the resolved voucher with its optimistic-lock version', async () => {
-  const commands: Array<{ path: string; body: unknown }> = []
+  const commands: Array<{ path: string; body: unknown; key?: string }> = []
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
     get: async () => ({ items: [{ id: 41, code: 'PN-2026-0041', entryType: 'PURCHASE', status: 'POSTED', entryDate: '2026-10-29', cattleCount: 1, version: 3 }] }),
-    command: async (path, body) => { commands.push({ path, body }); return { voucher: voucher('VOIDED') } },
+    command: async (path, body, options) => { commands.push({ path, body, key: options?.key }); return commands.length === 1 ? { voucher: voucher('VOIDED'), notice: { code: 'MSG-FE06-22', params: {}, message: 'Đã hủy phiếu PN-2026-0041.' } } : { voucher: voucher('VOIDED') } },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
   const result = await api.voidVoucher('PN-2026-0041', { reason: 'Nhập nhầm nguồn', expectedVersion: 3 })
-  assert.equal(result.status, 'Đã hủy')
-  assert.deepEqual(commands[0], { path: '/api/farms/9/entry-vouchers/41/void', body: { reason: 'Nhập nhầm nguồn', expectedVersion: 3 } })
+  assert.equal(result.record.status, 'Đã hủy')
+  assert.equal(result.notice, 'Đã hủy phiếu PN-2026-0041.')
+  assert.equal(commands[0].path, '/api/farms/9/entry-vouchers/41/void')
+  assert.deepEqual(commands[0].body, { reason: 'Nhập nhầm nguồn', expectedVersion: 3 })
+  // A retry of the same void reuses its Idempotency-Key; the spec text stands in for a missing notice.
+  const retried = await api.voidVoucher('PN-2026-0041', { reason: 'Nhập nhầm nguồn', expectedVersion: 3 })
+  assert.equal(commands[1].key, commands[0].key)
+  assert.match(retried.notice, /^Đã hủy phiếu PN-/)
+})
+
+test('entry backend reads the voucher void check with per-cattle results and notices', async () => {
+  const paths: string[] = []
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      paths.push(path)
+      return { voucherId: 41, canVoid: false, paid: 2000000, rows: [
+        { entryId: 1, lineNo: 1, cattleId: 7, cattleCode: 'BC-1', eventsAfterEntry: [], canVoid: true, reason: null },
+        { entryId: 2, lineNo: 2, cattleId: 8, cattleCode: 'BC-2', eventsAfterEntry: ['WEIGHT'], canVoid: false, reason: 'HAS_EVENTS' },
+      ], confirm: { code: 'MSG-FE06-20', params: {}, message: 'Hủy phiếu?' }, blocked: { code: 'MSG-FE06-21', params: {}, message: 'Không thể hủy phiếu PN-2026-0041: BC-2 đã có sự kiện khác.' } }
+    },
+    command: async () => ({}),
+  }
+  const check = await createHerdEntryBackendApi({ transport, farmId: 9 }).voucherVoidCheck('PN-2026-0041', 41)
+  assert.deepEqual(paths, ['/api/farms/9/entry-vouchers/41/void-check'])
+  assert.equal(check.canVoid, false); assert.equal(check.paid, 2000000)
+  assert.deepEqual(check.rows[1], { entryId: 2, lineNo: 2, cattleId: 8, cattleCode: 'BC-2', eventsAfterEntry: ['WEIGHT'], canVoid: false, reason: 'HAS_EVENTS' })
+  assert.match(check.blocked!.message, /BC-2/)
 })
 
 test('entry backend reads private attachments and imports the same xlsx through preview then commit', async () => {

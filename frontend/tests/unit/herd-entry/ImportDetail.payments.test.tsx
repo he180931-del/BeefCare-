@@ -42,7 +42,7 @@ it.each(['OWNER', 'MANAGER'])('lets %s void a payment with its opened payment ve
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByText('Đã hủy khoản thanh toán 3.000.000 đ.')).toBeInTheDocument()
   expect(screen.getByText('8.000.000 đ')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Ghi nhận thanh toán' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Ghi thanh toán' })).toBeInTheDocument()
   const voided = screen.getByRole('row', { name: /Nhập nhầm/ })
   expect(within(voided).getByText('Đã hủy')).toBeInTheDocument()
   expect(within(voided).getByText('3.000.000')).toHaveClass('line-through')
@@ -88,18 +88,18 @@ it('sends one request and locks the form while a void is in flight', async () =>
   finish()
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 })
-it('uses the same server paid amount in the recording and whole-voucher void dialogs', () => {
+it('uses the same server paid amount in the recording and whole-voucher void dialogs', async () => {
   const view = render(<MemoryRouter><PayModal record={latest} onSave={vi.fn()} onClose={vi.fn()} /></MemoryRouter>)
   expect(screen.getByText('2.000.000 đ')).toBeInTheDocument()
   expect(screen.getByText('8.000.000 đ')).toBeInTheDocument()
   view.unmount()
   render(<MemoryRouter><CancelModal record={latest} onConfirm={vi.fn()} onClose={vi.fn()} /></MemoryRouter>)
-  expect(screen.getByText(/Khoản đã thanh toán 2.000.000 đ vẫn giữ trong lịch sử/)).toBeInTheDocument()
+  expect(await screen.findByText(/Khoản đã thanh toán 2.000.000 đ vẫn giữ trong lịch sử/)).toBeInTheDocument()
 })
 it.each(['TECHNICIAN', ''])('hides entry payment commands from role %s', async role => {
   state.role = role; page(); await screen.findByText('PN-1', { exact: false })
   expect(screen.queryByRole('button', { name: 'Hủy' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Ghi nhận thanh toán' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Ghi thanh toán' })).not.toBeInTheDocument()
 })
 it.each(['Nháp', 'Đã hủy'] as const)('hides payment void on a %s voucher', async status => {
   state.get.mockResolvedValue({ ...row, status }); page(); await screen.findByText(/Phiếu nhập PN-1/)
