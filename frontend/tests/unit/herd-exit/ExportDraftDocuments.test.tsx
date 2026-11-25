@@ -154,7 +154,7 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
 
     expect(apiState.fetched).toEqual(['PX-2026-0061'])
     expect(screen.getByRole('button', { name: 'Chết / mất' })).toBeDisabled()
-    expect(screen.getByDisplayValue('Bán')).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByDisplayValue('80.000')).toBeInTheDocument()
   })
 
@@ -215,14 +215,14 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     renderPageWithLocation('/herd-exit/new?id=PX-2026-0061')
 
     expect((await screen.findAllByText('BC-000301'))[0]).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Bán')).toHaveValue('Bán')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     const pdf = new File(['%PDF-1.4'], 'fail.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), pdf)
     await user.click(screen.getByRole('button', { name: /Lưu và kiểm tra/ }))
 
     expect(await screen.findByText('Tải chứng từ thất bại')).toBeInTheDocument()
     expect(screen.getByText('Phiếu xuất mới')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Bán')).toHaveValue('Bán')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByText('BC-000301')[0]).toBeInTheDocument()
     expect(screen.getByText('fail.pdf')).toBeInTheDocument()
     expect(screen.getByLabelText('current location')).toHaveTextContent('/herd-exit/new?id=PX-2026-0061')
