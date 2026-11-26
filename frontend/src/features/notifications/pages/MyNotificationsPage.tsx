@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
+import { Button, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { NotificationRow } from '../components/NotificationRow'
 import { countByTab, filterByTab, isUnread, NOTIFICATION_TABS, notificationTarget } from '../domain/notificationRules'
@@ -65,7 +65,6 @@ export default function MyNotificationsPage() {
             ))}
           </div>
         )}
-        <Foot>Lọc thông báo theo tất cả, thanh toán và hỗ trợ; mỗi mục cho biết nội dung, trại hoặc mã phiếu, thời điểm và dấu chưa đọc.</Foot>
       </div>
     </Layout>
   )

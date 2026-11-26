@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, DateInput, FilterSelect, Foot, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, DateInput, FilterSelect, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { dm, dmy, money } from '../../../shared/lib/format'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
@@ -130,10 +130,6 @@ export default function ExportList() {
         </Table>
       </div>
 
-      <Foot>
-        Ca sức khỏe đóng với kết quả Chết / Mất tích tự tạo phiếu CHỜ XÁC NHẬN cho Chủ trại; bò vẫn ACTIVE đến khi xác nhận.
-        Hủy phiếu đã xuất đưa toàn bộ bò trong phiếu về ACTIVE. Quản lý chỉ xem.
-      </Foot>
     </Layout>
   )
 }

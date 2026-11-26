@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Card, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import { Badge, Button, Card, ErrorBlock, Field, inputCls, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import RecipientsCard, { type EditorAudience } from '../components/RecipientsCard'
 import { RichTextEditor } from '../components/RichTextEditor'
 import ReviewDialog from '../components/ReviewDialog'
@@ -128,7 +128,6 @@ export default function AnnouncementEditorPage() {
           </Card>
           <RecipientsCard viewer={viewer} options={options.data} audience={audience} resolved={resolved} error={errors.audience ?? ''} onChange={(next) => { setAudience(next); setErrors((e) => ({ ...e, audience: undefined })) }} />
         </div>
-        <Foot>Chọn theo vai trò hoặc tên thành viên. Trùng người nhận được tự loại bỏ; Quản lý chỉ gửi được cho Kỹ thuật viên.</Foot>
       </div>
       {m === 'xem-lai' && draftId && (
         <ReviewDialog

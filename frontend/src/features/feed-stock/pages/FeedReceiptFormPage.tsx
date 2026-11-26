@@ -2,8 +2,9 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useSession } from '../../../app/session/sessionContext'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, DateInput, Field, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { listFeedStock } from '../api/feedStockApi'
 import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
@@ -23,7 +24,6 @@ import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
 import { newFeedCommandKey } from '../api/command'
 
-const FOOT = 'Tạo phiếu nhập kho thức ăn (Chủ trại, Quản lý). “Lưu nháp” chưa cộng kho; “Lưu & cộng kho” cộng tồn từng thức ăn và cập nhật giá nhập bình quân. Số lô và hạn dùng dùng để cảnh báo lô sắp hết hạn; phần còn nợ được theo dõi như công nợ nhà cung cấp.'
 const TITLE = 'Thức ăn › Phiếu nhập kho'
 const newReceiptCommandKey = () => newFeedCommandKey('feed-receipt')
 
@@ -143,10 +143,11 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   postReceipt: ReturnType<typeof useFeedReceiptForm>['post']
 }) {
   const navigate = useNavigate()
+  const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
   const [suppliers, setSuppliers] = useState(initialSuppliers)
   const [values, setValues] = useState<FeedReceiptFormValues>(() => {
-    const initial = initialFeedReceiptForm(record, initialFeedItemId)
+    const initial = initialFeedReceiptForm(record, initialFeedItemId, session?.fullName ?? '')
     if (!record && initialFeedItemId) {
       const feed = stockRows.find((row) => row.feedItemId === Number(initialFeedItemId))
       if (initial.lines[0] && feed) initial.lines[0].purchaseUnit = feed.purchaseUnit ?? 'kg'
@@ -644,7 +645,6 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       </div>
       </div>
 
-      <Foot>{FOOT}</Foot>
 
       {modal === 'ncc' && !readOnly && (
         <FeedSupplierQuickDialog

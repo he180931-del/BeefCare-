@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { Session } from '../../../src/app/session/sessionTypes'
 import { mapCattleReminders } from '../../../src/features/cattle/api/cattleReminders'
+import { mapBackendCattle } from '../../../src/features/cattle/api/cattleBackendApi'
+import { cowDesc } from '../../../src/features/cattle/components/CowHeader'
 
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const session = (role: Session['role'], extra: Partial<Session> = {}): Session => ({
@@ -32,6 +34,20 @@ describe('FE-05 related reminders (SCR-19 #22)', () => {
     expect(rows.map((r) => r.id)).toEqual(['3', '1'])
     // 30/11 18:00 UTC is 01/12 in farm time (UTC+7).
     expect(rows[0]).toMatchObject({ stage: 'YOUNG_STOCK', dueDate: '2026-12-01', due: { label: '01/12/2026' }, title: 'Gợi ý chuyển chuồng hoặc giai đoạn' })
+  })
+})
+
+describe('FE-05 profile summary line (SCR-19 #3, D78)', () => {
+  const desc = (patch: Record<string, unknown>) =>
+    cowDesc(mapBackendCattle({ id: 42, displayCode: 'BC-042', herdStatus: 'ACTIVE', breedName: 'Lai Sind', sex: 'FEMALE', birthDate: '2024-01-01', penCode: 'B1', ...patch }, null, [], [], {}, '2026-11-26'))
+
+  it('ends with the latest weight and its date', () => {
+    expect(desc({ latestWeightKg: 342, latestWeightDate: '2026-10-18' })).toContain('342 kg (18/10/2026)')
+  })
+
+  it('marks an estimated weight and omits the weight when there is none', () => {
+    expect(desc({ latestWeightKg: 318, weightBasis: 'ESTIMATED' })).toContain('318 kg*')
+    expect(desc({})).not.toContain('kg')
   })
 })
 
@@ -94,8 +110,9 @@ describe('FE-05 profile spec gaps (backend mode)', () => {
     const user = userEvent.setup()
     await renderProfile('MANAGER')
     expect(await screen.findByText(/Gợi ý: chuyển sang Bò tơ từ 15\/06\/2026/)).toBeInTheDocument()
-    expect(screen.getByText('Đang nuôi')).toBeInTheDocument()
-    expect(screen.getAllByText('Gắn tai sau').length).toBeGreaterThan(0)
+    // D78: bò đang nuôi bình thường không hiện huy hiệu trạng thái đàn ở tiêu đề.
+    expect(screen.queryByText('Đang nuôi')).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Gắn tai sau/).length).toBeGreaterThan(0)
     const panel = screen.getByText('Nhắc việc liên quan').closest('div')!.parentElement!
     expect(within(panel).getAllByRole('row')).toHaveLength(1 + 5)
     expect(within(panel).getByRole('link', { name: 'Xem tất cả' })).toHaveAttribute('href', '/nhac-viec')
@@ -118,7 +135,8 @@ describe('FE-05 profile spec gaps (backend mode)', () => {
     expect(await screen.findByText('Không tải được nhắc việc.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Xem xét' })).not.toBeInTheDocument()
-    expect(screen.getByText('Định danh')).toBeInTheDocument()
+    // D79: khối Định danh gộp vào Thông tin cá thể (mã, số tai đã có ở tiêu đề).
+    expect(screen.getByText('Thông tin cá thể')).toBeInTheDocument()
   })
 
   it('hides the Reproduction tab of a male and sends ?tab=repro back to the overview', async () => {
@@ -127,6 +145,18 @@ describe('FE-05 profile spec gaps (backend mode)', () => {
     expect(screen.queryByRole('button', { name: 'Sinh sản' })).not.toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(''))
     expect(screen.getByText('Tóm tắt chăm sóc')).toBeInTheDocument()
+  })
+
+  it('keeps 6 tabs and opens the overview section for an old ?tab=qr link (D79)', async () => {
+    await renderProfile('OWNER', '/cattle/BC-042?tab=qr')
+    // Thanh tab: không còn tab Lịch sử chuồng / Thẻ QR; nút cùng tên giờ là tiêu đề khối gập.
+    expect(screen.getAllByRole('button', { name: 'Thẻ QR' })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Thẻ QR' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Lịch sử chuồng' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('Tóm tắt chăm sóc')).toBeInTheDocument()
+    for (const name of ['Tổng quan', 'Dòng thời gian', 'Tăng trưởng & BCS', 'Tiêm phòng', 'Sức khỏe', 'Sinh sản']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    }
   })
 
   it.each([

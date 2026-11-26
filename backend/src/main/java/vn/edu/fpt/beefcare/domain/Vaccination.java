@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
@@ -61,8 +62,8 @@ public class Vaccination implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle cattle;
 
-    @ManyToOne(optional = false)
-    @NotNull
+    /** Vắc-xin danh mục; chỉ mũi "Nhập lịch sử" khai báo bằng tên tự do lúc nhập đàn được để trống (D82). */
+    @ManyToOne
     @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
     private Vaccine vaccine;
 
@@ -264,6 +265,16 @@ public class Vaccination implements Serializable {
     public void setRoute(String route) { this.route = route; }
     public Integer getWithdrawalDays() { return withdrawalDays; }
     public void setWithdrawalDays(Integer withdrawalDays) { this.withdrawalDays = withdrawalDays; }
+    /**
+     * D82: mũi thiếu vắc-xin danh mục chỉ hợp lệ khi là mũi "Nhập lịch sử" có tên vắc-xin; mũi tiêm tại trại luôn phải
+     * chọn vắc-xin trong danh mục. Cùng điều kiện với ràng buộc ck_vaccination_vaccine_or_name ở DB.
+     */
+    @JsonIgnore
+    @AssertTrue(message = "vaccine")
+    public boolean isVaccineIdentified() {
+        return vaccine != null || ("HISTORICAL".equals(source) && vaccineNameSnapshot != null && !vaccineNameSnapshot.isBlank());
+    }
+
     public String getVaccineNameSnapshot() { return vaccineNameSnapshot; }
     public void setVaccineNameSnapshot(String vaccineNameSnapshot) { this.vaccineNameSnapshot = vaccineNameSnapshot; }
     public Instant getAdministeredAt() { return administeredAt; }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
-import { Button, Foot, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
+import { Button, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
 import { cattleError } from '../api/cattleError'
 import { enterFarm } from '../../farm-workspace'
 import { scanCode, scanSampleNotice, type ScanOutcome } from '../api/scanApi'
@@ -130,7 +130,7 @@ export default function ScanQrPage() {
 
   return technician
     ? <TechnicianLayout title="Quét thẻ tai QR" back>{body}</TechnicianLayout>
-    : <Layout title="Quét QR"><div className="flex flex-col gap-4">{body}<Foot>Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot></div></Layout>
+    : <Layout title="Quét QR"><div className="flex flex-col gap-4">{body}</div></Layout>
 }
 
 function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { kind: 'found' }>; onOpen: (code: string) => void; onReset: () => void }) {

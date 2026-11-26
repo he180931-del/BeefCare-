@@ -91,3 +91,13 @@ it('shows MSG-FE06-22 after the voucher is voided', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(state.voidEntry).toHaveBeenCalledWith('PN-2026-0041', expect.any(Array), expect.objectContaining({ cancelReason: 'Ghi nhầm nguồn' }), { expectedVersion: 3, backendId: 41 })
 })
+
+it('keeps header actions and the Thao tác column out of the printed voucher', async () => {
+  page()
+  const print = await screen.findByRole('button', { name: 'In phiếu' })
+  expect(print.parentElement).toHaveClass('print:hidden')
+  expect(screen.getByRole('columnheader', { name: 'Thao tác' })).toHaveClass('print:hidden')
+  const active = screen.getByRole('row', { name: /BC-1/ })
+  expect(within(active).getByRole('button', { name: 'Sửa / Hủy' }).closest('td')).toHaveClass('print:hidden')
+  expect(screen.getByText(/Danh sách bò của phiếu đã nhập không thêm/)).toHaveClass('print:hidden')
+})

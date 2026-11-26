@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Badge, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, money } from '../../../shared/lib/format'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
@@ -74,7 +74,7 @@ export default function ExportDetail() {
 
       {paymentNotice && <div className="print:hidden"><Note tone="ok">{paymentNotice}</Note></div>}
       {voidOutcome && voidOutcome.reviewList.length > 0 && <ExitReviewList items={voidOutcome.reviewList} />}
-      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+      <div className="grid grid-cols-1 items-start gap-4 print:flex print:flex-col print:items-stretch @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="Thông tin phiếu" gap="gap-[14px]">
             <Info
@@ -128,7 +128,7 @@ export default function ExportDetail() {
                 </tfoot>
               )}
             </Table>
-            {isSold && <Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note>}
+            {isSold && <div className="print:hidden"><Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note></div>}
             {r.status === 'Đã hủy' && <Note>Phiếu đã hủy, các con đã trở lại đàn.</Note>}
           </Box>
 
@@ -166,7 +166,6 @@ export default function ExportDetail() {
         </div>
       </div>
 
-      <div className="print:hidden"><Foot>Chủ trại in phiếu, ghi thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot></div>
 
       {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={cancelled} />}
       {m === 'collect' && isOwner && isSold && owed > 0 && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={(message) => { setPaymentNotice(message); void refetch() }} />}

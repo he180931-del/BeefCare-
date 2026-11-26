@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Checkbox, DateInput, Field, FileDropzone, Foot, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, DateInput, Field, FileDropzone, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { AttachmentList } from '../../../shared/ui'
 import { confirmHerdExitOutcome, dismissHerdExit, herdExitApi, saveHerdExit } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
@@ -287,7 +287,6 @@ export default function DeathView({ row, onReload, notice }: { row: HerdExit; on
         </div>
       </div>
 
-      <Foot>Phiếu từ ca sức khỏe giữ bò ACTIVE đến khi Chủ trại xác nhận; "Xử lý xác" không hiện khi Loại mất = Mất tích.</Foot>
 
       {m === 'reject' && (
         <RejectModal row={row} error={actionError} onReload={onReload} onClose={closeModal} onRejected={(rejectReason: string) => { void dismissPending(rejectReason) }} />

@@ -1,4 +1,4 @@
-import { Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Field, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useCatalogueItemPage } from '../hooks/useCatalogueItemPage'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
@@ -81,7 +81,6 @@ export default function PurposesPage() {
           </EditorPanel>
         )}
       </SplitLayout>
-      <Foot>Danh mục mục đích nuôi. Loại mục đích (Sinh sản, Vỗ béo, Đực giống, Chưa xác định) quyết định nhóm đàn và bò cái nào vào danh sách theo dõi sinh sản. "Chuồng tiếp nhận" là các chuồng có tiêu chí nhận loại này.</Foot>
       {page.confirmOpen && item && (
         <DeactivateDialog name={item.name} count={purposeUsage(item)} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
       )}

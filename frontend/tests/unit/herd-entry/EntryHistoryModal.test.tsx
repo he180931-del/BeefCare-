@@ -29,7 +29,7 @@ it('shows the persisted summary and prefills the shared history editor for a pos
   expect(screen.getByText(/Tiêm: Có · 1 vắc-xin/)).toHaveTextContent('Sinh sản: Có · 2 lứa · mang thai ~4 tháng')
   await user.click(screen.getByRole('button', { name: 'Sửa khai báo lịch sử' }))
   await user.click(screen.getByRole('button', { name: 'Chi tiết tiêm phòng' }))
-  expect(screen.getByLabelText('Tên vaccine tự do')).toHaveValue('LMLM')
+  expect(screen.getByLabelText('Tên vaccine')).toHaveValue('LMLM')
   expect(screen.getByLabelText('Ngày tiêm 1')).toHaveValue('2026-03-01')
 })
 

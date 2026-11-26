@@ -49,3 +49,24 @@ export function computeHealthState(
 export const caseDay = (openedAt: string, now: string) => daysBetween(openedAt, now) + 1
 
 export const isWithdrawalActive = (end: string | null | undefined, now: string): end is string => !!end && end >= dateOf(now)
+
+/** SCR-37 (D79): lịch sử bệnh của một con bò từ trước đến nay – trả lời "con này bệnh nhiều không". */
+export interface HealthHistorySummary {
+  /** Mọi ca: đang mở, mạn tính và đã đóng. */
+  cases: number
+  /** Tổng lần điều trị hợp lệ của mọi ca. */
+  treatments: number
+  /** Ngày mở của ca gần nhất (yyyy-mm-dd), không có ca thì bỏ trống. */
+  lastOpened?: string
+}
+
+export function healthHistorySummary(
+  cases: ReadonlyArray<{ treatmentCount: number; openedDate: string }>,
+): HealthHistorySummary {
+  const opened = cases.map((c) => c.openedDate).filter(Boolean).sort()
+  return {
+    cases: cases.length,
+    treatments: cases.reduce((sum, c) => sum + (c.treatmentCount || 0), 0),
+    lastOpened: opened.length ? opened[opened.length - 1] : undefined,
+  }
+}

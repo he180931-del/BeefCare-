@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Badge, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Card, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
@@ -80,13 +80,15 @@ export default function ImportDetail() {
           <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
           {r.status === 'Đã nhập' && <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>}
         </PageHeader>
-        {Boolean(paymentError || voidError) && !isVersionConflict(paymentError || voidError) && !m && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
-        {documentError && <Note tone="err">{documentError}</Note>}
-        {lineResult?.notice && <Note tone="ok">{lineResult.notice.message}</Note>}
-        {lineResult?.overpaidNotice && <Note tone="warn">{lineResult.overpaidNotice.message}</Note>}
-        {notice && <Note tone="ok">{notice}</Note>}
+        <div className="contents print:hidden">
+          {Boolean(paymentError || voidError) && !isVersionConflict(paymentError || voidError) && !m && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
+          {documentError && <Note tone="err">{documentError}</Note>}
+          {lineResult?.notice && <Note tone="ok">{lineResult.notice.message}</Note>}
+          {lineResult?.overpaidNotice && <Note tone="warn">{lineResult.overpaidNotice.message}</Note>}
+          {notice && <Note tone="ok">{notice}</Note>}
+        </div>
 
-        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <div className="grid grid-cols-1 items-start gap-4 print:flex print:flex-col print:items-stretch @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
           <div className="flex min-w-0 flex-col gap-[18px]">
             <Card variant="panel" title="Thông tin phiếu">
               <Info
@@ -116,7 +118,7 @@ export default function ImportDetail() {
                     <Th className={TH}>Chuồng nhận</Th>
                     <Th className={TH}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
-                    {(lineActions || historyActions) && <Th className={TH}>Thao tác</Th>}
+                    {(lineActions || historyActions) && <Th className={`${TH} print:hidden`}>Thao tác</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -132,8 +134,8 @@ export default function ImportDetail() {
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>{c.current}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
-                      {historyActions && <Td className={TH}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
-                      {lineActions && <Td className={`${TH} whitespace-nowrap`}>{c.lineStatus === 'VALID' && c.herdStatus === 'ACTIVE' && c.entryId != null && <Button small onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
+                      {historyActions && <Td className={`${TH} print:hidden`}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
+                      {lineActions && <Td className={`${TH} whitespace-nowrap print:hidden`}>{c.lineStatus === 'VALID' && c.herdStatus === 'ACTIVE' && c.entryId != null && <Button small onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (
@@ -148,11 +150,11 @@ export default function ImportDetail() {
                     <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
                     <Td className={TH} /><Td className={TH} />
                     <Td className={TH}>{d ? money(d.cowsTotal) : ''}</Td>
-                    {(lineActions || historyActions) && <Td className={TH} />}
+                    {(lineActions || historyActions) && <Td className={`${TH} print:hidden`} />}
                   </tr>
                 </tfoot>
               </Table>
-              <p className="m-0 text-[11px] text-muted">
+              <p className="m-0 text-[11px] text-muted print:hidden">
                 Danh sách bò của phiếu đã nhập không thêm hoặc bớt được. Sửa hoặc hủy từng con bằng nút Sửa / Hủy ở mỗi dòng. Hủy cả phiếu chỉ khi chưa con nào có sự kiện khác.
               </p>
             </Card>
@@ -177,7 +179,7 @@ export default function ImportDetail() {
                 />
                 <VoucherPaymentTable payments={d.payments ?? []} onVoid={paymentActions ? payment => { setPaymentToVoid(payment); openModal('void-payment') } : undefined} />
                 {r.status === 'Đã hủy' && <Note>Phiếu đã hủy: {r.cancelReason}</Note>}
-                {r.status !== 'Đã hủy' && outstanding === 0 && <Note tone="ok">Đã thanh toán đủ – "Ghi thanh toán" chỉ hiện khi còn nợ.</Note>}
+                {r.status !== 'Đã hủy' && outstanding === 0 && <div className="print:hidden"><Note tone="ok">Đã thanh toán đủ – "Ghi thanh toán" chỉ hiện khi còn nợ.</Note></div>}
                 {canPay && paymentRole && outstanding > 0 && (
                   <Button block className="rounded-[4px] text-[13px] font-semibold" onClick={() => openModal('pay')}>
                     Ghi thanh toán
@@ -193,7 +195,6 @@ export default function ImportDetail() {
           </div>
         </div>
 
-        <Foot>Sửa / hủy bản ghi nhập cần lý do; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot>
       </div>
 
       {m === 'pay' && canPay && paymentRole && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { const message = await savePayment(value); setNotice(message ?? ''); closeModal() }} onClose={closeModal} />}

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, PageHeader, Radio, Segmented, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Badge, Button, Card, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, PageHeader, Radio, Segmented, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FEED_GROUP_LABELS, feedGroupLabel, formatNumber } from '../domain/feedLabels'
@@ -13,7 +13,6 @@ type CatalogueSection = 'feeds' | 'suppliers'
 const GROUPS = Object.entries(FEED_GROUP_LABELS) as Array<[FeedGroup, string]>
 const PURCHASE_UNITS = ['kg', 'Bao', 'Cuộn', 'Bó', 'Thùng']
 const normalize = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
-const FOOT = 'Danh mục thức ăn (Chủ trại, Quản lý). Chọn một dòng để sửa ở khung bên phải. Quy cách nhập dùng để quy đổi bao, cuộn về kg khi lập phiếu nhập kho. Tab “Nhà cung cấp” quản lý tên, điện thoại, địa chỉ và công nợ nhà cung cấp.'
 
 function suggestedCode(items: readonly FeedCatalogueItem[]) {
   const next = Math.max(0, ...items.map((item) => Number(item.code.match(/^TA-(\d+)$/i)?.[1] ?? 0))) + 1
@@ -200,7 +199,6 @@ export default function FeedCataloguePage() {
         )}
       </section>
       </div>
-      <Foot>{FOOT}</Foot>
       {supplierDialog && <SupplierFormDialog supplier={supplierDialog.supplier} saving={busy} onClose={() => setSupplierDialog(null)} onSave={(input) => void saveSupplierRow(input)} />}
     </Layout>
   )

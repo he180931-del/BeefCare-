@@ -2,7 +2,7 @@ import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, Foot, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { canRecordCare } from '../../authorization'
@@ -246,7 +246,6 @@ export default function FeedFeedingPage() {
         )}
         <Note tone="info">Chỉ cữ hợp lệ làm giảm tồn kho. Hủy cữ sẽ hoàn lại lượng đã ghi; mọi lần sửa hoặc hủy đều lưu lý do trong lịch sử.</Note>
       </section>
-      <Foot>Nhật ký cho ăn theo ngày. Mỗi ô cữ hiển thị kế hoạch → thực tế, giờ và người cho ăn; ô “Chưa ghi” mở nhanh hộp thoại ghi cữ. Nút ⋯ ở mỗi dòng để sửa hoặc hủy bản ghi. Tổng thực tế đã trừ kho; chênh lệch tính trên các cữ đã ghi.</Foot>
 
       {data && modal === 'ghi' && canRecord && <FeedRecordDialog key={`${pending?.penId ?? 'new'}-${pending?.sessionNo ?? 1}`} data={data} date={selectedDate} penId={pending?.penId} sessionNo={pending?.sessionNo} onClose={() => { setPending(null); closeModal() }} onSaved={finish} />}
       {data && modal === 'sua' && canRecord && editing && <FeedCorrectDialog key={`${editing.record.id}-${editing.action}`} data={data} record={editing.record} initialAction={editing.action} onClose={() => { setEditing(null); closeModal() }} onSaved={finish} />}

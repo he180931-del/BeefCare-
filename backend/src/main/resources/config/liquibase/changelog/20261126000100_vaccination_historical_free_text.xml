@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        D82 (FE-06 §3.3, FE-09 R-09-08): mũi khai báo lúc nhập đàn được ghi bằng tên tự do (vắc-xin không có trong
+        danh mục) vẫn thành bản ghi "Nhập lịch sử". Bỏ NOT NULL của vaccine_id; ràng buộc mới chỉ cho phép thiếu
+        vaccine_id khi nguồn là HISTORICAL và có tên vắc-xin. Mũi tiêm tại trại vẫn bắt buộc vắc-xin danh mục.
+        Dữ liệu cũ đều có vaccine_id nên không phải chuyển đổi.
+    -->
+    <changeSet id="20261126000100-vaccination-historical-free-text" author="beefcare">
+        <dropNotNullConstraint tableName="vaccination" columnName="vaccine_id" columnDataType="bigint"/>
+        <sql>
+            ALTER TABLE vaccination ADD CONSTRAINT ck_vaccination_vaccine_or_name CHECK (
+                vaccine_id IS NOT NULL
+                OR (source = 'HISTORICAL' AND vaccine_name_snapshot IS NOT NULL AND TRIM(vaccine_name_snapshot) &lt;&gt; '')
+            );
+        </sql>
+        <rollback>
+            <sql>ALTER TABLE vaccination DROP CONSTRAINT ck_vaccination_vaccine_or_name;</sql>
+            <!-- Không tự xóa dữ liệu: nếu đã có mũi tên tự do, rollback dừng ở đây để người vận hành xử lý trước. -->
+            <addNotNullConstraint tableName="vaccination" columnName="vaccine_id" columnDataType="bigint"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

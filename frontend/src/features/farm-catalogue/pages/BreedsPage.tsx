@@ -1,4 +1,4 @@
-import { Field, Foot, Note, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Field, Note, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useCatalogueItemPage } from '../hooks/useCatalogueItemPage'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
@@ -80,7 +80,6 @@ export default function BreedsPage() {
           </EditorPanel>
         )}
       </SplitLayout>
-      <Foot>Danh mục giống bò của trại. Mọi thành viên xem được; Chủ trại và Quản lý thêm, sửa, ngừng dùng. Mã 2–20 ký tự in hoa, số và "-", không trùng trong trại. "Đang nuôi" đếm bò đang hoạt động của giống.</Foot>
       {page.confirmOpen && item && (
         <DeactivateDialog name={item.name} count={breedUsage(item)} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
       )}

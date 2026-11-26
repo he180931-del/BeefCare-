@@ -1,5 +1,6 @@
 // Request / response shapes of the cattle REST resources (CattleResource, PenMoveResource) as the backend sends them.
 // Mapping to the screen model is in cattleMapper.ts.
+import type { BackendDeclaration } from '../domain/entryDeclarations'
 
 export type BackendProfile = {
   id?: number
@@ -34,6 +35,7 @@ export type BackendProfile = {
   withdrawalActive?: boolean
   withdrawalEndDate?: string | null
   suspectedContagious?: boolean | null
+  vaccinationOverdue?: number | null
   reproductiveStatus?: string | null
   expectedCalvingDate?: string | null
   expectedBasis?: string | null
@@ -43,7 +45,7 @@ export type BackendProfile = {
   notes?: string | null
   canUpdate?: boolean
   canChangePurpose?: boolean
-  entry?: { id?: number | null; voucherId?: number | null; source?: string | null; entryDate?: string | null; weightKg?: number | null; weightBasis?: string | null; voucherCode?: string | null; seller?: string | null } | null
+  entry?: { id?: number | null; voucherId?: number | null; source?: string | null; entryDate?: string | null; weightKg?: number | null; weightBasis?: string | null; voucherCode?: string | null; seller?: string | null; declarations?: BackendDeclaration[] | null } | null
   quarantineUntil?: string | null
   photoUrl?: string | null
   damId?: number | null

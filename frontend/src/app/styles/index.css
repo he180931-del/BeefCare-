@@ -36,3 +36,20 @@ html {
 body {
   @apply bg-page font-sans text-[13px] text-[#212121];
 }
+
+/* In phiếu / báo cáo: nút thao tác không có nghĩa trên giấy hay PDF. */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  button,
+  [role='button'] {
+    display: none !important;
+  }
+
+  /* Khối thông tin (Card) không bị cắt ngang giữa hai trang khi còn vừa một trang. */
+  main section {
+    break-inside: avoid;
+  }
+}

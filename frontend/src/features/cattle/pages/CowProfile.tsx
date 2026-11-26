@@ -5,13 +5,11 @@ import { Button, ErrorBlock, LoadingBlock, Note } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useSession } from '../../../app/session/sessionContext'
 import { useCattleProfileQuery, useCattleRemindersQuery } from '../hooks/useCattleQueries'
-import CowHeader, { COW_TABS } from '../components/CowHeader'
+import CowHeader, { COW_TABS, OVERVIEW_SECTIONS } from '../components/CowHeader'
 import { isFemale } from '../domain/profileRules'
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import OverviewTab from '../components/OverviewTab'
 import TimelineTab from '../components/TimelineTab'
-import BarnsTab from '../components/BarnsTab'
-import QrTab from '../components/QrTab'
 import ComingSoon from '../components/ComingSoon'
 import UpdateModal from '../components/UpdateModal'
 import QrReissueModal from '../components/QrReissueModal'
@@ -59,6 +57,8 @@ export default function CowProfile() {
   // SCR-19: the Reproduction tab is for females; ?tab=repro of a male falls back to the overview.
   const reproHidden = rawTab === 'repro' && !!cow && !isFemale(cow)
   const tab = COW_TABS.some(([value]) => value === rawTab) && !reproHidden ? rawTab : ''
+  // D79: ?tab=barns / ?tab=qr mở tab Tổng quan với khối Lịch sử chuồng / Thẻ QR mở sẵn.
+  const section = OVERVIEW_SECTIONS.find((value) => value === rawTab)
   useEffect(() => {
     if (reproHidden) setParams({}, { replace: true })
   }, [reproHidden, setParams])
@@ -71,10 +71,8 @@ export default function CowProfile() {
   let content = null
   if (cow) {
     const tabViews: Record<string, ReactNode> = {
-      '': <OverviewTab cow={cow} canWrite={canWrite} onOpenModal={openModal} reminders={cow.backendId != null ? remindersQuery : undefined} onReviewStage={reviewStage} />,
+      '': <OverviewTab cow={cow} barns={barns} canWrite={canWrite} onOpenModal={openModal} reminders={cow.backendId != null ? remindersQuery : undefined} onReviewStage={reviewStage} openSection={section} onTab={onTab} />,
       timeline: <TimelineTab cow={cow} />,
-      barns: <BarnsTab cow={cow} barns={barns} canWrite={canWrite} onOpenModal={openModal} />,
-      qr: <QrTab cow={cow} canWrite={canWrite} onOpenModal={openModal} />,
       growth: <GrowthProfileTab cattleCode={cow.code} />,
       vaccine: <VaccinationProfileTab cattleCode={cow.code} />,
       health: <HealthProfileTab cattleCode={cow.code} />,

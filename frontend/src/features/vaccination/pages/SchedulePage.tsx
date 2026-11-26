@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, NoticeDialog, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, NoticeDialog, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs, Td, Th } from '../../../shared/ui'
 import { cx } from '../../../shared/ui/cx'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { userFacingError } from '../../../shared/api/userFacingError'
@@ -97,7 +97,6 @@ export default function SchedulePage() {
           picked={picked} onPick={(next) => { setPicked(next); setHint(null) }}
           onRecordPicked={recordPicked} onRecord={(id) => navigate(recordPath({ doses: String(id) }))}
         />
-        <Foot>Màn lịch tiêm cấp đàn. Thẻ lịch cho biết tiến độ từng lịch đang chạy; nhấn thẻ để lọc danh sách theo lịch đó. Lịch đã tiêm xong gom trong mục "Lịch đã hoàn thành" (bấm để mở, chọn thẻ để xem lại các mũi). Tab đếm mũi theo hạn tiêm; lịch đã tiêm xong hết hiện "Đã hoàn thành" và bị khóa sửa. Lọc theo mã bò, chuồng, nhóm đàn rồi tick từng mũi hoặc "Chọn tất cả" (mọi mũi chưa tiêm khớp bộ lọc, kể cả trang khác) và nhấn "Ghi nhận n mũi đã chọn"; mỗi lần ghi chỉ một vắc-xin; Chủ trại và Kỹ thuật viên chỉ xem, không có ô chọn và cột Thao tác.</Foot>
       </div>
     </Layout>
   )

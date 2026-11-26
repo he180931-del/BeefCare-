@@ -4,6 +4,7 @@ export {
   entryPaymentVoidEnabled,
   voidEntryPayment,
   entryLineCorrectionEnabled,
+  entryReceiverEditable,
   entryHistoryDemoEnabled,
   correctEntryHistoryDemo,
   entryVoidCheck,
@@ -21,6 +22,7 @@ export {
   getEntryDraftState,
   herdEntryApi,
   listEntrySellers,
+  saveEntrySeller,
   listEntryPens,
   listEntryVaccines,
   listEntryBreeds,
@@ -33,6 +35,7 @@ export {
   saveHerdEntry,
   voidHerdEntry,
 } from './herdEntryApi'
+export type { EntrySeller, EntrySellerInput } from './herdEntryBackendApi'
 
 // Kept as a compatibility façade for existing Entry tests/components. Its
 // implementation is the backend pen endpoint, never the local collection.

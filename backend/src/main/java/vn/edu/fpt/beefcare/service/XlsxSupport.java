@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -18,8 +19,9 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 /**
- * Minimal .xlsx reader / writer using only the JDK (the template of the Excel import, GBR-96): strings (shared or
- * inline) and numbers of the first worksheet. External entities and DTDs are disabled and entry sizes are capped.
+ * Minimal .xlsx reader / writer using only the JDK (the template of the Excel import, GBR-96): the writer makes
+ * workbooks of strings and numbers with bold headers, column widths and drop-downs; the reader returns the strings (shared
+ * or inline) and numbers of the first worksheet. External entities and DTDs are disabled and entry sizes are capped.
  */
 public final class XlsxSupport {
 
@@ -33,38 +35,129 @@ public final class XlsxSupport {
 
     // ------------------------------------------------------------------ write
 
+    /** A drop-down (list validation) on a cell range: {@code source} is an inline list ("A,B") or a range ('Sheet'!$A$2:$A$9). */
+    public record ListValidation(String range, String source, boolean inline) {}
+
+    /**
+     * One worksheet. {@code header} styles the first row bold and freezes it; {@code boldRows} (0-based) are bold too;
+     * {@code textColumns} (0-based) are formatted as text so leading zeros survive; {@code widths} are column widths in
+     * characters.
+     */
+    public record Sheet(
+        String name,
+        List<? extends List<?>> rows,
+        List<Integer> widths,
+        boolean header,
+        Set<Integer> boldRows,
+        Set<Integer> textColumns,
+        List<ListValidation> validations
+    ) {
+        public Sheet(String name, List<? extends List<?>> rows) {
+            this(name, rows, List.of(), false, Set.of(), Set.of(), List.of());
+        }
+    }
+
+    private static final int STYLE_BOLD = 1;
+    private static final int STYLE_WRAP = 2;
+    private static final int STYLE_TEXT = 3;
+
     public static byte[] write(List<? extends List<?>> rows) {
+        return writeWorkbook(List.of(new Sheet("Cattle", rows)));
+    }
+
+    /** Workbook with the sheets in order; the first sheet is the one {@link #read(byte[])} reads back. */
+    public static byte[] writeWorkbook(List<Sheet> sheets) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream(); ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
-            put(zip, "[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>");
-            put(zip, "_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>");
-            put(zip, "xl/workbook.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Cattle\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
-            put(zip, "xl/_rels/workbook.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>");
-            StringBuilder sheet = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");
-            int r = 0;
-            for (List<?> row : rows) {
-                r++;
-                sheet.append("<row r=\"").append(r).append("\">");
-                for (int c = 0; c < row.size(); c++) {
-                    Object value = row.get(c);
-                    if (value == null) {
-                        continue;
-                    }
-                    if (value instanceof Number n) {
-                        sheet.append("<c r=\"").append(columnName(c)).append(r).append("\"><v>").append(n).append("</v></c>");
-                        continue;
-                    }
-                    String v = value.toString();
-                    sheet.append("<c r=\"").append(columnName(c)).append(r).append("\" t=\"inlineStr\"><is><t xml:space=\"preserve\">").append(escape(v)).append("</t></is></c>");
-                }
-                sheet.append("</row>");
+            StringBuilder types = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>");
+            StringBuilder book = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>");
+            StringBuilder rels = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">");
+            for (int i = 1; i <= sheets.size(); i++) {
+                types.append("<Override PartName=\"/xl/worksheets/sheet").append(i).append(".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>");
+                book.append("<sheet name=\"").append(escape(sheets.get(i - 1).name())).append("\" sheetId=\"").append(i).append("\" r:id=\"rId").append(i).append("\"/>");
+                rels.append("<Relationship Id=\"rId").append(i).append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet").append(i).append(".xml\"/>");
             }
-            sheet.append("</sheetData></worksheet>");
-            put(zip, "xl/worksheets/sheet1.xml", sheet.toString());
+            rels.append("<Relationship Id=\"rId").append(sheets.size() + 1).append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>");
+            put(zip, "[Content_Types].xml", types.append("</Types>").toString());
+            put(zip, "_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>");
+            put(zip, "xl/workbook.xml", book.append("</sheets></workbook>").toString());
+            put(zip, "xl/_rels/workbook.xml.rels", rels.toString());
+            put(zip, "xl/styles.xml", STYLES);
+            for (int i = 1; i <= sheets.size(); i++) {
+                put(zip, "xl/worksheets/sheet" + i + ".xml", sheetXml(sheets.get(i - 1), i == 1));
+            }
             zip.finish();
             return out.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** 0 default · 1 bold on light green · 2 wrapped, top aligned · 3 text (@). */
+    private static final String STYLES = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+        + "<fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>"
+        + "<fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFE5F3E9\"/><bgColor indexed=\"64\"/></patternFill></fill></fills>"
+        + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>"
+        + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"
+        + "<cellXfs count=\"4\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>"
+        + "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf>"
+        + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf>"
+        + "<xf numFmtId=\"49\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/></cellXfs>"
+        + "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>";
+
+    private static String sheetXml(Sheet s, boolean selected) {
+        StringBuilder x = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+        x.append("<sheetViews><sheetView workbookViewId=\"0\"").append(selected ? " tabSelected=\"1\"" : "").append(">");
+        if (s.header()) {
+            x.append("<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>");
+        }
+        x.append("</sheetView></sheetViews>");
+        int columns = Math.max(s.widths().size(), s.textColumns().stream().mapToInt(c -> c + 1).max().orElse(0));
+        if (columns > 0) {
+            x.append("<cols>");
+            for (int c = 0; c < columns; c++) {
+                int width = c < s.widths().size() && s.widths().get(c) != null ? s.widths().get(c) : 12;
+                x.append("<col min=\"").append(c + 1).append("\" max=\"").append(c + 1).append("\" width=\"").append(width).append("\" customWidth=\"1\"");
+                if (s.textColumns().contains(c)) {
+                    x.append(" style=\"").append(STYLE_TEXT).append('"');
+                }
+                x.append("/>");
+            }
+            x.append("</cols>");
+        }
+        x.append("<sheetData>");
+        int r = 0;
+        for (List<?> row : s.rows()) {
+            r++;
+            boolean bold = (s.header() && r == 1) || s.boldRows().contains(r - 1);
+            x.append("<row r=\"").append(r).append("\">");
+            for (int c = 0; c < row.size(); c++) {
+                Object value = row.get(c);
+                if (value == null) {
+                    continue;
+                }
+                int style = bold ? STYLE_BOLD : s.textColumns().contains(c) ? STYLE_TEXT : s.widths().isEmpty() ? 0 : STYLE_WRAP;
+                x.append("<c r=\"").append(columnName(c)).append(r).append('"');
+                if (style != 0) {
+                    x.append(" s=\"").append(style).append('"');
+                }
+                if (value instanceof Number n) {
+                    x.append("><v>").append(n).append("</v></c>");
+                } else {
+                    x.append(" t=\"inlineStr\"><is><t xml:space=\"preserve\">").append(escape(value.toString())).append("</t></is></c>");
+                }
+            }
+            x.append("</row>");
+        }
+        x.append("</sheetData>");
+        if (!s.validations().isEmpty()) {
+            x.append("<dataValidations count=\"").append(s.validations().size()).append("\">");
+            for (ListValidation v : s.validations()) {
+                x.append("<dataValidation type=\"list\" errorStyle=\"warning\" allowBlank=\"1\" showErrorMessage=\"1\" sqref=\"").append(v.range()).append("\">");
+                x.append("<formula1>").append(escape(v.inline() ? '"' + v.source() + '"' : v.source())).append("</formula1></dataValidation>");
+            }
+            x.append("</dataValidations>");
+        }
+        return x.append("</worksheet>").toString();
     }
 
     private static void put(ZipOutputStream zip, String name, String content) throws IOException {
@@ -84,7 +177,7 @@ public final class XlsxSupport {
     }
 
     private static String escape(String s) {
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
     // ------------------------------------------------------------------ read

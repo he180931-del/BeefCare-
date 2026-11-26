@@ -33,7 +33,9 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
             download
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-xs font-semibold text-[#212121]"
           ><Icon name="download" />Tải mẫu .xlsx</a>}
-          <span className="max-w-[380px] text-[11px] text-muted">Cột: Số thẻ tai · Giống · Giới tính · Ngày sinh · Độ chính xác · Cân · Cơ sở cân · Chuồng · Mục đích · Đơn giá</span>
+          <span className="max-w-[380px] text-[11px] text-muted">{onDownloadTemplate
+            ? 'Cột: Số tai · Giống · Giới tính · Ngày sinh hoặc Tuổi (tháng) · Độ chính xác · Màu lông · Cân · Cơ sở cân · Chuồng · Mục đích · Đơn giá · Cách ly đến. Trang "Hướng dẫn" trong file giải thích từng cột.'
+            : 'Cột: Số thẻ tai · Giống · Giới tính · Tháng sinh · Độ chính xác · Giai đoạn · Mục đích · Cân · Cơ sở cân · Chuồng · Đơn giá'}</span>
         </div>
       </div>
 
@@ -80,7 +82,7 @@ export default function ExcelModal({ commandError, onReload, recordId, onAdd, on
                 <Td className={TH}>{r.tag}</Td>
                 <Td className={TH}>{`${r.breed} · ${r.sex}`}</Td>
                 <Td className={`${TH} whitespace-nowrap`}>{kg(r.kg)}</Td>
-                <Td className={`${TH} whitespace-nowrap`}>{IMPORT_BARN_NAME[r.barn]}</Td>
+                <Td className={`${TH} whitespace-nowrap`}>{r.barn}</Td>
                 <Td className={TH}><Badge tone={r.result.tone} icon={r.result.tone === 'ok' ? 'circle-check' : undefined}>{r.result.text}</Badge></Td>
               </tr>
             ))}
@@ -114,4 +116,3 @@ function ProcessingIndicator({ label }: { label: string }) {
   )
 }
 
-const IMPORT_BARN_NAME: Record<string, string> = { A1: 'A1 – Bò cái', A2: 'A2 – Bò cái', B1: 'B1 – Vỗ béo' }

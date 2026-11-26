@@ -96,17 +96,20 @@ export function useTemperatureCheck() {
   return { guard, dialog }
 }
 
-/** Thành viên ứng với người đang đăng nhập (theo id, rồi email); không có phiên hoặc không khớp → thành viên đầu tiên. */
+/**
+ * Thành viên ứng với người đang đăng nhập (theo id, rồi email). Không có phiên hoặc người đăng nhập không có trong danh sách
+ * → undefined để ô người thực hiện / quan sát để trống, không gán nhầm cho thành viên khác.
+ */
 export function useCurrentMember(members: HealthMember[]): HealthMember | undefined {
   const session = useSession()
-  return members.find((m) => session != null && ((session.id != null && m.id === session.id) || (!!m.email && m.email === session.email))) ?? members[0]
+  return members.find((m) => session != null && ((session.id != null && m.id === session.id) || (!!m.email && m.email === session.email)))
 }
 
 /** Ô chọn thành viên: giá trị là id, nhãn là họ tên. */
 export function MemberSelect({ id, value, members, onChange, keepLabel, label }: { id: string; value: number | null; members: HealthMember[]; onChange: (id: number | null) => void; keepLabel?: string; label?: string }) {
   return (
     <Select id={id} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-      {keepLabel !== undefined && <option value="">{keepLabel}</option>}
+      {(keepLabel !== undefined || value == null) && <option value="">{keepLabel ?? 'Chọn người'}</option>}
       {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
     </Select>
   )
