@@ -11,8 +11,9 @@ const apiState = vi.hoisted(() => ({
   getCalls: [] as string[],
   pens: [] as Pen[],
   calves: [] as unknown[],
-  sellers: [] as Array<{ id: string; name: string; phone: string }>,
+  sellers: [] as Array<{ id: string; name: string; phone: string; area?: string; active?: boolean }>,
   saved: [] as unknown[],
+  savedSellers: [] as Array<{ input: unknown; key?: string }>,
 }))
 
 vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => {
@@ -35,6 +36,10 @@ vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => 
     },
     listPendingEntryCalves: async () => structuredClone(apiState.calves),
     listEntrySellers: async () => structuredClone(apiState.sellers),
+    saveEntrySeller: async (input: { name: string; phone: string; area: string }, options?: { key?: string }) => {
+      apiState.savedSellers.push({ input: structuredClone(input), key: options?.key })
+      return { id: 's99', ...input, active: true }
+    },
     saveHerdEntry: async (input: unknown) => {
       apiState.saved.push(structuredClone(input))
       return input
@@ -77,6 +82,11 @@ function renderPage(url = '/herd-entry/new') {
   )
 }
 
+async function pickSeller(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+  await user.click(screen.getByRole('option', { name: new RegExp(name) }))
+}
+
 async function waitForForm() {
   await screen.findByText('1. Thông tin phiếu')
 }
@@ -97,6 +107,7 @@ beforeEach(() => {
   apiState.calves = []
   apiState.sellers = structuredClone(sellers)
   apiState.saved = []
+  apiState.savedSellers = []
 })
 
 describe('Phiếu nhập mới — thông tin phiếu', () => {
@@ -151,7 +162,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
-    await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's2')
+    await pickSeller(user, sellers[1].name)
     await user.clear(screen.getByLabelText('Chọn ngày'))
     await user.type(screen.getByLabelText('Chọn ngày'), '2026-10-21')
     await user.clear(controlInField('Số giấy kiểm dịch'))
@@ -161,7 +172,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await user.clear(controlInField('Ghi chú khi nhận bò'))
     await user.type(controlInField('Ghi chú khi nhận bò'), 'Bò khỏe, nhận đủ số lượng')
 
-    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
+    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue(sellers[1].name)
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue('2026-10-21')
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-2026-00871')
     expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
@@ -219,6 +230,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
+    await pickSeller(user, sellers[0].name)
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ/ }))
 
@@ -266,7 +278,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await waitForForm()
 
     expect(controlInField('Mã phiếu')).toHaveValue('PN-2026-0042')
-    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
+    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue(sellers[1].name)
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-42')
     expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
     expect(controlInField('Ghi chú khi nhận bò')).toHaveValue('Nháp cần hoàn thiện')
@@ -299,7 +311,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
-    await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's2')
+    await pickSeller(user, sellers[1].name)
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.type(controlInField('Số giấy kiểm dịch'), 'KD-DRAFT-14')
     await user.type(screen.getByRole('textbox', { name: 'Biển số xe' }), '29C-999.99')
@@ -323,5 +335,39 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
       note: 'Lưu để bổ sung bò sau',
     })
     expect(persisted.cattleRows ?? []).toHaveLength(0)
+  })
+
+  it('"+ Thêm nguồn mới" mở form tên/SĐT/khu vực, lưu người bán và chọn ngay người bán mới (FE-06 trường 4)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitForForm()
+
+    // Spec default is empty: no seller is preselected on a new voucher.
+    expect(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' })).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: '+ Thêm nguồn mới' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.click(dialog.getByRole('button', { name: 'Lưu nguồn' }))
+    expect(dialog.getByText('Tên người bán là bắt buộc.')).toBeInTheDocument()
+    expect(apiState.savedSellers).toHaveLength(0)
+
+    await user.type(dialog.getByLabelText('Tên người bán / chủ bò cũ *'), '  Hộ bà Nguyễn Thị D  ')
+    await user.type(dialog.getByLabelText('Số điện thoại'), '0988 000 111')
+    await user.type(dialog.getByLabelText('Khu vực'), 'Ba Vì')
+    await user.click(dialog.getByRole('button', { name: 'Lưu nguồn' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(apiState.savedSellers).toEqual([{ input: { name: 'Hộ bà Nguyễn Thị D', phone: '0988 000 111', area: 'Ba Vì' }, key: expect.stringMatching(/^beefcare-entry-seller-/) }])
+    expect(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' })).toHaveValue('Hộ bà Nguyễn Thị D')
+    expect(screen.getByText(/0988 000 111 ·/)).toBeInTheDocument()
+  })
+
+  it('chỉ liệt kê người bán ACTIVE trong danh sách nguồn', async () => {
+    apiState.sellers = [...structuredClone(sellers), { id: 's3', name: 'Nguồn đã ngưng', phone: '', active: false }]
+    const user = userEvent.setup()
+    renderPage()
+    await waitForForm()
+    await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+    expect(screen.getByText(sellers[0].name)).toBeInTheDocument()
+    expect(screen.queryByText('Nguồn đã ngưng')).not.toBeInTheDocument()
   })
 })

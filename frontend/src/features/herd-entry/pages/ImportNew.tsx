@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, SearchSelect, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
@@ -16,13 +16,14 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import CalfDeathModal from '../components/CalfDeathModal'
 import ExcelModal from '../components/ExcelModal'
+import AddSellerModal from '../components/AddSellerModal'
 import PayModal from '../components/PayModal'
 import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
-import { entryReceiverEditable, herdEntryApi } from '../api'
+import { entryReceiverEditable, herdEntryApi, saveEntrySeller, type EntrySeller, type EntrySellerInput } from '../api'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -40,6 +41,7 @@ export default function ImportNew() {
   const draftId = params.get('id')
   const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdEntry } | null>(null)
   const [reloadRevision, setReloadRevision] = useState(0)
+  const [addedSellers, setAddedSellers] = useState<EntrySeller[]>([])
   const { data, detailedDraft, draftError, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults } = useEntryNewQueries({ draftId: draftId ?? undefined })
   if (!data || !canonicalPens || !pendingCalves || !sellers || (draftId && !detailedDraft && !draftError)) {
     return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
@@ -62,10 +64,19 @@ export default function ImportNew() {
   // value used to produce the misleading 0/0 state and hide source birth facts.
   const currentDraftBackendId = Number(activeDraft?.backendId)
   const availablePendingCalves = pendingCalves.filter((calf) => calf.draftVoucherId == null || (Number.isFinite(currentDraftBackendId) && calf.draftVoucherId === currentDraftBackendId))
-  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
+  // FE-06 field 4 lists ACTIVE sellers; a draft keeps showing the seller it already references.
+  const draftSourceId = activeDraft?.draft?.sourceId
+  const loadedSellers = sellers.filter((seller) => seller.active !== false || seller.id === draftSourceId)
+  const sellerOptions = [...loadedSellers, ...addedSellers.filter((added) => !loadedSellers.some((seller) => seller.id === added.id))]
+  const addSeller = async (input: EntrySellerInput, options: { key: string }) => {
+    const seller = await saveEntrySeller(input, options)
+    setAddedSellers((current) => current.some((row) => row.id === seller.id) ? current : [...current, seller])
+    return seller
+  }
+  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellerOptions} onAddSeller={addSeller} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
 }
 
-function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
+function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, onAddSeller, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: EntrySeller[]; onAddSeller: (input: EntrySellerInput, options: { key: string }) => Promise<EntrySeller>; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
   const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
@@ -100,7 +111,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
     setParams(query)
   }
 
-  const editor = useEntryEditor({ draft, defaults, pendingCalves, sellers, pens: importBarns, isBuy })
+  const editor = useEntryEditor({ draft, defaults, pendingCalves, pens: importBarns, isBuy })
   const { sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
     cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue,
     printQr, setPrintQr, patchCow, patchCalf, purchase, pensAfter: barnAfter, overflow, calfPen: calfBarn, calvesSummary } = editor
@@ -122,7 +133,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
-  const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
+  const source = sellers.find((s) => s.id === sourceId) ?? { id: '', name: '', phone: '', area: '' }
   const { cattleAmount: cowsMoney, totalWeight, total, debt, estimatedCount } = purchase
 
   const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
@@ -324,10 +335,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                   <Field id="entry-type" label="Loại nhập"><input id="entry-type" className={inputCls} value={kind} readOnly /></Field>
                   {isBuy && (
                     <>
-                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={`${source.phone} · + Thêm nguồn mới`}>
-                        <Select id="entry-source" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-                          {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </Select>
+                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={<>{source.phone ? `${source.phone} · ` : ''}<button type="button" onClick={() => openModal('seller')} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] font-semibold text-brand">+ Thêm nguồn mới</button></>}>
+                        <SearchSelect
+                          id="entry-source"
+                          aria-label="Nguồn / chủ bò cũ"
+                          value={sourceId}
+                          onChange={setSourceId}
+                          clearable={false}
+                          allLabel="Chọn người bán"
+                          options={sellers.map((s) => ({ value: s.id, label: s.name, hint: [s.phone, s.area].filter(Boolean).join(' · ') }))}
+                          className="w-full"
+                        />
                       </Field>
                       <Field id="entry-quarantine" label="Số giấy kiểm dịch">
                         <input id="entry-quarantine" maxLength={50} className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} />
@@ -642,6 +660,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
             },
           }}
           onClose={() => setPaymentModalOpen(false)}
+        />
+      )}
+      {isBuy && m === 'seller' && (
+        <AddSellerModal
+          onClose={closeModal}
+          onSave={async (input, options) => {
+            const seller = await onAddSeller(input, options)
+            setSourceId(seller.id)
+            closeModal()
+            return seller
+          }}
         />
       )}
       {isBuy && m === 'excel' && (

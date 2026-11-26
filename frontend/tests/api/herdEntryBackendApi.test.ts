@@ -787,3 +787,24 @@ test('entry backend bounds attachment and post idempotency keys for long filenam
   const uploadKeys = keys.filter(({ path }) => path.endsWith('/attachments')).map(({ key }) => key)
   assert.notEqual(uploadKeys[0], uploadKeys[1])
 })
+test('FE-06 "+ Thêm nguồn mới" posts a SELLER-only trading partner with the dialog key and maps the ACTIVE flag', async () => {
+  const calls: Array<{ method?: string; path: string; body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async (path) => {
+      assert.equal(path, '/api/farms/9/trading-partners?role=SELLER')
+      return [{ id: 7, name: 'Hộ ông C', phone: '0912', area: 'Sơn Tây', status: 'ACTIVE' }, { id: 8, name: 'Nguồn cũ', status: 'INACTIVE' }]
+    },
+    command: async (path, body, options) => { calls.push({ method: options?.method, path, body, key: options?.key }); return { id: 15, name: 'Hộ bà D', phone: '0988', area: 'Ba Vì', status: 'ACTIVE', version: 0 } },
+  } })
+  assert.deepEqual(await api.sellers(), [
+    { id: '7', name: 'Hộ ông C', phone: '0912', area: 'Sơn Tây', active: true },
+    { id: '8', name: 'Nguồn cũ', phone: '', area: '', active: false },
+  ])
+  const seller = await api.saveSeller({ name: '  Hộ bà D ', phone: ' 0988 ', area: ' Ba Vì ' }, { key: 'beefcare-entry-seller-1' })
+  assert.deepEqual(calls, [{ method: 'POST', path: '/api/farms/9/trading-partners', key: 'beefcare-entry-seller-1',
+    body: { name: 'Hộ bà D', phone: '0988', area: 'Ba Vì', note: '', seller: true, buyer: false, supplier: false } }])
+  assert.deepEqual(seller, { id: '15', name: 'Hộ bà D', phone: '0988', area: 'Ba Vì', active: true })
+  await assert.rejects(() => api.saveSeller({ name: '  ', phone: '', area: '' }), /bắt buộc/)
+  assert.equal(calls.length, 1)
+})

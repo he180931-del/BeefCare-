@@ -9,7 +9,7 @@ it('reopens an old draft with current A11 birth facts while preserving selected 
     picked: true, barn: 'CHOSEN', penId: 3, purpose: 'Vỗ béo', purposeId: 4 }
   const source: EntryCalf = { ...old, mother: 'SOURCE-DAM', father: 'Không rõ', damId: 5, sireId: undefined,
     sireSource: undefined, born: '2026-10-02', sex: 'Cái', weight: 31, picked: false, barn: 'PROPOSED', penId: 6, purpose: 'Chưa xác định', purposeId: 7 }
-  const { result } = renderHook(() => useEntryEditor({ draft: { calves: [old] }, pendingCalves: [source], sellers: [], pens: [], isBuy: false,
+  const { result } = renderHook(() => useEntryEditor({ draft: { calves: [old] }, pendingCalves: [source], pens: [], isBuy: false,
     defaults: { recordId: '', date: '', quarantine: '', receiver: '', note: '', cows: [], freight: 0, paid: 0, method: '', due: '' } }))
   expect(result.current.calves[0]).toMatchObject({ mother: 'SOURCE-DAM', father: 'Không rõ', damId: 5, sireId: undefined,
     sireSource: undefined, born: '2026-10-02', sex: 'Cái', weight: 31, picked: true, barn: 'CHOSEN', penId: 3, purposeId: 4 })

@@ -10,6 +10,8 @@ import {
   type EntryListFilters,
   type EntryListView,
   type EntryParentOption,
+  type EntrySeller,
+  type EntrySellerInput,
   type EntryVaccineOption,
 } from './herdEntryBackendApi'
 import { businessDate } from '../../../shared/lib/date/farmTime'
@@ -119,7 +121,11 @@ export const markCalfDiedBeforeRegistration = async (calfOutcomeId: number, reas
 }
 
 // GET /api/farms/{farmId}/trading-partners?role=seller
-export const listEntrySellers = () => usingBackend ? backendApi.sellers() : Promise.resolve(demo.entryLocal.sellers())
+export const listEntrySellers = (): Promise<EntrySeller[]> => usingBackend ? backendApi.sellers() : Promise.resolve(demo.entryLocal.sellers())
+// POST /api/farms/{farmId}/trading-partners (seller=true) — FE-06 "+ Thêm nguồn mới"
+export const saveEntrySeller = (input: EntrySellerInput, options?: { key?: string }): Promise<EntrySeller> => usingBackend
+  ? backendApi.saveSeller(input, options)
+  : Promise.resolve(demo.entryLocal.saveSeller(input))
 // GET /api/farms/{farmId}/pens
 export const listEntryPens = () => usingBackend ? backendApi.listPens() : demo.entryLocal.pens.list()
 // chưa có API trong gói S13: danh mục vắc-xin
