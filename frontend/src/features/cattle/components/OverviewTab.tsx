@@ -149,6 +149,13 @@ export default function OverviewTab({ cow, barns = {}, canWrite, onOpenModal, re
           >
             <Fields cols="grid-cols-2 sm:grid-cols-3" items={keyFields} />
             {moreInfo && <Fields cols="grid-cols-2 sm:grid-cols-3" items={moreFields} className="border-t border-edge pt-3.5" />}
+            {/* D82, SCR-19 #11: khai báo trước nhập là thông tin tham khảo, sửa qua phiếu nhập ("Sửa / hủy bản ghi nhập đàn"). */}
+            {moreInfo && cow.entryDeclarations && (
+              <section aria-label="Khai báo khi nhập" className="flex flex-col gap-2 border-t border-edge pt-3.5">
+                <h3 className="m-0 text-[11px] font-semibold text-label">Khai báo khi nhập</h3>
+                <Fields cols="grid-cols-1 sm:grid-cols-3" items={cow.entryDeclarations.map((row) => [row.label, row.value] as const)} />
+              </section>
+            )}
             <Button variant="link" small className="self-start leading-[normal]" aria-expanded={moreInfo} onClick={() => setMoreInfo((v) => !v)}>
               {moreInfo ? 'Thu gọn' : 'Xem thêm: định danh, nguồn gốc, bố mẹ'}
             </Button>

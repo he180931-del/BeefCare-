@@ -280,9 +280,16 @@ const windowText = (window: { from: string; to: string }) => `${formatShort(wind
 
 /** Deadline column of the worklist: the suggested window for an estrus female, otherwise the due date. */
 export function dueLabel(row: ReproductionFemale): string {
+  // D82: bò khai mang thai lúc nhập có hạn khám thai (REM-03) dù điều kiện phối chưa đạt.
+  if (row.declaredPregnancy) return row.dueAt ? formatDate(row.dueAt) : '—'
   if (row.eligibility?.status === 'NOT_MET') return '—'
   if (row.status === 'IN_ESTRUS' && row.breedingWindow) return windowText(row.breedingWindow)
   return row.dueAt ? formatDate(row.dueAt) : '—'
+}
+
+/** D82, SCR-39 #3: "Khai báo mang thai ~4 tháng (chưa khám)". */
+export function declaredPregnancyText(declared: NonNullable<ReproductionFemale['declaredPregnancy']>): string {
+  return `Khai báo mang thai${declared.months ? ` ~${declared.months} tháng` : ''} (chưa khám)`
 }
 
 /** Bò chưa có bản ghi cân VALID (cân lúc nhập đàn không tính – chốt 15/11/2026, GBR-39). */

@@ -16,10 +16,11 @@ public class CattleProfileService {
     private final EntityManager em;private final FarmAccessService access;private final CattleGuardService guard;private final FarmClock clock;
     private final PenAssignmentService assignments;private final GrowthAssessmentService growth;private final CattleStateService state;
     private final AuditService audit;private final CodeSequenceService codes;private final CattleQrTagRepository tags;private final OutboxService outbox;
-    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;private final EntryDeclarationReadService declarations;
     public CattleProfileService(EntityManager em,FarmAccessService access,CattleGuardService guard,FarmClock clock,PenAssignmentService assignments,
-        GrowthAssessmentService growth,CattleStateService state,AuditService audit,CodeSequenceService codes,CattleQrTagRepository tags,OutboxService outbox,com.fasterxml.jackson.databind.ObjectMapper mapper){
-        this.em=em;this.access=access;this.guard=guard;this.clock=clock;this.assignments=assignments;this.growth=growth;this.state=state;this.audit=audit;this.codes=codes;this.tags=tags;this.outbox=outbox;this.mapper=mapper;
+        GrowthAssessmentService growth,CattleStateService state,AuditService audit,CodeSequenceService codes,CattleQrTagRepository tags,OutboxService outbox,com.fasterxml.jackson.databind.ObjectMapper mapper,
+        EntryDeclarationReadService declarations){
+        this.em=em;this.access=access;this.guard=guard;this.clock=clock;this.assignments=assignments;this.growth=growth;this.state=state;this.audit=audit;this.codes=codes;this.tags=tags;this.outbox=outbox;this.mapper=mapper;this.declarations=declarations;
     }
     @Transactional(readOnly=true) public CattleDtos.Page list(Long farmId,String q,String herdStatus,Long breedId,Sex sex,Long penId,Long purposeId,LifeStage lifeStage,String health,String herdGroup,int page,int size,String sort) {
         return list(farmId,q,herdStatus,breedId,sex,penId,purposeId,lifeStage,health,herdGroup,page,size,sort,null);
@@ -141,6 +142,8 @@ public class CattleProfileService {
             p.put("damCode",c.getDam()==null?null:c.getDam().getDisplayCode());p.put("sireCode",c.getSire()==null?null:c.getSire().getDisplayCode());p.put("externalSireCode",c.getExternalSireCode());p.put("canUpdate",c.getHerdStatus()==HerdStatus.ACTIVE&&!pending&&ctx.role()!=FarmRole.TECHNICIAN);p.put("canChangePurpose",ctx.isOwner());
             entry(c.getId()).ifPresent(e->{Map<String,Object> entry=new LinkedHashMap<>();entry.put("source",e.getSource());entry.put("entryDate",e.getEntryDate());entry.put("weightKg",e.getEntryWeightKg());entry.put("weightBasis",e.getWeightBasis());
                 if(ctx.role()!=FarmRole.TECHNICIAN){entry.put("id",e.getId());entry.put("voucherId",e.getVoucher().getId());entry.put("voucherCode",e.getVoucher().getCode());entry.put("seller",e.getVoucher().getSeller()==null?null:e.getVoucher().getSeller().getName());}
+                // D82, SCR-19 #11: mọi vai trò xem được khai báo khi nhập; bò đã hủy nhập (VOIDED) không hiện.
+                if(c.getHerdStatus()!=HerdStatus.VOIDED)entry.put("declarations",declarations.forEntry(e));
                 p.put("entry",entry);p.put("quarantineUntil",e.getQuarantineUntil());});}
         return p;
     }

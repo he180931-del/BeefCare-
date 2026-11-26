@@ -15259,6 +15259,12 @@
           },
           "seller" : {
             "type" : "string"
+          },
+          "declarations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Declaration"
+            }
           }
         }
       },
@@ -23646,6 +23652,9 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "declaredPregnancy" : {
+            "$ref" : "#/components/schemas/DeclaredPregnancy"
           }
         }
       },
@@ -25303,6 +25312,65 @@
           }
         },
         "required" : [ "email", "valid" ]
+      },
+      "Declaration" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "vaccines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeclaredVaccine"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "informationSource" : {
+            "type" : "string"
+          },
+          "earlierCalvings" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pregnantAtEntry" : {
+            "type" : "string"
+          },
+          "estMonthsPregnant" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DeclaredPregnancy" : {
+        "type" : "object",
+        "properties" : {
+          "estMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "entryDate" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "DeclaredVaccine" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
       }
     },
     "securitySchemes" : {

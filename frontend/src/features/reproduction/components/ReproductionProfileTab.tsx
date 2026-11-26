@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Badge, Button, Icon, type IconName, Note, Panel } from '../../../shared/ui'
+import { Badge, Button, Icon, type IconName, Modal, ModalButton, ModalFooter, Note, Panel } from '../../../shared/ui'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import {
-  ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, addDaysText, daysBetween, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
+  ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, addDaysText, daysBetween, declaredPregnancyText, formatDate, isDueSoon, primaryActionFor,
+  type ReproductionAction,
 } from '../domain/reproductionRules'
 import type { ReproductionFemale, ReproductionRole } from '../types'
 import ReproductionActionDialog, { type ReproductionDialogTarget } from './ReproductionActionDialog'
@@ -25,9 +26,11 @@ const ACTION_ICON: Record<ReproductionAction, IconName> = {
   RECORD_ESTRUS: 'flame', RECORD_BREEDING: 'dna', RECORD_PREGNANCY_CHECK: 'heartbeat', RECORD_PREGNANCY_UPDATE: 'clipboard-list', RECORD_CALVING: 'baby-carriage',
 }
 
-function MoreMenu({ onPick }: { onPick: (action: ReproductionAction) => void }) {
+function MoreMenu({ onPick, shown = [] }: { onPick: (action: ReproductionAction) => void; shown?: ReproductionAction[] }) {
   const [open, setOpen] = useState(false)
-  const items: Array<[ReproductionAction, string]> = [['RECORD_PREGNANCY_CHECK', 'Ghi khám thai'], ['RECORD_CALVING', 'Ghi sự kiện đẻ (không theo dõi thai kỳ)']]
+  // Không lặp thao tác đã có nút riêng (ví dụ Ghi khám thai khi bò có khai báo mang thai – D82).
+  const items = ([['RECORD_PREGNANCY_CHECK', 'Ghi khám thai'], ['RECORD_CALVING', 'Ghi sự kiện đẻ (không theo dõi thai kỳ)']] as Array<[ReproductionAction, string]>)
+    .filter(([action]) => !shown.includes(action))
   return (
     <div className="relative">
       <Button variant="onDark" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>Thêm<Icon name="chevron-down" size={16} /></Button>
@@ -52,9 +55,13 @@ const STATUS_TEXT: Record<string, string> = {
  * sản nằm ở dải riêng bên dưới để khối này không thành bảng số (D68).
  */
 function StatusCard({ profile, canManage, onAction, className }: { profile: ReproductionFemale; canManage: boolean; onAction: (action: ReproductionAction) => void; className?: string }) {
-  const primary = primaryActionFor(profile.status)
+  // D82: bò khai mang thai lúc nhập, chưa khám – việc đầu tiên là khám thai, không phải phối.
+  const declared = profile.declaredPregnancy
+  const primary = declared ? 'RECORD_PREGNANCY_CHECK' : primaryActionFor(profile.status)
   const active = canManage && profile.herdStatus === 'ACTIVE'
-  const shown = active ? actionsForStatus(profile.status).sort((a, b) => Number(b === primary) - Number(a === primary)) : []
+  const actions = actionsForStatus(profile.status)
+  const available = declared && !actions.includes('RECORD_PREGNANCY_CHECK') ? ['RECORD_PREGNANCY_CHECK' as const, ...actions] : actions
+  const shown = active ? available.sort((a, b) => Number(b === primary) - Number(a === primary)) : []
   const showMore = active && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
   const now = nowLocal()
   const soon = isDueSoon(profile, now)
@@ -72,10 +79,30 @@ function StatusCard({ profile, canManage, onAction, className }: { profile: Repr
           {shown.map((action) => (
             <Button key={action} variant={action === primary ? 'onDarkPrimary' : 'onDark'} onClick={() => onAction(action)}><Icon name={ACTION_ICON[action]} size={16} />{ACTION_LABEL[action]}</Button>
           ))}
-          {showMore && <MoreMenu onPick={onAction} />}
+          {showMore && <MoreMenu onPick={onAction} shown={shown} />}
         </div>
       )}
     </Panel>
+  )
+}
+
+const WARN_ACTIONS: ReproductionAction[] = ['RECORD_BREEDING', 'RECORD_ESTRUS']
+
+/** D82: popup cảnh báo điều kiện (không phải lỗi nhập liệu) – bò được khai mang thai lúc nhập nhưng chưa khám thai. */
+function DeclaredPregnancyWarning({ profile, onCheck, onProceed, onClose }: { profile: ReproductionFemale; onCheck: () => void; onProceed: () => void; onClose: () => void }) {
+  const d = profile.declaredPregnancy
+  if (!d) return null
+  const months = d.months ? ` ~${d.months} tháng` : ''
+  return (
+    <Modal title="Bò có khai báo mang thai" width={560} onClose={onClose}>
+      <p role="alert" className="m-0 text-sm leading-relaxed text-ink">
+        {profile.cattleCode} được khai báo mang thai{months} khi nhập ngày {formatDate(d.entryDate)}, chưa khám thai. Nên khám thai trước khi phối.
+      </p>
+      <ModalFooter>
+        <ModalButton onClick={onProceed}>Vẫn ghi</ModalButton>
+        <ModalButton variant="primary" onClick={onCheck}>Ghi khám thai</ModalButton>
+      </ModalFooter>
+    </Modal>
   )
 }
 
@@ -92,6 +119,10 @@ function NextStep({ profile, now }: { profile: ReproductionFemale; now: string }
       )}
     </div>
   )
+  if (profile.declaredPregnancy) {
+    const d = profile.declaredPregnancy
+    return box('Khai báo khi nhập', `${declaredPregnancyText(d)} · nhập ${formatDate(d.entryDate)}. Ghi khám thai để xác nhận.`)
+  }
   if (profile.status === 'IN_ESTRUS' && profile.breedingWindow) {
     const w = profile.breedingWindow
     const today = w.from.slice(0, 10) === now.slice(0, 10)
@@ -181,7 +212,10 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
   const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
   const [params, setParams] = useSearchParams()
+  // D82: đã xác nhận "Vẫn ghi" cho thao tác nào – cảnh báo khai báo mang thai chỉ hỏi một lần mỗi lần mở popup.
+  const [acknowledged, setAcknowledged] = useState<ReproductionAction | null>(null)
   const setDialog = (next: ReproductionDialogTarget | null) => {
+    if (!next) setAcknowledged(null)
     // Ghi theo URL (?m=…) không cần giữ cục bộ; riêng khám thai "quan sát" (D67) cần giữ cờ điền sẵn.
     setLocalDialog(next && (next.mode !== 'record' || next.observed) ? next : null)
     if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
@@ -224,6 +258,8 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   }
 
   const status = profile.status
+  // D82 (NT-19): ghi phối / động dục cho bò khai mang thai chưa khám – cảnh báo trước, vẫn cho ghi.
+  const warnDeclared = !!profile.declaredPregnancy && dialog?.mode === 'record' && WARN_ACTIONS.includes(dialog.action) && acknowledged !== dialog.action
   const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')
   const hasCalvings = profile.calvings.some((calving) => calving.status === 'VALID')
   const context = showEligibility ? <EligibilityCard profile={profile} />
@@ -257,7 +293,15 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       {profile.revisions.length > 0 && <RevisionHistory profile={profile} />}
       </div>
 
-      {dialog && (
+      {dialog && warnDeclared && (
+        <DeclaredPregnancyWarning
+          profile={profile}
+          onCheck={() => { setAcknowledged(null); setDialog({ mode: 'record', action: 'RECORD_PREGNANCY_CHECK' }) }}
+          onProceed={() => setAcknowledged(dialog.mode === 'record' ? dialog.action : null)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog && !warnDeclared && (
         <ReproductionOptionsProvider cattleCode={cattleCode}>
         <ReproductionActionDialog
           target={dialog} profile={profile} onClose={() => setDialog(null)}

@@ -96,7 +96,7 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 
 | Nhóm | Trạng thái (bắt buộc) | Chi tiết khi Có thông tin | Ghi khi ghi sổ |
 |---|---|---|---|
-| Tiêm phòng | Có / Không / Không rõ (mặc định Không rõ) | Dòng: vắc-xin (vắc-xin ACTIVE hoặc chữ tự do), ngày (ngày hoặc tháng, tùy chọn), nguồn thông tin | Bản ghi tiêm nguồn `HISTORICAL`, **không** tạo mũi theo lịch |
+| Tiêm phòng | Có / Không / Không rõ (mặc định Không rõ) | Dòng: vắc-xin (vắc-xin ACTIVE hoặc chữ tự do), ngày (ngày hoặc tháng, tùy chọn), nguồn thông tin | Bản ghi tiêm nguồn `HISTORICAL`, **không** tạo mũi theo lịch. D82: mũi gõ chữ tự do cũng thành bản ghi, chỉ lưu tên (không gắn vắc-xin danh mục) |
 | Bệnh đã biết | Có / Không / Không rõ | Mô tả ≤ 1.000 | — |
 | Sinh sản (chỉ bò cái) | Có / Không / Không rõ | Số lứa đã đẻ 0–15; mang thai lúc nhập Có / Không / Không rõ; số tháng mang thai ước tính 1–9 (khi Có); mô tả ≤ 1.000 | Số lứa cộng vào số lứa của bò; mang thai khai báo → hiện "Khai báo mang thai ~n tháng (chưa khám)", tạo REM-03, **không** mở giai đoạn mang thai |
 
@@ -440,6 +440,7 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | TC-06-12 | Đã trả 1.000.000, không chọn hình thức | Lưu | MSG-COM-06 | U, H | R-06-10 |
 | TC-06-13 | Có 2 lịch tiêm khớp bò mới | Ghi sổ | MSG-FE06-05 với 2 lịch; bò **chưa** thuộc lịch nào | I | R-06-11 |
 | TC-06-14 | Khai báo tiêm Có (LMLM, 03/2026) | Ghi sổ | 1 bản ghi tiêm HISTORICAL, không có mũi theo lịch | I | §3.3 |
+| TC-06-14a | Khai báo tiêm Có: 1 mũi danh mục + 1 mũi gõ tên tự do (D82) | Ghi sổ; sửa dòng nhập đổi tên mũi tự do | 2 bản ghi HISTORICAL, mũi tự do mang đúng tên đã gõ; sau khi sửa, bản ghi cũ bị hủy và chỉ còn 1 bản ghi tên mới | I | §3.3 |
 | TC-06-15 | Bò cái khai báo mang thai ~4 tháng, 2 lứa đã đẻ | Ghi sổ | Hồ sơ "Khai báo mang thai ~4 tháng (chưa khám)"; REM-03 được tạo; không có giai đoạn mang thai; số lứa = 2 | I | §3.3 |
 | TC-06-16 | Khai báo Không rõ | Mở hồ sơ | Hiện "Không rõ", không hiện "Không" | E | GBR-30 |
 | TC-06-17 | Bò đực | Popup Dòng bò | Không có nhóm Sinh sản | E | Popup |

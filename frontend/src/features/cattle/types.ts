@@ -1,3 +1,5 @@
+import type { EntryDeclarationLine } from './domain/entryDeclarations'
+
 export type CattleStatus = 'ACTIVE' | 'EXIT_PENDING' | 'EXITED' | 'VOIDED'
 
 export type CattleCode = string
@@ -165,4 +167,6 @@ export type CattleViewModel = Cattle & {
   barnHistory: NonNullable<Cattle['barnHistory']>
   events: NonNullable<Cattle['events']>
   care: CattleCare
+  /** D82, SCR-19 #11: khai báo lịch sử trước nhập; không có khi bò sinh tại trại hoặc không có khai báo. */
+  entryDeclarations?: EntryDeclarationLine[]
 }

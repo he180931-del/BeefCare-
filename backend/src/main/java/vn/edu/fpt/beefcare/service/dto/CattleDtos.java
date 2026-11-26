@@ -13,7 +13,17 @@ public final class CattleDtos {
         @NotBlank @Size(max=500) String reason,@NotNull Integer expectedVersion,boolean acknowledgedReproductionChange) {}
     public record TagRequest(ReplacementReason reason,@Size(max=50) @Pattern(regexp="[A-Za-z0-9_-]+") String tagCode,
         @Size(max=255) String note,@NotNull Integer cattleVersion) {}
-    public record Entry(String source,LocalDate entryDate,java.math.BigDecimal weightKg,String weightBasis,Long id,Long voucherId,String voucherCode,String seller) {}
+    /** Thông tin nhập đàn; declarations là khai báo lịch sử trước nhập (SCR-19 #11, D82), null với bò không có khai báo. */
+    public record Entry(String source,LocalDate entryDate,java.math.BigDecimal weightKg,String weightBasis,Long id,Long voucherId,String voucherCode,String seller,
+        List<Declaration> declarations) {}
+    /**
+     * Một nhóm khai báo trước nhập (GBR-30): category VACCINATION / DISEASE / REPRODUCTION, status KNOWN / NONE / UNKNOWN.
+     * Chi tiết chỉ có khi status KNOWN; pregnantAtEntry YES / NO / UNKNOWN.
+     */
+    public record Declaration(String category,String status,List<DeclaredVaccine> vaccines,String description,String informationSource,
+        Integer earlierCalvings,String pregnantAtEntry,Integer estMonthsPregnant) {}
+    /** Mũi tiêm đã khai: tên (danh mục hoặc gõ tự do) và ngày tiêm, null khi không rõ ngày. */
+    public record DeclaredVaccine(String name,LocalDate date) {}
     public record Profile(Long id,String displayCode,String earTagNumber,String name,Sex sex,LocalDate birthDate,BirthDateAccuracy birthDateAccuracy,
         Long breedId,String breedName,Long purposeId,String purposeName,PurposeType purposeType,LifeStage lifeStage,HerdStatus herdStatus,
         ExitType exitType,LocalDate exitDate,String herdGroup,Integer version,String photoUrl,Long penId,String penCode,String penName,LocalDate penSince,

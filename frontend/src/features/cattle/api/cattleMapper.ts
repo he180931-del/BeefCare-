@@ -4,6 +4,7 @@ import type { Pen } from '../../pen-management'
 import type { BarnHistoryRow, CattleCare, CattleEvent, CattleStatus, QrHistoryRow, StatusChip, Tone } from '../types'
 import type { BackendPen, BackendPenHistory, BackendProfile, BackendQrTag } from './cattle.dto'
 import { mapTimeline, type BackendTimeline } from './cattleTimeline'
+import { entryDeclarationLines } from '../domain/entryDeclarations'
 
 // `asRecord`, `rows`, `text` and `number` are the coercions this feature's API applies to backend JSON.
 export const LIFE_STAGE_OPTIONS = [
@@ -161,7 +162,7 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     purposeType: text(profile.purposeType), sexCode: text(profile.sex), entryDate: profile.entry?.entryDate ?? undefined,
     entryId: profile.entry?.id ?? undefined, entryVoucherCode: profile.entry?.voucherCode ?? undefined,
     photoUrl: profile.photoUrl ?? undefined, quarantineUntil: profile.quarantineUntil ?? undefined,
-    entrySource: profile.entry?.source ?? undefined,
+    entrySource: profile.entry?.source ?? undefined, entryDeclarations: entryDeclarationLines(profile.entry?.declarations),
     description: text(profile.colourMarkings || profile.notes, '—'), birthDateAccuracy: text(profile.birthDateAccuracy), colourMarkings: text(profile.colourMarkings), notes: text(profile.notes), care, events, importRecord: null, exitStatusLabel: exitLabel(profile), exitTypeLabel: exitTypeLabel(profile), exitDateLabel: profile.exitDate ? dateLabel(profile.exitDate) : undefined, backendId: profile.id, backendVersion: profile.version,
     suspectedContagious: profile.suspectedContagious ?? undefined, expectedCalvingDate: profile.expectedCalvingDate ?? undefined, expectedBasis: profile.expectedBasis ?? undefined,
     breedingEligible: profile.breedingEligible ?? undefined, failedBreedingConditions: profile.failedBreedingConditions ?? undefined,

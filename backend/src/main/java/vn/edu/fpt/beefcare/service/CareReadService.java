@@ -190,15 +190,16 @@ public class CareReadService {
             .setParameter("farm",farmId).setParameter("from",start).setParameter("to",end).getResultList();
         Map<Long,PenAssignment> pens=currentPens(farmId,today);String query=search==null?"":search.trim().toLowerCase(Locale.ROOT);
         List<Vaccination> selected=new ArrayList<>();
-        for(Vaccination v:vaccinations){Cattle c=v.getCattle();if(cattleId!=null&&!cattleId.equals(c.getId()))continue;if(vaccineId!=null&&!vaccineId.equals(v.getVaccine().getId()))continue;if(src!=null&&!src.equals(upper(v.getSource())))continue;
+        for(Vaccination v:vaccinations){Cattle c=v.getCattle();if(cattleId!=null&&!cattleId.equals(c.getId()))continue;if(vaccineId!=null&&(v.getVaccine()==null||!vaccineId.equals(v.getVaccine().getId())))continue;if(src!=null&&!src.equals(upper(v.getSource())))continue;
             if(!query.isEmpty()&&!contains(c.getDisplayCode(),query)&&!contains(c.getEarTagNumber(),query))continue;selected.add(v);}
         Map<Long,List<CareDtos.VaccinationRevision>> revisions=vaccinationRevisions(farmId,selected.stream().map(Vaccination::getId).toList());
         List<CareDtos.VaccinationHistoryRow> result=new ArrayList<>();
         for(Vaccination v:selected){Cattle c=v.getCattle();
-            String name=v.getVaccineNameSnapshot()==null?v.getVaccine().getName():v.getVaccineNameSnapshot();
+            // D82: mũi "Nhập lịch sử" tên tự do không có vắc-xin danh mục, chỉ có tên lưu kèm.
+            String name=v.getVaccineNameSnapshot()==null&&v.getVaccine()!=null?v.getVaccine().getName():v.getVaccineNameSnapshot();
             PenAssignment pa=pens.get(c.getId());HealthObservation reaction=em.createQuery("select o from HealthObservation o where o.vaccination.id=:id and upper(o.status)='VALID' order by o.observedTime desc",HealthObservation.class).setParameter("id",v.getId()).setMaxResults(1).getResultStream().findFirst().orElse(null);
             HealthCase hc=reaction==null?null:reaction.getHealthCase();
-            result.add(new CareDtos.VaccinationHistoryRow(v.getId(),v.getAdministeredAt(),v.getVaccinationDate(),c.getId(),c.getDisplayCode(),pa==null?null:pa.getPen().getId(),pa==null?null:pa.getPen().getCode(),pa==null?null:pa.getPen().getName(),v.getVaccine().getId(),name,v.getDose(),v.getBatchNo(),v.getSource(),v.getVaccinator(),v.getWithdrawalEndDate(),hc==null?null:hc.getId(),hc==null?null:hc.getCaseCode(),v.getStatus(),v.getCorrected(),v.getVersion(),
+            result.add(new CareDtos.VaccinationHistoryRow(v.getId(),v.getAdministeredAt(),v.getVaccinationDate(),c.getId(),c.getDisplayCode(),pa==null?null:pa.getPen().getId(),pa==null?null:pa.getPen().getCode(),pa==null?null:pa.getPen().getName(),v.getVaccine()==null?null:v.getVaccine().getId(),name,v.getDose(),v.getBatchNo(),v.getSource(),v.getVaccinator(),v.getWithdrawalEndDate(),hc==null?null:hc.getId(),hc==null?null:hc.getCaseCode(),v.getStatus(),v.getCorrected(),v.getVersion(),
                 v.getRoute(),"ON_FARM".equalsIgnoreCase(v.getSource())?v.getWithdrawalDays():null,revisions.getOrDefault(v.getId(),List.of())));
         }
         return result;
