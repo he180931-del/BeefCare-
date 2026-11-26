@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { activateTableRow, activateTableRowByKey, Card, interactiveRowClass, Pagination, Table, Td, Th } from '../../../shared/ui'
+import { useEffect, useState } from 'react'
+import { activateTableRow, activateTableRowByKey, Button, Card, FilterSelect, SearchInput, Note, interactiveRowClass, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { formatMoney, formatVnd } from '../domain/financeRules'
 import { categoryLabel, FINANCE_CATEGORIES } from '../domain/financeRules'
 import type { CashReport, ReportLine, ScopeTotals } from '../types'
@@ -33,11 +33,52 @@ export function IncomeChart({ days }: { days: CashReport['summary']['dailyIncome
   )
 }
 
-export function ScopeTable({ scopes, onFarm, page = 1, onPageChange = () => {} }: { scopes: ScopeTotals[]; onFarm: (row: ScopeTotals) => void; page?: number; onPageChange?: (page: number) => void }) {
+type ScopeFilter = { q: string; net: '' | 'POSITIVE' | 'NEGATIVE' | 'NONE'; subscription: '' | 'YES' | 'NO'; expense: '' | 'YES' | 'NO'; sort: '' | 'NAME' | 'INCOME_DESC' | 'EXPENSE_DESC' | 'NET_DESC' | 'NET_ASC' }
+const NO_SCOPE_FILTER: ScopeFilter = { q: '', net: '', subscription: '', expense: '', sort: '' }
+const scopeNet = (s: ScopeTotals) => s.subscriptionReceipts + s.otherIncome - s.expense
+const scopeIncome = (s: ScopeTotals) => s.subscriptionReceipts + s.otherIncome
+const fold = (v: string) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim()
+const yesNo = (value: '' | 'YES' | 'NO', has: boolean) => !value || (value === 'YES') === has
+function matchScope(s: ScopeTotals, f: ScopeFilter) {
+  if (f.q && !fold(s.farmName).includes(fold(f.q))) return false
+  const net = scopeNet(s)
+  if (f.net === 'POSITIVE' && net <= 0) return false
+  if (f.net === 'NEGATIVE' && net >= 0) return false
+  if (f.net === 'NONE' && net !== 0) return false
+  return yesNo(f.subscription, s.subscriptionReceipts > 0) && yesNo(f.expense, s.expense > 0)
+}
+const SCOPE_SORT: Record<Exclude<ScopeFilter['sort'], ''>, (a: ScopeTotals, b: ScopeTotals) => number> = {
+  NAME: (a, b) => a.farmName.localeCompare(b.farmName, 'vi'),
+  INCOME_DESC: (a, b) => scopeIncome(b) - scopeIncome(a),
+  EXPENSE_DESC: (a, b) => b.expense - a.expense,
+  NET_DESC: (a, b) => scopeNet(b) - scopeNet(a),
+  NET_ASC: (a, b) => scopeNet(a) - scopeNet(b),
+}
+
+/** `resetKey` đổi khi báo cáo phía trên chạy lại (ngày, trại, nguồn): bộ lọc của bảng được xóa vì dữ liệu gốc đã khác. */
+export function ScopeTable({ scopes, onFarm, page = 1, onPageChange = () => {}, resetKey = '' }: { scopes: ScopeTotals[]; onFarm: (row: ScopeTotals) => void; page?: number; onPageChange?: (page: number) => void; resetKey?: string }) {
+  const [draft, setDraft] = useState<ScopeFilter>(NO_SCOPE_FILTER)
+  const [applied, setApplied] = useState<ScopeFilter>(NO_SCOPE_FILTER)
+  useEffect(() => {
+    setDraft(NO_SCOPE_FILTER)
+    setApplied(NO_SCOPE_FILTER)
+  }, [resetKey])
   const totalRow = scopes.find((s) => s.scope === 'PLATFORM')
-  const pageData = paginateReportRows(scopes.filter((s) => s.scope !== 'PLATFORM'), page, REPORT_SCOPE_PAGE_SIZE)
+  const farmRows = scopes.filter((s) => s.scope !== 'PLATFORM')
+  const filtered = farmRows.filter((s) => matchScope(s, applied)).sort(applied.sort ? SCOPE_SORT[applied.sort] : () => 0)
+  const pageData = paginateReportRows(filtered, page, REPORT_SCOPE_PAGE_SIZE)
   return (
     <Card title="Dòng tiền theo trại">
+      <form role="search" className="mb-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(draft); onPageChange(1) }}>
+        <SearchInput className="min-w-[180px] flex-1 [&_input]:!h-[38px] [&_input]:!rounded-md [&_input]:!py-0 [&_input]:!text-xs" aria-label="Tìm trại" placeholder="Tên trại…" value={draft.q} onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))} />
+        <div className="w-[160px]"><FilterSelect aria-label="Dòng tiền ròng" value={draft.net} onChange={(e) => setDraft((d) => ({ ...d, net: e.target.value as ScopeFilter['net'] }))}><option value="">Mọi mức ròng</option><option value="POSITIVE">Ròng dương</option><option value="NEGATIVE">Ròng âm</option><option value="NONE">Không phát sinh</option></FilterSelect></div>
+        <div className="w-[170px]"><FilterSelect aria-label="Thu từ gói đăng ký" value={draft.subscription} onChange={(e) => setDraft((d) => ({ ...d, subscription: e.target.value as ScopeFilter['subscription'] }))}><option value="">Thu từ gói: tất cả</option><option value="YES">Có thu từ gói</option><option value="NO">Chưa thu từ gói</option></FilterSelect></div>
+        <div className="w-[150px]"><FilterSelect aria-label="Khoản chi" value={draft.expense} onChange={(e) => setDraft((d) => ({ ...d, expense: e.target.value as ScopeFilter['expense'] }))}><option value="">Chi: tất cả</option><option value="YES">Có chi</option><option value="NO">Không có chi</option></FilterSelect></div>
+        <div className="w-[180px]"><FilterSelect aria-label="Sắp xếp" value={draft.sort} onChange={(e) => setDraft((d) => ({ ...d, sort: e.target.value as ScopeFilter['sort'] }))}><option value="">Sắp xếp mặc định</option><option value="NAME">Tên trại A–Z</option><option value="INCOME_DESC">Tổng thu cao → thấp</option><option value="EXPENSE_DESC">Chi cao → thấp</option><option value="NET_DESC">Ròng cao → thấp</option><option value="NET_ASC">Ròng thấp → cao</option></FilterSelect></div>
+        <Button type="submit" variant="primary">Tìm</Button>
+        {(applied.q || applied.net || applied.subscription || applied.expense || applied.sort) && <Button type="button" onClick={() => { setDraft(NO_SCOPE_FILTER); setApplied(NO_SCOPE_FILTER); onPageChange(1) }}>Xóa lọc</Button>}
+      </form>
+      {filtered.length === 0 && <Note tone="info">{farmRows.length === 0 ? 'Chưa có trại nào trong bản chốt.' : 'Không có trại khớp bộ lọc.'}</Note>}
       <Table scroll>
         <thead><tr><Th>Trại</Th><Th>Thu từ gói đăng ký</Th><Th>Thu khác</Th><Th>Chi</Th><Th>Ròng</Th></tr></thead>
         <tbody>
@@ -68,7 +109,7 @@ export function ScopeTable({ scopes, onFarm, page = 1, onPageChange = () => {} }
           })()}
         </tbody>
       </Table>
-      {pageData.total > REPORT_SCOPE_PAGE_SIZE && <Pagination page={pageData.page} pageCount={pageData.pageCount} onChange={onPageChange} summary={`Hiển thị ${(pageData.page - 1) * REPORT_SCOPE_PAGE_SIZE + 1}–${Math.min(pageData.page * REPORT_SCOPE_PAGE_SIZE, pageData.total)} / ${pageData.total} phạm vi`} />}
+      {pageData.total > REPORT_SCOPE_PAGE_SIZE && <Pagination page={pageData.page} pageCount={pageData.pageCount} onChange={onPageChange} summary={`Hiển thị ${(pageData.page - 1) * REPORT_SCOPE_PAGE_SIZE + 1}–${Math.min(pageData.page * REPORT_SCOPE_PAGE_SIZE, pageData.total)} / ${pageData.total} trại`} />}
     </Card>
   )
 }

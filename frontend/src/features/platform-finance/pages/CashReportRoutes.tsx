@@ -136,7 +136,7 @@ export default function CashReportRoutes() {
             </div>
           </>
         )}
-        <ScopeTable scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={openFarm} />
+        <ScopeTable resetKey={`${report.id}|${report.criteria.dateFrom}|${report.criteria.dateTo}|${report.criteria.farmId ?? ''}|${report.criteria.sourceFilter}`} scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={openFarm} />
       </div>
 
       {m === 'rieng-trai' && focus && (
