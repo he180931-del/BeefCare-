@@ -141,6 +141,7 @@ export default function FeedFeedingPage() {
     <Layout title="Thức ăn › Nhật ký cho ăn" user="manager">
       <PageHeader title="Nhật ký cho ăn" sub="Ghi theo chuồng và cữ · kế hoạch = khẩu phần × số con · lưu là trừ kho">
         {canRecord && <Button onClick={() => openModal('nhanh')}>Ghi nhanh theo khẩu phần</Button>}
+        {data && records.length > 0 && selectedDate <= today() && <Link to={`/thuc-an/nhat-ky/in?date=${encodeURIComponent(selectedDate)}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-field bg-white px-3 text-xs font-semibold text-ink no-underline hover:bg-page">In nhật ký ngày</Link>}
         {!readOnlyView && (
           <Button variant="primary" onClick={() => startRecord()}>
             <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Ghi cữ cho ăn</span>
@@ -314,8 +315,9 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
               <Td className="whitespace-nowrap">{kgCell(dayActual)} / {kgCell(dayPlan)} kg</Td>
               <Td className="whitespace-nowrap">{penRecords.length ? shortPersonName(penRecords[0].recordedBy ?? penRecords[0].fedBy) : '—'}</Td>
               <Td>
-                {canRecord && penRecords.length > 0 && (
-                  <details className="relative">
+                {penRecords.length > 0 && <div className="flex flex-wrap items-center gap-2 whitespace-nowrap">
+                  {penRecords.map((record) => <Link key={`p${record.id}`} to={`/thuc-an/nhat-ky/in?recordId=${record.id}&date=${encodeURIComponent(record.feedingDate)}`} className="text-xs font-semibold text-brand no-underline hover:underline">In {SESSION_NAMES[record.sessionNo]}</Link>)}
+                  {canRecord && <details className="relative">
                     <summary aria-label={`Thao tác ${pen.code}`} className="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-muted hover:bg-page focus-visible:outline-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">⋯</summary>
                     <div role="menu" className="absolute right-0 top-10 z-20 flex min-w-[150px] flex-col rounded-xl border border-field bg-white py-1 text-xs shadow-md">
                       {penRecords.flatMap((record) => [
@@ -323,8 +325,8 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
                         <button key={`v${record.id}`} type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onEdit(record, 'void') }} className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-1.5 text-left text-err-fg hover:bg-page">Hủy cữ {SESSION_NAMES[record.sessionNo]}</button>,
                       ])}
                     </div>
-                  </details>
-                )}
+                  </details>}
+                </div>}
               </Td>
             </tr>
           ))}
@@ -360,12 +362,15 @@ function WeeklyTable({ records, feeds, canEdit, onEdit }: {
               <Td>{record.lines.map((line) => `${feeds.find((feed) => feed.feedItemId === line.feedItemId)?.name ?? line.feedCode} ${formatNumber(line.actualKg)} kg`).join(' · ') || '—'}</Td>
               <Td className="whitespace-nowrap">{record.time ?? '—'} · {record.fedBy ?? '—'}</Td>
               <Td><Badge tone={record.status === 'VALID' ? 'ok' : record.status === 'VOIDED' ? 'err' : 'warn'}>{record.status === 'VALID' ? 'Hợp lệ' : record.status === 'VOIDED' ? 'Đã hủy' : record.status}</Badge></Td>
-              <Td>{canEdit && record.status === 'VALID' && (
-                <div className="flex gap-2 whitespace-nowrap">
+              <Td><div className="flex gap-2 whitespace-nowrap">
+                <Link to={`/thuc-an/nhat-ky/in?recordId=${record.id}&date=${encodeURIComponent(record.feedingDate)}`} className="text-xs font-semibold text-brand no-underline hover:underline">In</Link>
+                {canEdit && record.status === 'VALID' && (
+                  <>
                   <Button variant="link" size="sm" onClick={() => onEdit(record, 'correct')}>Sửa</Button>
                   <Button variant="link" size="sm" onClick={() => onEdit(record, 'void')}>Hủy</Button>
-                </div>
-              )}</Td>
+                  </>
+                )}
+              </div></Td>
             </tr>
           ))}
         </tbody>

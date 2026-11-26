@@ -183,7 +183,17 @@ export interface ReportRowSeed {
 }
 
 export type ReportCell = string | { text?: string; badge?: string }
-export interface ReportTile { label: string; value: string; note: string }
+/** A summary tile may carry the server summary key so presentation can choose a small, stable KPI set. */
+export interface ReportTile { key?: string; label: string; value: string; note: string }
+export interface ReportOverdueFemale {
+  cattleId: number
+  displayCode: string
+  daysSinceCalving: number
+}
+export interface ReportOverdueFemales {
+  count: number
+  items: ReportOverdueFemale[]
+}
 export interface ReportSection {
   key: string
   title: string
@@ -205,12 +215,17 @@ export interface ReportView {
   to: string
   generatedAt: string
   timeZone?: string
+  /** Full catalogue title for print metadata; screen title remains in `title`. */
+  printTitle?: string
   scope: string
+  /** Human-readable filters echoed by the mapper from the applied request. */
+  filters?: string[]
   tiles: ReportTile[]
   columns: Array<{ key: string; label: string }>
   rows: Array<{ label: string; cells: Record<string, ReportCell> }>
   totalRow: { label: string; cells: Record<string, ReportCell> } | null
   chart: { title: string; sub: string; bars: Array<{ label: string; value: number | null; numerator?: number; denominator?: number }> } | null
+  overdueFemales?: ReportOverdueFemales | null
   sections?: ReportSection[]
   charts?: ReportMetricChart[]
   unavailableData: string[]

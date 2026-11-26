@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
@@ -7,6 +7,7 @@ import { announcementsApi } from '../../../src/features/farm-announcements/api/a
 import { announcementsDemoStore } from '../../../src/features/farm-announcements/data/announcementsDemoStore'
 import AnnouncementRoutes from '../../../src/features/farm-announcements/pages/AnnouncementRoutes'
 import TechnicianAnnouncementRoutes from '../../../src/features/farm-announcements/pages/TechnicianAnnouncementRoutes'
+import type { AnnouncementSummary } from '../../../src/features/farm-announcements/types'
 
 const session = (role: Session['role'], fullName: string): Session => ({ role, fullName, email: 'a@b.vn', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => {} })
 const OWNER = session('OWNER', 'Nguyễn Văn Hùng')
@@ -94,7 +95,69 @@ describe('announcement list and detail', () => {
     const spy = vi.spyOn(announcementsApi, 'list').mockRejectedValueOnce(new Error('boom'))
     renderDesk('/thong-bao')
     expect(await screen.findByRole('button', { name: /thử lại/i })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('boom')
+    expect(screen.queryByText('Chưa có thông báo bạn đã viết.')).not.toBeInTheDocument()
     spy.mockRestore()
+  })
+
+  it('keeps the loading state distinct from an empty list', async () => {
+    let resolveList: (value: AnnouncementSummary[]) => void = () => undefined
+    const spy = vi.spyOn(announcementsApi, 'list').mockReturnValue(new Promise<AnnouncementSummary[]>((resolve) => { resolveList = resolve }))
+    renderDesk('/thong-bao')
+
+    expect(screen.getByText('Đang tải…')).toBeInTheDocument()
+    expect(screen.queryByText('Chưa có thông báo bạn đã viết.')).not.toBeInTheDocument()
+
+    await act(async () => { resolveList([]) })
+    expect(await screen.findByText('Chưa có thông báo bạn đã viết.')).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  it('uses a concise empty message per tab, keeps create available, and hides the detail placeholder', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(announcementsApi, 'list').mockResolvedValue([])
+    renderDesk('/thong-bao?tab=received')
+
+    expect(await screen.findByText('Chưa có thông báo đã nhận.')).toBeInTheDocument()
+    expect(screen.queryByText('Chọn một thông báo')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Soạn thông báo' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Tôi đã viết (0)' }))
+    expect(screen.getByText('Chưa có thông báo bạn đã viết.')).toBeInTheDocument()
+    expect(screen.queryByText('Chưa có thông báo đã nhận.')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Bản nháp (0)' }))
+    expect(screen.getByText('Chưa có bản nháp.')).toBeInTheDocument()
+    expect(screen.queryByText('Chọn một thông báo')).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  it('loads a deep-linked detail directly when the list is empty', async () => {
+    const expected = await announcementsApi.get(1, { name: 'Trần Quốc Long', role: 'MANAGER' })
+    const listSpy = vi.spyOn(announcementsApi, 'list').mockResolvedValue([])
+    const detailSpy = vi.spyOn(announcementsApi, 'get').mockResolvedValue(expected)
+
+    renderDesk('/thong-bao/1?tab=received')
+
+    expect(await screen.findByRole('heading', { name: expected.title })).toBeInTheDocument()
+    expect(screen.getByText('Chưa có thông báo đã nhận.')).toBeInTheDocument()
+    expect(detailSpy).toHaveBeenCalledWith(1, { name: 'Trần Quốc Long', role: 'MANAGER' })
+
+    listSpy.mockRestore()
+    detailSpy.mockRestore()
+  })
+
+  it('preserves the typed detail error when a deep-linked id is not visible', async () => {
+    const listSpy = vi.spyOn(announcementsApi, 'list').mockResolvedValue([])
+    const detailSpy = vi.spyOn(announcementsApi, 'get').mockRejectedValue(new Error('Không tìm thấy thông báo này hoặc bạn không có quyền xem.'))
+
+    renderDesk('/thong-bao/999999?tab=received')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không tìm thấy thông báo này hoặc bạn không có quyền xem.')
+    expect(detailSpy).toHaveBeenCalledWith(999999, { name: 'Trần Quốc Long', role: 'MANAGER' })
+
+    listSpy.mockRestore()
+    detailSpy.mockRestore()
   })
 })
 

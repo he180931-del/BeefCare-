@@ -156,6 +156,7 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
     expect(http.get).toHaveBeenCalledWith('/api/platform/accounts?q=an&status=ACTIVE&platformRole=NONE&page=1&size=20&sort=name&dir=desc')
     expect(page).toEqual({ content: [row], totalElements: 21, totalPages: 2, number: 1, size: 20 })
     expect(accountsPath()).toBe('/api/platform/accounts?page=0&size=20&sort=name&dir=asc')
+    expect(new URL(`http://beefcare.test${accountsPath({ q: '%_' })}`).searchParams.get('q')).toBe('%_')
     expect(list).not.toHaveBeenCalled()
   })
 

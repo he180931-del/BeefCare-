@@ -24,6 +24,7 @@ export default function FeedReceiptPage() {
   const [supplierId, setSupplierId] = useState<number | 'ALL'>('ALL')
   const rows = receiptQuery.receipts
   const suppliers = receiptQuery.suppliers
+  const supplierError = receiptQuery.supplierError
   const summary = receiptQuery.data ? summarizeFeedReceipts(rows) : null
   const supplierOptions = useMemo(() => {
     const unique = new Map<number, string>()
@@ -101,7 +102,17 @@ export default function FeedReceiptPage() {
           </div>
         )}
 
+        {supplierError && !errorMessage && (
+          <div role="status" aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-field bg-white p-4 text-sm text-muted">
+            <span>{receiptQuery.loading ? 'Đang tải lại danh sách nhà cung cấp…' : 'Không thể tải danh sách nhà cung cấp. Vui lòng thử lại.'}</span>
+            <Button size="sm" disabled={receiptQuery.loading} onClick={() => receiptQuery.refetch()}>
+              {receiptQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}
+            </Button>
+          </div>
+        )}
+
         {!receiptQuery.loading && !errorMessage && rows.length === 0 && <Note tone="info">Chưa có phiếu nhập kho.</Note>}
+        {!receiptQuery.loading && !errorMessage && !supplierError && suppliers?.length === 0 && supplierOptions.length === 0 && <Note tone="info">Chưa có nhà cung cấp.</Note>}
         {!receiptQuery.loading && !errorMessage && rows.length > 0 && visibleRows.length === 0 && <Note tone="info">Không tìm thấy phiếu nhập kho phù hợp với bộ lọc.</Note>}
         {!receiptQuery.loading && !errorMessage && visibleRows.length > 0 && (
           <Panel className="gap-0 overflow-hidden p-0!">

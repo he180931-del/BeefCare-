@@ -12,7 +12,8 @@ vi.mock('../../../src/features/farm-workspace/api/farmWorkspaceApi', () => ({ fa
 
 const invitee: Session = { role: 'OWNER', fullName: 'Người mới', email: 'moi@example.test', farmId: null, farmName: null, ownerRegistrationCompleted: false, logout: vi.fn().mockResolvedValue(undefined) }
 const pending = {
-  status: 'PENDING', farmId: 77, farmName: 'Trại Ba Vì', timeZone: 'Asia/Bangkok', email: 'moi@example.test', role: 'MANAGER',
+  status: 'PENDING', farmId: 77, farmName: 'Trại Ba Vì', timeZone: 'Asia/Ho_Chi_Minh', email: 'moi@example.test', role: 'MANAGER',
+  createdAt: '2026-10-01T02:00:00Z',
   invitedBy: 'Nguyễn Văn Hùng', sentAt: '2026-11-14T02:00:00Z', expiresAt: '2026-11-21T02:00:00Z',
 }
 const open = (path = '/invitation/accept?token=tok-1') => render(
@@ -43,6 +44,8 @@ describe('UC-FE03-04 / SCR-15', () => {
     expect(api.previewInvitation).toHaveBeenCalledWith('tok-1', 'moi@example.test')
     expect(screen.getByText('Nguyễn Văn Hùng')).toBeInTheDocument()
     expect(screen.getByText('14/11/2026 09:00')).toBeInTheDocument()
+    expect(screen.getByText('Gửi lúc').nextSibling).toHaveTextContent('14/11/2026 09:00')
+    expect(screen.queryByText('01/10/2026 09:00')).not.toBeInTheDocument()
     expect(screen.getByText('21/11/2026 09:00')).toBeInTheDocument()
     expect(screen.getByText('Email được mời').nextSibling).toHaveTextContent('moi@example.test')
     expect(screen.getByText('Email đang đăng nhập').nextSibling).toHaveTextContent('moi@example.test')
@@ -122,6 +125,15 @@ describe('UC-FE03-04 / SCR-15', () => {
     await user.click(screen.getByRole('button', { name: 'Vào trại' }))
     expect(await screen.findByText(/Trại Ba Vì không khả dụng/)).toBeInTheDocument()
     expect(loader).not.toHaveBeenCalled()
+    expect(api.acceptInvitation).not.toHaveBeenCalled()
+  })
+
+  it('shows MSG-FE03-08 with ACCEPTED when the accepted invitation has no active membership', async () => {
+    api.previewInvitation.mockRejectedValue(new BackendError(400, { code: 'MSG-FE03-08', params: { status: 'ACCEPTED' } }))
+    open()
+    expect(await screen.findByText('Lời mời không còn hiệu lực (Đã chấp nhận).')).toBeInTheDocument()
+    expect(screen.queryByText('Bạn đã là thành viên của Trại Ba Vì với vai trò Quản lý.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Vào trại' })).not.toBeInTheDocument()
     expect(api.acceptInvitation).not.toHaveBeenCalled()
   })
 })

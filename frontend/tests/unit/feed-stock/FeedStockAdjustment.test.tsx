@@ -74,6 +74,9 @@ describe('SCR-80 stock adjustment', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
 
     expect(await screen.findByRole('heading', { name: 'Phiếu kiểm kê / điều chỉnh tồn kho' })).toBeInTheDocument()
+    expect(screen.getByText('Cỏ voi · Rơm khô · Cỏ non · +5')).toBeInTheDocument()
+    expect(screen.getByText('−10 kg')).toBeInTheDocument()
+    expect(screen.getByText(/^\d{2}\/\d{2}\/\d{4}$/)).toBeInTheDocument()
     const draft = (await listFeedStockAdjustments()).find((row) => row.status === 'DRAFT')!
     expect(draft.lines.find((line) => line.feedItemId === 101)?.differenceKg).toBe(10)
     expect(draft.lines.find((line) => line.feedItemId === 106)?.differenceKg).toBe(-20)

@@ -66,6 +66,19 @@ describe('herd-exit required-field validation', () => {
     expect(screen.getByLabelText('Nguyên nhân mất tích')).toBeInTheDocument()
     expect(screen.queryByLabelText('Phương án xử lý xác')).not.toBeInTheDocument()
   })
+
+  it('TC-13-05: sale without a buyer is rejected before save', async () => {
+    const user = userEvent.setup()
+    const { default: ExportNew } = await import('../../../src/features/herd-exit/pages/ExportNew')
+    render(<MemoryRouter initialEntries={['/herd-exit/new']}><Routes><Route path="/herd-exit/new" element={<ExportNew />} /></Routes></MemoryRouter>)
+
+    await screen.findByText('1. Thông tin phiếu')
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(screen.getByText('Vui lòng chọn người mua.')).toBeInTheDocument()
+    expect(saveHerdExit).not.toHaveBeenCalled()
+
+  })
+
   it('keeps destination and note separate for an Other voucher (SCR-42 #5)', async () => {
     const user = userEvent.setup()
     const { default: ExportNew } = await import('../../../src/features/herd-exit/pages/ExportNew')

@@ -1,5 +1,5 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useSession } from '../../../app/session/sessionContext'
@@ -7,7 +7,7 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { listFeedStock } from '../api/feedStockApi'
-import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, listFeedReceiptMembers, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
 import { useFeedReceiptForm } from '../hooks/useFeedReceiptForm'
 import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
@@ -21,6 +21,7 @@ import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceip
 import type { FeedReceiptDemoRecord } from '../types/feedReceiptDemo'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
+import { FeedReceiptPrintView } from '../components/FeedReceiptPrintView'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
 import { newFeedCommandKey } from '../api/command'
 
@@ -144,6 +145,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
 }) {
   const navigate = useNavigate()
   const session = useSession()
+  const [recipientNames, setRecipientNames] = useState<string[]>(() => session?.fullName.trim() ? [session.fullName.trim()] : [])
   const [modal, openModal, closeModal] = useModalParam()
   const [suppliers, setSuppliers] = useState(initialSuppliers)
   const [values, setValues] = useState<FeedReceiptFormValues>(() => {
@@ -173,6 +175,17 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       ? 'Phiếu đã ghi chỉ xem. Ghi trả nhà cung cấp, in phiếu, hoặc hủy phiếu khi tồn kho còn đủ để trừ lại.'
       : status === 'VOIDED' ? 'Phiếu đã hủy chỉ xem. Lý do hủy được lưu trong lịch sử phiếu.' : 'Phiếu nháp chưa cộng kho; sửa rồi lưu hoặc cộng kho khi đã nhận đủ hàng.'
   const supplier = suppliers.find((item) => item.id === Number(values.supplierId))
+
+  useEffect(() => {
+    if (readOnly) return
+    let current = true
+    listFeedReceiptMembers().then((names) => {
+      if (current) setRecipientNames((existing) => [...new Set([...existing, ...names])])
+    }).catch(() => {
+      // The membership endpoint may be forbidden for this role; current-user suggestions and free text still work.
+    })
+    return () => { current = false }
+  }, [readOnly])
 
   const summary = useMemo(() => {
     const totalsByFeed = new Map<number, number>()
@@ -240,6 +253,17 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   }
   const addLine = () => { saveCommandKey.current = ''; pendingPost.current = null; setValues((current) => ({ ...current, lines: [...current.lines, blankFeedReceiptLine()] })) }
   const removeLine = (index: number) => { saveCommandKey.current = ''; pendingPost.current = null; setValues((current) => ({ ...current, lines: current.lines.filter((_, itemIndex) => itemIndex !== index) })) }
+  const adjustQuantity = (index: number, amount: 0.1 | -0.1) => {
+    const value = values.lines[index]?.quantityPurchase ?? ''
+    const current = Number(value)
+    if (!value) {
+      if (amount > 0) updateLine(index, 'quantityPurchase', '0.1')
+      return
+    }
+    if (!Number.isFinite(current) || (amount < 0 && current <= 0.1)) return
+    const decimals = Math.min(15, Math.max(1, value.split('.')[1]?.length ?? 0))
+    updateLine(index, 'quantityPurchase', String(Number((current + amount).toFixed(decimals))))
+  }
 
   const uploadPendingFiles = async (receiptId: number) => {
     if (!feedReceiptServerBacked) return
@@ -342,16 +366,23 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       const saved = await saveDraft({ input, options: { key: saveCommandKey.current } })
       saveCommandKey.current = ''
       setCurrentRecord(saved)
-      await uploadPendingFiles(saved.id)
+      let attachmentWarning = ''
+      try {
+        await uploadPendingFiles(saved.id)
+      } catch (attachmentError) {
+        // Attachments are optional: keep the saved receipt usable and let the user retry from it.
+        attachmentWarning = `Không thể tải chứng từ đính kèm: ${feedReceiptError(attachmentError, 'vui lòng thử lại từ phiếu đã lưu.')}`
+        setError(attachmentWarning)
+      }
       if (postNow) {
         const key = newReceiptCommandKey()
         pendingPost.current = { id: saved.id, version: saved.version, key }
         const posted = await postReceipt({ id: saved.id, version: saved.version, options: { key } })
         pendingPost.current = null
         setCurrentRecord(posted)
-        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
+        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.${attachmentWarning ? ` ${attachmentWarning}` : ''}` } })
       } else {
-        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })
+        navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.${attachmentWarning ? ` ${attachmentWarning}` : ''}` } })
       }
     } catch (saveError) {
       setError(feedReceiptError(saveError, 'Không thể lưu phiếu. Vui lòng thử lại.'))
@@ -404,7 +435,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                 <input id="feed-receipt-invoice" maxLength={50} readOnly={readOnly} value={values.invoiceNumber} onChange={(event) => update('invoiceNumber', event.target.value)} className={inputCls} />
               </Field>
               <Field label="Người nhận hàng" id="feed-receipt-received-by">
-                <input id="feed-receipt-received-by" maxLength={100} readOnly={readOnly} value={values.receivedBy} onChange={(event) => update('receivedBy', event.target.value)} className={inputCls} />
+                <input id="feed-receipt-received-by" list={readOnly ? undefined : 'feed-receipt-received-by-options'} maxLength={100} readOnly={readOnly} value={values.receivedBy} onChange={(event) => update('receivedBy', event.target.value)} className={inputCls} />
+                {!readOnly && <datalist id="feed-receipt-received-by-options">{recipientNames.map((name) => <option key={name} value={name} />)}</datalist>}
               </Field>
               <Field label="Nơi để" id="feed-receipt-location">
                 <input id="feed-receipt-location" maxLength={100} readOnly={readOnly} value={values.storageLocation} onChange={(event) => update('storageLocation', event.target.value)} className={inputCls} />
@@ -460,13 +492,21 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                       <Td className="whitespace-nowrap">
                         {readOnly
                           ? line.quantityPurchase
-                          : <input aria-label={`Số lượng dòng ${lineNumber}`} type="number" min="0.001" step="0.001" value={line.quantityPurchase} onChange={(event) => updateLine(index, 'quantityPurchase', event.target.value)} className="h-10 w-[72px] rounded-xl border border-field bg-white px-2 text-sm outline-none focus:border-brand" />}
+                          : (
+                            <div className="flex items-center gap-1">
+                              <input aria-label={`Số lượng dòng ${lineNumber}`} type="number" min="0.001" step="any" value={line.quantityPurchase} onChange={(event) => updateLine(index, 'quantityPurchase', event.target.value)} className="h-10 w-[76px] appearance-none rounded-xl border border-field bg-white px-2 text-sm outline-none focus:border-brand" />
+                              <span className="flex flex-col">
+                                <button type="button" aria-label={`Tăng số lượng dòng ${lineNumber}`} title="Tăng 0,1" onClick={() => adjustQuantity(index, 0.1)} className="grid h-5 w-6 place-items-center rounded-t-md border border-field bg-white text-[9px] leading-none text-muted hover:bg-chip">▲</button>
+                                <button type="button" aria-label={`Giảm số lượng dòng ${lineNumber}`} title="Giảm 0,1" disabled={Number(line.quantityPurchase) <= 0.1} onClick={() => adjustQuantity(index, -0.1)} className="grid h-5 w-6 place-items-center rounded-b-md border border-t-0 border-field bg-white text-[9px] leading-none text-muted enabled:hover:bg-chip disabled:cursor-not-allowed disabled:opacity-40">▼</button>
+                              </span>
+                            </div>
+                          )}
                       </Td>
                       <Td className="whitespace-nowrap">
                         {readOnly
                           ? <span aria-label={`Đơn vị dòng ${lineNumber}`}>{unit}</span>
                           : (
-                            <Select aria-label={`Đơn vị dòng ${lineNumber}`} value={chosenUnit} onChange={(event) => updateLine(index, 'purchaseUnit', event.target.value)}>
+                            <Select aria-label={`Đơn vị dòng ${lineNumber}`} className="w-fit min-w-[88px] max-w-[260px]" style={{ width: `${Math.min(260, Math.max(88, chosenUnit.length * 9 + 48))}px` }} value={chosenUnit} onChange={(event) => updateLine(index, 'purchaseUnit', event.target.value)}>
                               {selected?.purchaseUnit && selected.purchaseUnit.toLocaleLowerCase('vi') !== 'kg' && <option value={selected.purchaseUnit}>{selected.purchaseUnit}</option>}
                               <option value="kg">kg</option>
                             </Select>
@@ -628,6 +668,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
               {currentRecord?.status === 'DRAFT' && feedReceiptServerBacked
                 ? <Button variant="danger" block disabled={saving} onClick={() => openModal('bo-nhap')}>Bỏ nháp</Button>
                 : <Button block disabled={saving} onClick={() => navigate('/thuc-an/phieu-nhap')}>Hủy</Button>}
+              {currentRecord && <Button block onClick={() => window.print()}><span className="inline-flex items-center gap-1.5"><Icon name="printer" size={16} />In phiếu</span></Button>}
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
@@ -645,6 +686,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       </div>
       </div>
 
+      {currentRecord && <FeedReceiptPrintView receipt={currentRecord} attachments={attachments} farmName={session?.farmName} />}
 
       {modal === 'ncc' && !readOnly && (
         <FeedSupplierQuickDialog

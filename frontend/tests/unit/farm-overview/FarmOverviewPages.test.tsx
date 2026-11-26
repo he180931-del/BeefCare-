@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
@@ -84,6 +84,71 @@ describe('farm dashboard', () => {
     await user.click(screen.getByRole('button', { name: 'Ẩn hướng dẫn' }))
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Bắt đầu sử dụng' })).not.toBeInTheDocument())
     expect(screen.getByRole('region', { name: 'Cần chú ý hôm nay' })).toHaveTextContent('Không có cảnh báo cần chú ý.')
+  })
+
+  it('keeps the getting started panel visible when dismiss fails', async () => {
+    const user = userEvent.setup()
+    const dismiss = vi.spyOn(farmOverviewApi, 'dismissGettingStarted').mockRejectedValueOnce(new Error('dismiss failed'))
+
+    renderAt('/tong-quan?demo=new-farm', <FarmDashboardPage />)
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu sử dụng' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ẩn hướng dẫn' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('dismiss failed')
+    expect(screen.getByRole('heading', { name: 'Bắt đầu sử dụng' })).toBeInTheDocument()
+
+    dismiss.mockRestore()
+  })
+
+  it.each([
+    ['Owner', OWNER],
+    ['Manager', MANAGER],
+  ] as const)('lets an authorized %s reopen a dismissed guide and close it without dismissing progress', async (_label, who) => {
+    const user = userEvent.setup()
+    const dismiss = vi.spyOn(farmOverviewApi, 'dismissGettingStarted')
+    const view = renderAt('/tong-quan', <FarmDashboardPage />, who)
+
+    expect(await screen.findByRole('button', { name: 'Hướng dẫn' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Bắt đầu sử dụng' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Hướng dẫn' }))
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu sử dụng' })).toBeInTheDocument()
+    expect(screen.getAllByText('Đã xong').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'Đóng' }))
+    expect(screen.queryByRole('heading', { name: 'Bắt đầu sử dụng' })).not.toBeInTheDocument()
+    expect(dismiss).not.toHaveBeenCalled()
+
+    view.unmount()
+    dismiss.mockRestore()
+  })
+
+  it('lets an Owner reopen a completed guide with the completion state returned by the API', async () => {
+    const user = userEvent.setup()
+    const base = await farmOverviewDemoStore.getGettingStarted('default', 'OWNER')
+    const completed = { ...base, visible: false, dismissed: false, allDone: true, steps: base.steps.map((step) => ({ ...step, done: true })) }
+    const getGettingStarted = vi.spyOn(farmOverviewApi, 'getGettingStarted').mockResolvedValue(completed)
+
+    renderAt('/tong-quan', <FarmDashboardPage />)
+    expect(await screen.findByRole('button', { name: 'Hướng dẫn' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Hướng dẫn' }))
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu sử dụng' })).toBeInTheDocument()
+    expect(screen.getAllByText('Đã xong').length).toBeGreaterThan(0)
+    expect(getGettingStarted).toHaveBeenCalled()
+
+    getGettingStarted.mockRestore()
+  })
+
+  it('resets the locally opened guide when the farm session changes', async () => {
+    const user = userEvent.setup()
+    const view = renderAt('/tong-quan', <FarmDashboardPage />)
+    expect(await screen.findByRole('button', { name: 'Hướng dẫn' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Hướng dẫn' }))
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu sử dụng' })).toBeInTheDocument()
+
+    const nextFarm = { ...OWNER, farmId: 2, farmName: 'Trại khác' }
+    view.rerender(<SessionContext.Provider value={nextFarm}><MemoryRouter initialEntries={['/tong-quan']}><FarmDashboardPage /></MemoryRouter></SessionContext.Provider>)
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Bắt đầu sử dụng' })).not.toBeInTheDocument())
   })
 
   it('does not link the pending exit voucher for a Manager', async () => {
@@ -207,18 +272,41 @@ describe('management report', () => {
   it('opens RPT-05 with totals, switches report type and filters by pen', async () => {
     const user = userEvent.setup()
     renderAt('/bao-cao', <ManagementReportPage />)
-    expect(await screen.findByText('Đậu thai lần phối đầu')).toBeInTheDocument()
-    expect(screen.getByText('TTNT 33 · tự nhiên 8')).toBeInTheDocument()
-    expect(screen.getByText('Thiếu dữ liệu (4 con)')).toBeInTheDocument()
+    await screen.findByTestId('report-print-document')
+    expect(within(document.querySelector('.report-result-screen') as HTMLElement).getByText('Đậu thai lần phối đầu')).toBeInTheDocument()
+    expect(within(document.querySelector('.report-result-screen') as HTMLElement).getByText('Thiếu dữ liệu (4 con)')).toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: 'Bộ lọc thêm' }))
     await user.selectOptions(screen.getByLabelText('Chuồng'), 'A2')
     await user.click(screen.getByRole('button', { name: 'Xem báo cáo' }))
     await waitFor(() => expect(screen.queryByText('Thiếu dữ liệu (4 con)')).not.toBeInTheDocument())
 
-    await user.click(screen.getByRole('button', { name: 'RPT-04 Sức khỏe & điều trị' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Loại báo cáo' }), { target: { value: 'RPT-04' } })
     await user.click(screen.getByRole('button', { name: 'Xem báo cáo' }))
-    expect(await screen.findByText('Ca mở trong kỳ')).toBeInTheDocument()
-    expect(screen.getByText('Kết quả sức khỏe và điều trị')).toBeInTheDocument()
+    await waitFor(() => expect(within(document.querySelector('.report-result-screen') as HTMLElement).getByText('Ca mở trong kỳ')).toBeInTheDocument())
+    expect(within(document.querySelector('.report-result-screen') as HTMLElement).getByRole('heading', { level: 2, name: 'Sức khỏe & điều trị' })).toBeInTheDocument()
+  })
+
+  it('prints the applied report boundary and keeps draft criteria out of print metadata', async () => {
+    const user = userEvent.setup()
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    renderAt('/bao-cao', <ManagementReportPage />)
+    await screen.findByTestId('report-print-document')
+    expect(within(document.querySelector('.report-result-screen') as HTMLElement).getByText('Đậu thai lần phối đầu')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Loại báo cáo' }), 'RPT-04')
+    await user.click(screen.getByRole('button', { name: /In \/ xuất/ }))
+
+    expect(print).toHaveBeenCalledTimes(1)
+    const printDocument = screen.getByTestId('report-print-document')
+    expect(printDocument).toHaveTextContent('BEEFCARE')
+    expect(printDocument).toHaveTextContent('RPT-05')
+    expect(printDocument).toHaveTextContent('Trại bò Yên Bài – Ba Vì')
+    expect(printDocument).toHaveTextContent('Bộ lọc hỗ trợ')
+    expect(printDocument).not.toHaveTextContent('RPT-04')
+    expect(printDocument.querySelectorAll('button, form')).toHaveLength(0)
+    expect(printDocument.parentElement?.querySelector('.management-report-screen')).toBeInTheDocument()
+    print.mockRestore()
   })
 })
 

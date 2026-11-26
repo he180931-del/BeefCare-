@@ -20,7 +20,7 @@ Tổng: 18 mục.
 | FE-01 | A10 | Bảng quyền trong trại hiện tại | chưa có riêng – thêm vào A7 hoặc `GET /api/farms/{farmId}/my-permissions` | LamKD | Chưa làm |
 | FE-02 | A7 | Xem trước popup | chưa có riêng – thêm `GET /api/platform/farms/{farmId}` | DucNV | Chưa làm |
 | FE-05 | A9 | Lịch sử thay đổi hồ sơ | chưa có riêng – hiện qua dòng thời gian FE-16 (Q2) | AnNT | Chưa làm |
-| FE-07 | A2 | Chi tiết | chưa có riêng – thêm `GET …/announcements/{id}` | TaiDX | Chưa làm |
+| FE-07 | A2 | Chi tiết | `GET /api/farms/{farmId}/announcements/{id}` | TaiDX | Đã có trong code và OpenAPI (D83) |
 | FE-07 | A5 | Xem trước người nhận khi đăng | chưa có riêng – có thể trả trong A4 | TaiDX | Chưa làm |
 | FE-09 | A1 | Danh sách lịch + mũi | `GET /api/farms/{farmId}/vaccination-schedules` (mũi theo tab: chưa có – Q2) | TuanPQ | Chưa làm |
 | FE-09 | A2 | Xem trước bò khớp đối tượng | chưa có – thêm `POST …/vaccination-schedules/preview` | TuanPQ | Chưa làm |
@@ -28,13 +28,13 @@ Tổng: 18 mục.
 | FE-14 | A2 | Chi tiết nhắc việc | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/reminders/{id}` | TaiDX | Chưa làm |
 | FE-14 | A4 | Trang chủ Technician | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/technician-home` (hoặc ghép A1 + FE-07 + A3) | TaiDX | Chưa làm |
 | FE-14 | A8 | Số chưa đọc (chuông) | Chưa có riêng – đề xuất `GET /api/notifications/unread-count` | TaiDX | Chưa làm |
-| FE-15 | A3 | Đóng panel Bắt đầu | Chưa có – đề xuất `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` | TaiDX | Chưa làm |
+| FE-15 | A3 | Đóng panel Bắt đầu | `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` | TaiDX | Đã có trong code và OpenAPI (D84) |
 | FE-17 | A3 | Danh sách mã hành động | `GET /api/platform/audit/actions` (D34) | DucNV | Đã có (UC-FE17-01, D34); bằng chứng và giới hạn: docs/reviews/FE17_UC01_REVIEW.md; chưa READY_FOR_FE |
 | FE-18 | A7 | Kiểm trước khi ngưng | Chưa có riêng – trả `referencedCount` trong view A2, A3, A5, A6 | AnNT | Chưa làm |
 | FE-19 | A14 | Rút phiên bản đã lên lịch | `POST /api/platform/plan-prices/{version}/withdraw` (D23) | DucNV | Đã có (UC7, D23); bằng chứng và giới hạn: docs/reviews/FE19_UC07_REVIEW.md; chưa READY_FOR_FE |
 | FE-23 | A5 | Bỏ nháp phiếu nhập | Chưa có – đề xuất `DELETE …/feed/receipts/{receiptId}` | TaiDX | Chưa làm |
 | FE-23 | A10 | Hủy phiên bản lên lịch / dừng khẩu phần | Chưa có – đề xuất `POST …/feed/rations/{rationId}/versions/{v}/cancel` · `POST …/feed/rations/{rationId}/stop` | TaiDX | Chưa làm |
-| FE-23 | A12 | Dữ liệu mở popup (kế hoạch theo chuồng, bữa) | Chưa có riêng – đề xuất `GET …/feed/feeding-records/plan` | TaiDX | Chưa làm |
+| FE-23 | A12 | Dữ liệu mở popup (kế hoạch theo chuồng, bữa) | `GET /api/farms/{farmId}/feed/feeding-records/plan` | TaiDX | Đã có trong code và OpenAPI (D85) |
 
 ## 2. Backend chưa khớp spec FE-23
 
@@ -53,7 +53,7 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 
 | FE | Phần | Chưa có route | Thiếu trường hoặc sai mô tả | Chủ feature |
 |---|---|---|---|---|
-| FE-07, FE-15 | Tổng quan, thông báo | Lựa chọn chuồng, tóm tắt trang chủ Technician, lấy thông báo theo id, danh sách thành viên, xem trước công bố | `DraftRequest` chỉ có `recipientRoles`, frame cần người nhận đích danh | TaiDX |
+| FE-07, FE-15 | Tổng quan, thông báo | Lựa chọn chuồng, tóm tắt trang chủ Technician, danh sách thành viên, xem trước công bố | `DraftRequest` chỉ có `recipientRoles`, frame cần người nhận đích danh | TaiDX |
 | FE-08 | Tăng trưởng | Bộ lọc, lựa chọn cho form | Model `Page` và `Summary` trong OpenAPI giống của ticket hỗ trợ, cần kiểm tra lại | TuanPQ |
 | FE-09 | Tiêm phòng | Lựa chọn cho form, danh sách mũi, xem trước đối tượng và kế hoạch, ngữ cảnh ghi nhận | | TuanPQ |
 | FE-10 | Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server | TuanPQ |

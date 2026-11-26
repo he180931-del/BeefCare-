@@ -150,6 +150,7 @@ E1 yêu cầu không còn được giao (PM / SA) → MSG-FE20-19 · E2 mất qu
 | 8 | Source / Nguồn | Chỉ đọc | Tóm tắt bản ghi nguồn (ví dụ lịch, mũi, vắc-xin, liều và đường tiêm tham chiếu, ngày hạn) |
 | 9 | Basis / Cơ sở | Chỉ đọc | Tham số + phiên bản; nhãn TENTATIVE / CONFIRMED cho dự sinh; thiếu → MSG-FE14-01 |
 | 10 | Open cattle profile / Open source – Mở hồ sơ bò / Mở nguồn | Nút | SCR-19 (tab liên quan) hoặc màn hình nguồn; REM-08 chỉ O, M |
+| 11 | Trạng thái trống | Thông báo | Danh sách nguồn rỗng: “Chưa có nhắc việc trong dữ liệu hiện có”. Có dữ liệu nhưng tab hoặc bộ lọc không khớp: “Không có nhắc việc phù hợp”, gợi ý đổi bộ lọc hoặc chọn tab khác. Lỗi tải hiện thông báo thử lại riêng (D83). |
 
 ### SCR-74 Trang chủ Technician (điện thoại, chỉ đọc)
 
@@ -172,7 +173,7 @@ E1 yêu cầu không còn được giao (PM / SA) → MSG-FE20-19 · E2 mất qu
 | 4 | Context line / Ngữ cảnh | Trại, ngày hết hạn, nhóm ticket hoặc phiên bản xử lý |
 | 5 | Time / Thời gian | Tương đối ("5 phút trước"), sau đó ngày |
 | 6 | Unread marker / Dấu chưa đọc | Đến khi mở |
-| 7 | Open / Mở | SCR-57, SCR-59, SCR-60 hoặc SCR-66 sau khi kiểm lại quyền sở hữu |
+| 7 | Open / Mở | SCR-57, SCR-59, SCR-60 hoặc SCR-66 sau khi kiểm lại quyền sở hữu. Đích `PAYMENT_REQUEST` mở lịch sử của đúng yêu cầu, kèm mã trại sở hữu khi có để không phụ thuộc trại đang chọn (D83). |
 
 ### SCR-46 Thông báo hỗ trợ (CS, PM / SA)
 
@@ -202,7 +203,7 @@ E1 yêu cầu không còn được giao (PM / SA) → MSG-FE20-19 · E2 mất qu
 | A2 | Chi tiết nhắc việc | — | `{cattle{…}, rule, source{type, id, summary}, basis{parameter, version, label?} \| missing, sourceScreen}` | FE14-01, COM-03 | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/reminders/{id}` |
 | A3 | Nhắc việc thức ăn | — | REM-10, REM-11 theo vai trò | — | `GET /api/farms/{farmId}/feed/reminders` |
 | A4 | Trang chủ Technician | — | `{greeting, announcements[≤3], reminders[≤6], unrecordedSessions}` | — | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/technician-home` (hoặc ghép A1 + FE-07 + A3) |
-| A5 | Thông báo của tôi | `category?, page, size` | `{counts{all, subscription, support, reconciliation}, items[{id, category, title, context, createdAt, readAt?, target{type, id}}]}` | — | `GET /api/notifications/mine` |
+| A5 | Thông báo của tôi | `category?, page, size` | `{counts{all, subscription, support, reconciliation}, items[{id, category, title, context, createdAt, readAt?, target{type, id}}]}`. Với thông báo thanh toán, `NotificationView.farmId` là mã trại của yêu cầu; giá trị có thể rỗng với dữ liệu thiếu liên kết. | — | `GET /api/notifications/mine` |
 | A6 | Mở / đánh dấu đọc | — | Thông báo + đích sau khi kiểm quyền | COM-03, FE20-19 | `PUT /api/notifications/{id}/read` |
 | A7 | Đánh dấu tất cả đã đọc | `category?` | `count` | — | `PUT /api/notifications/read-all` |
 | A8 | Số chưa đọc (chuông) | — | `{unread}` | — | Chưa có riêng – đề xuất `GET /api/notifications/unread-count` |
@@ -251,6 +252,8 @@ Dùng lại: MSG-COM-03 (không có quyền), MSG-FE20-19 (yêu cầu không cò
 | TC-14-25 | Owner | Gọi API SCR-46 / SCR-47 | 403 | H | §2 |
 | TC-14-26 | Chi tiết nhắc việc thiếu tham số | Xem | MSG-FE14-01 | E | R-14-01 |
 | TC-14-27 | Owner, bữa 07:00 chưa ghi | 09:01 mở SCR-44, tab Thức ăn | Thấy REM-11 cùng tồn thấp; mở nguồn → SCR-83 popup Ghi bữa ăn | I, E | R-14-07, D41 |
+| TC-14-28 | Danh sách nhắc việc rỗng; sau đó thử danh sách có dữ liệu nhưng lọc không khớp | Xem SCR-44 | Hai thông báo trống khác nhau, có hướng dẫn phù hợp | E | D83, SCR-44 |
+| TC-14-29 | Owner đang ở trại A, có quyền ở trại B và nhận thông báo yêu cầu thanh toán của trại B | Mở từ SCR-45 | Vào lịch sử đúng yêu cầu của trại B | U, E | D83, A5 |
 
 ---
 
@@ -272,3 +275,4 @@ Dùng lại: MSG-COM-03 (không có quyền), MSG-FE20-19 (yêu cầu không cò
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TaiDX duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | D83: trạng thái trống nhắc việc và liên kết thanh toán đúng trại | TaiDX |

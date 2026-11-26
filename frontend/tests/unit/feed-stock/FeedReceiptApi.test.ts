@@ -35,6 +35,20 @@ const paymentResult: FeedReceiptPaymentResult = {
 }
 
 describe('SCR-78 feed receipt API boundary', () => {
+  it('lists active farm member names from the authorized membership endpoint', async () => {
+    const transport = makeTransport()
+    vi.mocked(transport.get).mockResolvedValueOnce({ items: [
+      { id: 1, fullName: 'Lê Thị Mai', status: 'ACTIVE' },
+      { id: 2, fullName: 'Nguyễn Văn An', status: 'INACTIVE' },
+      { id: 3, fullName: '   ', status: 'ACTIVE' },
+    ] })
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
+
+    expect(await api.listMembers()).toEqual(['Lê Thị Mai'])
+    expect(transport.farmPath).toHaveBeenCalledWith(32, '/members')
+    expect(transport.get).toHaveBeenCalledWith('/api/farms/32/members')
+  })
+
   it('maps the backend ReceiptView and does not substitute demo rows after an endpoint failure', async () => {
     const transport = makeTransport()
     vi.mocked(transport.get).mockResolvedValueOnce([receiptView()])

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateSchedule } from '../../../src/features/vaccination/validation/vaccinationValidation'
+import { validateRecordFields, validateSchedule } from '../../../src/features/vaccination/validation/vaccinationValidation'
 
 // Characterization (golden master) of the SCR-34 schedule input rules, recorded on the code before they
 // moved out of domain/ (refactor phase 2). The snapshots are the behaviour to keep. Hoãn mũi đã bỏ (D46).
@@ -9,6 +9,12 @@ const schedule = (patch: Partial<Schedule> = {}): Schedule => ({
   name: 'LMLM bê', vaccineId: 3, firstDueDate: '2026-12-01', doseCount: 2, intervalDays: 28, boosterIntervalMonths: 6, ...patch,
 } as Schedule)
 const ctx = (patch: Partial<Context> = {}): Context => ({ activeNames: ['Tụ huyết trùng'], ...patch } as Context)
+
+describe('validateRecordFields', () => {
+  it('TC-09-13: permits an on-farm vaccination without a lot number after D44', () => {
+    expect(validateRecordFields({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-10-20T08:15', withdrawalDays: 0 }, { now: '2026-10-20T09:00' })).toEqual({})
+  })
+})
 
 describe('validateSchedule', () => {
   it('accepts a complete schedule', () => {
@@ -39,5 +45,16 @@ describe('validateSchedule', () => {
         "vaccineId": "Vắc-xin cũ đã ngừng sử dụng, không thể chọn cho bản ghi mới.",
       }
     `)
+  })
+
+  it('TC-09-01/02: validates dose-count and interval boundaries, including the missing interval for two doses', () => {
+    for (const doseCount of [0, 11]) {
+      expect(validateSchedule(schedule({ doseCount }), ctx()).doseCount).toBe('Số mũi phải là số nguyên từ 1 đến 10.')
+    }
+    for (const intervalDays of [0, 366]) {
+      expect(validateSchedule(schedule({ intervalDays }), ctx()).intervalDays).toBe('Cách giữa mũi phải là số nguyên từ 1 đến 365 ngày.')
+    }
+    expect(validateSchedule(schedule({ doseCount: 2, intervalDays: undefined }), ctx()).intervalDays)
+      .toBe('Cách giữa mũi là bắt buộc khi có từ 2 mũi.')
   })
 })

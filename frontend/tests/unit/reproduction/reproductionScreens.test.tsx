@@ -15,6 +15,19 @@ const profileAt = (code: string, role: 'MANAGER' | 'OWNER' | 'TECHNICIAN' = 'MAN
 
 beforeEach(async () => { await resetReproductionDemo() })
 
+describe('profile tab: awaiting adult female', () => {
+  it('TC-11-01: shows Chờ phối and both record actions for an adult breeding cow with no events', async () => {
+    const cow = await reproductionApi.getProfile('BC-000240')
+    expect(cow).toMatchObject({ lifeStage: 'ADULT', purposeType: 'BREEDING', status: 'AWAITING_BREEDING', servicesInCurrentCycle: 0, events: [] })
+
+    profileAt('BC-000240')
+    expect(await screen.findByText('Chờ phối')).toBeInTheDocument()
+    expect(screen.queryByText('Số lần phối (chu kỳ này)')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ghi động dục' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ghi phối giống' })).toBeInTheDocument()
+  })
+})
+
 describe('profile tab: estrus female (frame 2616:4352)', () => {
   it('shows the status card with record buttons, indicators note, eligibility, window and timeline', async () => {
     const user = userEvent.setup()

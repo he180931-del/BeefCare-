@@ -4,13 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import FeedReceiptPage from '../../../src/features/feed-stock/pages/FeedReceiptPage'
 import { FEED_RECEIPT_MOCK } from '../../../src/features/feed-stock/data/feedReceiptMock'
+import { FEED_RECEIPT_DEMO_SUPPLIERS } from '../../../src/features/feed-stock/data/feedReceiptDemoSuppliers'
 import { listFeedReceipts } from '../../../src/features/feed-stock/api/feedReceiptApi'
+import { listFeedSuppliers } from '../../../src/features/feed-stock/api/feedCatalogueApi'
 
 vi.mock('../../../src/features/feed-stock/api/feedReceiptApi', () => ({
   listFeedReceipts: vi.fn(),
 }))
+vi.mock('../../../src/features/feed-stock/api/feedCatalogueApi', () => ({
+  listFeedSuppliers: vi.fn(),
+}))
 
 const listReceiptsMock = vi.mocked(listFeedReceipts)
+const listSuppliersMock = vi.mocked(listFeedSuppliers)
+const ACTIVE_SUPPLIERS = FEED_RECEIPT_DEMO_SUPPLIERS.map((supplier) => ({ ...supplier, note: '', active: true, version: 0 }))
 
 function renderPage() {
   return render(
@@ -24,6 +31,8 @@ describe('SCR-78 Feed Receipts page', () => {
   beforeEach(() => {
     listReceiptsMock.mockReset()
     listReceiptsMock.mockResolvedValue(FEED_RECEIPT_MOCK)
+    listSuppliersMock.mockReset()
+    listSuppliersMock.mockResolvedValue(ACTIVE_SUPPLIERS)
   })
 
   it('renders the receipt tiles from the loaded rows and marks unavailable values explicitly', async () => {
@@ -70,6 +79,21 @@ describe('SCR-78 Feed Receipts page', () => {
     const nextDayIso = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`
     fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: nextDayIso } })
     expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[2].code) })).not.toBeInTheDocument()
+  })
+
+  it('labels historical receipt suppliers when the active catalogue is empty and keeps supplier filtering', async () => {
+    const user = userEvent.setup()
+    listSuppliersMock.mockResolvedValueOnce([])
+    renderPage()
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.getByText(/Không có nhà cung cấp đang hoạt động · Lịch sử phiếu nhập:/)).toBeInTheDocument()
+    expect(screen.getByText(/Lịch sử phiếu nhập: Hưng Thịnh/)).toBeInTheDocument()
+    expect(screen.queryByText('Chưa có nhà cung cấp')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Nhà cung cấp' }), '203')
+    expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[1].code) })).not.toBeInTheDocument()
+    expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[2].code) })).toBeInTheDocument()
   })
 
   it('shows loading and empty states without substituting local fixture rows', async () => {

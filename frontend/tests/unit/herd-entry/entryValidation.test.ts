@@ -25,4 +25,38 @@ describe('Entry post required fields', () => {
     expect(validateEntryForPost({ ...base, receiver: '' })).toBe('Vui lòng nhập người thực hiện nhập đàn.')
     expect(validateEntryForPost({ ...base, receiver: 'Anh A' })).toBeNull()
   })
+
+  it('accepts a valid purchase weight without a manually selected weight basis', () => {
+    const input = {
+      date: '2026-11-01', today: '2026-11-01', type: 'Mua ngoài' as const, sourceId: 'seller-1', receiver: 'Anh A',
+      cows: [{ ...cow, weight: 200, weightBasis: null }], pricing: 'kg' as const,
+    }
+    expect(validateEntryForPost(input)).toBeNull()
+  })
+
+  it('TC-06-10: blocks posting the specified kg-priced line when its weight is missing', () => {
+    const input = {
+      date: '2026-11-01', today: '2026-11-01', type: 'Mua ngoài' as const, sourceId: 'seller-1', receiver: 'Anh A',
+      cows: [{ ...cow, weight: undefined as unknown as number, weightBasis: undefined }], pricing: 'kg' as const,
+    }
+    expect(validateEntryForPost(input)).toBe('Con #1: cân nhập phải từ 1 đến 1.500 kg.')
+  })
+
+  it('TC-06-11: rejects paid amount above the spec total through the production post validator', () => {
+    const input = {
+      date: '2026-11-01', today: '2026-11-01', type: 'Mua ngoài' as const, sourceId: 'seller-1', receiver: 'Anh A',
+      cows: [{ ...cow, weight: 300, weightBasis: 'MEASURED' as const, unitPrice: 80_000 }], pricing: 'kg' as const,
+      total: 24_500_000, paid: 25_000_000, method: 'CASH',
+    }
+    expect(validateEntryForPost(input)).toBe('Số tiền đã thanh toán không được vượt quá tổng phải trả.')
+  })
+
+  it('TC-06-12: requires payment method when a positive amount was paid', () => {
+    const input = {
+      date: '2026-11-01', today: '2026-11-01', type: 'Mua ngoài' as const, sourceId: 'seller-1', receiver: 'Anh A',
+      cows: [{ ...cow, weight: 300, weightBasis: 'MEASURED' as const, unitPrice: 80_000 }], pricing: 'kg' as const,
+      total: 24_500_000, paid: 1_000_000, method: '',
+    }
+    expect(validateEntryForPost(input)).toBe('Vui lòng chọn phương thức thanh toán.')
+  })
 })

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -26,7 +26,16 @@ export default function FarmDashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>({ period: '30' })
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [guideManuallyOpen, setGuideManuallyOpen] = useState(false)
+  const [guideLocallyClosed, setGuideLocallyClosed] = useState(false)
   const { overview: overviewDash, filtered: filteredDash, gettingStarted: started, filtersApplied, markStepDone, dismissGettingStarted } = useFarmDashboardUseCases(filters, viewer)
+  const farmKey = session?.farmId ?? activeFarmId
+  const canViewGettingStarted = role === 'OWNER' || role === 'MANAGER'
+
+  useEffect(() => {
+    setGuideManuallyOpen(false)
+    setGuideLocallyClosed(false)
+  }, [farmKey])
 
   const act = async (run: () => Promise<unknown>) => {
     setBusy(true)
@@ -44,7 +53,22 @@ export default function FarmDashboardPage() {
   // "không lọc" nên phải coi là đang tải, nếu không khối lỗi (role="alert") nháy lên một nhịp.
   const metricsPending = metricsQuery.loading || (filtersApplied && !filteredDash.data && !filteredDash.error)
   const metrics = metricsPending ? null : metricsQuery.data
-  const guide = started.data?.visible ? started.data : null
+  const guideData = canViewGettingStarted ? started.data : null
+  const guide = guideData && (guideData.visible || guideManuallyOpen) && !guideLocallyClosed ? guideData : null
+  const openGuide = () => {
+    setGuideLocallyClosed(false)
+    setGuideManuallyOpen(true)
+  }
+  const closeGuide = () => {
+    setGuideManuallyOpen(false)
+    setGuideLocallyClosed(true)
+  }
+  const dismissGuide = () => {
+    void act(async () => {
+      await dismissGettingStarted()
+      closeGuide()
+    })
+  }
   const periodLabel = filters.period === 'custom' ? `${formatKey(filters.from ?? '')}–${formatKey(filters.to ?? '')}` : `${filters.period} ngày`
   const serviceTone = overview.serviceStatus === 'Đang hoạt động' ? 'ok' : overview.serviceStatus === 'Chờ thanh toán' ? 'warn' : 'err'
 
@@ -58,6 +82,7 @@ export default function FarmDashboardPage() {
               title={overview.farmName}
               sub={<>{overview.activeCattle} con đang nuôi · Dịch vụ: <Badge tone={serviceTone}>{`${overview.serviceStatus}${overview.serviceUntil ? ` · đến ${formatKey(overview.serviceUntil)}` : ''}`}</Badge></>}
             >
+              {canViewGettingStarted && guideData && <Button variant="link" size="sm" onClick={openGuide}>Hướng dẫn</Button>}
               <Button className="min-h-12 text-base" onClick={() => navigate('/bao-cao')}>Báo cáo quản lý <Icon name="chevron-right" size={16} /></Button>
             </PageHeader>
           </div>
@@ -85,7 +110,7 @@ export default function FarmDashboardPage() {
             {guide && (
               <div className="space-y-2">
                 {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
-                <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => markStepDone(step))} onDismiss={() => act(dismissGettingStarted)} />
+                <GettingStartedCard data={guide} busy={busy} manual={guideManuallyOpen} onMark={(step) => act(() => markStepDone(step))} onDismiss={dismissGuide} onClose={closeGuide} />
               </div>
             )}
             <AttentionCard rows={overview.attention} />

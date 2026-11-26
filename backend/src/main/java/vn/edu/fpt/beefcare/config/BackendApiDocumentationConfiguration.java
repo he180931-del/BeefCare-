@@ -68,6 +68,7 @@ public class BackendApiDocumentationConfiguration {
                         api.getPaths().get(route).getPost().setSecurity(java.util.List.of());
                 }
                 // OpenAPI 3.1 needs an explicit null alternative; nullable=true is a 3.0 keyword and is omitted on export.
+                nullableFields(api, "NotificationView", "farmId");
                 nullableFields(api, "SubscriptionOverview", "latestEnd", "renewalOpensAt", "suspendedSince", "currentPeriod",
                     "daysRemaining", "currentPrices", "pendingPayment");
                 nullableFields(api, "SubscriptionRequestEligibility", "reason", "opensAt");

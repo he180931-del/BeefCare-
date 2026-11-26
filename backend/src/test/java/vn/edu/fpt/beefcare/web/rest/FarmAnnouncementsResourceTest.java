@@ -114,4 +114,11 @@ class FarmAnnouncementsResourceTest {
 
         verify(service).listEligibleRecipients(FARM_ID);
     }
+
+    @Test
+    void detailUsesTheFarmScopedAnnouncementServiceRoute() {
+        resource.get(FARM_ID, ANNOUNCEMENT_ID);
+
+        verify(service).get(FARM_ID, ANNOUNCEMENT_ID);
+    }
 }

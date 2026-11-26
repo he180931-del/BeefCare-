@@ -20,7 +20,7 @@ const NAV_COMMON = [
     label: 'CHĂM SÓC',
     items: [item('Cân nặng & thể trạng', '/can-nang', 'scale'), item('Tiêm phòng', '/tiem-phong', 'vaccine'), item('Sức khỏe & Điều trị', '/suc-khoe', 'stethoscope'), item('Sinh sản', '/sinh-san', 'dna'), item('Thức ăn', '/thuc-an', 'grain')],
   },
-  { label: 'QUẢN TRỊ', items: [item('Báo cáo', '/bao-cao', 'report-analytics'), item('Danh mục & Tham số', '/danh-muc', 'adjustments')] },
+  { label: 'QUẢN TRỊ', items: [item('Báo cáo quản lý', '/bao-cao', 'report-analytics'), item('Báo cáo thu chi', '/bao-cao-thu-chi', 'cash'), item('Danh mục & Tham số', '/danh-muc', 'adjustments')] },
 ]
 const FARM_MANAGER = { label: 'TRANG TRẠI', items: [item('Thành viên & quyền', '/thanh-vien', 'users')] }
 const FARM_OWNER = {

@@ -21,10 +21,14 @@ export const newestFirst = (list: NotificationView[]) => [...list].sort((a, b) =
 
 /**
  * Đích mở của thông báo: ticket → SCR-66; gói hoặc dịch vụ của một trại (targetId là mã trại) → SCR-57 của đúng trại đó;
- * yêu cầu thanh toán (targetId là mã thanh toán, máy chủ chưa gửi mã trại) → SCR-57 của trại đang chọn.
+ * yêu cầu thanh toán → lịch sử đúng payment và farm, để không phụ thuộc trại đang chọn.
  */
-export function notificationTarget(n: Pick<NotificationView, 'targetType' | 'targetId'>): string {
+export function notificationTarget(n: Pick<NotificationView, 'targetType' | 'targetId' | 'farmId'>): string {
   if (n.targetType === 'TICKET') return `/ho-tro/${n.targetId}`
+  if (n.targetType === 'PAYMENT_REQUEST') {
+    const farm = n.farmId == null ? '' : `?farm=${n.farmId}`
+    return `/goi-dich-vu/lich-su/${n.targetId}${farm}`
+  }
   return n.targetType === 'SUBSCRIPTION' || n.targetType === 'FARM_SERVICE' ? `/goi-dich-vu?farm=${n.targetId}` : '/goi-dich-vu'
 }
 

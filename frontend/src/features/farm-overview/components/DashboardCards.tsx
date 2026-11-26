@@ -64,9 +64,12 @@ export function QuickRecordCard() {
   )
 }
 
-export function GettingStartedCard({ data, busy, onMark, onDismiss }: { data: GettingStarted; busy: boolean; onMark: (step: string) => void; onDismiss: () => void }) {
+export function GettingStartedCard({ data, busy, manual, onMark, onDismiss, onClose }: { data: GettingStarted; busy: boolean; manual: boolean; onMark: (step: string) => void; onDismiss: () => void; onClose: () => void }) {
   return (
-    <Panel title="Bắt đầu sử dụng" actions={<Button variant="link" size="sm" disabled={busy} onClick={onDismiss}>Ẩn hướng dẫn</Button>}>
+    <Panel title="Bắt đầu sử dụng" actions={<span className="flex items-center gap-1">
+      {manual && <Button variant="link" size="sm" disabled={busy} onClick={onClose}>Đóng</Button>}
+      {(!manual || data.visible) && <Button variant="link" size="sm" disabled={busy} onClick={onDismiss}>Ẩn hướng dẫn</Button>}
+    </span>}>
       <Table stack={false}>
         <thead><tr><Th>Bước</Th><Th>Việc cần làm</Th><Th>Trạng thái</Th></tr></thead>
         <tbody>

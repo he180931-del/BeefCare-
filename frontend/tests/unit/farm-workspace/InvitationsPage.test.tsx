@@ -29,6 +29,34 @@ beforeEach(() => {
 })
 
 describe('UC-FE03-02 / SCR-14', () => {
+  it('TC-03-36: paginates 23 tied invitations without omissions or duplicates in either sort direction', async () => {
+    const user = userEvent.setup()
+    const allRows = Array.from({ length: 23 }, (_, index) => row(23 - index))
+    api.listInvitations.mockImplementation(async (_id, query) => {
+      const start = (query?.page ?? 0) * 20
+      return page(allRows.slice(start, start + 20), { page: query?.page ?? 0, total: allRows.length })
+    })
+    open()
+    await screen.findByText('invite23@example.test')
+
+    const visibleIds = () => within(screen.getByRole('table')).getAllByRole('row').slice(1)
+      .map((current) => Number(within(current).getAllByRole('cell')[0].textContent?.match(/invite(\d+)@/)?.[1]))
+    const readBothPages = async () => {
+      const ids = visibleIds()
+      expect(ids).toHaveLength(20)
+      await user.click(screen.getByRole('button', { name: 'Trang sau' }))
+      await screen.findByText('invite1@example.test')
+      ids.push(...visibleIds())
+      expect(ids).toEqual(Array.from({ length: 23 }, (_, index) => 23 - index))
+      expect(new Set(ids).size).toBe(23)
+    }
+
+    await readBothPages()
+    await user.click(screen.getByRole('button', { name: /Gửi lần cuối/ }))
+    await waitFor(() => expect(api.listInvitations).toHaveBeenLastCalledWith(401, expect.objectContaining({ page: 0, dir: 'asc' })))
+    await readBothPages()
+  })
+
   it('requests Pending newest-first, uses global counts and shows one page in UTC+7', async () => {
     open()
     expect(await screen.findByText('invite23@example.test')).toBeInTheDocument()

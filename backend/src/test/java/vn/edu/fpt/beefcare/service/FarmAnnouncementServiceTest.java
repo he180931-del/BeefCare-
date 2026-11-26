@@ -451,6 +451,87 @@ class FarmAnnouncementServiceTest {
     }
 
     @Test
+    void detailReturnsTheVisibleRecipientViewWithoutLoadingTheFarmList() {
+        announcement.setState("PUBLISHED");
+        FarmMembership reader = member(103L, "TECHNICIAN", farm);
+        FarmContext readerContext = new FarmContext(farm, reader.getUser(), FarmRole.TECHNICIAN);
+        AnnouncementVersion v1 = version(301L, 1, announcement);
+        v1.setTitle("Visible detail");
+        v1.setBody("Only the delivered version is visible.");
+        AnnouncementRecipient delivered = delivery(v1, reader, 401L);
+
+        when(access.require(12L, FarmAction.VIEW_ANNOUNCEMENTS)).thenReturn(readerContext);
+        when(memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(12L, 103L, "ACTIVE"))
+            .thenReturn(java.util.Optional.of(reader));
+        when(announcements.findByIdAndFarm_Id(200L, 12L)).thenReturn(java.util.Optional.of(announcement));
+        when(recipients.existsByVersion_Announcement_IdAndMembership_Id(200L, 103L)).thenReturn(true);
+        when(recipients.findByMembership_IdOrderByDeliveredTimeDesc(103L)).thenReturn(List.of(delivered));
+        when(versions.findByAnnouncement_IdOrderByVersionNoDesc(200L)).thenReturn(List.of(v1));
+
+        AnnouncementView result = service.get(12L, 200L);
+
+        assertThat(result.title()).isEqualTo("Visible detail");
+        assertThat(result.body()).isEqualTo("Only the delivered version is visible.");
+        assertThat(result.isReceived()).isTrue();
+        verify(announcements, never()).findByFarm_IdOrderByIdDesc(12L);
+    }
+
+    @Test
+    void detailHidesUndeliveredAnnouncementsFromNonAuthorsWithTypedNotFound() {
+        announcement.setState("PUBLISHED");
+        FarmMembership reader = member(103L, "TECHNICIAN", farm);
+        FarmContext readerContext = new FarmContext(farm, reader.getUser(), FarmRole.TECHNICIAN);
+        when(access.require(12L, FarmAction.VIEW_ANNOUNCEMENTS)).thenReturn(readerContext);
+        when(memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(12L, 103L, "ACTIVE"))
+            .thenReturn(java.util.Optional.of(reader));
+        when(announcements.findByIdAndFarm_Id(200L, 12L)).thenReturn(java.util.Optional.of(announcement));
+        when(recipients.existsByVersion_Announcement_IdAndMembership_Id(200L, 103L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.get(12L, 200L))
+            .isInstanceOfSatisfying(DomainException.class, error -> {
+                assertThat(error.getCode()).isEqualTo("MSG-COM-08");
+                assertThat(error.getStatus().value()).isEqualTo(404);
+            });
+        verify(versions, never()).findByAnnouncement_IdOrderByVersionNoDesc(200L);
+    }
+
+    @Test
+    void detailKeepsDraftsPrivateEvenWhenARecipientRowExists() {
+        FarmMembership reader = member(103L, "TECHNICIAN", farm);
+        FarmContext readerContext = new FarmContext(farm, reader.getUser(), FarmRole.TECHNICIAN);
+        when(access.require(12L, FarmAction.VIEW_ANNOUNCEMENTS)).thenReturn(readerContext);
+        when(memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(12L, 103L, "ACTIVE"))
+            .thenReturn(java.util.Optional.of(reader));
+        when(announcements.findByIdAndFarm_Id(200L, 12L)).thenReturn(java.util.Optional.of(announcement));
+
+        assertThatThrownBy(() -> service.get(12L, 200L))
+            .isInstanceOfSatisfying(DomainException.class, error -> {
+                assertThat(error.getCode()).isEqualTo("MSG-COM-08");
+                assertThat(error.getStatus().value()).isEqualTo(404);
+            });
+        verify(recipients, never()).existsByVersion_Announcement_IdAndMembership_Id(200L, 103L);
+        verify(versions, never()).findByAnnouncement_IdOrderByVersionNoDesc(200L);
+    }
+
+    @Test
+    void detailReturnsTheAuthorsDraftWithAuthorOnlyFields() {
+        when(access.require(12L, FarmAction.VIEW_ANNOUNCEMENTS)).thenReturn(ownerContext);
+        when(memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(12L, 41L, "ACTIVE"))
+            .thenReturn(java.util.Optional.of(author));
+        when(announcements.findByIdAndFarm_Id(200L, 12L)).thenReturn(java.util.Optional.of(announcement));
+        when(versions.findByAnnouncement_IdOrderByVersionNoDesc(200L)).thenReturn(List.of());
+        when(recipients.findByMembership_IdOrderByDeliveredTimeDesc(101L)).thenReturn(List.of());
+        when(memberSelectors.findByAnnouncement_IdOrderByMembership_Id(200L)).thenReturn(List.of());
+
+        AnnouncementView result = service.get(12L, 200L);
+
+        assertThat(result.isAuthor()).isTrue();
+        assertThat(result.state()).isEqualTo("DRAFT");
+        assertThat(result.title()).isEqualTo("Water delivery");
+        assertThat(result.deliveries()).isEmpty();
+    }
+
+    @Test
     void publishWithNoActiveRecipientsLeavesDraftUnchanged() {
         when(access.require(12L, FarmAction.MANAGE_ANNOUNCEMENTS)).thenReturn(ownerContext);
         when(memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(12L, 41L, "ACTIVE")).thenReturn(java.util.Optional.of(author));

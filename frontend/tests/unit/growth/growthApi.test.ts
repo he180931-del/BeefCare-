@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createGrowthApi } from '../../../src/features/growth/api/growthApi'
 import { createGrowthDemoStore } from '../../../src/features/growth/data/growthDemoStore'
 import { GrowthLargeChangeError, GrowthValidationError, basisOf, tapeWeightKg } from '../../../src/features/growth/domain/growthRules'
+import { createGrowthBackend } from '../../../src/features/growth/api/growthBackend'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const make = () => {
@@ -11,8 +12,9 @@ const make = () => {
 const base = { measuredAt: '2026-10-20T07:30', measuredBy: 1, measuredByName: 'Trần Quốc Long' }
 
 describe('quy tắc tính toán', () => {
-  it('công thức thước dây 88,4 × VN² × DTC và cơ sở số liệu theo phương pháp', () => {
+  it('TC-08-05: công thức thước dây 88,4 × VN² × DTC và cơ sở ESTIMATED', () => {
     expect(tapeWeightKg(158, 132)).toBe(291.3)
+    expect(tapeWeightKg(180, 150)).toBe(429.6)
     expect(basisOf('SCALE')).toBe('MEASURED')
     expect(basisOf('TAPE')).toBe('ESTIMATED')
     expect(basisOf('ESTIMATE')).toBe('ESTIMATED')
@@ -124,6 +126,28 @@ describe('danh sách đàn', () => {
 })
 
 describe('chế độ backend', () => {
+  it('TC-08-06: derives basis from measurement method and never serializes a client-supplied basis', async () => {
+    const t = transport()
+    t.farmPath.mockImplementation((id: number, suffix = '') => `/api/farms/${id}${suffix}`)
+    t.get.mockResolvedValue({
+      cattleId: 203,
+      cattle: { displayCode: 'BC-000203', breedName: 'Lai Sind', sex: 'FEMALE', lifeStage: 'ADULT', herdStatus: 'ACTIVE', entry: { entryDate: '2025-01-01' } },
+    })
+    t.command.mockResolvedValue({
+      id: 88, measuredAt: '2026-11-01T01:00:00Z', recordedAt: '2026-11-01T02:00:00Z', measuredBy: 7,
+      method: 'SCALE', weightKg: 300, basis: 'MEASURED', status: 'VALID', version: 1, revisions: [],
+    })
+    const api = createGrowthBackend({ farmId: 1, transport: t as never, clock: () => new Date('2026-11-01T02:00:00Z') })
+    const command = { ...base, measuredAt: '2026-11-01T08:00', method: 'SCALE' as const, weightKg: 300, basis: 'ESTIMATED' } as never
+
+    await api.record('BC-000203', command)
+
+    expect(t.command).toHaveBeenCalledTimes(1)
+    const payload = t.command.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toMatchObject({ method: 'SCALE', weightKg: 300 })
+    expect(Object.hasOwn(payload, 'basis')).toBe(false)
+  })
+
   it('không đọc hay ghi mock', async () => {
     const store = createGrowthDemoStore()
     const spies = [vi.spyOn(store, 'listHerd'), vi.spyOn(store, 'record'), vi.spyOn(store, 'getProfile')]

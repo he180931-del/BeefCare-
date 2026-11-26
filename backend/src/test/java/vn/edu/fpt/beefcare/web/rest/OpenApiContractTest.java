@@ -62,6 +62,9 @@ class OpenApiContractTest {
         assertThat(paths.path("/api/farms/{farmId}/vaccines/{vaccineId}").has("delete")).isTrue();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
         JsonNode schemas = api.path("components").path("schemas");
+        JsonNode notification = schemas.path("NotificationView").path("properties");
+        assertThat(notification.has("farmId")).as("SCR-45 payment target farm context").isTrue();
+        assertThat(allowsNull(notification.path("farmId"))).as("farmId is null for non-payment targets").isTrue();
         JsonNode supportTicketCreate = schemas.path("Create").path("properties");
         assertThat(supportTicketCreate.path("category").path("enum").toString())
             .contains("ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER");
