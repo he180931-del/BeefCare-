@@ -2,7 +2,7 @@ import { addCalendarDays } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, DateInput, Field, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { feedRationServerBacked } from '../api/feedRationApi'
 import { useFeedRationForm } from '../hooks/useFeedRationForm'
@@ -16,7 +16,6 @@ import FeedManagementTabs from '../components/FeedManagementTabs'
 import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Khẩu phần'
-const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đang dùng không bị ghi đè: mỗi lần lưu tạo phiên bản mới với ngày hiệu lực từ ngày mai trở đi. Bảng tồn kho cho biết đủ dùng bao nhiêu ngày với lượng mới để nhắc nhập kho kịp thời.'
 const SESSION_NAMES = ['Cữ sáng', 'Cữ chiều', 'Cữ tối']
 const SESSION_LABEL = ['Sáng', 'Chiều', 'Tối']
 
@@ -318,7 +317,6 @@ function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
         </aside>
       </div>
       </div>
-      <Foot>{FOOT}</Foot>
     </Layout>
   )
 }

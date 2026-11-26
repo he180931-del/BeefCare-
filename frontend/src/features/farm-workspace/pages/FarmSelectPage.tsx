@@ -4,7 +4,6 @@ import {
   Button,
   EmptyBlock,
   ErrorBlock,
-  Foot,
   LoadingBlock,
   Note,
   PageHeader,
@@ -38,7 +37,6 @@ export default function FarmSelectPage() {
         <EmptyBlock variant="panel" title="Tài khoản chưa liên kết với trang trại nào" sub="Đăng ký trang trại của bạn, hoặc mở lời mời đã gửi tới email." action={<Button variant="primary" onClick={() => void registerFarm()}>Đăng ký trang trại</Button>} />
       )}
       <div className="grid grid-cols-4 gap-4 [&>*]:col-span-full @min-[640px]:grid-cols-8 @min-[640px]:[&>*]:col-span-4 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 @min-[1024px]:[&>*]:col-span-6">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} busy={entering !== null} onOpen={(item) => void open(item)} />)}</div>
-      <Foot>Chọn trại theo vai trò và trạng thái dịch vụ; dữ liệu giữa các trại được tách riêng.</Foot>
     </SetupLayout>
   );
 }

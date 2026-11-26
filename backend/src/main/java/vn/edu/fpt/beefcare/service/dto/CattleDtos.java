@@ -17,8 +17,8 @@ public final class CattleDtos {
     public record Profile(Long id,String displayCode,String earTagNumber,String name,Sex sex,LocalDate birthDate,BirthDateAccuracy birthDateAccuracy,
         Long breedId,String breedName,Long purposeId,String purposeName,PurposeType purposeType,LifeStage lifeStage,HerdStatus herdStatus,
         ExitType exitType,LocalDate exitDate,String herdGroup,Integer version,String photoUrl,Long penId,String penCode,String penName,LocalDate penSince,
-        boolean exitPending,java.math.BigDecimal latestWeightKg,String weightBasis,java.math.BigDecimal latestBcs,java.math.BigDecimal adg90,
-        String healthState,LocalDate withdrawalEndDate,boolean withdrawalActive,Boolean suspectedContagious,String reproductiveStatus,
+        boolean exitPending,java.math.BigDecimal latestWeightKg,String weightBasis,LocalDate latestWeightDate,java.math.BigDecimal latestBcs,java.math.BigDecimal adg90,
+        String healthState,LocalDate withdrawalEndDate,boolean withdrawalActive,Boolean suspectedContagious,Integer vaccinationOverdue,String reproductiveStatus,
         LocalDate expectedCalvingDate,String expectedBasis,Boolean breedingEligible,List<String> failedBreedingConditions,
         String colourMarkings,String notes,Long damId,Long sireId,String externalSireCode,Boolean canUpdate,Boolean canChangePurpose,
         Entry entry,LocalDate quarantineUntil,String damCode,String sireCode) {}

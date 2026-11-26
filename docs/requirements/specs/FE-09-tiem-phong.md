@@ -204,16 +204,17 @@ SCR-31 (thẻ lịch, tab mũi theo tình trạng hạn, danh sách mũi) · SCR
 
 | # | Trường | Nội dung |
 |---|---|---|
-| 1 | Record vaccination / Ghi nhận tiêm | Nút (Owner, Manager) → SCR-33 cho bò này |
-| 2 | Scheduled doses / Mũi theo lịch | Lịch, mũi, hạn tiêm, tình trạng (như SCR-31); "Ghi" (Owner, Manager) |
-| 3 | Administered at / Thời điểm tiêm | dd/mm/yyyy HH:mm, sắp xếp được |
-| 4 | Vaccine · dose / Vắc-xin · mũi | Tên snapshot và số mũi |
-| 5 | Amount / Liều | — |
-| 6 | Withdrawal until / Ngưng thịt đến | Ngày hết của bản ghi ON_FARM, hoặc "—" |
-| 7 | Source / Nguồn | Tại trại / Lịch sử |
-| 8 | Vaccinator / Người tiêm | Tên |
-| 9 | Reaction / Phản ứng | Mã ca sức khỏe liên kết, hoặc "—" |
-| 10 | Actions / Thao tác | Hai nút "Sửa" và "Xóa" (Owner, Manager), như lịch sử đo FE-08; bản ghi đã xóa không hiện (D53) |
+| 1 | Vaccination state / Tình trạng tiêm phòng | Khối đầu tab (D78): Đã tiêm (số lần còn hiệu lực), Còn theo lịch, Quá hạn; dải cảnh báo "Ngưng sử dụng thịt đến dd/mm/yyyy" khi còn hiệu lực. Chỉ đổi nền khi có mũi quá hạn |
+| 2 | Record vaccination / Ghi nhận tiêm | Nút (Owner, Manager) → SCR-33 cho bò này |
+| 3 | Scheduled doses / Mũi theo lịch | Lịch, mũi, hạn tiêm, tình trạng (như SCR-31); "Ghi" (Owner, Manager) |
+| 4 | Administered at / Thời điểm tiêm | dd/mm/yyyy HH:mm, sắp xếp được |
+| 5 | Vaccine · dose / Vắc-xin · mũi | Tên snapshot và số mũi |
+| 6 | Amount / Liều | — |
+| 7 | Withdrawal until / Ngưng thịt đến | Ngày hết của bản ghi ON_FARM, hoặc "—" |
+| 8 | Source / Nguồn | Tại trại / Lịch sử |
+| 9 | Vaccinator / Người tiêm | Tên |
+| 10 | Reaction / Phản ứng | Mã ca sức khỏe liên kết, hoặc "—" |
+| 11 | Actions / Thao tác | Hai nút "Sửa" và "Xóa" (Owner, Manager), như lịch sử đo FE-08; bản ghi đã xóa không hiện (D53) |
 
 ### ~~Popup Hoãn mũi~~
 
@@ -347,3 +348,4 @@ Bỏ theo D46.
 | 23/11/2026 | 28/10/2026 | D48: lịch đã hoàn thành rời hàng thẻ SCR-31, gom vào mục "Lịch đã hoàn thành"; SCR-32 tách nhóm Đang chạy / Đã hoàn thành | Tuấn |
 | 23/11/2026 | 28/10/2026 | D50: SCR-32 "Ngày bắt đầu" → "Ngày tiêm"; ô số (Số mũi, Cách giữa mũi, Nhắc lại sau, Ngưng thịt) gõ sai báo lỗi dưới ô, không coi là trống | Tuấn |
 | 24/11/2026 | 28/10/2026 | D66: SCR-31 giữ phần thẻ lịch; khối danh sách mũi gom tab, bộ lọc, thanh ghi nhận và bảng trong một khối Bento; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm | Tuấn |
+| 26/11/2026 | 28/10/2026 | D78: SCR-34 thêm khối Tình trạng tiêm phòng (đã tiêm, còn theo lịch, quá hạn, ngưng thịt) và chuyển sang khung Bento | Tuấn |

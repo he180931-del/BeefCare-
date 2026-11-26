@@ -109,10 +109,10 @@ E1 bò không thuộc trại → MSG-COM-08 · E2 lỗi tải → MSG-COM-02.
 
 | # | Trường | Loại | Nội dung / Ràng buộc | Mặc định |
 |---|---|---|---|---|
-| 1 | Event filter / Lọc sự kiện | Chip | Tất cả, Định danh & QR, Mục đích / giai đoạn, Chuồng, Cân & BCS, Tiêm phòng, Sức khỏe, Sinh sản, Nhập & xuất | Tất cả |
+| 1 | Event filter / Lọc sự kiện | Chip | Chăm sóc (Cân & BCS + Tiêm phòng + Sức khỏe + Sinh sản – D79), Tất cả, Định danh & QR, Mục đích / giai đoạn, Chuồng, Cân & BCS, Tiêm phòng, Sức khỏe, Sinh sản, Nhập & xuất | Chăm sóc khi bò có sự kiện chăm sóc; không thì Tất cả (D79) |
 | 2 | Show corrections / Hiện chỉnh sửa | Toggle | Hiện bản gốc đã sửa, bản ghi loại / hủy (tô xám + lý do) | Tắt |
 | 3 | Month group / Nhóm tháng | Tiêu đề | Ví dụ "THÁNG 10 2026" | — |
-| 4 | Event / Sự kiện | Chữ | Tiêu đề + giá trị chính | — |
+| 4 | Event / Sự kiện | Chữ | Tiêu đề + giá trị chính; một dòng kèm ngày "dd/mm", bấm tiêu đề để mở #7, #8 và lý do (D79). "Mở rộng tất cả" mở mọi dòng; bật #2 thì mọi dòng tự mở | Thu gọn |
 | 5 | Basis tag / Nhãn cơ sở | Tag | Đo / Ước tính / Lịch sử / Tại trại | — |
 | 6 | Corrected marker / Nhãn đã sửa | Tag | "Đã sửa"; bản ghi loại / hủy: "Đã loại" / "Đã hủy" + lý do | — |
 | 7 | Details / Chi tiết | Chữ | Phương pháp, lô, thuốc, kết quả, lý do… | — |
@@ -185,3 +185,4 @@ Ghi chú: `canOpen`, `canCorrect` do BE tính theo vai trò để FE ẩn / hi�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | D79: chip Chăm sóc làm mặc định khi có sự kiện chăm sóc; mỗi sự kiện một dòng, mở để xem chi tiết; "Mở rộng tất cả" | Tuấn |

@@ -2,7 +2,7 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, FilterSelect, Foot, Icon, inputCls, Metric, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, FilterSelect, Icon, inputCls, Metric, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
 import { herdEntryError } from '../api/herdEntryError'
@@ -211,10 +211,6 @@ export default function ImportList() {
           </div>
         </div>
 
-        <Foot>
-          Phiếu NHÁP chưa tạo hồ sơ bò, chưa đổi chuồng và công nợ. Phiếu ĐÃ NHẬP: mở chi tiết phiếu và dùng Sửa / Hủy ở từng dòng;
-          chỉ hủy cả phiếu khi chưa con nào có sự kiện khác (GBR-33).
-        </Foot>
       </div>
     </Layout>
   )

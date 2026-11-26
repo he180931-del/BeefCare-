@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BackendError } from '../../../shared/api/backendClient'
-import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
+import { Badge, Button, ErrorBlock, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
 import { CONTACT, INVITATION_PATH, rememberInvitationLink } from '../../authentication'
 import { useSession } from '../../../app/session/sessionContext'
 import { enterFarm } from '../components/enterFarm'
@@ -92,9 +92,9 @@ export default function AcceptInvitationPage() {
     void session?.logout()
   }
 
-  const shell = (children: ReactNode, foot: string) => (
+  const shell = (children: ReactNode) => (
     <SetupLayout narrow eyebrow="Trước khi tham gia" heading="Xem rõ trại và vai trò trước khi vào." lines={['Xem người mời, quyền và email đăng nhập. Tư cách thành viên chỉ được tạo khi bạn chấp nhận.', 'Email đăng nhập phải trùng email được mời.']}>
-      {children}<Foot>{foot}</Foot>
+      {children}
     </SetupLayout>
   )
   const contact = (
@@ -104,8 +104,8 @@ export default function AcceptInvitationPage() {
     </div>
   )
 
-  if (view.kind === 'loading') return shell(<LoadingBlock variant="panel" />, 'Đang kiểm tra lời mời…')
-  if (view.kind === 'error') return shell(<ErrorBlock variant="panel" message={view.message} onRetry={() => setRevision((value) => value + 1)} />, 'Chưa tải được lời mời; lời mời vẫn giữ nguyên trạng thái.')
+  if (view.kind === 'loading') return shell(<LoadingBlock variant="panel" />)
+  if (view.kind === 'error') return shell(<ErrorBlock variant="panel" message={view.message} onRetry={() => setRevision((value) => value + 1)} />)
 
   if (view.kind === 'invalid') {
     return shell(
@@ -114,8 +114,7 @@ export default function AcceptInvitationPage() {
         <Note tone="err">Lời mời không còn hiệu lực ({invalidLabel(view.status)}).{view.expiresAt ? ` Hết hạn lúc ${formatDateTime(view.expiresAt)}.` : ''}</Note>
         <p className="m-0 text-xs text-subtle">Chưa có tư cách thành viên nào được tạo từ liên kết này; hãy liên hệ Chủ trại để được mời lại. Hỗ trợ: {CONTACT.email} · <a href={CONTACT.phoneHref}>{CONTACT.phone}</a></p>
         {contact}
-      </Panel>,
-      'Liên kết đã bị hủy, hết hạn, đã được sử dụng hoặc không đúng; liên kết không cấp quyền vào trại.',
+      </Panel>
     )
   }
 
@@ -129,8 +128,7 @@ export default function AcceptInvitationPage() {
           <Button size="lg" onClick={() => navigate('/')}>Về trang chủ</Button>
           {session && <Button size="lg" variant="primary" onClick={switchAccount}>Đăng xuất để đổi tài khoản</Button>}
         </div>
-      </Panel>,
-      'Thông tin trang trại chỉ hiện với tài khoản có email được mời.',
+      </Panel>
     )
   }
 
@@ -141,8 +139,7 @@ export default function AcceptInvitationPage() {
         <Note tone="warn">Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>
         <p className="m-0 text-xs text-subtle">Lời mời vẫn đang chờ. Hãy mở lại liên kết khi dịch vụ của trang trại hoạt động trở lại, trước khi lời mời hết hạn.</p>
         <div className="flex flex-wrap justify-end gap-2"><Button size="lg" onClick={() => navigate('/chon-trai')}>Để sau</Button></div>
-      </Panel>,
-      'Chủ trại cần kích hoạt lại dịch vụ trước khi bạn tham gia.',
+      </Panel>
     )
   }
 
@@ -159,8 +156,7 @@ export default function AcceptInvitationPage() {
           <Button size="lg" onClick={() => navigate('/')}>Về trang chủ</Button>
           <Button size="lg" variant="primary" disabled={saving && !error} onClick={() => { setSaving(true); setError(null); void open(invite.farmId) }}>{saving && !error ? 'Đang vào trại…' : 'Vào trại'}</Button>
         </div>
-      </Panel>,
-      'Liên kết đã được dùng để tham gia; mở lại chỉ hiện tư cách thành viên hiện có.',
+      </Panel>
     )
   }
 
@@ -178,7 +174,6 @@ export default function AcceptInvitationPage() {
         <Button size="lg" disabled={saving} onClick={() => navigate('/chon-trai')}>Để sau</Button>
         <Button size="lg" variant="primary" disabled={saving} onClick={() => void accept(invite)}>{saving ? 'Đang tham gia…' : 'Chấp nhận & vào trại'}</Button>
       </div>
-    </Panel>,
-    'Kiểm tra trại, vai trò, người mời, quyền và thời hạn. Chọn để sau sẽ giữ lời mời đang chờ.',
+    </Panel>
   )
 }

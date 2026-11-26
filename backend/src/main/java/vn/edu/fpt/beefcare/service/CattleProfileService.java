@@ -134,7 +134,7 @@ public class CattleProfileService {
         Map<String,Object> p=new LinkedHashMap<>();p.put("id",c.getId());p.put("displayCode",c.getDisplayCode());p.put("earTagNumber",c.getEarTagNumber());p.put("name",c.getName());p.put("sex",c.getSex());p.put("birthDate",c.getBirthDate());p.put("birthDateAccuracy",c.getBirthDateAccuracy());p.put("breedId",c.getBreed().getId());p.put("breedName",c.getBreed().getName());p.put("purposeId",c.getPurpose().getId());p.put("purposeName",c.getPurpose().getName());p.put("purposeType",c.getPurpose().getPurposeType());p.put("lifeStage",c.getLifeStage());p.put("herdStatus",c.getHerdStatus());p.put("exitType",c.getExitType());p.put("exitDate",c.getExitDate());p.put("herdGroup",herdGroup(c));p.put("version",c.getVersion());p.put("photoUrl",c.getPhotoAttachment()==null?c.getPhotoUrl():"/api/farms/"+ctx.farmId()+"/attachments/"+c.getPhotoAttachment().getId());
         assignments.findOpen(c.getId()).ifPresent(a->{p.put("penId",a.getPen().getId());p.put("penCode",a.getPen().getCode());p.put("penName",a.getPen().getName());p.put("penSince",a.getFromDate());});
         boolean pending=guard.isExitPending(c.getId());p.put("exitPending",ctx.role()!=FarmRole.TECHNICIAN&&pending);
-        GrowthDtosProjection(p,growth.summary(c,90));if(c.getHerdStatus()==HerdStatus.ACTIVE)p.putAll(state.state(c));
+        growthProjection(p,growth.summary(c,90));if(c.getHerdStatus()==HerdStatus.ACTIVE)p.putAll(state.state(c));
         Object withdrawal=p.get("withdrawalEndDate");p.put("withdrawalActive",withdrawal instanceof LocalDate date&&!date.isBefore(clock.today()));
         if(detail){p.put("colourMarkings",c.getColourMarkings());p.put("notes",c.getNotes());p.put("damId",c.getDam()==null?null:c.getDam().getId());p.put("sireId",c.getSire()==null?null:c.getSire().getId());
             // SCR-19 #15 links dam / sire by display code; the internal id is never shown (GBR-23).
@@ -144,7 +144,15 @@ public class CattleProfileService {
                 p.put("entry",entry);p.put("quarantineUntil",e.getQuarantineUntil());});}
         return p;
     }
-    private void GrowthDtosProjection(Map<String,Object> p,vn.edu.fpt.beefcare.service.dto.GrowthDtos.Summary growth){p.put("latestWeightKg",growth.currentWeight()==null?null:growth.currentWeight().weightKg());p.put("weightBasis",growth.currentWeight()==null?null:growth.currentWeight().basis());p.put("latestBcs",growth.latestBcs());p.put("adg90",growth.adg());}
+    /** SCR-18 #15, SCR-19 #17: cân gần nhất kèm cơ sở và ngày cân (giờ trại), BCS và ADG 90 ngày. */
+    private void growthProjection(Map<String,Object> p,vn.edu.fpt.beefcare.service.dto.GrowthDtos.Summary growth){
+        var current=growth.currentWeight();
+        p.put("latestWeightKg",current==null?null:current.weightKg());
+        p.put("weightBasis",current==null?null:current.basis());
+        p.put("latestWeightDate",current==null||current.measuredAt()==null?null:LocalDate.ofInstant(current.measuredAt(),clock.zone()));
+        p.put("latestBcs",growth.latestBcs());
+        p.put("adg90",growth.adg());
+    }
     private Optional<HerdEntry> entry(Long id){return em.createQuery("select h from HerdEntry h where h.cattle.id=:c order by h.id",HerdEntry.class).setParameter("c",id).setMaxResults(1).getResultStream().findFirst();}
     private Map<String,Object> description(Cattle c){Map<String,Object> m=new LinkedHashMap<>();m.put("name",c.getName());m.put("colourMarkings",c.getColourMarkings());m.put("notes",c.getNotes());return m;}
     private void history(FarmContext ctx,Cattle c,ProfileFieldGroup group,String old,String value,CattleDtos.ProfileUpdate r){CattleProfileChange h=new CattleProfileChange();h.setFarm(ctx.farm());h.setCattle(c);h.setFieldGroup(group);h.setOldValue(old);h.setNewValue(value);h.setEffectiveDate(r.effectiveDate());h.setReason(r.reason());h.setChangedBy(ctx.user());h.setChangedAt(clock.now());em.persist(h);}

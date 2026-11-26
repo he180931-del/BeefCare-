@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Note, PageHeader, Panel, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Badge, Button, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Note, PageHeader, Panel, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { messageOf, useViewer } from '../components/shared'
 import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
@@ -116,7 +116,6 @@ export default function AnnouncementCorrectionPage() {
             </Table>
           </Panel>
         </div>
-        <Foot>Phiên bản cũ được giữ nguyên kèm lý do đính chính; chỉ tác giả của thông báo đã đăng mới đính chính được.</Foot>
       </div>
     </Layout>
   )

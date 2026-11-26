@@ -2,7 +2,7 @@ import { MoneyInput } from '../../../shared/ui'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, QrCamera, Radio, SearchSelect, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Checkbox, DateInput, Field, Icon, inputCls, Note, QrCamera, Radio, SearchSelect, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
@@ -465,7 +465,6 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
         </div>
       </div>
 
-      <Foot>Loại xuất cố định sau lần lưu đầu. Cân xuất mặc định là cân gần nhất (ước tính); cảnh báo không chặn lưu nháp nhưng phải xem lại trước khi xác nhận.</Foot>
 
       {m === 'pick' && (
         <PickModal id={id} herdExits={exports} candidates={selectableCattle} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} />

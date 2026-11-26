@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Button, ErrorBlock, Foot, LoadingBlock, Modal, Note, PageHeader } from '../../../shared/ui'
+import { Button, ErrorBlock, LoadingBlock, Modal, Note, PageHeader } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { ConversationCard } from '../components/ConversationCard'
 import { ReopenDialog, ReopenedDialog, ResolutionVersionDialog } from '../components/ReopenDialogs'
@@ -76,7 +76,6 @@ export default function TicketDetailPage() {
             <StatusHistoryCard ticket={ticket} />
           </div>
         </div>
-        <Foot>Xem trao đổi công khai, thông tin phiếu, lịch sử trạng thái và kết quả xử lý; phản hồi tối đa 3.000 ký tự, phiếu đã đóng không nhận phản hồi.</Foot>
       </div>
 
       {m === 'mo-lai' && latest && ticket.status === 'RESOLVED' && <ReopenDialog ticket={ticket} resolution={latest} onSubmit={actions.reopen} onClose={closeModal} />}

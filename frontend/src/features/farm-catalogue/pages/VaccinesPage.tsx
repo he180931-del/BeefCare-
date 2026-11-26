@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Field, Foot, Select, Table, Td, Th } from '../../../shared/ui'
+import { Button, Field, Select, Table, Td, Th } from '../../../shared/ui'
 import { catalogueError } from '../api/catalogueError'
 import { useCatalogueItemPage } from '../hooks/useCatalogueItemPage'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
@@ -141,7 +141,6 @@ export default function VaccinesPage() {
           </EditorPanel>
         )}
       </SplitLayout>
-      <Foot>Danh mục vắc-xin của trại. "Đang dùng" cho biết số lịch hoặc mũi tiêm đang tham chiếu; "Chưa dùng" thì mới xóa được. Liều, đường tiêm và số ngày ngưng được điền sẵn khi ghi tiêm.</Foot>
       {page.confirmOpen && item && (
         <DeactivateDialog name={item.name} count={vaccineUsage(item)} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
       )}

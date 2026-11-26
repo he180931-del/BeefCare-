@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { AnnouncementDetail, HistoryModal } from '../components/AnnouncementDetail'
 import { messageOf, Toast, useViewer } from '../components/shared'
@@ -132,7 +132,6 @@ export default function AnnouncementListPage() {
                 : !detail.loading && <EmptyBlock title="Chọn một thông báo" sub="Nội dung và tình trạng nhận sẽ hiện ở đây." action={<Icon name="speakerphone" size={20} />} />}
           </div>
         </div>
-        <Foot>Tab "Bản nháp" chỉ hiện cho tác giả; mở thông báo sẽ đánh dấu đã đọc. Nút Đính chính chỉ dành cho tác giả của thông báo đã đăng; bảng tình trạng nhận chỉ tác giả thấy.</Foot>
       </div>
       {m === 'lich-su' && detail.data && <HistoryModal a={detail.data} onClose={closeModal} />}
       <Toast message={toast} onClose={() => setToast('')} />

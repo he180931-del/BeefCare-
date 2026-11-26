@@ -15357,6 +15357,10 @@
           "weightBasis" : {
             "type" : "string"
           },
+          "latestWeightDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
           "latestBcs" : {
             "type" : "number"
           },
@@ -15375,6 +15379,10 @@
           },
           "suspectedContagious" : {
             "type" : "boolean"
+          },
+          "vaccinationOverdue" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "reproductiveStatus" : {
             "type" : "string"

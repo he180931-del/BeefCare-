@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { ErrorBlock, Foot, PageHeader } from '../../../shared/ui'
+import { ErrorBlock, PageHeader } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
 import { NewTicketForm } from '../components/NewTicketForm'
 import { MESSAGES, SupportError } from '../domain/supportError'
@@ -39,7 +39,6 @@ export default function NewTicketPage() {
         <div className="@container min-w-0">
           <NewTicketForm activeFarmId={session.farmId} initialCategory={initialCategory} onSubmit={submit} onCancel={() => navigate('/ho-tro')} />
         </div>
-        <Foot>Chọn danh mục, nhập tiêu đề tối đa 150 ký tự cùng mô tả tối đa 3.000 ký tự. Ticket tự gắn với trại đang mở; mức ưu tiên do bộ phận hỗ trợ gán.</Foot>
       </div>
     </Layout>
   )

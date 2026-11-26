@@ -20,8 +20,12 @@ export type BackendTimeline = {
   canCorrect?: boolean
 }
 
-/** SCR-50 #1 chips, in the order of the spec. */
+/**
+ * SCR-50 #1 chips, in the order of the spec. D79: "Chăm sóc" gom Cân & BCS, Tiêm phòng, Sức khỏe, Sinh sản – nhóm xem
+ * hằng ngày – và là chip mặc định khi bò có sự kiện chăm sóc.
+ */
 export const TIMELINE_FILTERS = [
+  ['care', 'Chăm sóc'],
   ['all', 'Tất cả'],
   ['qr', 'Định danh & QR'],
   ['stage', 'Mục đích / giai đoạn'],
@@ -32,6 +36,9 @@ export const TIMELINE_FILTERS = [
   ['repro', 'Sinh sản'],
   ['entryExit', 'Nhập & xuất'],
 ] as const
+
+/** D79: các nhóm sự kiện thuộc chip "Chăm sóc". */
+export const CARE_CATEGORIES: ReadonlySet<string> = new Set(['weight', 'vaccine', 'health', 'repro'])
 
 const CATEGORY: Record<string, string> = {
   IDENTIFICATION_QR: 'qr', ENTRY_EXIT: 'entryExit', PEN: 'barn', PURPOSE_STAGE: 'stage', GROWTH: 'weight', VACCINATION: 'vaccine', HEALTH: 'health', REPRODUCTION: 'repro',

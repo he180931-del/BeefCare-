@@ -1,4 +1,4 @@
-import { DoseInput, Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { DoseInput, Field, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { DOSE_FORMAT_MESSAGE, isStandardDose, joinDose, splitDose, type DoseUnit } from '../../../shared/lib/dose'
 import { useCatalogueItemPage } from '../hooks/useCatalogueItemPage'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
@@ -105,7 +105,6 @@ export default function MedicinesPage() {
           </EditorPanel>
         )}
       </SplitLayout>
-      <Foot>Danh mục thuốc tham chiếu của trại. Dùng để điền sẵn khi ghi điều trị và tính ngày hết ngưng sử dụng thịt; không phải đơn thuốc và không theo dõi tồn kho.</Foot>
       {page.confirmOpen && item && (
         <DeactivateDialog name={item.name} count={item.usageCount} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
       )}

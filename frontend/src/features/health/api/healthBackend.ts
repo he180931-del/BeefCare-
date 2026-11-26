@@ -161,6 +161,8 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         })
         const previousCases = asRows(body.previousCases).map((raw): HealthCaseCard => {
           const mapped = mapHealthCaseCard(raw, cattleCode, now(), true)
+          // R-10-13: chỉ ca đóng do xuất đàn bị khóa; bản ghi của ca Khỏi / Chết / Mất tích vẫn sửa, xóa được (D81).
+          for (const row of mapped.rows) entries.set(row.id, { type: row.type, caseId: mapped.card.id })
           cases.set(mapped.card.id, mapped.ref)
           timeline.push(...mapped.rows)
           return mapped.card
