@@ -159,7 +159,7 @@ E1 chuồng đích INACTIVE / thiếu chỗ → MSG-FE04-05, nút xác nhận b�
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Mặc định | Lỗi |
 |---|---|---|---|---|---|---|
-| 1 | Pen code / Mã chuồng | Ô chữ | * | 1–20; chữ, số, `-`; duy nhất | Trống | MSG-COM-06, MSG-COM-10, MSG-FE04-02 |
+| 1 | Pen code / Mã chuồng | Ô chữ | * | 1–20; chữ, số, `-`; duy nhất. **Sửa được khi sửa chuồng** (D87): phân chuồng gắn theo ID chuồng nên không mất lịch sử; lịch sử chuồng (A8) hiện mã **hiện tại** cho cả các đoạn cũ | Trống | MSG-COM-06, MSG-COM-10, MSG-FE04-02 |
 | 2 | Pen name / Tên chuồng | Ô chữ | * | ≤ 100 | Trống | MSG-COM-06, MSG-COM-10 |
 | 3 | Capacity / Sức chứa | Số nguyên | * | 1–9.999; khi sửa ≥ số con hiện tại | Trống | MSG-COM-06, MSG-FE04-03 |
 | 4 | Description / Mô tả | Ô chữ dài | — | ≤ 500 | Trống | MSG-COM-10 |
@@ -282,3 +282,4 @@ E1 chuồng đích INACTIVE / thiếu chỗ → MSG-FE04-05, nút xác nhận b�
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 16/11/2026 | 28/10/2026 | Ghi cách xử lý cạnh tranh sức chứa, xung đột phiên bản một con hoặc cả lô, hợp đồng A2/A7 và ca kiểm đồng thời | AnNT |
+| 26/11/2026 | 28/10/2026 | D87: mã chuồng sửa được khi sửa chuồng; lịch sử chuồng hiện mã hiện tại | Claude (cho AnNT) |

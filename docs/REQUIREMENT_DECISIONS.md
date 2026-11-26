@@ -1213,3 +1213,15 @@ API: thêm `Entry.declarations`, `Declaration`, `DeclaredVaccine`, `WorklistItem
 1. Sidebar **Quản trị** đổi **Báo cáo** thành **Báo cáo quản lý**, giữ đường dẫn và RPT-01 → RPT-07. Thêm **Báo cáo thu chi** ngay sau mục đó.
 2. Báo cáo tổng hợp khoản thu xuất đàn, chi nhập đàn, chi nhập thức ăn đã ghi. Chủ trại xem thêm khoản đã trả gói dịch vụ của trại. Dùng ngày tiền phát sinh và quyền của chứng từ nguồn; ghi thu, trả, hủy và theo dõi nợ vẫn thực hiện tại chứng từ gốc.
 3. Dòng tiền của trại dùng API theo trại, có kỳ, bộ lọc, tổng thu / chi / ròng và danh sách mở được chứng từ. Quy tắc nguồn, giao diện và ca nghiệm thu nằm trong [spec Báo cáo thu chi của trại](requirements/specs/FE-15-bao-cao-thu-chi-trai.md).
+
+### D87 — FE-04 / FE-06 / FE-13: spec theo code hiện tại của phần nhập, xuất đàn và chuồng (26/11/2026)
+
+An yêu cầu "sửa lại spec cho giống code của tôi" sau bản rà soát spec ↔ code ngày 26/11. Ghi lại các hành vi đã chốt trong lúc làm PR-K, PR-M, PR-P mà spec chưa có:
+
+1. **Sau khi lưu quay về danh sách.** Ghi sổ hoặc lưu nháp phiếu nhập (SCR-24, SCR-25) về SCR-23; xác nhận hoặc lưu nháp phiếu xuất SCR-42 về SCR-41 (PR-P mục 9 đã bỏ việc mở SCR-75). SCR-43 giữ như cũ: xác nhận → SCR-76, bỏ / bác → SCR-41, kèm thông báo.
+2. **Giá phiếu mua phải > 0.** Đơn giá (theo kg) hoặc thành tiền (theo con) bắt buộc và lớn hơn 0, kiểm ở popup và khi ghi sổ. Phiếu xuất vẫn cho 0 như spec FE-13.
+3. **Sửa được mã chuồng** khi sửa chuồng (FE-04), không đổi DB; lịch sử chuồng hiện mã hiện tại.
+4. Spec FE-06 đưa D63 / D76 / D77 vào thẳng bảng trường; bỏ ghi chú SCR-23 #21 và SCR-41 #17 theo D79.
+
+Phần spec có mà code chưa làm, giữ trong spec và ghi là việc còn lại: toast MSG-FE06-01 / 05 / 10 và MSG-FE13-02 / 06 sau khi lưu, ảnh dòng bò (backend A19 đã có), mở bản in thẻ QR sau ghi sổ. Không đổi API, DTO, OpenAPI hay migration.
+
