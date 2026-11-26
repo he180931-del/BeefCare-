@@ -86,10 +86,10 @@ Snapshot bất biến (BR-D30).
 | R-21-02 | DRAFT sửa / bỏ được; POSTED bất biến và vào báo cáo; POSTED → VOID chỉ với lý do. Sai sau ghi sổ → hủy + tạo khoản mới (có nút "Tạo nháp thay thế" điền sẵn). | GBR-83 |
 | R-21-03 | Một giao dịch NH chỉ được ghi nhận 1 lần: không vừa là biên lai gói vừa là thu thủ công POSTED. Chuyển khoản gói đã biết bị từ chối làm thu thủ công khi tạo, sửa, ghi sổ (MSG-FE21-08). Không tự hủy / phân bổ. | GBR-84, BR-D28 |
 | R-21-04 | Hủy khoản đã ghi sổ → giải phóng giao dịch NH mà khoản đó đã nhận. | UC-07 POST-2 |
-| R-21-05 | Biên lai chỉ đọc, ngày dòng tiền = giờ NH ghi nhận. | GBR-82 |
+| R-21-05 | Biên lai chỉ đọc, ngày dòng tiền = giờ NH ghi nhận. Biên lai = 1 thanh toán PAID có chứng từ ACCEPTED (lấy chứng từ ACCEPTED đầu tiên); trang Biên lai gói và báo cáo dùng cùng quy tắc nên tổng khớp nhau. PAID không có chứng từ ACCEPTED không phải biên lai. | GBR-82 |
 | R-21-06 | Dòng tiền ròng = biên lai (theo giờ NH) + thu thủ công POSTED − chi thủ công POSTED (theo ngày phát sinh). Lọc 1 trại → chỉ nguồn của trại đó; GENERAL chỉ ở tổng nền tảng. Loại trừ DRAFT, VOID, yêu cầu chưa trả, chứng từ chưa chấp nhận. Nhãn "không phải lợi nhuận theo luật định". | GBR-85 |
 | R-21-07 | Mỗi lần chạy tạo snapshot; xuất dùng **snapshot đang hiển thị**; snapshot hết hạn → MSG-FE21-12, phải chạy lại. Snapshot cũ giữ khoản đã hủy sau đó như tại thời điểm tạo. | GBR-85, BR-D30, UC-07 POST-1 |
-| R-21-08 | Kỳ theo Asia/Ho_Chi_Minh, [đầu ngày đầu, đầu ngày sau ngày cuối); tối đa 24 tháng. | GBR-66, SCR-73 |
+| R-21-08 | Kỳ theo Asia/Ho_Chi_Minh, [đầu ngày đầu, đầu ngày sau ngày cuối); tối đa 24 tháng; ngày cuối được ở tương lai (vd. cả tháng hiện tại), chỉ cần ngày đầu ≤ ngày cuối. Áp dụng cho báo cáo và lọc danh sách khoản. | GBR-66, SCR-73 |
 | R-21-09 | Ghi sổ, hủy ghi audit cùng transaction. | GBR-86 |
 | R-21-10 | Lệnh có Idempotency-Key; sửa / ghi sổ / hủy / bỏ có version → MSG-COM-05. | GBR-88, GBR-89 |
 
@@ -197,7 +197,7 @@ Bố cục SCR-72 từ trên xuống: **Loại** (kèm **Danh mục** bên dư�
 | 7 | Total expense / Tổng chi | Số | — | Chi POSTED | — |
 | 8 | Net cash flow / Dòng tiền ròng | Số | — | Thu − chi; ghi chú dưới số: "Thu − chi · không phải lợi nhuận theo luật định" | — |
 | 9 | Charts / Biểu đồ | Biểu đồ | — | Tính từ dòng của snapshot: Thu và chi theo ngày (cột đôi); Xu hướng dòng tiền ròng (đường lũy kế); Cơ cấu thu theo danh mục; Chi theo danh mục; Thu theo trại (thanh xếp hạng có %) | — |
-| 10 | Cash flow by farm / Dòng tiền theo trại | Bảng | — | Cột Trại / Thu từ gói đăng ký / Thu khác / Chi / Ròng. Dòng: Chung nền tảng, từng trại có nguồn, trại khác (gộp), Tổng nền tảng. Lọc 1 trại → chỉ trại đó, không có Chung. Bấm trại → UC-FE21-08 AF1 | — |
+| 10 | Cash flow by farm / Dòng tiền theo trại | Bảng | — | Cột Trại / Thu từ gói đăng ký / Thu khác / Chi / Ròng. Dòng: Chung nền tảng, từng trại có nguồn, trại khác (gộp), Tổng nền tảng. Lọc 1 trại → chỉ trại đó, không có Chung, dòng tổng ghi "Tổng cộng" (không ghi "Toàn nền tảng"). Dòng "trại khác (gộp)" chưa làm (Q6). Bấm trại → UC-FE21-08 AF1 | — |
 | 11 | Export report / Xuất báo cáo | Nút | — | Mở Xem trước báo cáo (mô phỏng Excel, 4 sheet) → Tải xuống XLSX (UC-FE21-09) | MSG-FE21-13 / MSG-FE21-14 / MSG-FE21-12 |
 
 Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ "Phạm vi tính"; giao dịch xem qua từng trại.
@@ -283,6 +283,7 @@ Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ
 | Q3 | Độ dài lý do hủy | ≤ 500 |
 | Q4 | UC-FE21-01, 03, 04, 05, 08 không có đặc tả Part II | Theo Part III + GBR |
 | Q5 | Mã lỗi khi kỳ > 24 tháng | MSG-COM-10 |
+| Q6 | SRS SCR-73 có dòng "other farms (aggregated)" nhưng không nói gộp theo tiêu chí nào (ngưỡng số trại? trại không có nguồn?) | Chưa làm; bảng liệt kê đủ từng trại có nguồn, có tìm / lọc / phân trang. Cần nhóm chốt tiêu chí gộp |
 
 ---
 
@@ -293,4 +294,5 @@ Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 26/11/2026 | 28/10/2026 | Bố cục SCR-72 mới (luồng Loại → Nguồn → Gắn trại), ô Số tiền / Ngày mờ khi nguồn là giao dịch NH, nút Lưu cuối phiếu | Claude (theo yêu cầu LamKD) |
 | 26/11/2026 | 28/10/2026 | SCR-73: hàng lọc có nút Chạy báo cáo, 5 biểu đồ từ snapshot, bảng "Dòng tiền theo trại", hộp thoại giao dịch theo trại (lọc + nút Tìm) và chi tiết giao dịch; bỏ "Xem chi tiết giao dịch", "Phạm vi tính" và các hộp thoại Đã làm mới / Báo cáo rỗng. UC-FE21-09: nút Xuất báo cáo mở bản xem trước mô phỏng Excel; tệp 4 sheet Tổng hợp / Theo trại / Thu / Chi; backend xuất XLSX theo đúng mẫu này (`PlatformFinanceWorkbook`) | Claude (theo yêu cầu LamKD) |
+| 26/11/2026 | 28/10/2026 | R-21-05: biên lai = PAID + chứng từ ACCEPTED, một biên lai mỗi thanh toán, trang Biên lai và báo cáo cùng quy tắc. R-21-08: cho phép ngày cuối ở tương lai. Dòng tổng khi lọc 1 trại ghi "Tổng cộng". Thêm Q6 (trại khác gộp) | Claude (theo yêu cầu LamKD) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |

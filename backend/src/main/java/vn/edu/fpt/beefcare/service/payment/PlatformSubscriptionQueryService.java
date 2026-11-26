@@ -176,6 +176,7 @@ public class PlatformSubscriptionQueryService {
         String needle = normalized(q);
         Map<Long, BankTransferEvidence> evidence = evidenceByPayment();
         List<ReceiptRow> rows = paidPayments()
+            .filter(p -> evidence.containsKey(p.getId())) // a receipt needs the bank-paid time of an accepted transfer
             .map(p -> receiptRow(p, evidence.get(p.getId())))
             .filter(r -> farmId == null || farmId.equals(r.farmId()))
             .filter(r -> needle == null || (r.receiptCode() != null && r.receiptCode().toLowerCase(Locale.ROOT).contains(needle)) ||
@@ -194,6 +195,7 @@ public class PlatformSubscriptionQueryService {
         Payment payment = em.find(Payment.class, paymentId);
         if (payment == null || !"PAID".equalsIgnoreCase(payment.getState())) throw DomainException.notFound(MessageCodes.COM_08, "payment_id", paymentId);
         BankTransferEvidence evidence = evidenceByPayment().get(paymentId);
+        if (evidence == null) throw DomainException.notFound(MessageCodes.COM_08, "payment_id", paymentId);
         Object[] review = evidence == null ? null : em.createQuery(
                 "select r.reviewedAt, r.pmUser.fullName from EvidenceReview r where r.evidence.id = :e and upper(r.decision) = 'ACCEPT' order by r.reviewedAt desc", Object[].class)
             .setParameter("e", evidence.getId()).setMaxResults(1).getResultStream().findFirst().orElse(null);
@@ -220,7 +222,8 @@ public class PlatformSubscriptionQueryService {
     }
 
     private Map<Long, BankTransferEvidence> evidenceByPayment() {
-        return em.createQuery("select e from BankTransferEvidence e where e.payment is not null", BankTransferEvidence.class).getResultStream()
+        // Only the accepted transfer that made the payment PAID counts (same rule as the cash report, GBR-82).
+        return em.createQuery("select e from BankTransferEvidence e where e.payment is not null and upper(e.reviewStatus) = 'ACCEPTED'", BankTransferEvidence.class).getResultStream()
             .collect(Collectors.toMap(e -> e.getPayment().getId(), Function.identity(), (a, b) -> a.getId() < b.getId() ? a : b));
     }
 

@@ -98,7 +98,7 @@ export function computeReport(c: ReportCriteria, receipts: Receipt[], records: F
     const f = farms.find((x) => x.id === c.farmId)
     if (f) scopes.push(row('FARM', f.id, f.name, lines))
   }
-  const total = row('PLATFORM', null, 'Toàn nền tảng', lines)
+  const total = row('PLATFORM', null, c.farmId == null ? 'Toàn nền tảng' : 'Tổng cộng', lines)
   scopes.push(total)
 
   const dailyIncome = daysBetween(c.dateFrom, c.dateTo).map((date) => ({ date, income: sum(lines, (l) => l.direction === 'IN' && l.cashDate === date) }))
