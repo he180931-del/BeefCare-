@@ -73,6 +73,18 @@ it.each([
   expect(onSave).not.toHaveBeenCalled()
 })
 
+it.each([
+  ['1 tháng', '2026-09'],
+  ['240 tháng', '2006-10'],
+])('TC-06-18: allows saving at the valid age limit of %s', async (_label, dob) => {
+  const user = userEvent.setup()
+  const onSave = renderModal({ ...completeCow, dob })
+
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ dob }))
+})
+
 it('chặn lưu ngay trong popup khi chưa chọn chuồng nhận', async () => {
   const user = userEvent.setup()
   const onSave = renderModal({ ...completeCow, barn: '' })

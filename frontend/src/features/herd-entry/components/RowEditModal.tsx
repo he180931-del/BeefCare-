@@ -134,6 +134,7 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
     if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return fail('entry-cow-unit-price', pricing === 'con' ? 'Thành tiền phải lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
     if (dobIncomplete) return fail('entry-cow-dob', 'Chọn đủ tháng và năm sinh, hoặc để trống cả hai.')
     if (c.dob && (c.dob.slice(0,7) > dateIso.slice(0,7) || c.dob < '1900-01')) return fail('entry-cow-dob', 'Tháng sinh không hợp lệ hoặc sau tháng nhập.')
+    if (c.dob && (!Number.isInteger(ageMonths) || ageMonths < 1 || ageMonths > 240)) return fail('entry-cow-dob', 'Tuổi lúc nhập phải từ 1 đến 240 tháng.')
     if (c.quarantineUntil && c.quarantineUntil < dateIso) return fail('entry-cow-quarantine', 'Cách ly nhập đàn đến không được trước ngày nhập.')
     if (receptionError) return fail('entry-cow-barn', receptionError)
     const historyError = validateEntryHistory(c.hist, true, dateIso)
