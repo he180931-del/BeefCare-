@@ -33,6 +33,11 @@ export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInp
   : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export const entryLineCorrectionEnabled = usingBackend
+/**
+ * "Người nhập" chỉ nhập tay ở bản mô phỏng. Máy chủ thật tự ghi người tạo / người ghi sổ theo phiên đăng nhập
+ * (createdBy / postedBy) và không nhận trường này, nên ô chỉ hiển thị người đang đăng nhập.
+ */
+export const entryReceiverEditable = !usingBackend
 export const entryHistoryDemoEnabled = !usingBackend
 export const correctEntryHistoryDemo = (voucherCode: string, cattleCode: string, history: EntryCow['hist'], reason: string): Promise<void> => usingBackend
   ? Promise.reject(new Error('Sửa khai báo trên backend phải dùng bản ghi nhập và phiên bản đã mở.'))

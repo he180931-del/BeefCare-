@@ -22,7 +22,7 @@ import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
-import { herdEntryApi } from '../api'
+import { entryReceiverEditable, herdEntryApi } from '../api'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -166,7 +166,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         date,
         type: kind,
         sourceId,
-        receiver,
+        // Máy chủ tự ghi người tạo / ghi sổ theo phiên; chỉ bản mô phỏng bắt nhập tay.
+        receiver: entryReceiverEditable ? receiver : undefined,
         cows: isBuy ? cows : inputs as EntryCow[],
         pricing: isBuy ? pricing : 'kg',
         paid: isBuy ? paid : 0,
@@ -336,7 +337,9 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập" hint={entryReceiverEditable ? undefined : 'Tự ghi theo người đang đăng nhập'}>
+                    <input id="entry-receiver" className={inputCls} value={entryReceiverEditable ? receiver : sessionName} readOnly={!entryReceiverEditable} onChange={entryReceiverEditable ? (e) => setReceiver(e.target.value) : undefined} />
+                  </Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />

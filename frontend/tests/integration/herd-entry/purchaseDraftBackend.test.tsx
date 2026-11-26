@@ -120,7 +120,8 @@ describe('purchase entry page in backend mode', () => {
     expect(screen.getByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByText('purchase.pdf')).toBeInTheDocument()
 
-    await user.type(screen.getByRole('textbox', { name: 'Người nhập' }), 'Anh A')
+    // Máy chủ tự ghi người tạo / ghi sổ theo phiên: ô Người nhập chỉ đọc và không chặn ghi sổ.
+    expect(screen.getByRole('textbox', { name: 'Người nhập' })).toHaveAttribute('readonly')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ 1 con/ }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/post'))).toBe(true))
     expect(requests.find((request) => request.method === 'PUT' && request.path.endsWith('/entry-vouchers/41'))?.body).toMatchObject({ pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
