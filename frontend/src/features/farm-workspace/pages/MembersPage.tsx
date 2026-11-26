@@ -1,6 +1,6 @@
 import { DEFAULTS, PAGE_SIZE, useMembersPage, type MemberTab } from '../hooks/useMembersPage'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'
@@ -55,7 +55,6 @@ export default function MembersPage() {
         </div>
         <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4"><Card variant="panel" title="Quyền theo vai trò"><PermissionTable /></Card></div>
       </div>
-      <Foot>Mỗi vai trò có bộ quyền cố định, không cấp quyền riêng cho từng người (GBR-06). Thay đổi vai trò hoặc trạng thái áp dụng từ thao tác kế tiếp của thành viên.</Foot>
       {m === 'invite' && owner && <InviteDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} active={farmActive} onClose={closeModal} onSent={(message) => { setNotice(message); closeModal(); query.refetch() }} />}
       {selected && owner && <MemberChangeDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} member={selected} initialAction={(search.get('a') as MemberAction | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} onStale={stale} />}
     </Layout>

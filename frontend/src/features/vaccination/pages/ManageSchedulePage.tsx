@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, NoticeDialog, PageHeader, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Badge, Button, Card, DateInput, ErrorBlock, Field, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, NoticeDialog, PageHeader, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import MultiSelect from '../components/MultiSelect'
@@ -195,7 +195,6 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
           </Card>
         </div>
       </div>
-      <Foot>Màn tạo, sửa hoặc dừng lịch tiêm (Chủ trại, Quản lý). Tên lịch không trùng với lịch đang chạy; "Cách giữa mũi" bắt buộc khi có từ 2 mũi. Danh sách bò khớp được tính lại khi đổi điều kiện; có thể bỏ ra hoặc thêm từng con.</Foot>
       {modal === 'stop' && s && <StopModal name={s.name} version={s.version} onClose={closeModal} />}
     </div>
   )

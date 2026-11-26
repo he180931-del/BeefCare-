@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Badge, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Card, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
@@ -195,7 +195,6 @@ export default function ImportDetail() {
           </div>
         </div>
 
-        <div className="print:hidden"><Foot>Sửa / hủy bản ghi nhập cần lý do; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot></div>
       </div>
 
       {m === 'pay' && canPay && paymentRole && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { const message = await savePayment(value); setNotice(message ?? ''); closeModal() }} onClose={closeModal} />}

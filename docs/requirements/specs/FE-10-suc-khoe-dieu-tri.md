@@ -170,6 +170,7 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | # | Trường | Hiện với | Nội dung |
 |---|---|---|---|
 | 1 | Health state / Sức khỏe | Tất cả | Khỏe mạnh / Theo dõi / Đang điều trị |
+| 1a | Health history / Từ trước đến nay | Tất cả | Tổng số ca (đang mở, mạn tính, đã đóng), tổng lần điều trị hợp lệ, tháng mở của ca gần nhất hoặc "Chưa có" (D79) |
 | 2 | Open health case / Mở ca sức khỏe | Owner, Manager | Mở popup |
 | **Thẻ ca (mỗi ca OPEN hoặc CHRONIC)** | | | |
 | 3 | Case / Ca | | Mã và dấu hiệu chính |
@@ -180,7 +181,8 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | 8 | Time, Type, Details, Recorded by / Thời điểm, Loại, Chi tiết, Người ghi | | Theo thời gian: Mở ca (dấu hiệu, thân nhiệt), Theo dõi (diễn biến, mô tả), Điều trị (thuốc, liều, đường dùng, ngưng thịt); "Đã sửa" / dòng hủy mờ |
 | 9 | Actions / Thao tác | Owner, Manager | "Sửa" và "Xóa" trên dòng theo dõi và điều trị; chỉ "Sửa" trên quan sát mở ca (D73) |
 | **Ca trước đây** | | | |
-| 10 | Case code, Signs, Outcome · month | | Chỉ đọc |
+| 10 | Case code, Signs, Outcome · month | | Chỉ đọc; "Xem" mở popup Xem ca |
+| 10a | Correct / Void in Xem ca – Sửa / Xóa trong Xem ca | Owner, Manager | Ca đóng Khỏi / Chết / Mất tích: Sửa và Xóa trên dòng theo dõi, điều trị; chỉ Sửa trên quan sát mở ca; theo R-10-10. Ca CLOSED_BY_EXIT chỉ xem (R-10-13) (D81) |
 
 ### Popup Mở ca sức khỏe
 
@@ -356,3 +358,5 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 24/11/2026 | 28/10/2026 | D65: popup Ghi điều trị – liều số + đơn vị, số ngày dùng (mỗi ngày 1 lần) kèm tổng, "Ngày dùng cuối", "Ghi chú" thay "Lời khuyên thú y"; ghi chú thuốc hiện dưới ô Thuốc – dòng 3, 4, 6, 11 | Tuấn |
 | 24/11/2026 | 28/10/2026 | D66: SCR-36 theo Bento – khối chỉ số, bảng vạch màu theo mức độ, bộ lọc, tab, kỳ chỉ ở tab Đã đóng / Tất cả, gộp cột Chuồng vào Bò, cả dòng mở hồ sơ; tab Theo dõi dài hạn không còn lọc theo kỳ; A1 `counts` thêm `treating`, `severe`, `moderate`, `mild`, `contagious` | Tuấn |
 | 24/11/2026 | 28/10/2026 | D73: Sửa / Xóa tách riêng ở dòng diễn biến; ghi chú không bắt buộc; bản ghi đã xóa ẩn khỏi diễn biến (UC-FE10-05, R-10-10, TC-10-22) | Tuấn |
+| 26/11/2026 | 28/10/2026 | D79: SCR-37 thêm dòng Từ trước đến nay – tổng số ca, lần điều trị, ca gần nhất | Tuấn |
+| 26/11/2026 | 28/10/2026 | D81: Sửa / Xóa bản ghi của ca đã đóng ngay trong popup Xem ca (trừ ca đóng do xuất đàn) – chữa ngưng thịt ghi sai mà không phải mở lại ca | Tuấn |

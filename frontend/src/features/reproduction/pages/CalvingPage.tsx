@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, Field, Foot, Icon, inputCls, Note, NoticeDialog, PageHeader, Select } from '../../../shared/ui'
+import { Button, Card, Field, Foot, Icon, inputCls, Note, NoticeDialog, PageHeader, Select } from '../../../shared/ui'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
@@ -236,7 +236,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
           <Button onClick={() => navigate(back)}>Hủy</Button>
           <Button variant="primary" disabled={!canManage || !profile || saving} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Lưu sự kiện đẻ'}</Button>
         </div>
-        <Foot>Trang ghi sự kiện đẻ (Chủ trại, Quản lý). Mặc định liên kết thai kỳ đang mở. Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; chọn "Đăng ký ngay" thì cần chuồng và mục đích nuôi, mã thẻ để trống thì hệ thống cấp khi ghi sổ phiếu nhập bê. Có cân sơ sinh thì phải chọn cơ sở cân.</Foot>
+        <Foot>Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; "Đăng ký ngay" cần chuồng và mục đích nuôi.</Foot>
       </div>
     </Layout>
   )

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Icon, KV, Panel, Table, Td, Th } from '../../../shared/ui'
 import {
@@ -139,14 +140,29 @@ const calfLine = (calving: CalvingRecord) => calving.calves.filter((calf) => cal
   { key: calf.id, text: `Bê ${calf.number}: ${calf.outcome === 'LIVE' ? 'Sống' : 'Chết lúc sinh'}${calf.sex === 'UNKNOWN' ? '' : ` · ${calf.sex === 'FEMALE' ? 'Cái' : 'Đực'}`}${calf.weightKg != null ? ` · ${calf.weightKg} kg` : ''}`, calf }
 ))
 
+/**
+ * Lịch sử sinh bê. D79: mặc định chỉ lứa gần nhất – đủ cho thao tác hằng ngày; các lứa trước mở bằng "Xem n lứa trước".
+ */
 export function CalfHistoryCard({ profile }: { profile: ReproductionFemale }) {
-  const calvings = profile.calvings.filter((calving) => calving.status === 'VALID')
+  const [all, setAll] = useState(false)
+  const calvings = profile.calvings
+    .filter((calving) => calving.status === 'VALID')
+    .sort((a, b) => b.birthAt.localeCompare(a.birthAt))
+  const older = calvings.length - 1
+  const shown = all ? calvings : calvings.slice(0, 1)
   return (
-    <Panel title="Lịch sử sinh bê">
+    <Panel
+      title="Lịch sử sinh bê"
+      actions={older > 0 && (
+        <Button type="button" variant="link" small aria-expanded={all} onClick={() => setAll((v) => !v)}>
+          {all ? 'Chỉ lứa gần nhất' : `Xem ${older} lứa trước`}
+        </Button>
+      )}
+    >
       <Table stack={false}>
         <thead><tr><Th>Ngày đẻ</Th><Th>Kết quả bê</Th><Th>Đăng ký</Th></tr></thead>
         <tbody>
-          {calvings.map((calving) => (
+          {shown.map((calving) => (
             <tr key={calving.id}>
               <Td className="whitespace-nowrap font-medium">{formatDate(calving.birthAt)}</Td>
               <Td>{calfLine(calving).map((line) => <div key={line.key}>{line.text}</div>)}</Td>

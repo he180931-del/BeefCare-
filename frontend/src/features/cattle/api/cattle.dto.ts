@@ -34,6 +34,7 @@ export type BackendProfile = {
   withdrawalActive?: boolean
   withdrawalEndDate?: string | null
   suspectedContagious?: boolean | null
+  vaccinationOverdue?: number | null
   reproductiveStatus?: string | null
   expectedCalvingDate?: string | null
   expectedBasis?: string | null

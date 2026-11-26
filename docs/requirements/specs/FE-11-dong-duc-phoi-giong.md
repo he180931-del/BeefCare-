@@ -191,16 +191,16 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | 1 | Reproductive status / Trạng thái sinh sản | Luôn | Theo §3.3; "Không áp dụng" + lý do + MSG-FE11-11 |
 | 2 | Services in current cycle, Parity, Last calving, Latest weight / Số lần phối chu kỳ này, Số lứa, Lần đẻ cuối, Cân gần nhất | Luôn | Số lứa gồm số lứa khai báo khi nhập (GBR-30) |
 | 3 | Declared at entry / Khai báo khi nhập | Bò mua có khai báo mang thai, chưa khám | "Khai báo mang thai ~n tháng (chưa khám)" + nút "Ghi khám thai" |
-| 4 | Reproduction indicators / Chỉ số sinh sản | Luôn | §3.6 |
+| 4 | Reproduction indicators / Chỉ số sinh sản | Luôn | §3.6. D79: gập sẵn; dòng tóm tắt hai chỉ số đầu đã có giá trị (thường là số lứa, lần đẻ gần nhất) |
 | 5 | Action buttons / Nút ghi | Owner, Manager | Theo §3.3 |
 | 6 | More actions / Thao tác khác | Manager, bò cái ACTIVE YOUNG_STOCK / ADULT | Ghi khám thai; Ghi đẻ (thai không theo dõi) |
 | 7 | Breeding eligibility / Điều kiện phối | Chờ phối, Động dục, Sau sinh | Kết quả chung; bảng Tiêu chí / Giá trị / Kết quả: tuổi tối thiểu, cân tối thiểu, không có ca sức khỏe OPEN |
 | 8 | Breeding window / Khung phối | Động dục | Thời điểm động dục, khung gợi ý (ví dụ "18/10/2026 06:30 → 14:30–18:30"), thanh thời gian; MSG-FE11-08 khi thiếu tham số |
 | 9 | Latest breeding / Lần phối gần nhất | Đã phối | Phương pháp, đực / tinh, người thực hiện, ngày đẻ tạm tính, số lần khám đã có, khám được từ ngày |
 | 10 | Current pregnancy / Thai hiện tại | Mang thai | Số thai, lần phối liên kết, xác nhận ngày, ngày đẻ dự kiến (CONFIRMED / TENTATIVE / ESTIMATED) + cơ sở, số ngày mang thai |
-| 11 | Reproduction timeline / Dòng thời gian sinh sản | Luôn | Lọc loại sự kiện, từ ngày, đến ngày; dòng: thời điểm, sự kiện, chi tiết, nguồn dữ liệu, người ghi; "Đã sửa"; dòng hủy mờ |
+| 11 | Reproduction timeline / Dòng thời gian sinh sản | Luôn | Lọc loại sự kiện, từ ngày, đến ngày; dòng: thời điểm, sự kiện, chi tiết, nguồn dữ liệu, người ghi; "Đã sửa"; dòng hủy mờ. D79: hiện 5 sự kiện mới nhất, "Xem thêm n sự kiện" mở hết; mở từ dòng thời gian hồ sơ thì không gập |
 | 12 | Actions / Thao tác | Owner, Manager | "Sửa · Hủy" → popup tương ứng (FE-11 hoặc FE-12) |
-| 13 | Calving history / Lịch sử đẻ | Luôn | Ngày đẻ, kết quả bê (ví dụ "Bê 1: Sống · Cái · 22 kg"), đăng ký (mã bò / "Nháp" / "Chết trước khi đăng ký") |
+| 13 | Calving history / Lịch sử đẻ | Luôn | Ngày đẻ, kết quả bê (ví dụ "Bê 1: Sống · Cái · 22 kg"), đăng ký (mã bò / "Nháp" / "Chết trước khi đăng ký"). D79: lứa mới nhất trước, mặc định chỉ lứa gần nhất; "Xem n lứa trước" mở phần còn lại |
 
 ### Popup Ghi động dục
 
@@ -331,3 +331,4 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | 24/11/2026 | 28/10/2026 | D69: dòng thời gian Sinh sản có hai nút Sửa / Xóa; popup Sửa bỏ ô chọn hành động, "Lý do *" → "Ghi chú" không bắt buộc; Xóa là popup xác nhận (vẫn hỏi lại khi bản ghi đang được liên kết); bản ghi đã xóa ẩn khỏi dòng thời gian; backend lưu ghi chú trống là null | Tuấn |
 | 24/11/2026 | 28/10/2026 | D70: bỏ trường "Nguồn dữ liệu" (Quan sát trực tiếp / Sổ trại / Báo cáo ngoài) khỏi các popup ghi / sửa, màn Ghi đẻ và cột của dòng thời gian; mọi bản ghi lưu Quan sát trực tiếp; API giữ `dataSource` tùy chọn | Tuấn |
 | 24/11/2026 | 28/10/2026 | D71: SCR-38 theo Bento (Việc cần làm / Cần chú ý / Đang mang thai, một khối danh sách); popup Xóa báo thẳng khi có bản ghi phụ thuộc; popup ghi bỏ ô Bò cái chỉ đọc | Tuấn |
+| 26/11/2026 | 28/10/2026 | D79: SCR-39 – chỉ số sinh sản và lịch sử chỉnh sửa gập sẵn; lịch sử sinh bê chỉ lứa gần nhất; dòng thời gian sinh sản 5 sự kiện mới nhất | Tuấn |

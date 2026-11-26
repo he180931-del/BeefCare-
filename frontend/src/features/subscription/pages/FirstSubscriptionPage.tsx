@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
+import { Button, Card, ErrorBlock, Icon, LoadingBlock, Note } from '../../../shared/ui'
 import { InactiveFarmBanner, SetupLayout, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { Facts, serviceLabel } from '../components/shared'
@@ -86,7 +86,6 @@ export default function FirstSubscriptionPage() {
           </div>
         </div>
       </Card>
-      <Foot>Chọn một thời hạn cho trại này; yêu cầu chuyển khoản có hiệu lực 24 giờ và không tự gia hạn.</Foot>
       {dialog.element}
     </OnboardingShell>
   )

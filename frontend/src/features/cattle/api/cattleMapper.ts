@@ -35,11 +35,11 @@ export const REPRO_LABELS: Record<string, string> = {
   POST_CALVING: 'Sau sinh', ESTRUS: 'Động dục', NOT_APPLICABLE: 'Không áp dụng',
 }
 const reproChip = (value: unknown): StatusChip | null => value ? { label: REPRO_LABELS[text(value)] || text(value), tone: 'info' } : null
-const groupChip = (value: unknown): StatusChip | null => {
-  const labels: Record<string, string> = { CALVES: 'Bê', FATTENING: 'Vỗ béo', BREEDING_FEMALES: 'Bò cái sinh sản', BREEDING_BULLS: 'Đực giống', YOUNG_STOCK: 'Bò tơ', OTHER: 'Khác' }
-  return value ? { label: labels[text(value)] || text(value), tone: 'info' } : null
-}
 export const CONTAGIOUS_LABEL = 'Nghi truyền nhiễm – cách ly'
+/** SCR-19 #21: chỉ số mũi quá hạn; không có số liệu thì "—", trỏ sang tab Tiêm phòng. */
+const vaccineChip = (overdue: number | null | undefined): StatusChip =>
+  typeof overdue !== 'number' ? { label: '—', tone: 'grey' }
+    : overdue > 0 ? { label: `${overdue} mũi quá hạn`, tone: 'err' } : { label: 'Đúng lịch', tone: 'grey' }
 const withdrawalChip = (active: boolean, endDate: string | null | undefined): StatusChip | null =>
   active ? { label: endDate ? `Cách ly thịt đến ${dateLabel(endDate)}` : 'Cách ly thịt', tone: 'warn' } : null
 /** GBR-55 failed criteria of BreedingCriterion.name. */
@@ -135,8 +135,8 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     bcs: profile.latestBcs == null ? '—' : profile.latestBcs.toLocaleString('vi-VN', { maximumFractionDigits: 1 }),
     healthCase: [healthChip(profile.healthState)?.label, profile.suspectedContagious ? CONTAGIOUS_LABEL : ''].filter(Boolean).join(' · ') || '—',
     repro: reproSummary(profile),
-    // Overdue doses per cattle are not in the profile yet: "—" points to the Vaccination tab, never "not vaccinated".
-    vaccine: { label: '—', tone: 'grey' }, reminders: [],
+    // SCR-19 #21: số mũi quá hạn do backend tính (vaccinationOverdue); chỉ tô đỏ khi còn mũi quá hạn.
+    vaccine: vaccineChip(profile.vaccinationOverdue), reminders: [],
   }
   const events: CattleEvent[] = timeline.filter((event) => event.occurredAt || event.recordedAt).map(mapTimeline)
   return {
@@ -145,11 +145,13 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     purpose: text(profile.purposeName, 'Chưa xác định'), purposeId: profile.purposeId ?? undefined, stage: lifeStageLabel(profile.lifeStage), lifeStage: text(profile.lifeStage), herdGroup: text(profile.herdGroup), exitPending: Boolean(profile.exitPending), inList: status === 'ACTIVE',
     weight, weightEst: profile.weightBasis === 'ESTIMATED', weightDate: dateLabel(profile.latestWeightDate), withdrawalUntil: profile.withdrawalEndDate ?? undefined,
     health: healthChip(profile.healthState), repro: reproChip(profile.reproductiveStatus),
-    // SCR-19 #4, §3.2: herd group → health → contagious flag → meat withdrawal → reproduction.
+    // SCR-19 #4, §3.2 (D78): sức khỏe → nghi truyền nhiễm → cách ly thịt → sinh sản; nhóm đàn không còn là huy hiệu.
     headerBadges: [
-      groupChip(profile.herdGroup), healthChip(profile.healthState),
+      healthChip(profile.healthState),
       profile.suspectedContagious ? { label: CONTAGIOUS_LABEL, tone: 'err' as Tone } : null,
-      withdrawalChip(Boolean(profile.withdrawalActive), profile.withdrawalEndDate), reproChip(profile.reproductiveStatus),
+      // "Không áp dụng" không phải trạng thái cần báo – không thành huy hiệu (như cột Sinh sản ở SCR-18, D75).
+      withdrawalChip(Boolean(profile.withdrawalActive), profile.withdrawalEndDate),
+      profile.reproductiveStatus === 'NOT_APPLICABLE' ? null : reproChip(profile.reproductiveStatus),
     ].filter((chip): chip is StatusChip => chip != null).map((chip) => [chip.label, chip.tone || 'grey']),
     qr: qrCode, qrHistory, barnHistory: history, barnSince: current ? dateLabel(current.since) : dateLabel(profile.penSince), purposeSince: dateLabel(changedSince(timeline, 'PURPOSE') || herdSince(profile)), stageSince: dateLabel(changedSince(timeline, 'LIFE_STAGE') || herdSince(profile)),
     internalId: profile.id == null ? '—' : String(profile.id), birth: birthLabel(profile.birthDate, profile.birthDateAccuracy), source: entrySourceLabel(profile),

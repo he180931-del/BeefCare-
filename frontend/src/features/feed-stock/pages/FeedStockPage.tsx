@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
+import { Button, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { filterFeedStock } from '../domain/feedStockList'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
@@ -178,7 +178,6 @@ export default function FeedStockPage() {
         </section>
       </div>
 
-      <Foot>Tồn kho thức ăn. Mức tối thiểu đặt trong Danh mục; khi tồn ≤ mức tối thiểu, hệ thống nhắc “Sắp hết thức ăn” cho Chủ trại và Quản lý. Đủ dùng = tồn ÷ tiêu thụ bình quân 7 ngày. Tồn kho không bao giờ âm.</Foot>
       {viewing && <FeedMovementsDialog feed={viewing} onClose={closeMovements} />}
     </Layout>
   )

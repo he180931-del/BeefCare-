@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Panel, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Panel, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Facts, ServiceBadge, type Fact } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
@@ -90,7 +90,6 @@ export default function SubscriptionHomePage() {
             <EmptyBlock title="Chưa có kỳ dịch vụ nào" sub="Kỳ dịch vụ xuất hiện sau khi thanh toán đầu tiên được xác nhận." />
           )}
         </Card>
-        <Foot>Xem thời hạn hiện tại, ngày hết hạn, bảng giá áp dụng và yêu cầu chuyển khoản đang chờ; lịch sử thanh toán luôn mở được từ đây.</Foot>
       </div>
       {dialog.element}
     </Layout>

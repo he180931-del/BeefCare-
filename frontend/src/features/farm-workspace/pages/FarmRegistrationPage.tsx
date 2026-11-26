@@ -1,5 +1,5 @@
 import { useFarmRegistration } from '../hooks/useFarmRegistration'
-import { Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
+import { Button, Card, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
 import { BreedMultiSelect } from '../components/BreedMultiSelect'
 import SetupLayout from '../components/SetupLayout'
 import { FieldError, Stepper } from '../components/WorkspaceUi'
@@ -43,7 +43,6 @@ export default function FarmRegistrationPage() {
           </div>
         </form>
       </Card>
-      <Foot>Trường có * bắt buộc. Địa chỉ chi tiết bổ sung thôn/xóm; người liên hệ và điện thoại là đầu mối của trại; giấy chứng nhận, quy mô và giống giúp hoàn thiện hồ sơ.</Foot>
       {profileRequired && (
         <Modal title="Chưa hoàn tất hồ sơ Chủ trại" width={560} onClose={openOwnerProfile}>
           <p className="m-0 text-sm text-ink">Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.</p>
