@@ -10,7 +10,7 @@ vi.mock('../../../src/app/layouts/FarmPlatformLayout',()=>({default:({children}:
 vi.mock('../../../src/app/session/sessionContext',async original=>({...await original<typeof import('../../../src/app/session/sessionContext')>(),useSession:()=>({role:'OWNER'})}))
 vi.mock('../../../src/features/cattle/api/cattleApi',async original=>({...await original<typeof import('../../../src/features/cattle/api/cattleApi')>(),get localCattleList(){return state.backend?null:{}}}))
 vi.mock('../../../src/features/herd-entry/api/index',async original=>({...await original<typeof import('../../../src/features/herd-entry/api/index')>(),entryLineCorrectionEnabled:true,
- herdEntryApi:{get:async()=>({id:'PN / 1',status:'Đã nhập',version:0,entryType:'PURCHASE',detail:{cows:[{entryId:91,lineVersion:0,lineStatus:'VALID',code:'BC-1',weight:250}],payments:[]}})},
+ herdEntryApi:{get:async()=>({id:'PN / 1',status:'Đã nhập',version:0,entryType:'PURCHASE',detail:{cows:[{entryId:91,lineVersion:0,lineStatus:'VALID',herdStatus:'ACTIVE',code:'BC-1',weight:250}],payments:[]}})},
  entryVoidCheck:state.check,listEntryBreeds:async()=>[],listEntrySellers:async()=>[]}))
 import OverviewTab from '../../../src/features/cattle/components/OverviewTab'
 import { businessDate } from '../../../src/shared/lib/date/farmTime'

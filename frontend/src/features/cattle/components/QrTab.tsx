@@ -3,8 +3,10 @@ import { Chip, Fields, Panel, Td, Th } from './parts'
 import type { CattleViewModel as CowSeed } from '../types'
 import type { Tone } from '../types'
 import QrTagLabel from './QrTagLabel'
+import { QR_STATUS_LABELS } from '../domain/profileRules'
 
-const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }
+const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', RETIRED: 'err' }
+const statusLabel = (status: string) => QR_STATUS_LABELS[status] ?? status
 
 export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; canWrite: boolean; onOpenModal: (name: string) => void }) {
   const active = cow.qrHistory.find((q) => q.status === 'ACTIVE')
@@ -23,7 +25,7 @@ export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; ca
             cols="grid-cols-1 sm:grid-cols-2"
             items={[
               ['Mã thẻ', active?.code ?? '—'],
-              ['Trạng thái', active ? <Chip key="s" tone="ok" icon="circle-check">ACTIVE</Chip> : '—'],
+              ['Trạng thái', active ? <Chip key="s" tone="ok" icon="circle-check">{statusLabel('ACTIVE')}</Chip> : '—'],
               ['Mã hiển thị in trên thẻ', cow.code],
               ['Cấp lúc', active ? `${active.from} · ${active.by}` : '—'],
             ]}
@@ -47,7 +49,7 @@ export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; ca
             {cow.qrHistory.map((q) => (
               <tr key={q.code + q.status}>
                 <Td className="font-medium">{q.code}</Td>
-                <Td><Chip tone={QR_TONE[q.status] ?? 'grey'}>{q.status}</Chip></Td>
+                <Td><Chip tone={QR_TONE[q.status] ?? 'grey'}>{statusLabel(q.status)}</Chip></Td>
                 <Td>{q.from}</Td>
                 <Td>{q.to}</Td>
                 <Td>{q.reason}</Td>
@@ -58,7 +60,7 @@ export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; ca
           </tbody>
         </Table>
       </Panel>
-      <Foot>Mỗi bò chỉ có một thẻ ACTIVE. Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot>
+      <Foot>Mỗi bò chỉ có một thẻ đang dùng. Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot>
     </>
   )
 }

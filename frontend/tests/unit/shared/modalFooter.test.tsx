@@ -23,6 +23,22 @@ function renderDialog() {
 }
 
 describe('ModalFooter inside the shared dialog', () => {
+  it('renders a supplied footer outside the scrollable body', () => {
+    render(
+      <MemoryRouter>
+        <Modal title="Chọn bò" onClose={vi.fn()} footer={<ModalFooter><ModalButton>Đóng</ModalButton></ModalFooter>}>
+          <p>Nội dung dài</p>
+        </Modal>
+      </MemoryRouter>,
+    )
+    const body = screen.getByText('Nội dung dài').parentElement?.parentElement as HTMLElement
+    const closeButtons = screen.getAllByRole('button', { name: 'Đóng' })
+    const footer = closeButtons.slice(-1)[0].parentElement as HTMLElement
+    expect(body).toContainElement(screen.getByText('Nội dung dài'))
+    expect(body).not.toContainElement(closeButtons[0])
+    expect(footer.parentElement).toHaveClass('mt-4', 'shrink-0')
+  })
+
   it('adds no padding of its own; the dialog keeps the 24 px inset and the safe area at the bottom', () => {
     renderDialog()
     const footer = screen.getByRole('button', { name: 'Quay lại' }).parentElement as HTMLElement

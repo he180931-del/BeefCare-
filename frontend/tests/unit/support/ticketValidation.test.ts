@@ -38,14 +38,14 @@ describe('validateCreate fields', () => {
     })
   })
 
-  it('requires an owned farm for a farm ticket', () => {
-    expect(validateCreate(command({ farmId: null }), [1]).farmId).toBe('Vui lòng chọn trang trại liên quan.')
-    expect(validateCreate(command({ farmId: 2 }), [1]).farmId).toBe('Bạn không có quyền với trang trại này.')
-    expect(validateCreate(command({ scope: 'ACCOUNT', farmId: null }), [1]).farmId).toBeUndefined()
+  it('requires the active farm for every new ticket', () => {
+    expect(validateCreate(command({ farmId: null }), [1]).farmId).toBe('Hãy mở một trang trại trước khi gửi yêu cầu.')
+    expect(validateCreate(command({ farmId: 2 }), [1]).farmId).toBe('Bạn không có quyền với trang trại đang mở.')
+    expect(validateCreate(command({ scope: 'ACCOUNT', farmId: null }), [1]).scope).toBe('Ticket phải gắn với trại đang mở.')
   })
 
-  it('requires a known scope', () => {
-    expect(validateCreate(command({ scope: '' as CreateTicketCommand['scope'] }), [1]).scope).toBe('Vui lòng chọn phạm vi.')
+  it('rejects every scope other than the active farm', () => {
+    expect(validateCreate(command({ scope: '' as CreateTicketCommand['scope'] }), [1]).scope).toBe('Ticket phải gắn với trại đang mở.')
   })
 })
 

@@ -41,14 +41,14 @@ const makeId = (kind: string, n: number) => `${kind}-${Date.now().toString(36)}-
 const requireManager = (role: ReproductionRole) => {
   if (role !== 'OWNER' && role !== 'MANAGER') throw new Error('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 }
+/** D69: ghi chú khi sửa / xóa không bắt buộc, chỉ giới hạn 500 ký tự. */
 const requiredReason = (reason: string) => {
-  if (!reason.trim()) throw new Error('Nhập lý do sửa hoặc hủy.')
-  if (reason.length > 500) throw new Error('Lý do tối đa 500 ký tự.')
+  if (reason.length > 500) throw new Error('Ghi chú tối đa 500 ký tự.')
 }
 
 const calculateExpectedDate = expectedCalvingDate
 const RESULT_TEXT = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' } as const
-const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OTHER: 'Khác' }
+const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OBSERVATION: 'Quan sát – không lên giống lại', OTHER: 'Khác' }
 const UPDATE_TEXT = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' } as const
 /** "Có thai · Siêu âm · BS Trần Văn Bình" */
 const checkDetails = (event: ReproductionEvent) => [event.result ? RESULT_TEXT[event.result] : null, event.method ? CHECK_METHOD_TEXT[event.method] ?? event.method : null, event.examiner].filter(Boolean).join(' · ')
@@ -124,6 +124,11 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number, now: s
   profile.openPregnancy = openPregnancy
   profile.lastCalvingAt = profile.calvings.filter((item) => item.status === 'VALID').sort((a, b) => b.birthAt.localeCompare(a.birthAt))[0]?.birthAt ?? null
   const lastCalvingAt = profile.lastCalvingAt
+  // D67: tiêu chí sau đẻ của điều kiện phối (tham số Sau sinh 45 ngày của dữ liệu mẫu).
+  if (profile.eligibility && lastCalvingAt) {
+    const days = Math.floor((Date.parse(now.slice(0, 10)) - Date.parse(lastCalvingAt.slice(0, 10))) / 86_400_000)
+    Object.assign(profile.eligibility, { postpartumMet: days >= 45, requiredPostpartumDays: 45, daysSinceCalving: days })
+  }
   profile.servicesInCurrentCycle = history.filter((item) => item.type === 'BREEDING' && (!lastCalvingAt || item.occurredAt > lastCalvingAt)).length
   const latestEstrus = history.filter((item) => item.type === 'ESTRUS').slice(-1)[0]
   const latestBreeding = history.filter((item) => item.type === 'BREEDING').slice(-1)[0]

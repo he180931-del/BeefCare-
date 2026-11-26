@@ -157,7 +157,7 @@ export default function AppRoutes() {
         <Route path="/loi-moi" element={ownerFarm(<Invitations />, 'farmId')} />
         <Route path="/invitation/accept" element={<AcceptInvitation />} />
         <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
-        <Route path="/ho-tro/*" element={owner(<Support />, 'farmId')} />
+        <Route path="/ho-tro/*" element={ownerFarm(<Support />, 'farmId')} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
         <Route path="/tai-khoan" element={<AccountRouteRedirect />} />
         <Route path="/quyen-theo-vai-tro" element={<Navigate to="/" replace />} />

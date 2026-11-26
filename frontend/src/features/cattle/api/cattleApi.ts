@@ -5,11 +5,15 @@ import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Pen } from '../../pen-management'
+import { createCattleReminderApi } from './cattleReminders'
 import type { Cattle, CattleEvent, QrHistoryRow, Tone } from '../types'
 import { toFarmLocal, businessDate } from '../../../shared/lib/date/farmTime'
 import { demo } from '../../../demo/demoModules'
 
 const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: activeFarmId })
+const reminderApi = createCattleReminderApi({ transport: backendTransport, farmId: activeFarmId })
+/** SCR-19 #22: open reminders of one backend cattle (the demo keeps cow.care.reminders). */
+export const listCattleReminders = reminderApi.forCattle
 export const listCattleTimeline = backendApi.timeline
 
 /**

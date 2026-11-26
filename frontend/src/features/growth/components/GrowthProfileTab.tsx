@@ -76,7 +76,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
           title="Cân nặng theo thời gian"
 
           actions={<ChartLegend />}
-          className={`col-span-full ${projection ? '@min-[1024px]:col-span-8' : ''}`}
+          className={`col-span-full ${projection ? '@min-[1024px]:col-span-8' : '@min-[880px]:col-span-4 @min-[1024px]:col-span-7'}`}
         >
           <GrowthChart points={data.chart} />
         </Panel>
@@ -108,12 +108,16 @@ const adgValue = (adg: number | undefined) => (adg === undefined ? '—' : `${fm
 const adgSub = (profile: GrowthProfile, adg: number | undefined, windowDays: number) =>
   adgBasisText(adg, adgBasis(validWeights(profile.records), windowDays, profile.today), windowDays)
 
-/** Lần cân tới: đỏ khi đã quá ngày, vàng khi là việc sắp tới (docs/BeefCare-Bento-Grid.md §3); luôn kèm chữ. */
+/**
+ * Lần cân tới (D72): đỏ khi đã quá ngày, vàng khi còn ≤ 7 ngày, không tô khi còn xa – màu chỉ bật khi có việc;
+ * luôn kèm chữ (docs/BeefCare-Bento-Grid.md §3).
+ */
 function nextWeighing(profile: GrowthProfile): { tone: MetricTone; status?: string } {
   const { nextWeighingDate, today } = profile
   if (!nextWeighingDate) return { tone: 'default' }
   const late = Math.round(dayFloat(today) - dayFloat(nextWeighingDate))
-  return late > 0 ? { tone: 'err', status: `Quá hạn ${late} ngày` } : { tone: 'warn' }
+  if (late > 0) return { tone: 'err', status: `Quá hạn ${late} ngày` }
+  return late >= -7 ? { tone: 'warn', status: late === 0 ? 'Hôm nay' : `Còn ${-late} ngày` } : { tone: 'default' }
 }
 
 const BcsMetric = ({ profile: { latestBcs } }: { profile: GrowthProfile }) => (
@@ -124,18 +128,30 @@ const CountMetric = ({ profile: { count, correctedCount } }: { profile: GrowthPr
   <Metric surface="panel" compact label="Số lần đo" value={`${count} lần`} sub={correctedCount ? `${correctedCount} bản ghi đã sửa` : 'Chưa có bản ghi sửa'} />
 )
 
-/** Bò không có dự kiến xuất bán (không Vỗ béo hoặc trại chưa đặt cân mục tiêu): một hàng 5 chỉ số trước biểu đồ. */
+/**
+ * Bò không có dự kiến xuất bán (không Vỗ béo hoặc trại chưa đặt cân mục tiêu): một khối nổi bật "Hiện tại" đặt cạnh
+ * biểu đồ (D72) – cân gần nhất lớn, rồi tăng cân, thể trạng và lần cân tới; thay cho 5 ô ngang nhau.
+ */
 function WeighingSummary({ profile }: { profile: GrowthProfile }) {
-  const { latest, adg90, nextWeighingDate } = profile
+  const { latest, adg90, latestBcs, nextWeighingDate } = profile
   const next = nextWeighing(profile)
+  const nextBadge = next.tone === 'err' ? 'bg-err-bg text-err-fg' : next.tone === 'warn' ? 'bg-warn-bg text-warn-fg' : ''
   return (
-    <section aria-label="Chỉ số tăng trưởng" className="col-span-full grid min-w-0 grid-cols-2 gap-4 @min-[640px]:grid-cols-3 @min-[880px]:grid-cols-5 @min-[1024px]:gap-6">
-      <Metric surface="panel" compact label="Cân gần nhất" value={latest ? `${fmtKg(latest.kg)} kg` : '—'} sub={latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'} />
-      <Metric surface="panel" compact label="Tăng cân bình quân (ADG)" value={adgValue(adg90)} sub={adgSub(profile, adg90, 90)} />
-      <Metric surface="panel" tone={next.tone} compact label="Lần cân tới" value={nextWeighingDate ? fmtDate(nextWeighingDate) : '—'} sub={next.status ?? (nextWeighingDate ? 'Theo chu kỳ cân của trại' : 'Chưa có lịch cân')} />
-      <BcsMetric profile={profile} />
-      <CountMetric profile={profile} />
-    </section>
+    <Panel tone="emphasis" className="col-span-full justify-between gap-4 @min-[880px]:col-span-4 @min-[1024px]:col-span-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="m-0 text-xs font-normal text-side-text">Cân gần nhất</h2>
+        <p className="m-0 text-[40px] font-bold leading-none tabular-nums">{latest ? `${fmtKg(latest.kg)} kg` : '—'}</p>
+        <p className="m-0 text-xs text-side-text">{latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'}</p>
+      </div>
+      <dl className="m-0 grid grid-cols-2 gap-3 rounded-xl bg-white/8 px-4 py-3">
+        <div><dt className="text-[11px] text-side-text">Tăng cân bình quân</dt><dd className="m-0 mt-0.5 text-sm font-semibold">{adgValue(adg90)}</dd><dd className="m-0 text-[11px] text-side-text">{adgSub(profile, adg90, 90)}</dd></div>
+        <div><dt className="text-[11px] text-side-text">Thể trạng (BCS)</dt><dd className="m-0 mt-0.5 text-sm font-semibold">{latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`}</dd></div>
+      </dl>
+      <p className="m-0 flex flex-wrap items-center gap-2 text-[13px]">
+        Lần cân tới: <strong>{nextWeighingDate ? fmtDate(nextWeighingDate) : 'chưa có lịch'}</strong>
+        {next.status && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${nextBadge}`}>{next.status}</span>}
+      </p>
+    </Panel>
   )
 }
 
@@ -246,10 +262,8 @@ function History({ profile, selectedRecord, canWrite, onCorrect, onDelete }: Row
   const shown = all ? rows : rows.slice(0, HISTORY_ROWS)
   return (
     <Panel
-      title={selectedRecord ? 'Bản ghi tăng trưởng đã chọn' : 'Lịch sử đo'}
-      sub={selectedRecord
-        ? 'ADG (mức tăng cân bình quân mỗi ngày) tính từ lần cân hợp lệ trước đó.'
-        : 'Mới nhất ở trên · nhấn tiêu đề cột Thời điểm đo để đổi thứ tự. ADG (mức tăng cân bình quân mỗi ngày) của từng dòng tính từ lần cân hợp lệ trước đó.'}
+      title={selectedRecord ? 'Bản ghi tăng trưởng đã chọn' : `Lịch sử đo (${visible.length})`}
+      sub="ADG của từng dòng tính từ lần cân hợp lệ trước đó."
       className="col-span-full"
     >
       {rows.length === 0 ? (
@@ -259,7 +273,7 @@ function History({ profile, selectedRecord, canWrite, onCorrect, onDelete }: Row
           <thead>
             <tr>
               <Th aria-sort={dir === 'desc' ? 'descending' : 'ascending'}><button type="button" className="cursor-pointer rounded font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setDir(dir === 'desc' ? 'asc' : 'desc')}>Thời điểm đo {dir === 'desc' ? '↓' : '↑'}</button></Th>
-              <Th>Cân nặng</Th><Th>Phương pháp · cơ sở</Th><Th>BCS</Th><Th>ADG (kg/ngày)</Th><Th>Người đo</Th><Th>Trạng thái</Th>{canWrite && <Th>Thao tác</Th>}
+              <Th>Cân nặng</Th><Th>Phương pháp · cơ sở</Th><Th>BCS</Th><Th>ADG (kg/ngày)</Th><Th>Người đo</Th>{canWrite && <Th>Thao tác</Th>}
             </tr>
           </thead>
           <tbody>
@@ -279,7 +293,10 @@ function HistoryRow({ r, adg, canWrite, onCorrect, onDelete }: RowActions & { r:
   const method = r.method ? `${METHOD_LABEL[r.method]} · ${r.basis ? BASIS_LABEL[r.basis] : ''}` : '—'
   return (
     <tr className={excluded ? 'text-faint' : undefined}>
-      <Td className="font-medium">{fmtDateTime(r.measuredAt)}</Td>
+      <Td className="font-medium">
+        <span className="whitespace-nowrap">{fmtDateTime(r.measuredAt)}</span>
+        {r.status === 'EXCLUDED' ? <Badge tone="outline" className="ml-2">Đã xóa</Badge> : r.corrected && <Badge tone="info" className="ml-2">Đã sửa</Badge>}
+      </Td>
       <Td>{r.weightKg === undefined ? '—' : `${fmtKg(r.weightKg)} kg`}</Td>
       <Td>
         {method}
@@ -288,9 +305,6 @@ function HistoryRow({ r, adg, canWrite, onCorrect, onDelete }: RowActions & { r:
       <Td>{r.bcs === undefined ? '—' : fmtDec(r.bcs)}</Td>
       <Td>{excluded || adg === undefined ? '—' : fmtDec(adg, 2)}</Td>
       <Td>{r.measuredByName}</Td>
-      <Td>
-        {r.status === 'EXCLUDED' ? <Badge tone="outline">Đã xóa</Badge> : r.corrected ? <Badge tone="info">Hợp lệ · Đã sửa</Badge> : <Badge tone="ok" icon="circle-check">Hợp lệ</Badge>}
-      </Td>
       {canWrite && (
         <Td>
           {excluded ? '—' : (

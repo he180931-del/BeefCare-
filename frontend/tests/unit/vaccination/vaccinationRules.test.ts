@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { dueStateOf } from '../../../src/features/vaccination/domain/vaccinationRules'
-import type { ScheduledDose } from '../../../src/features/vaccination/types'
 
-const dose = (dueDate: string): Pick<ScheduledDose, 'status' | 'dueDate' | 'newExpectedDate'> => ({ status: 'PLANNED', dueDate, newExpectedDate: null })
+const dose = (dueDate: string): Parameters<typeof dueStateOf>[0] => ({ status: 'PLANNED', dueDate })
 
 describe('vaccination due dates', () => {
   it('TC-09-29: separates overdue, due within seven days, and upcoming', () => {

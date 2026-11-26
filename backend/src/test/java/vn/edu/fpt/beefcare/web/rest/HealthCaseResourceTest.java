@@ -640,7 +640,8 @@ class HealthCaseResourceTest extends DomainTestSupport {
     void tc10_20_voidingTheOnlyTreatmentReturnsToMonitoring() throws Exception {
         CareDtos.HealthCaseResult opened = open(daysAgo(6));
         CareDtos.TreatmentResult treated = treat(opened, daysAgo(5), 1, 7);
-        postJson("/treatments/" + treated.id() + "/void", manager, "{\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.Treatment.class, treated.id()) + ",\"reason\":\"Ghi trùng\"}")
+        // D73: xóa không cần ghi chú.
+        postJson("/treatments/" + treated.id() + "/void", manager, "{\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.Treatment.class, treated.id()) + "}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("VOIDED"))
             .andExpect(jsonPath("$.healthState").value("MONITORING"))
@@ -653,14 +654,15 @@ class HealthCaseResourceTest extends DomainTestSupport {
     }
 
     @Test
-    void tc10_21_22_theOpeningObservationCannotBeVoidedAndAReasonIsRequired() throws Exception {
+    void tc10_21_22_theOpeningObservationCannotBeVoidedAndTheNoteIsOptional() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         postJson("/health-observations/" + opened.observationId() + "/void", manager, "{\"expectedVersion\":0,\"reason\":\"Nhầm\"}")
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("MSG-FE10-13"));
-        postJson("/health-observations/" + opened.observationId() + "/correction", manager, "{\"expectedVersion\":0,\"signs\":\"Sốt cao\"}")
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-06")).andExpect(jsonPath("$.params.field").value("reason"));
-        postJson("/health-observations/" + opened.observationId() + "/correction", manager, "{\"expectedVersion\":0,\"signs\":\"Sốt cao\",\"temperatureC\":40.2,\"observerId\":" + technician.getId() + ",\"reason\":\"Bổ sung\"}")
+        // D73: ghi chú sửa không bắt buộc (như Cân nặng D43, Tiêm phòng D53, Sinh sản D69); quá 500 ký tự vẫn bị từ chối.
+        postJson("/health-observations/" + opened.observationId() + "/correction", manager, "{\"expectedVersion\":0,\"signs\":\"Sốt\",\"reason\":\"" + "x".repeat(501) + "\"}")
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.field").value("reason"));
+        postJson("/health-observations/" + opened.observationId() + "/correction", manager, "{\"expectedVersion\":0,\"signs\":\"Sốt cao\",\"temperatureC\":40.2,\"observerId\":" + technician.getId() + "}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("VALID"));
         mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(manager.getEmail())))
             .andExpect(jsonPath("$.openCases[0].openingSigns").value("Sốt cao"))

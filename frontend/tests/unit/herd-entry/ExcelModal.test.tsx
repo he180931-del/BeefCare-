@@ -156,8 +156,17 @@ describe('Nhập bò từ Excel', () => {
     render(<ExcelModal recordId="PN-2026-0014" onAdd={vi.fn()} onClose={vi.fn()} onBackendPreview={preview} />)
     await user.upload(screen.getByLabelText('Chọn file Excel nhập đàn'), new File(['xlsx'], 'dan-bo.xlsx'))
 
-    expect(await screen.findByText(/Vui lòng kiểm tra trường Mục đích nuôi/)).toBeInTheDocument()
+    expect(await screen.findByText(/Vui lòng kiểm tra cột Mục đích/)).toBeInTheDocument()
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Thêm 6 con vào phiếu/ })).toBeInTheDocument()
+  })
+
+  it('hiển thị đúng mã chuồng do máy chủ trả về trong bảng kiểm tra', async () => {
+    const user = userEvent.setup()
+    const preview = vi.fn().mockResolvedValue({ rows: [{ row: 2, earTag: 'VN-9', breed: 'Lai Sind', sex: 'MALE', weight: 300, pen: 'QA-B', result: 'VALID' }] })
+    render(<ExcelModal recordId="PN-2026-0014" onAdd={vi.fn()} onClose={vi.fn()} onBackendPreview={preview} onDownloadTemplate={vi.fn()} />)
+    expect(screen.getByText(/Trang "Hướng dẫn" trong file/)).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Chọn file Excel nhập đàn'), new File(['xlsx'], 'dan-bo.xlsx'))
+    expect(await screen.findByRole('cell', { name: 'QA-B' })).toBeInTheDocument()
   })
 })

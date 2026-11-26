@@ -156,4 +156,3 @@ export function FeedDayLogPrintDocument({ date, records, rations, pens, farmName
     </PrintDocument>
   )
 }
-

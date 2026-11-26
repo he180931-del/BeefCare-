@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineVoidCheck, EntryLineVoidInput, HerdEntry } from '../types'
+import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineVoidCheck, EntryLineVoidInput, EntryVoidOutcome, EntryVoucherVoidCheck, HerdEntry } from '../types'
 import type { EntryPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
@@ -10,6 +10,8 @@ import {
   type EntryListFilters,
   type EntryListView,
   type EntryParentOption,
+  type EntrySeller,
+  type EntrySellerInput,
   type EntryVaccineOption,
 } from './herdEntryBackendApi'
 import { businessDate } from '../../../shared/lib/date/farmTime'
@@ -18,6 +20,7 @@ import type { EntryCow } from '../types'
 import { demo } from '../../../demo/demoModules'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: activeFarmId })
 
@@ -32,6 +35,11 @@ export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInp
   : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export const entryLineCorrectionEnabled = usingBackend
+/**
+ * "Người nhập" chỉ nhập tay ở bản mô phỏng. Máy chủ thật tự ghi người tạo / người ghi sổ theo phiên đăng nhập
+ * (createdBy / postedBy) và không nhận trường này, nên ô chỉ hiển thị người đang đăng nhập.
+ */
+export const entryReceiverEditable = !usingBackend
 export const entryHistoryDemoEnabled = !usingBackend
 export const correctEntryHistoryDemo = (voucherCode: string, cattleCode: string, history: EntryCow['hist'], reason: string): Promise<void> => usingBackend
   ? Promise.reject(new Error('Sửa khai báo trên backend phải dùng bản ghi nhập và phiên bản đã mở.'))
@@ -81,10 +89,23 @@ export const saveHerdEntry = (input: { id?: string; expectedVersion?: number; re
   return usingBackend ? backendApi.save(input) : demo.entryLocal.saveDraft(input)
 }
 
-// POST /api/farms/{farmId}/entry-vouchers/{id}/void (máy chủ ghi lịch sử hủy theo phiên)
-export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot) => usingBackend
+// POST /api/farms/{farmId}/entry-vouchers/{id}/void (máy chủ ghi lịch sử hủy theo phiên); notice = MSG-FE06-22.
+export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot): Promise<EntryVoidOutcome> => usingBackend
   ? backendApi.voidVoucher(id, { expectedVersion: snapshot?.expectedVersion, backendId: snapshot?.backendId, reason: String(patch.cancelReason ?? 'Hủy phiếu nhập') })
-  : demo.entryLocal.voidEntry(id, cattleRows, patch)
+  : demo.entryLocal.voidEntry(id, cattleRows, patch).then(record => ({ record, notice: `Đã hủy phiếu ${record.id}.` }))
+
+/** Bản mô phỏng không có API kiểm tra: dựng từ `events` của từng con còn hiệu lực trong phiếu. */
+const localVoucherVoidCheck = (record: HerdEntry): EntryVoucherVoidCheck => {
+  const rows = (record.detail?.cows ?? []).filter(cow => cow.lineStatus !== 'VOID').map((cow): EntryLineVoidCheck => {
+    const events = cow.events ?? []
+    return { entryId: cow.entryId, cattleCode: String(cow.code ?? ''), eventsAfterEntry: events, canVoid: !events.length, reason: events.length ? 'HAS_EVENTS' : null }
+  })
+  return { canVoid: record.status === 'Đã nhập' && rows.every(row => row.canVoid), paid: entryPaymentTotals(record).paid, rows, confirm: null, blocked: null }
+}
+// GET /api/farms/{farmId}/entry-vouchers/{id}/void-check
+export const entryVoucherVoidCheck = (record: HerdEntry): Promise<EntryVoucherVoidCheck> => usingBackend
+  ? backendApi.voucherVoidCheck(record.id, record.backendId)
+  : Promise.resolve(localVoucherVoidCheck(record))
 
 
 // DELETE /api/farms/{farmId}/entry-vouchers/{id}
@@ -100,7 +121,11 @@ export const markCalfDiedBeforeRegistration = async (calfOutcomeId: number, reas
 }
 
 // GET /api/farms/{farmId}/trading-partners?role=seller
-export const listEntrySellers = () => usingBackend ? backendApi.sellers() : Promise.resolve(demo.entryLocal.sellers())
+export const listEntrySellers = (): Promise<EntrySeller[]> => usingBackend ? backendApi.sellers() : Promise.resolve(demo.entryLocal.sellers())
+// POST /api/farms/{farmId}/trading-partners (seller=true) — FE-06 "+ Thêm nguồn mới"
+export const saveEntrySeller = (input: EntrySellerInput, options?: { key?: string }): Promise<EntrySeller> => usingBackend
+  ? backendApi.saveSeller(input, options)
+  : Promise.resolve(demo.entryLocal.saveSeller(input))
 // GET /api/farms/{farmId}/pens
 export const listEntryPens = () => usingBackend ? backendApi.listPens() : demo.entryLocal.pens.list()
 // chưa có API trong gói S13: danh mục vắc-xin

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,9 +32,11 @@ describe('entry detail snapshot conflicts', () => {
   it('keeps the payment popup and values on conflict/Stay, then reloads the voucher explicitly', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Ghi nhận thanh toán' }))
+    await user.click(await screen.findByRole('button', { name: 'Ghi thanh toán' }))
     const fields = screen.getAllByRole('textbox')
     await user.clear(fields.at(-1)!); await user.type(fields.at(-1)!, 'Ghi chu chua luu')
+    // The demo default date (22/10) is before this voucher (29/10); R-06-17 rejects it, so pick the voucher date.
+    fireEvent.change(screen.getByLabelText('Ngày thanh toán', { selector: 'input' }), { target: { value: '2026-10-29' } })
     state.get.mockResolvedValue({ ...row, version: 9, debt: 100 })
     await user.click(screen.getByRole('button', { name: 'Lưu thanh toán' }))
     await screen.findByRole('button', { name: 'Tải bản mới nhất' })
@@ -49,7 +51,8 @@ describe('entry detail snapshot conflicts', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu thanh toán' })).not.toBeInTheDocument())
     expect(state.get).toHaveBeenCalledTimes(2)
     expect(state.payment).toHaveBeenCalledTimes(2)
-    await user.click(screen.getByRole('button', { name: 'Ghi nhận thanh toán' }))
+    await user.click(screen.getByRole('button', { name: 'Ghi thanh toán' }))
+    fireEvent.change(screen.getByLabelText('Ngày thanh toán', { selector: 'input' }), { target: { value: '2026-10-29' } })
     await user.click(screen.getByRole('button', { name: 'Lưu thanh toán' }))
     await waitFor(() => expect(state.payment).toHaveBeenLastCalledWith(row.id, expect.anything(), { voucherVersion: 9, backendId: 41 }))
   })
@@ -58,9 +61,12 @@ describe('entry detail snapshot conflicts', () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Hủy phiếu' }))
-    const reason = screen.getByDisplayValue('Ghi nhầm nguồn – bò thực tế mua của hộ ông Lê Văn C')
-    await user.clear(reason); await user.type(reason, 'Ly do dang nhap')
+    await screen.findByText('Hủy được')
+    const reason = screen.getByRole('textbox', { name: /Lý do hủy/ })
+    expect(reason).toHaveValue('')
+    await user.type(reason, 'Ly do dang nhap')
     await user.click(screen.getByRole('button', { name: 'Hủy phiếu nhập' }))
+    await user.click(screen.getByRole('button', { name: 'Xác nhận hủy' }))
     await screen.findByRole('button', { name: 'Tải bản mới nhất' })
     expect(state.cancel).toHaveBeenCalledWith(row.id, row.detail!.cows, expect.objectContaining({ cancelReason: 'Ly do dang nhap' }), { expectedVersion: 3, backendId: 41 })
     await user.click(screen.getByRole('button', { name: 'Ở lại' }))

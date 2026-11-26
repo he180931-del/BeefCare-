@@ -112,6 +112,17 @@ describe('danh sách đàn', () => {
     expect((await api.listHerd({ q: 'bão' })).rows.map((r) => r.code)).toEqual(['BC-000203'])
     expect((await api.listHerd({ penCode: 'B1', size: 50 })).rows.every((r) => r.penCode === 'B1')).toBe(true)
   })
+
+  it('D74: lọc theo cờ tình trạng, số đếm giữ nguyên', async () => {
+    const { api } = make()
+    const all = await api.listHerd({ size: 50 })
+    const lowBcs = await api.listHerd({ size: 50, flag: 'LOW_BCS' })
+    expect(lowBcs.rows.length).toBe(all.tiles.lowBcs)
+    expect(lowBcs.rows.map((r) => r.code)).toContain('BC-000087')
+    expect(lowBcs.rows.every((r) => r.flags.includes('LOW_BCS'))).toBe(true)
+    expect(lowBcs.tiles).toEqual(all.tiles)
+    expect((await api.listHerd({ size: 50, flag: 'WEIGHING_OVERDUE' })).total).toBe(all.tiles.overdue)
+  })
 })
 
 describe('chế độ backend', () => {

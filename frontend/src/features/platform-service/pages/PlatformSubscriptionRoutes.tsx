@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, interactiveRowClass, LoadingBlock, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Info, interactiveRowClass, LoadingBlock, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
 import { useSubscriptionDetail, useSubscriptionList } from '../hooks/usePlatformServiceUseCase'
@@ -160,6 +160,5 @@ export default function PlatformSubscriptionRoutes() {
         </div>
         {selected && <DetailPanel key={selected.farmId} farmId={selected.farmId} refresh={refresh} reveal={revealId === selected.farmId} />}
       </div>}
-    <Foot>Chọn một trại để xem các kỳ đã mua và thanh toán nguồn. Trạng thái tạm ngưng và bao phủ được hiển thị độc lập.</Foot>
   </Layout>
 }

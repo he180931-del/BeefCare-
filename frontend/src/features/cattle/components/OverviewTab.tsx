@@ -1,9 +1,11 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Foot, Icon, type IconName, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
-import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
+import { PURPOSE_TYPE_LABELS, isFemale } from '../domain/profileRules'
 import type { CattleViewModel as CowSeed } from '../types'
 import { localCattleList } from '../api/cattleApi'
+import { PROFILE_REMINDER_LIMIT, type CattleReminder } from '../api/cattleReminders'
+import { lifeStageLabel } from '../api/cattleMapper'
 import { businessDate } from '../../../shared/lib/date/farmTime'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
@@ -22,9 +24,22 @@ function QuickAction({ icon, label, note, to }: { icon: IconName; label: string;
   )
 }
 
-export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; canWrite: boolean; onOpenModal: (name: string) => void }) {
+type ReminderRows = Array<{ id?: string; title: string; detail?: string; due: { label: string; tone?: CattleReminder['due']['tone'] } }>
+/** Backend reminders of the cattle (SCR-19 #22); absent in the demo, which keeps cow.care.reminders. */
+type RemindersQuery = { data: CattleReminder[] | null; loading: boolean; error: unknown; refetch: () => unknown }
+
+export default function OverviewTab({ cow, canWrite, onOpenModal, reminders, onReviewStage }: {
+  cow: CowSeed
+  canWrite: boolean
+  onOpenModal: (name: string) => void
+  reminders?: RemindersQuery
+  onReviewStage?: (reminder: CattleReminder) => void
+}) {
   const nav = useNavigate()
-  const weighDue = cow.care.reminders.find((r) => r.title.startsWith('Cân'))?.due.label
+  const reminderRows: ReminderRows = reminders ? (reminders.data ?? []).slice(0, PROFILE_REMINDER_LIMIT) : cow.care.reminders
+  // R-05-09: the earliest open REM-08 life-stage suggestion (SCR-19 #13).
+  const stageSuggestion = reminders?.data?.find((r) => r.stage)
+  const weighDue = reminders ? reminders.data?.find((r) => r.ruleType === 'REM-01')?.due.label : cow.care.reminders.find((r) => r.title.startsWith('Cân'))?.due.label
   const code = encodeURIComponent(cow.code)
   const backend = localCattleList === null
   const entryCode = typeof cow.entryVoucherCode === 'string' ? cow.entryVoucherCode : ''
@@ -52,7 +67,7 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                   ? <a key="p" href={String(cow.photoUrl)} target="_blank" rel="noreferrer"><img src={String(cow.photoUrl)} alt={`Ảnh ${cow.code}`} className="size-16 rounded-md object-cover" /></a>
                   : <span key="p" className="inline-block rounded-xl bg-[#e8ede5] px-3 py-1 text-[11px] font-normal text-[#6b7870]">Chưa có ảnh</span>],
                 ['Mã hiển thị', cow.code],
-                ['Số thẻ tai', cow.tag || 'Gắn sau'],
+                ['Số thẻ tai', cow.tag || 'Gắn tai sau'],
               ]}
             />
           </Panel>
@@ -72,7 +87,15 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ...(cow.entrySource === 'EXTERNAL' && typeof cow.quarantineUntil === 'string' && cow.quarantineUntil >= businessDate()
                   ? [['Cách ly nhập đàn đến', dmy(cow.quarantineUntil)] as const] : []),
                 ['Mục đích nuôi', `${cow.purpose}${cow.purposeType ? ` (${PURPOSE_TYPE_LABELS[String(cow.purposeType)] ?? cow.purposeType})` : ''} · từ ${cow.purposeSince}`],
-                ['Giai đoạn', cow.stage],
+                ['Giai đoạn', <span key="stage" className="flex flex-col items-start gap-1">
+                  {cow.stageSince && cow.stageSince !== '—' ? `${cow.stage} · từ ${cow.stageSince}` : cow.stage}
+                  {stageSuggestion && (
+                    <span className="flex flex-wrap items-center gap-1.5 text-[12px] font-normal text-[#296194]">
+                      {`Gợi ý: chuyển sang ${lifeStageLabel(stageSuggestion.stage)} từ ${stageSuggestion.due.label}`}
+                      {canWrite && onReviewStage && <Button variant="link" small className="leading-[normal]" onClick={() => onReviewStage(stageSuggestion)}>Xem xét</Button>}
+                    </span>
+                  )}
+                </span>],
                 ['Chuồng hiện tại', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—'],
                 ['Mẹ', cow.damCode ? <Button key="dam" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.damCode))}`)}>{String(cow.damCode)}</Button> : cow.mother],
                 ['Bố', cow.sireCode ? <Button key="sire" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.sireCode))}`)}>{String(cow.sireCode)}</Button> : cow.father],
@@ -92,34 +115,43 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ['ADG 90 ngày', cow.care.adg],
                 ['BCS', cow.care.bcs],
                 ['Sức khỏe', cow.care.healthCase],
-                ['Sinh sản', cow.care.repro],
-                ['Tiêm phòng', <Chip key="v" tone={cow.care.vaccine.tone} icon={cow.care.vaccine.tone === 'err' ? 'alert-triangle' : undefined}>{cow.care.vaccine.label}</Chip>],
+                ['Sinh sản', isFemale(cow) ? cow.care.repro : 'Không áp dụng'],
+                ['Tiêm phòng', cow.care.vaccine.label === '—'
+                  ? <span key="v" title="Xem tab Tiêm phòng">—</span>
+                  : <Chip key="v" tone={cow.care.vaccine.tone} icon={cow.care.vaccine.tone === 'err' ? 'alert-triangle' : undefined}>{cow.care.vaccine.label}</Chip>],
                 ['Cách ly thịt', cow.withdrawalUntil ? <Chip key="w" tone="warn" icon="alert-triangle">{`Đến ${dmy(String(cow.withdrawalUntil))}`}</Chip> : 'Không'],
               ]}
             />
           </Panel>
-          <Panel title="Nhắc việc liên quan" gap="gap-2.5">
-            <Table stack={false}>
-              <thead>
-                <tr>
-                  <Th className="w-[190px]">Nhắc việc</Th>
-                  <Th className="w-[130px]">Hạn</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {cow.care.reminders.map((r) => (
-                  <tr key={r.title}>
-                    <Td className="font-medium">{r.title}</Td>
-                    <Td>{r.due.tone ? <Chip tone={r.due.tone} icon={r.due.tone === 'err' ? 'alert-triangle' : undefined}>{r.due.label}</Chip> : r.due.label}</Td>
-                  </tr>
-                ))}
-                {cow.care.reminders.length === 0 && (
+          <Panel title="Nhắc việc liên quan" gap="gap-2.5" action={reminders && <Link to="/nhac-viec" className="text-xs font-medium text-brand underline-offset-2 hover:underline">Xem tất cả</Link>}>
+            {reminders?.error ? (
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-err-fg" role="alert">
+                Không tải được nhắc việc.
+                <Button small onClick={() => void reminders.refetch()}>Thử lại</Button>
+              </div>
+            ) : (
+              <Table stack={false}>
+                <thead>
                   <tr>
-                    <Td colSpan={2} className="!py-3 !text-[12px] text-muted">Không có nhắc việc.</Td>
+                    <Th className="w-[190px]">Nhắc việc</Th>
+                    <Th className="w-[130px]">Hạn</Th>
                   </tr>
-                )}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {reminderRows.map((r) => (
+                    <tr key={r.id ?? r.title}>
+                      <Td className="font-medium">{r.title}{r.detail && <span className="block text-[11px] font-normal text-muted">{r.detail}</span>}</Td>
+                      <Td>{r.due.tone ? <Chip tone={r.due.tone} icon={r.due.tone === 'err' ? 'alert-triangle' : undefined}>{r.due.label}</Chip> : r.due.label}</Td>
+                    </tr>
+                  ))}
+                  {reminderRows.length === 0 && (
+                    <tr>
+                      <Td colSpan={2} className="!py-3 !text-[12px] text-muted">{reminders?.loading ? 'Đang tải nhắc việc…' : 'Không có nhắc việc.'}</Td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            )}
           </Panel>
         </div>
       </div>

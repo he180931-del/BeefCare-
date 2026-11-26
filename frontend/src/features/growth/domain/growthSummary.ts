@@ -1,4 +1,4 @@
-import type { GrowthCattle, GrowthFilters, GrowthHerdPage, GrowthHerdRow, GrowthHerdStatus, GrowthProfile, GrowthRecord, GrowthWindow } from '../types'
+import type { GrowthCattle, GrowthFilters, GrowthHerdFlag, GrowthHerdPage, GrowthHerdRow, GrowthHerdStatus, GrowthProfile, GrowthRecord, GrowthWindow } from '../types'
 import { addDays, dayFloat } from './growthFormat'
 import { adgForWindow, finishingProjection, rowAdgMap, validWeights, WEIGHING_INTERVAL_DAYS } from './growthRules'
 
@@ -40,7 +40,11 @@ export function buildHerdPage(cattle: GrowthCattle[], records: GrowthRecord[], f
   const rowsAll: GrowthHerdRow[] = stats.map(({ c, latest, adg, bcs }) => {
     const overdue = !latest || dayFloat(now) - dayFloat(latest.at) > WEIGHING_INTERVAL_DAYS
     const avg = penAvg(c.penCode)
-    const status: GrowthHerdStatus = overdue ? 'OVERDUE' : bcs !== undefined && bcs < 2.5 ? 'LOW_BCS' : adg !== undefined && avg !== undefined && adg < avg ? 'LOW_ADG' : 'NORMAL'
+    const lowBcs = bcs !== undefined && bcs < 2.5
+    const lowAdg = adg !== undefined && avg !== undefined && adg < avg
+    const status: GrowthHerdStatus = overdue ? 'OVERDUE' : lowBcs ? 'LOW_BCS' : lowAdg ? 'LOW_ADG' : 'NORMAL'
+    // Như backend: đủ các cờ của con bò, để tab lọc thấy cả bò vừa quá hạn cân vừa BCS thấp (D74).
+    const flags: GrowthHerdFlag[] = [...(overdue ? ['WEIGHING_OVERDUE' as const] : []), ...(lowAdg ? ['LOW_ADG' as const] : []), ...(lowBcs ? ['LOW_BCS' as const] : [])]
     return {
       code: c.code,
       name: c.name,
@@ -54,20 +58,22 @@ export function buildHerdPage(cattle: GrowthCattle[], records: GrowthRecord[], f
       adg,
       bcs,
       status,
+      flags,
     }
   })
 
   const cutoff = dayFloat(now) - 30
   const tiles = {
-    overdue: rowsAll.filter((r) => r.status === 'OVERDUE').length,
-    lowAdg: rowsAll.filter((r) => r.status === 'LOW_ADG').length,
-    lowBcs: rowsAll.filter((r) => r.bcs !== undefined && r.bcs < 2.5).length,
+    overdue: rowsAll.filter((r) => r.flags.includes('WEIGHING_OVERDUE')).length,
+    lowAdg: rowsAll.filter((r) => r.flags.includes('LOW_ADG')).length,
+    lowBcs: rowsAll.filter((r) => r.flags.includes('LOW_BCS')).length,
     weighings30: stats.reduce((n, s) => n + s.weights.filter((w) => dayFloat(w.at) >= cutoff).length, 0),
   }
 
   const q = filters.q?.trim().toLowerCase()
   const cattleByCode = new Map(cattle.map((c) => [c.code, c]))
   const matched = rowsAll.filter((r) => {
+    if (filters.flag && !r.flags.includes(filters.flag)) return false
     if (!q) return true
     const c = cattleByCode.get(r.code)
     return [r.code, r.name, c?.earTag].some((v) => v?.toLowerCase().includes(q))

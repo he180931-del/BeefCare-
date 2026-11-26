@@ -27,7 +27,9 @@ export function TicketTable({ items }: { items: Ticket[] }) {
                 {t.code}
               </Link>
             </Td>
-            <Td>{t.subject}</Td>
+            <Td>
+              <span className="block max-w-[280px] truncate" title={t.subject}>{t.subject}</span>
+            </Td>
             <Td>{categoryLabel(t.category)}</Td>
             <Td>{shortFarmName(t.farmName)}</Td>
             <Td>

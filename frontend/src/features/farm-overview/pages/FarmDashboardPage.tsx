@@ -43,7 +43,7 @@ export default function FarmDashboardPage() {
     try { await run(); started.refetch() } catch (e) { setActionError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.')) } finally { setBusy(false) }
   }
 
-  const confirmation = <PaymentSuccessOnArrival farmId={session?.role === 'OWNER' ? activeFarmId : null} />
+  const confirmation = <PaymentSuccessOnArrival farmId={session?.role === 'OWNER' ? activeFarmId : null} farmName={overviewDash.data?.farmName} />
   if (overviewDash.loading && !overviewDash.data) return <Layout title={TITLE}>{confirmation}<LoadingBlock /></Layout>
   if (overviewDash.error || !overviewDash.data) return <Layout title={TITLE}>{confirmation}<ErrorBlock message={userFacingError(overviewDash.error, 'Không tính được số liệu.')} onRetry={overviewDash.refetch} /></Layout>
 

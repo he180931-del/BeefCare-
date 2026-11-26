@@ -57,16 +57,19 @@ describe('herd-exit new voucher backend picker and pricing flow', () => {
     await screen.findByText('1. Thông tin phiếu')
     expect(screen.getByDisplayValue('Tự động khi lưu')).toBeInTheDocument()
     expect(screen.getAllByLabelText('Chọn ngày')[0]).toHaveValue(todayIso())
-    expect(screen.queryByRole('button', { name: 'Quét QR' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Quét QR' })).toBeInTheDocument()
+    const buyerSelect = screen.getByRole('combobox', { name: 'Người mua / thương lái' })
+    await user.click(buyerSelect)
+    await user.keyboard('{ArrowDown}{Enter}')
     await user.click(screen.getByRole('button', { name: 'Chọn bò' }))
     expect(screen.getByText('Chuồng C9: 7/10 con')).toBeInTheDocument()
     expect(screen.queryByText('BC-000203')).not.toBeInTheDocument()
     expect(screen.getByText('Bò cái sinh sản')).toBeInTheDocument()
     const combos = screen.getAllByRole('combobox')
-    const barn = combos.at(-3)!
+    const barn = combos.find((combo) => combo.querySelector('option[value="C9"]'))!
     await user.selectOptions(barn, 'C9')
     expect(barn).toHaveValue('C9')
-    const group = screen.getAllByRole('combobox').at(-2)!
+    const group = combos.find((combo) => combo.querySelector('option[value="BREEDING_FEMALES"]'))!
     await user.selectOptions(group, 'BREEDING_FEMALES')
     expect(group).toHaveValue('BREEDING_FEMALES')
     expect(screen.getByLabelText('BC-BACKEND-ONLY')).toBeInTheDocument()
@@ -79,9 +82,9 @@ describe('herd-exit new voucher backend picker and pricing flow', () => {
     await user.clear(priceInput)
     await user.type(priceInput, '750000')
     await user.click(screen.getByRole('button', { name: /Lưu và kiểm tra/ }))
-    await screen.findByText('Không có cảnh báo')
+    const confirmButton = await screen.findByRole('button', { name: /Xác nhận xuất/ })
     await user.click(screen.getByLabelText(/Tôi đã xem các mục trên/))
-    await user.click(screen.getByRole('button', { name: /Xác nhận xuất 1 con/ }))
+    await user.click(confirmButton)
 
     expect(await screen.findByText('navigated')).toBeInTheDocument()
     const save = requests.find((request) => request.method === 'POST' && request.path === '/api/farms/1/exit-vouchers')

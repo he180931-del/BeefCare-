@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -82,10 +82,14 @@ describe('purchase entry page in backend mode', () => {
     const { default: ImportNew } = await import('../../../src/features/herd-entry/pages/ImportNew')
     const first = render(<MemoryRouter initialEntries={['/herd-entry/new']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
 
-    expect(await screen.findByRole('heading', { name: 'Phiếu nhập bò mới' })).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Nguồn / chủ bò cũ *'), '7')
-    // Match the server fixture so the fixed payment due date is valid.
-    fireEvent.change(document.querySelector('#entry-date') as HTMLInputElement, { target: { value: '2026-10-30' } })
+    await screen.findByDisplayValue('Mua ngoài')
+    // D76: a new voucher is priced per head, so the line table has no unit-price column; no line yet shows "Trống".
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('cell', { name: 'Trống' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Đơn giá/kg' })).not.toBeInTheDocument()
+    // FE-06 field 4 starts empty: pick the seller from the searchable list.
+    await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+    await user.click(screen.getByRole('option', { name: /Trại giống Backend/ }))
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
     await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
@@ -100,22 +104,16 @@ describe('purchase entry page in backend mode', () => {
     const amount = dialog.querySelector('#entry-cow-unit-price') as HTMLInputElement
     await user.clear(amount)
     await user.type(amount, '85000')
-    await user.selectOptions(comboBoxes[3], 'B1')
+    await user.selectOptions(dialog.querySelector('#entry-cow-barn') as HTMLSelectElement, 'B1')
     const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
     await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
     await user.selectOptions(selectWith('Vỗ béo · Vỗ béo'), '31')
     await user.click(within(dialog).getByRole('button', { name: 'Thêm con' }))
     const file = new File(['pdf'], 'purchase.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
-    await user.clear(screen.getByLabelText('Phí vận chuyển (đ)'))
-    await user.type(screen.getByLabelText('Phí vận chuyển (đ)'), '1500')
-    await user.clear(screen.getByLabelText('Trả trước cho nguồn bán (đ)'))
-    await user.type(screen.getByLabelText('Trả trước cho nguồn bán (đ)'), '12000')
-    await user.selectOptions(screen.getByLabelText('Phương thức *'), 'Tiền mặt')
-    fireEvent.change(document.querySelector('#entry-due') as HTMLInputElement, { target: { value: '2026-11-01' } })
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')).toBe(true))
-    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', pricingBasis: 'PER_HEAD', sellerId: 7, transportFee: 1500, amountPaid: 12000, paymentMethod: 'CASH', paymentDueDate: '2026-11-01', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
+    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', sellerId: 7, pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/attachments'))).toBe(true))
 
     first.unmount()
@@ -124,16 +122,12 @@ describe('purchase entry page in backend mode', () => {
     expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByText('purchase.pdf')).toBeInTheDocument()
-    expect(screen.getByLabelText('Nguồn / chủ bò cũ *')).toHaveValue('7')
-    expect(screen.getByLabelText('Phí vận chuyển (đ)')).toHaveValue('1.500')
-    expect(screen.getByLabelText('Trả trước cho nguồn bán (đ)')).toHaveValue('12.000')
-    expect(screen.getByLabelText('Phương thức *')).toHaveValue('Tiền mặt')
-    expect(document.querySelector('#entry-due') as HTMLInputElement).toHaveValue('2026-11-01')
 
+    // Máy chủ tự ghi người tạo / ghi sổ theo phiên: ô Người nhập chỉ đọc và không chặn ghi sổ.
+    expect(screen.getByRole('textbox', { name: 'Người nhập' })).toHaveAttribute('readonly')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ 1 con/ }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/post'))).toBe(true))
-    expect(requests.find((request) => request.method === 'PUT' && request.path.endsWith('/entry-vouchers/41'))?.body).toMatchObject({ sellerId: 7, transportFee: 1500, amountPaid: 12000, paymentMethod: 'CASH', paymentDueDate: '2026-11-01', pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
-    expect(requests.some((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers/41/post')).toBe(true)
+    expect(requests.find((request) => request.method === 'PUT' && request.path.endsWith('/entry-vouchers/41'))?.body).toMatchObject({ pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     expect(serverVoucher?.status).toBe('POSTED')
   }, 20000)
 })

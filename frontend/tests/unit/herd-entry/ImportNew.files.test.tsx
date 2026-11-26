@@ -113,10 +113,16 @@ it('draft with 3 cows deletes the middle row after confirmation and saves only t
 it('saves only accepted freight edits with an optional zero payment', async () => {
   const user = userEvent.setup()
   renderPage('/herd-entry/new?id=PN-2026-0041')
-  const freight = await screen.findByRole('textbox', { name: 'Phí vận chuyển (đ)' })
-  await user.clear(freight)
+  const openPayment = await screen.findByRole('button', { name: 'Thanh toán' })
+  await user.click(openPayment)
+  await user.type(screen.getByLabelText('Phí vận chuyển (đ)'), '9000')
+  await user.click(screen.getAllByRole('button', { name: 'Hủy' }).at(-1)!)
+  await user.click(openPayment)
+  const freight = screen.getByLabelText('Phí vận chuyển (đ)')
+  expect(freight).toHaveValue('')
+  expect(screen.getByLabelText('Số tiền (đ)')).toHaveValue('')
   await user.type(freight, '1500000')
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Lưu thanh toán' }))
   await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
   await waitFor(() => expect(state.saved).toHaveLength(1))
   expect(state.saved[0].record.draft).toMatchObject({ freight: 1500000, paid: 0 })
@@ -316,7 +322,7 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     const row = state.details['PN-2026-0041']
     row.draft = { ...row.draft, pricing: 'con', receiver: 'An', cows: [{ ...cow, pricing: 'kg', unitPrice: 8_500_000, weight: 0, weightBasis: null }] }
     renderPage('/herd-entry/new?id=PN-2026-0041&m=row-1')
-    expect(await screen.findByText('Theo con – áp cho cả phiếu')).toBeInTheDocument()
+    expect(await screen.findByText('Số tiền mua con này')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     await user.click(screen.getByRole('button', { name: /Lưu.*tạo hồ sơ/ }))
     await waitFor(() => expect(state.saved).toHaveLength(1))
@@ -334,13 +340,13 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     await waitFor(() => expect(state.previewCalls).toHaveLength(1))
     expect(state.saved[0].record).toMatchObject({ pricing: 'con', draft: { pricing: 'con' } })
     row.version = 5
-    row.draft = { ...row.draft, cows: [{ ...cow, pricing: undefined, weight: 300, weightBasis: 'ESTIMATED', estimated: true, unitPrice: 8_500_000 }] }
+    row.draft = { ...row.draft, cows: [{ ...cow, pricing: undefined, weight: 300, weightBasis: 'ESTIMATED', estimated: true, unitPrice: 8_500_000, ageMonths: 18, colourMarkings: 'Vàng', quarantineUntil: '2026-12-01' }] }
     await user.click(screen.getByRole('button', { name: 'Thêm 1 con vào phiếu' }))
     await waitFor(() => expect(screen.queryByLabelText('Chọn file Excel nhập đàn')).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(state.saved).toHaveLength(2))
     expect(state.saved[1].record).toMatchObject({ pricing: 'con', draft: { pricing: 'con' } })
-    expect(state.saved[1].cattleRows).toMatchObject([{ pricing: 'con', weight: 300, weightBasis: 'ESTIMATED', unitPrice: 8_500_000 }])
+    expect(state.saved[1].cattleRows).toMatchObject([{ pricing: 'con', weight: 300, weightBasis: 'ESTIMATED', unitPrice: 8_500_000, ageMonths: 18, colourMarkings: 'Vàng', quarantineUntil: '2026-12-01' }])
   })
 
   it('keeps edited fields, files and the price-reset notice on 409/Stay until explicit reload', async () => {

@@ -7,10 +7,10 @@ import { ReproductionValidationError } from '../domain/reproductionRules'
 import {
   METHOD_TEXT, addDaysText, eligibilityScore, expectedCalvingDate, findNearbyEvent, formatDate, formatDateTime,
 } from '../domain/reproductionRules'
-import type { DataSource, ReproductionCommand, ReproductionFemale } from '../types'
+import type { CheckMethod, DataSource, ReproductionCommand, ReproductionFemale } from '../types'
 import {
   CHECK_METHOD_OPTIONS, DateTimeField, FieldMessage, PersonInput, RESULT_OPTIONS, RadioField, ReadOnlyField, SIGNS,
-  SOURCE_HINT, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS, nowLocal, parseIntegerText,
+  UPDATE_TYPE_OPTIONS, nowLocal, parseIntegerText,
 } from './reproductionFields'
 import { useReproductionOptions } from './reproductionOptions'
 
@@ -18,13 +18,16 @@ export type RecordAction = 'RECORD_ESTRUS' | 'RECORD_BREEDING' | 'RECORD_PREGNAN
 interface Props { profile: ReproductionFemale; onClose: () => void; onRecord: (command: ReproductionCommand) => Promise<void> }
 interface Confirm { text: string; yes: string; no: string }
 
-const pill = (profile: ReproductionFemale) => `${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`
-const subOf = (profile: ReproductionFemale) => `${profile.cattleCode} · ${profile.breed} · Chuồng ${profile.penCode}`
+/** Dòng phụ dưới tiêu đề popup: đủ để nhận ra con bò, nên không cần ô "Bò cái" chỉ đọc lặp lại (D71). */
+const subOf = (profile: ReproductionFemale) => `${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · Chuồng ${profile.penCode}`
 
 /**
  * Lưu một sự kiện: lỗi nhập liệu (có ô) hiện dưới ô qua {@code fieldErrors}; lỗi điều kiện hiện popup qua {@code error}
  * (D51); trùng sự kiện gần nhau thì hỏi lại (MSG-FE11-03).
  */
+/** D70: nguồn dữ liệu không hiện ở giao diện; mọi bản ghi lưu "Quan sát trực tiếp". */
+const SOURCE: DataSource = 'DIRECT_OBSERVATION'
+
 function useRecordSubmit(onRecord: Props['onRecord'], onClose: () => void) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -80,20 +83,13 @@ function Shell({ title, sub, width, saveLabel, onClose, onSave, state, children 
   )
 }
 
-const SourceField = ({ value, onChange }: { value: DataSource; onChange: (value: DataSource) => void }) => (
-  <Field label="Nguồn dữ liệu" id="repro-source" hint={SOURCE_HINT}>
-    <Select id="repro-source" aria-label="Nguồn dữ liệu" value={value} onChange={(event) => onChange(event.target.value as DataSource)}>
-      {SOURCE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-    </Select>
-  </Field>
-)
 
 export function EstrusDialog({ profile, onClose, onRecord }: Props) {
   const session = useSession()
   const { members } = useReproductionOptions()
   const [occurredAt, setOccurredAt] = useState(nowLocal)
   // P1: người quan sát mặc định là người ghi.
-  const [observer, setObserver] = useState(() => members.find((member) => member.name === session?.fullName)?.name ?? session?.fullName ?? members[0]?.name ?? '')
+  const [observer, setObserver] = useState(() => members.find((member) => member.name === session?.fullName)?.name ?? session?.fullName ?? '')
   const [signs, setSigns] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
@@ -103,12 +99,11 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
       state.setConfirm({ text: `Đã có bản ghi động dục của ${profile.cattleCode} lúc ${formatDateTime(near.occurredAt)}. Vẫn lưu?`, yes: 'Vẫn lưu', no: 'Không' })
       return
     }
-    void state.send({ type: 'ESTRUS', occurredAt, observer, signs: SIGNS.filter((sign) => signs.includes(sign)), description, dataSource: 'DIRECT_OBSERVATION', confirmDuplicate: !!state.confirm })
+    void state.send({ type: 'ESTRUS', occurredAt, observer, signs: SIGNS.filter((sign) => signs.includes(sign)), description, dataSource: SOURCE, confirmDuplicate: !!state.confirm })
   }
   return (
     <Shell title="Ghi động dục" sub={subOf(profile)} width={560} saveLabel="Lưu động dục" onClose={onClose} onSave={save} state={state}>
       <div className="flex flex-col gap-3">
-        <ReadOnlyField label="Bò cái" value={pill(profile)} />
         <DateTimeField label="Thời điểm quan sát *" value={occurredAt} onChange={setOccurredAt} error={state.fieldErrors.occurredAt} />
         <Field label="Người quan sát" id="repro-observer"><MemberSelectField value={observer} onChange={setObserver} /></Field>
         <Field label="Dấu hiệu">
@@ -118,7 +113,7 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
             ))}
           </div>
         </Field>
-        <Field label="Mô tả (không bắt buộc)" id="repro-description" hint="Tối đa 1.000 ký tự">
+        <Field label="Mô tả" id="repro-description" hint="Tối đa 1.000 ký tự">
           <Textarea id="repro-description" aria-label="Mô tả" rows={2} maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} />
           <FieldMessage>{state.fieldErrors.description}</FieldMessage>
         </Field>
@@ -141,14 +136,15 @@ function MemberSelectField({ value, onChange }: { value: string; onChange: (valu
 export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   const [occurredAt, setOccurredAt] = useState(nowLocal)
   const [linked, setLinked] = useState<string | null>(null)
-  const [source, setSource] = useState<DataSource>('DIRECT_OBSERVATION')
   const [method, setMethod] = useState<'NATURAL_SERVICE' | 'ARTIFICIAL_INSEMINATION'>('NATURAL_SERVICE')
   const [sireSource, setSireSource] = useState<'FARM' | 'EXTERNAL'>('FARM')
   const [farmSireId, setFarmSireId] = useState('')
   const [breed, setBreed] = useState('')
   const [semenCode, setSemenCode] = useState('')
   const [supplier, setSupplier] = useState('')
-  const [performer, setPerformer] = useState('')
+  const session = useSession()
+  // Người thực hiện / người khám mặc định là người đang đăng nhập; vẫn đổi được sang thành viên khác hoặc tên người ngoài.
+  const [performer, setPerformer] = useState(session?.fullName ?? '')
   const [note, setNote] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
   const options = useReproductionOptions()
@@ -168,7 +164,7 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
       return
     }
     void state.send({
-      type: 'BREEDING', occurredAt, linkedEstrusId: linkedEstrusId || null, dataSource: source, method, sireSource,
+      type: 'BREEDING', occurredAt, linkedEstrusId: linkedEstrusId || null, dataSource: SOURCE, method, sireSource,
       farmSireId: external ? '' : farmSireId, externalSireBreed: breed, semenCode: insemination ? semenCode : '',
       semenSupplier: insemination ? supplier : '', performer, note, confirmDuplicate: !!state.confirm,
     })
@@ -177,7 +173,6 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
     <Shell title={`Ghi phối giống – lần phối ${profile.servicesInCurrentCycle + 1}`} sub={subOf(profile)} width={760} saveLabel="Lưu phối giống" onClose={onClose} onSave={save} state={state}>
       {score && score.met < 3 && <Note tone="warn">Chưa đạt điều kiện phối: {profile.eligibility?.failedConditions.join(' ') || score.failed.join(', ')} Bạn vẫn có thể ghi lần phối đã xảy ra.</Note>}
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-        <ReadOnlyField label="Bò cái" value={pill(profile)} />
         {score ? <Field label="Điều kiện xét phối"><div className="flex min-h-[44px] items-center"><Badge tone={score.met === 3 ? 'ok' : 'warn'}>{score.badge}</Badge></div></Field> : <div />}
         <Field label="Liên kết động dục" id="repro-linked-estrus" hint="Động dục trong 72 giờ gần nhất">
           <Select id="repro-linked-estrus" aria-label="Liên kết động dục" value={linkedEstrusId} onChange={(event) => setLinked(event.target.value)}>
@@ -209,7 +204,6 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
         <Field label="Nhà cung cấp tinh" id="repro-supplier">
           <input id="repro-supplier" aria-label="Nhà cung cấp tinh" disabled={!insemination} maxLength={100} className={inputCls} value={supplier} onChange={(event) => setSupplier(event.target.value)} />
         </Field>
-        <SourceField value={source} onChange={setSource} />
         <Field label="Người thực hiện" id="repro-performer" hint="Hoặc nhập tên người ngoài">
           <PersonInput id="repro-performer" label="Người thực hiện" value={performer} onChange={setPerformer} />
           <FieldMessage>{state.fieldErrors.performerName}</FieldMessage>
@@ -223,12 +217,13 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   )
 }
 
-export function PregnancyCheckDialog({ profile, onClose, onRecord }: Props) {
+/** {@code observed}: mở từ nút "Xác nhận có thai (quan sát)" – điền sẵn Có thai, phương pháp Quan sát, liên kết lần phối gần nhất (D67). */
+export function PregnancyCheckDialog({ profile, onClose, onRecord, observed = false }: Props & { observed?: boolean }) {
   const [occurredAt, setOccurredAt] = useState(nowLocal)
-  const [source, setSource] = useState<DataSource>('DIRECT_OBSERVATION')
   const [result, setResult] = useState<'PREGNANT' | 'NOT_PREGNANT' | 'INCONCLUSIVE'>('PREGNANT')
-  const [method, setMethod] = useState<'ULTRASOUND' | 'RECTAL' | 'OTHER'>('ULTRASOUND')
-  const [examiner, setExaminer] = useState('')
+  const [method, setMethod] = useState<CheckMethod>(observed ? 'OBSERVATION' : 'ULTRASOUND')
+  const session = useSession()
+  const [examiner, setExaminer] = useState(session?.fullName ?? '')
   const [months, setMonths] = useState('')
   const [linked, setLinked] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -244,13 +239,12 @@ export function PregnancyCheckDialog({ profile, onClose, onRecord }: Props) {
       : monthCount != null && Number.isInteger(monthCount) && monthCount >= 1 && monthCount <= 9 ? { date: addDaysText(occurredAt, 283 - monthCount * 30), basis: 'Ước tính theo số tháng (ESTIMATED)', hint: 'Ngày khám + 283 ngày − số tháng × 30' }
         : null
   const save = () => void state.send({
-    type: 'PREGNANCY_CHECK', occurredAt, linkedBreedingId: linkedBreeding?.id ?? null, dataSource: source, result, method,
+    type: 'PREGNANCY_CHECK', occurredAt, linkedBreedingId: linkedBreeding?.id ?? null, dataSource: SOURCE, result, method,
     estimatedMonths: result === 'PREGNANT' ? monthCount : null, examiner, note,
   })
   return (
-    <Shell title="Ghi khám thai" sub={`${profile.cattleCode} · ${profile.breed} · Chuồng ${profile.penCode}`} width={640} saveLabel="Lưu kết quả khám" onClose={onClose} onSave={save} state={state}>
+    <Shell title="Ghi khám thai" sub={subOf(profile)} width={640} saveLabel="Lưu kết quả khám" onClose={onClose} onSave={save} state={state}>
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-        <div className="sm:col-span-2"><ReadOnlyField label="Bò cái" value={`${profile.cattleCode} · Số tai ${profile.earTag || '—'} · ${profile.breed} · ${profile.penCode}`} /></div>
         <div className="sm:col-span-2">
           <Field label="Lần phối liên kết" id="repro-linked-breeding">
             <Select id="repro-linked-breeding" aria-label="Lần phối liên kết" value={linkedBreeding?.id ?? ''} onChange={(event) => setLinked(event.target.value)}>
@@ -260,7 +254,6 @@ export function PregnancyCheckDialog({ profile, onClose, onRecord }: Props) {
           </Field>
         </div>
         <DateTimeField label="Thời điểm khám *" value={occurredAt} onChange={setOccurredAt} error={state.fieldErrors.occurredAt} />
-        <SourceField value={source} onChange={setSource} />
         <div className="sm:col-span-2"><RadioField label="Kết quả *" name="Kết quả" value={result} onChange={(value) => setResult(value as typeof result)} options={RESULT_OPTIONS} /></div>
         <Field label="Phương pháp" id="repro-check-method">
           <Select id="repro-check-method" aria-label="Phương pháp" value={method} onChange={(event) => setMethod(event.target.value as typeof method)}>
@@ -291,7 +284,6 @@ export function PregnancyUpdateDialog({ profile, onClose, onRecord }: Props) {
   const preg = profile.openPregnancy
   const [updateType, setUpdateType] = useState<'OBSERVATION' | 'COMPLICATION' | 'LOSS'>('OBSERVATION')
   const [occurredAt, setOccurredAt] = useState(nowLocal)
-  const [source, setSource] = useState<DataSource>('DIRECT_OBSERVATION')
   const [details, setDetails] = useState('')
   const [caseId, setCaseId] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
@@ -302,7 +294,7 @@ export function PregnancyUpdateDialog({ profile, onClose, onRecord }: Props) {
       state.setConfirm({ text: 'Sẩy thai sẽ kết thúc thai kỳ và đưa bò về trạng thái Chờ phối. Xác nhận lưu?', yes: 'Xác nhận', no: 'Quay lại' })
       return
     }
-    void state.send({ type: 'PREGNANCY_UPDATE', occurredAt, dataSource: source, updateType, details, linkedHealthCaseId: updateType === 'COMPLICATION' && caseId ? caseId : null })
+    void state.send({ type: 'PREGNANCY_UPDATE', occurredAt, dataSource: SOURCE, updateType, details, linkedHealthCaseId: updateType === 'COMPLICATION' && caseId ? caseId : null })
   }
   return (
     <Shell title="Ghi diễn biến thai" sub={`${profile.cattleCode} · Thai kỳ ${preg?.pregnancyNumber ?? '—'} · dự kiến đẻ ${expectedText}`} width={620} saveLabel="Lưu diễn biến" onClose={onClose} onSave={save} state={state}>
@@ -311,7 +303,6 @@ export function PregnancyUpdateDialog({ profile, onClose, onRecord }: Props) {
         <RadioField label="Loại cập nhật *" name="Loại cập nhật" value={updateType} onChange={(value) => setUpdateType(value as typeof updateType)} options={UPDATE_TYPE_OPTIONS} />
         <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
           <DateTimeField label="Thời điểm *" value={occurredAt} onChange={setOccurredAt} hint="Không trước ngày khám xác nhận" error={state.fieldErrors.occurredAt} />
-          <SourceField value={source} onChange={setSource} />
         </div>
         <Field label="Chi tiết *" id="repro-update-details" hint="Tối đa 1.000 ký tự">
           <Textarea id="repro-update-details" aria-label="Chi tiết" rows={2} maxLength={1000} value={details} onChange={(event) => setDetails(event.target.value)} />
@@ -331,9 +322,9 @@ export function PregnancyUpdateDialog({ profile, onClose, onRecord }: Props) {
   )
 }
 
-export default function RecordDialog({ action, ...props }: Props & { action: RecordAction }) {
+export default function RecordDialog({ action, observed, ...props }: Props & { action: RecordAction; observed?: boolean }) {
   if (action === 'RECORD_ESTRUS') return <EstrusDialog {...props} />
   if (action === 'RECORD_BREEDING') return <BreedingDialog {...props} />
-  if (action === 'RECORD_PREGNANCY_CHECK') return <PregnancyCheckDialog {...props} />
+  if (action === 'RECORD_PREGNANCY_CHECK') return <PregnancyCheckDialog {...props} observed={observed} />
   return <PregnancyUpdateDialog {...props} />
 }

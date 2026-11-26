@@ -77,12 +77,12 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   return (
     <div className="flex flex-col gap-4">
       {exited && <Note tone="err">{MSG.exited(cattle.code, cattle.exitDate ?? '', cattle.exitType ?? 'Xuất')}</Note>}
-      {pendingExit && !exited && <Note tone="warn">Chờ xác nhận chết / mất: {cattle.code} chưa nhận thêm sự kiện chăm sóc mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất. Vẫn sửa hoặc hủy được các bản ghi đã có.</Note>}
+      {pendingExit && !exited && <Note tone="warn">Chờ xác nhận chết / mất: {cattle.code} chưa nhận thêm sự kiện chăm sóc mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất. Vẫn sửa hoặc xóa được các bản ghi đã có.</Note>}
       <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
           {activeCases.length === 0 && <Card variant="panel"><EmptyBlock title="Chưa có ca sức khỏe đang mở"  action={openCaseButton || undefined} /></Card>}
           {activeCases.map((c, i) => (
-            <CaseCard key={c.id} defaultExpanded={i === 0} card={c} rows={timeline.filter((r) => r.caseId === c.id)} canAdd={canAdd} canEdit={canEdit} onAction={openDialog} onEdit={(r) => dialog.open('correct', { entry: String(r.id) })} />
+            <CaseCard key={c.id} defaultExpanded={i === 0} card={c} rows={timeline.filter((r) => r.caseId === c.id && r.status !== 'VOIDED')} canAdd={canAdd} canEdit={canEdit} onAction={openDialog} onEdit={(r, action) => dialog.open(action, { entry: String(r.id) })} />
           ))}
         </div>
         <div className="flex min-w-0 flex-col gap-4">
@@ -150,7 +150,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
         <CaseViewDialog cattleCode={cattle.code} caseId={reopening.id} onClose={dialog.close} onReopen={canReopen(reopening) ? () => openDialog('reopen', reopening.caseCode) : undefined} />
       )}
       {active === 'reopen' && reopening && canReopen(reopening) && <ReopenCaseDialog card={reopening} cattleCode={cattle.code} onClose={dialog.close} onSaved={saved} />}
-      {active === 'correct' && canEdit && options && entry && <CorrectRecordDialog row={entry} profile={profile} options={options} onClose={dialog.close} onSaved={saved} />}
+      {(active === 'correct' || active === 'void') && canEdit && options && entry && <CorrectRecordDialog action={active} row={entry} profile={profile} options={options} onClose={dialog.close} onSaved={saved} />}
       {notice && <DeathNoticeDialog voucher={notice} onClose={() => setNotice(null)} />}
       {toast}
     </div>

@@ -44,7 +44,8 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   const [route, setRoute] = useState<VaccineRoute>(first.route)
   const [routeOther, setRouteOther] = useState('')
   const [withdrawal, setWithdrawal] = useState(String(first.withdrawalDays))
-  const [vaccinator, setVaccinator] = useState(names.includes(session?.fullName ?? '') ? session!.fullName : names[0])
+  // Người tiêm mặc định là người đang đăng nhập; không có trong danh sách thành viên thì để trống (không bắt buộc).
+  const [vaccinator, setVaccinator] = useState(session?.fullName && names.includes(session.fullName) ? session.fullName : '')
   const [other, setOther] = useState('')
   const [source, setSource] = useState<VaccinationSource>('ON_FARM')
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -122,6 +123,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
             <Field label="Hết ngưng" id="rv-end"><input id="rv-end" readOnly value={endDate} className={`${inputCls} bg-page text-muted`} /></Field>
             <Field label="Người tiêm" id="rv-by" hint="Hoặc nhập tên người ngoài">
               <Select id="rv-by" value={vaccinator} onChange={(e) => setVaccinator(e.target.value)}>
+                <option value="">—</option>
                 {names.map((n) => <option key={n} value={n}>{n}</option>)}
                 <option value="__other">Người ngoài…</option>
               </Select>

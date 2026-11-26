@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Instant;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +18,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.session.SessionRegistry;
@@ -31,6 +31,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.filter.OncePerRequestFilter;
 import tech.jhipster.config.JHipsterProperties;
 import vn.edu.fpt.beefcare.security.AuthoritiesConstants;
+import vn.edu.fpt.beefcare.security.MigratingPasswordEncoder;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmAccessService;
 import vn.edu.fpt.beefcare.web.filter.SpaWebFilter;
@@ -48,6 +49,12 @@ public class SecurityConfiguration {
     @Value("${beefcare.security.google.enabled:false}")
     private boolean googleLoginEnabled;
 
+    /** Placeholder client id of the local profile while Google login is off (application-local.yml). */
+    static final String GOOGLE_DISABLED_CLIENT_ID = "google-login-disabled";
+
+    @Value("${spring.security.oauth2.client.registration.google.client-id:}")
+    private String googleClientId;
+
     private final JHipsterProperties jHipsterProperties;
 
     public SecurityConfiguration(JHipsterProperties jHipsterProperties) {
@@ -56,7 +63,7 @@ public class SecurityConfiguration {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new MigratingPasswordEncoder();
     }
 
     @Bean
@@ -145,6 +152,9 @@ public class SecurityConfiguration {
             )
             .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> response.sendError(401)));
 
+        if (googleLoginEnabled && GOOGLE_DISABLED_CLIENT_ID.equals(googleClientId)) {
+            throw new IllegalStateException("BEEFCARE_GOOGLE_ENABLED=true needs SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID and _CLIENT_SECRET");
+        }
         if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler).failureHandler(googleFailureHandler));
 
         return http.build();
@@ -173,6 +183,14 @@ public class SecurityConfiguration {
                 if (session != null) {
                     var sessionInformation = sessionRegistry.getSessionInformation(session.getId());
                     if (sessionInformation != null && sessionInformation.isExpired()) {
+                        session.invalidate();
+                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                        response.sendError(401);
+                        return;
+                    }
+                    Object absoluteExpiry = session.getAttribute(vn.edu.fpt.beefcare.web.rest.AuthenticateController.REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE);
+                    if (absoluteExpiry instanceof Instant deadline && !Instant.now().isBefore(deadline)) {
+                        if (sessionInformation != null) sessionInformation.expireNow();
                         session.invalidate();
                         org.springframework.security.core.context.SecurityContextHolder.clearContext();
                         response.sendError(401);

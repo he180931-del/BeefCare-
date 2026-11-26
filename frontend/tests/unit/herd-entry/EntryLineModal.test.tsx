@@ -17,7 +17,7 @@ vi.mock('../../../src/features/herd-entry/api/index', async original => ({
 import ImportDetail from '../../../src/features/herd-entry/pages/ImportDetail'
 
 const voucher: HerdEntry = { id: 'PN-1', version: 3, entryType: 'PURCHASE', pricingBasis: 'PER_KG', type: 'Mua ngoài', sellerId: 7, status: 'Đã nhập', date: '2026-10-20', count: 3,
-  detail: { by: 'Người ghi thử', cows: [1, 2, 3].map(index => ({ entryId: 90 + index, lineVersion: 0, lineStatus: 'VALID', cattleId: 500 + index, code: `BC-00${index}`, weight: 250, weightBasis: 'MEASURED', unitPrice: 1000, breedId: 21, breed: 'Lai Sind · Cái', sexCode: 'FEMALE', birthDate: '2023-01-01', birthDateAccuracy: 'EXACT' })) } }
+  detail: { by: 'Người ghi thử', cows: [1, 2, 3].map(index => ({ entryId: 90 + index, lineVersion: 0, lineStatus: 'VALID', herdStatus: 'ACTIVE', cattleId: 500 + index, code: `BC-00${index}`, weight: 250, weightBasis: 'MEASURED', unitPrice: 1000, breedId: 21, breed: 'Lai Sind · Cái', sexCode: 'FEMALE', birthDate: '2023-01-01', birthDateAccuracy: 'EXACT' })) } }
 beforeEach(() => {
   state.role = 'OWNER'; state.backend = true
   state.get.mockReset().mockResolvedValue(structuredClone(voucher))

@@ -1,28 +1,27 @@
 import { useState } from 'react'
-import type { EntryCalf, EntryCow, HerdEntry, NewEntrySeller } from '../types'
+import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { calfTotals, purchaseTotals, receivingPenAfter, receivingPenOverflow } from '../domain/entryTotals'
 
-type Seller = { id: string; name: string; phone: string }
+/** A new voucher is priced per head (one amount per cow); existing rows priced per kg keep that basis. */
+const initialPricing = (cows: EntryCow[]): 'kg' | 'con' => cows.some((cow) => cow.pricing !== 'con') ? 'kg' : 'con'
 
-export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, isBuy }: {
+export function useEntryEditor({ draft, defaults, pendingCalves, pens, isBuy }: {
   draft?: NonNullable<HerdEntry['draft']>
   defaults: { recordId: string; date: string; quarantine: string; receiver: string; note: string; cows: EntryCow[]; freight: number; paid: number; method: string; due: string }
   pendingCalves: EntryCalf[]
-  sellers: Seller[]
   pens: Pen[]
   isBuy: boolean
 }) {
-  // An empty value is intentional: never silently assign the first seller.
+  // FE-06 field 4 default is empty: the user must pick the seller (MSG-COM-06 when missing).
   const [sourceId, setSourceId] = useState(draft?.sourceId ?? '')
-  const [newSeller, setNewSeller] = useState<NewEntrySeller | null>(draft?.newSeller ?? null)
   const [date, setDate] = useState(draft?.date ?? defaults.date)
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? defaults.quarantine)
   const [plate, setPlate] = useState(draft?.plate ?? '')
   const [receiver, setReceiver] = useState(draft?.receiver ?? defaults.receiver)
   const [note, setNote] = useState(draft?.note ?? defaults.note)
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? defaults.cows)
-  const [pricing, setPricing] = useState<'kg' | 'con'>(() => draft?.pricing ?? (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
+  const [pricing, setPricing] = useState<'kg' | 'con'>(() => draft?.pricing ?? initialPricing(draft?.cows ?? defaults.cows))
   const [calves, setCalves] = useState<EntryCalf[]>(() => draft?.calves?.map(saved => {
     const source = saved.calfOutcomeId == null ? undefined : pendingCalves.find(calf => calf.calfOutcomeId === saved.calfOutcomeId)
     if (!source) return saved // Preserve unavailable draft rows; the backend still checks registration eligibility.
@@ -47,7 +46,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   const calvesSummary = calfTotals(calves, pens, calfPen.code)
 
   return {
-    sourceId, setSourceId, newSeller, setNewSeller, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
+    sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
     cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue, printQr, setPrintQr,
     patchCow, patchCalf, purchase, pensAfter, overflow, calfPen, calvesSummary, isBuy,
   }

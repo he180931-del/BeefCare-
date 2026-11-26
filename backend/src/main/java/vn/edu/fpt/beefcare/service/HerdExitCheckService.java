@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -34,6 +35,14 @@ import vn.edu.fpt.beefcare.service.dto.ExitVoucherDTO.Withdrawal;
 public class HerdExitCheckService {
 
     public static final String REM_12 = "REM-12";
+
+    /** Fragments of the {warnings} parameter of MSG-FE13-01, localised like the message itself (i18n/domain_messages). */
+    static final String WARN_WITHDRAWAL = "MSG-FE13-01.withdrawal";
+    static final String WARN_CASES = "MSG-FE13-01.cases";
+    static final String WARN_DOSES_REMINDERS = "MSG-FE13-01.doses-reminders";
+    static final String WARN_PREGNANCY = "MSG-FE13-01.pregnancy";
+    static final String WARN_DRAFT_CALVES = "MSG-FE13-01.draft-calves";
+    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /** The records behind a cattle's check; the confirmation closes / cancels exactly these. */
     public record Collected(
@@ -93,22 +102,22 @@ public class HerdExitCheckService {
         List<String> warnings = new ArrayList<>();
         List<Message> msgs = new ArrayList<>();
         if (withdrawal != null) {
-            warnings.add("meat withdrawal until " + withdrawal.endDate());
+            warnings.add(messages.resolve(WARN_WITHDRAWAL, Map.of("date", withdrawal.endDate().format(DAY))));
             if (withdrawal.breach()) {
                 msgs.add(message(MessageCodes.FE13_07, "cattle_code", code, "date", withdrawal.endDate()));
             }
         }
         if (!cases.isEmpty()) {
-            warnings.add(cases.size() + " open or chronic health case(s) will be closed by the exit");
+            warnings.add(messages.resolve(WARN_CASES, Map.of("count", cases.size())));
         }
         if (doses.count() > 0 || reminders.count() > 0) {
-            warnings.add(doses.count() + " scheduled dose(s) and " + reminders.count() + " reminder(s) will be cancelled");
+            warnings.add(messages.resolve(WARN_DOSES_REMINDERS, Map.of("doses", doses.count(), "reminders", reminders.count())));
         }
         if (pregnancy != null) {
-            warnings.add("open pregnancy will be closed (dam exited)");
+            warnings.add(messages.resolve(WARN_PREGNANCY, Map.of()));
         }
         if (!calves.isEmpty()) {
-            warnings.add(calves.size() + " draft calf/calves of this dam stay pending");
+            warnings.add(messages.resolve(WARN_DRAFT_CALVES, Map.of("count", calves.size())));
         }
         if (!warnings.isEmpty()) {
             msgs.add(message(MessageCodes.FE13_01, "cattle_code", code, "warnings", String.join("; ", warnings)));

@@ -4,7 +4,7 @@ import RecordDialog from './RecordDialogs'
 import ReviseDialog, { type ReviseTarget } from './ReviseDialog'
 
 export type ReproductionDialogTarget =
-  | { mode: 'record'; action: Exclude<ReproductionAction, 'RECORD_CALVING'> }
+  | { mode: 'record'; action: Exclude<ReproductionAction, 'RECORD_CALVING'>; observed?: boolean }
   | ReviseTarget
 
 /** Routes a profile-tab dialog target to the record dialogs or the correct / void dialogs of the Figma frames. */
@@ -21,7 +21,7 @@ export default function ReproductionActionDialog({
   onVoidCalving: (calvingId: string, reason: string) => Promise<void>
   onVoidCalf: (calvingId: string, calfId: string, reason: string) => Promise<void>
 }) {
-  if (target.mode === 'record') return <RecordDialog action={target.action} profile={profile} onClose={onClose} onRecord={onRecord} />
+  if (target.mode === 'record') return <RecordDialog action={target.action} observed={target.observed} profile={profile} onClose={onClose} onRecord={onRecord} />
   return (
     <ReviseDialog
       target={target} profile={profile} onClose={onClose} onCorrectEvent={onCorrectEvent} onVoidEvent={onVoidEvent}

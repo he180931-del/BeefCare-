@@ -219,15 +219,20 @@ export const GESTATION_DAYS = 283
 /** Tentative (breeding) expected calving date, GBR-53. */
 export const expectedCalvingDate = (bredAt: string, days: number = GESTATION_DAYS): string => addDaysText(bredAt, days)
 
-/** Breeding eligibility as "met / 3" over age, weight and open health case (GBR-55), advisory only. */
-export function eligibilityScore(eligibility: BreedingEligibility): { met: number; total: 3; label: string; failed: string[]; badge: string } {
-  const checks: Array<[boolean, string]> = [
-    [eligibility.minimumAgeMet, 'tuổi'], [eligibility.minimumWeightMet, 'cân nặng'], [eligibility.noOpenHealthCase, 'sức khỏe'],
-  ]
+/** Các tiêu chí của điều kiện phối (GBR-55): tuổi, cân, sức khỏe, và sau đẻ khi bò đã từng đẻ (D67). Chỉ khuyến nghị. */
+export const eligibilityChecks = (eligibility: BreedingEligibility): Array<[boolean, string]> => [
+  [eligibility.minimumAgeMet, 'tuổi'], [eligibility.minimumWeightMet, 'cân nặng'], [eligibility.noOpenHealthCase, 'sức khỏe'],
+  ...(eligibility.postpartumMet === undefined ? [] : [[eligibility.postpartumMet, 'sau đẻ'] as [boolean, string]]),
+]
+
+/** Breeding eligibility as "met / total" (GBR-55), advisory only. */
+export function eligibilityScore(eligibility: BreedingEligibility): { met: number; total: number; label: string; failed: string[]; badge: string } {
+  const checks = eligibilityChecks(eligibility)
   const failed = checks.filter(([ok]) => !ok).map(([, name]) => name)
-  const met = 3 - failed.length
-  const label = failed.length ? `Chưa đạt ${met}/3` : 'Đạt 3/3'
-  return { met, total: 3, label, failed, badge: `${label} · ${failed.length ? failed.join(', ') : 'tuổi, cân nặng, sức khỏe'}` }
+  const total = checks.length
+  const met = total - failed.length
+  const label = failed.length ? `Chưa đạt ${met}/${total}` : `Đạt ${total}/${total}`
+  return { met, total, label, failed, badge: `${label} · ${failed.length ? failed.join(', ') : checks.map(([, name]) => name).join(', ')}` }
 }
 
 export const METHOD_TEXT = { NATURAL_SERVICE: 'Phối tự nhiên', ARTIFICIAL_INSEMINATION: 'Thụ tinh nhân tạo' } as const
@@ -288,11 +293,12 @@ export function eligibilityLabel(eligibility: NonNullable<ReproductionFemale['el
   if (eligibility.status === 'MET') return 'Đạt'
   const noWeighing = hasNoWeighing(eligibility)
   // Chỉ thiếu lần cân: hiện đúng "Chưa có lần cân", không gọi là "Chưa đạt".
-  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase) return NO_WEIGHING
+  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase && eligibility.postpartumMet !== false) return NO_WEIGHING
   const details = [
     !eligibility.minimumAgeMet && `tuổi ${eligibility.actualAgeMonths} tháng`,
     !eligibility.minimumWeightMet && (noWeighing ? NO_WEIGHING : `cân ${eligibility.actualWeightKg} kg`),
     !eligibility.noOpenHealthCase && 'có ca bệnh mở',
+    eligibility.postpartumMet === false && `sau đẻ ${eligibility.daysSinceCalving} ngày`,
   ].filter(Boolean)
   return `Chưa đạt${details.length ? ` · ${details.join(' · ')}` : ''}`
 }

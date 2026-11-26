@@ -1,16 +1,15 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, FilterSelect, Foot, Icon, inputCls, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, FilterSelect, Foot, Icon, inputCls, Metric, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import DiscardEntryDraftDialog from '../components/DiscardEntryDraftDialog'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
-import { discardHerdEntryDraft } from '../api'
 import { herdEntryError } from '../api/herdEntryError'
 import { useEntryList } from '../hooks/useEntryList'
-import type { HerdEntry } from '../types'
 import { previousQuarterStart } from '../domain/entryDateFilters'
+import { DEFAULT_ENTRY_SORT, entryPage, sortEntryRows, type EntrySort, type EntrySortField } from '../domain/entryListPaging'
+import type { HerdEntry } from '../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -20,12 +19,26 @@ const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 const DEFAULT_TO = businessDate()
 const DEFAULT_FROM = previousQuarterStart(DEFAULT_TO)
 
+const subLine = (text: string, title?: string) => <span className="block max-w-[220px] truncate text-[11px] text-muted" title={title ?? text}>{text}</span>
+
+/** SCR-23 #14: seller + quarantine certificate, or the dams of the farm-born calves. */
+function sourceCell(row: HerdEntry): ReactNode {
+  if (row.type === 'Bê sinh tại trại') return row.damCodes?.length ? `Mẹ: ${row.damCodes.join(', ')}` : '—'
+  return <>{row.source || '—'}{row.quarantine && subLine(`GKD ${row.quarantine}`)}</>
+}
+
 export default function ImportList() {
-  const [tab, setTab] = useState('Tất cả')
-  const [type, setType] = useState('')
-  const [source, setSource] = useState('')
+  const [tab, setTabValue] = useState('Tất cả')
+  const [type, setTypeValue] = useState('')
+  const [source, setSourceValue] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
+  const [sort, setSort] = useState<EntrySort>(DEFAULT_ENTRY_SORT)
+  const [pageNumber, setPageNumber] = useState(1)
+  // Changing a tab or a filter starts again from page 1.
+  const setTab = (value: string) => { setTabValue(value); setPageNumber(1) }
+  const setType = (value: string) => { setTypeValue(value); setPageNumber(1) }
+  const setSource = (value: string) => { setSourceValue(value); setPageNumber(1) }
   const { rows, loading, error, refetch, summary, pendingCalves: pending, sellers } = useEntryList({ tab, type, source: source ? { id: source, name: '' } : undefined, from, to })
   const tiles = summary.tiles
   const counts = summary.counts
@@ -35,23 +48,33 @@ export default function ImportList() {
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
-  const [draftToDiscard, setDraftToDiscard] = useState<HerdEntry | null>(null)
-  const [discarding, setDiscarding] = useState(false)
-  const [discardError, setDiscardError] = useState<unknown>(null)
+
+  const paged = entryPage(sortEntryRows(rows, sort), pageNumber)
+  const owedVouchers = Array.isArray(tiles.owedVouchers) ? tiles.owedVouchers.length : 0
+  const changeSort = (field: EntrySortField) => {
+    setSort(current => current.field === field ? { field, descending: !current.descending } : { field, descending: field === 'date' })
+    setPageNumber(1)
+  }
+  const sortHeader = (field: EntrySortField, label: string, width: string) => (
+    <Th className={`${TH} ${width}`} aria-sort={sort.field === field ? (sort.descending ? 'descending' : 'ascending') : undefined}>
+      <button type="button" className="cursor-pointer whitespace-nowrap font-semibold hover:underline" onClick={() => changeSort(field)}>
+        {label} <span aria-hidden="true">{sort.field === field ? (sort.descending ? '↓' : '↑') : '↕'}</span>
+      </button>
+    </Th>
+  )
 
   const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? rows.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
-  const totalRows = summary.totalRows
 
   const applyDate = () => {
     setFrom(draftFrom)
     setTo(draftTo)
     setDateOpen(false)
+    setPageNumber(1)
   }
 
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
-        {Boolean(error) && <Note tone="err">{herdEntryError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
         <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được cấp mã bò và thẻ QR khi lưu.">
             <Button onClick={() => nav('/herd-entry/new?kind=calf', { state: { from: '/herd-entry' } })}>Bê chờ xác nhận ({pending?.length ?? 0})</Button>
             <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}><Icon name="circle-plus" />Tạo phiếu nhập</Button>
@@ -123,7 +146,7 @@ export default function ImportList() {
             tone={Number(tiles.owedToSellers ?? 0) > 0 ? 'warn' : 'default'}
             label="Còn nợ nguồn bán"
             value={shown(`${money(Number(tiles.owedToSellers ?? 0))} đ`)}
-            note={Number(tiles.owedToSellers ?? 0) > 0 ? 'Theo dữ liệu backend' : 'Không còn nợ'}
+            note={Number(tiles.owedToSellers ?? 0) > 0 ? `${owedVouchers} phiếu còn nợ` : 'Không còn nợ'}
           />
         </div>
         </div>
@@ -132,8 +155,8 @@ export default function ImportList() {
           <Table scroll>
             <thead>
               <tr>
-                <Th className={`${TH} w-[110px]`}>Mã phiếu</Th>
-                <Th className={`${TH} w-[85px]`}>Ngày nhập</Th>
+                {sortHeader('code', 'Mã phiếu', 'w-[110px]')}
+                {sortHeader('date', 'Ngày nhập', 'w-[95px]')}
                 <Th className={`${TH} w-[100px]`}>Loại nhập</Th>
                 <Th className={`${TH} w-[220px]`}>Nguồn / bò mẹ</Th>
                 <Th className={`${TH} w-[50px]`}>Số con</Th>
@@ -145,42 +168,46 @@ export default function ImportList() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {paged.rows.map((r) => (
                 <tr key={r.id}>
                   <Td className={`${TH} whitespace-nowrap font-medium`}>{r.id}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{dmy(r.date)}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{r.type}</Td>
-                  <Td className={TH}>{r.source}</Td>
-                  <Td className={TH}>{r.count}</Td>
+                  <Td className={TH}>{sourceCell(r)}</Td>
+                  <Td className={TH}>{r.count}{Boolean(r.estimatedWeightCount) && subLine(`${r.estimatedWeightCount} con cân UT`)}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{r.total == null ? '—' : money(r.total)}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{r.debt == null ? '—' : money(r.debt)}</Td>
-                  <Td className={TH}><EntryStatusBadge status={r.status} /></Td>
+                  <Td className={TH}><EntryStatusBadge status={r.status} />{r.status === 'Đã hủy' && r.cancelReason && subLine(r.cancelReason)}</Td>
                   <Td className={TH}>
-                    <div className="flex items-center gap-2">
-                      <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
-                        {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
-                      </Button>
-                      {r.status === 'Nháp' && (
-                        <Button variant="link" small className="text-err-fg" onClick={() => { setDiscardError(null); setDraftToDiscard(r) }}>
-                          Xóa
-                        </Button>
-                      )}
-                    </div>
+                    <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
+                      {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
+                    </Button>
                   </Td>
                 </tr>
               ))}
               {!rows.length && (
                 <tr>
-                  <Td colSpan={10} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : error ? String(error) : 'Không có phiếu nhập'}</Td>
+                  <Td colSpan={10} className="text-center text-muted">
+                    {loading ? 'Đang tải phiếu nhập…' : error ? (
+                      <span className="inline-flex flex-wrap items-center justify-center gap-2">
+                        {herdEntryError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}
+                        <Button small onClick={() => { void refetch() }}>Thử lại</Button>
+                      </span>
+                    ) : 'Không có phiếu nhập'}
+                  </Td>
                 </tr>
               )}
             </tbody>
           </Table>
           <div className="flex items-center p-3 text-[11px] text-muted">
-            Hiển thị {rows.length} / {Math.max(totalRows, count(tab))} phiếu
+            {paged.total ? `Hiển thị ${paged.first}–${paged.last} / ${paged.total} phiếu` : 'Hiển thị 0 / 0 phiếu'}
             <div className="flex-1" />
-            <span className="flex items-center gap-3 text-xs font-semibold text-brand-dark"><span className="flex items-center"><Icon name="chevron-left" size={14} />Trước</span><span className="flex items-center">Sau<Icon name="chevron-right" size={14} /></span></span>
+            <nav aria-label="Phân trang phiếu nhập" className="flex items-center gap-3">
+              <Button variant="link" small disabled={paged.page <= 1} onClick={() => setPageNumber(paged.page - 1)}><Icon name="chevron-left" size={14} />Trước</Button>
+              <span className="text-xs">Trang {paged.page}/{paged.pageCount}</span>
+              <Button variant="link" small disabled={paged.page >= paged.pageCount} onClick={() => setPageNumber(paged.page + 1)}>Sau<Icon name="chevron-right" size={14} /></Button>
+            </nav>
           </div>
         </div>
 
@@ -189,32 +216,6 @@ export default function ImportList() {
           chỉ hủy cả phiếu khi chưa con nào có sự kiện khác (GBR-33).
         </Foot>
       </div>
-      {draftToDiscard && (
-        <DiscardEntryDraftDialog
-          draft={draftToDiscard}
-          saving={discarding}
-          error={discardError}
-          onConfirm={async (snapshot) => {
-            setDiscarding(true)
-            setDiscardError(null)
-            try {
-              await discardHerdEntryDraft(snapshot.id, snapshot.version, snapshot.backendId)
-              await refetch()
-              setDraftToDiscard(null)
-            } catch (commandError) {
-              setDiscardError(commandError)
-            } finally {
-              setDiscarding(false)
-            }
-          }}
-          onReload={async () => {
-            await refetch()
-            setDraftToDiscard(null)
-            setDiscardError(null)
-          }}
-          onClose={() => { if (!discarding) setDraftToDiscard(null) }}
-        />
-      )}
     </Layout>
   )
 }

@@ -4,6 +4,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -35,6 +37,7 @@ import vn.edu.fpt.beefcare.repository.SupportTicketRepository;
 @Service
 public class EmailDeliveryJobService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(EmailDeliveryJobService.class);
     private static final String EMAIL_VERIFICATION = "EMAIL_VERIFICATION";
     private static final String PASSWORD_RESET = "PASSWORD_RESET";
     private static final int MAX_ATTEMPTS = 8;
@@ -118,6 +121,14 @@ public class EmailDeliveryJobService {
                 job.setSentAt(Instant.now());
                 job.setLeaseUntil(null);
                 job.setLastError(null);
+                LOG.info(
+                    "Email delivery job {} sent (template={}, source={}, sourceId={}, attempt={})",
+                    job.getId(),
+                    job.getTemplateKey(),
+                    job.getLinkSource(),
+                    job.getLinkSourceId(),
+                    job.getAttempts()
+                );
             }));
         } catch (RuntimeException failure) {
             requiresNew.executeWithoutResult(status -> jobs.findById(id).ifPresent(job -> {
@@ -133,6 +144,16 @@ public class EmailDeliveryJobService {
                     Instant available = Instant.now().plusSeconds(delay);
                     job.setAvailableAt(dayLimited && available.isAfter(deadline) ? deadline : available);
                 }
+                LOG.warn(
+                    "Email delivery job {} failed (template={}, source={}, sourceId={}, attempt={}, status={})",
+                    job.getId(),
+                    job.getTemplateKey(),
+                    job.getLinkSource(),
+                    job.getLinkSourceId(),
+                    job.getAttempts(),
+                    job.getStatus(),
+                    failure
+                );
             }));
         }
     }

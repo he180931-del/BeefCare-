@@ -149,7 +149,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   const [modal, openModal, closeModal] = useModalParam()
   const [suppliers, setSuppliers] = useState(initialSuppliers)
   const [values, setValues] = useState<FeedReceiptFormValues>(() => {
-    const initial = initialFeedReceiptForm(record, initialFeedItemId)
+    const initial = initialFeedReceiptForm(record, initialFeedItemId, session?.fullName ?? '')
     if (!record && initialFeedItemId) {
       const feed = stockRows.find((row) => row.feedItemId === Number(initialFeedItemId))
       if (initial.lines[0] && feed) initial.lines[0].purchaseUnit = feed.purchaseUnit ?? 'kg'

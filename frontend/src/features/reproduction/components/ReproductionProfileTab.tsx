@@ -7,11 +7,11 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import {
-  ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
+  ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, addDaysText, daysBetween, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
 } from '../domain/reproductionRules'
 import type { ReproductionFemale, ReproductionRole } from '../types'
 import ReproductionActionDialog, { type ReproductionDialogTarget } from './ReproductionActionDialog'
-import { CalfHistoryCard, EligibilityCard, LastBreedingCard, PregnancyCard, WindowCard } from './ReproductionCards'
+import { CalfHistoryCard, EligibilityCard, LastBreedingCard, PregnancyCard } from './ReproductionCards'
 import ReproductionTimeline, { type TimelineRecord } from './ReproductionTimeline'
 import { nowLocal } from './reproductionFields'
 import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
@@ -44,7 +44,8 @@ function MoreMenu({ onPick }: { onPick: (action: ReproductionAction) => void }) 
     <div className="relative">
       <Button variant="onDark" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>Thêm<Icon name="chevron-down" size={16} /></Button>
       {open && (
-        <div role="menu" className="absolute right-0 top-[calc(100%+4px)] z-10 flex min-w-[260px] flex-col rounded-lg border border-edge bg-white py-1 shadow-md">
+        // Menu nằm trong khối xanh đậm (chữ trắng): đặt màu chữ riêng để không trắng trên nền trắng.
+        <div role="menu" className="absolute left-0 top-[calc(100%+4px)] z-10 flex min-w-[260px] flex-col rounded-xl border border-edge bg-white py-1 text-ink shadow-md">
           {items.map(([action, label]) => (
             <button key={action} type="button" role="menuitem" className="cursor-pointer px-3 py-2 text-left text-xs hover:bg-page" onClick={() => { setOpen(false); onPick(action) }}>{label}</button>
           ))}
@@ -54,58 +55,103 @@ function MoreMenu({ onPick }: { onPick: (action: ReproductionAction) => void }) 
   )
 }
 
-function StatusCard({ profile, canManage, onAction }: { profile: ReproductionFemale; canManage: boolean; onAction: (action: ReproductionAction) => void }) {
+const STATUS_TEXT: Record<string, string> = {
+  AWAITING_BREEDING: 'Chờ phối', IN_ESTRUS: 'Đang động dục', BRED: 'Đã phối – chờ khám thai', PREGNANT: 'Mang thai', POST_CALVING: 'Sau sinh',
+}
+
+/**
+ * Khối nổi bật của tab (Bento §3): chỉ trả lời "bò đang ở đâu" và "việc tiếp theo"; nút ghi ở cuối khối. Các chỉ số sinh
+ * sản nằm ở dải riêng bên dưới để khối này không thành bảng số (D68).
+ */
+function StatusCard({ profile, canManage, onAction, className }: { profile: ReproductionFemale; canManage: boolean; onAction: (action: ReproductionAction) => void; className?: string }) {
   const primary = primaryActionFor(profile.status)
   const active = canManage && profile.herdStatus === 'ACTIVE'
-  const shown = active ? actionsForStatus(profile.status).sort((a, b) => Number(a === primary) - Number(b === primary)) : []
+  const shown = active ? actionsForStatus(profile.status).sort((a, b) => Number(b === primary) - Number(a === primary)) : []
   const showMore = active && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
-  const hasCalvings = profile.calvings.some((calving) => calving.status === 'VALID')
-  const ind = profile.indicators
-  const dash = (value: number | null, unit: string) => (value == null ? '—' : `${value} ${unit}`)
-  // Khối nổi bật của tab (docs/BeefCare-Bento-Grid.md §3): trạng thái hiện tại cạnh các nút ghi; nút chính nền trắng.
+  const now = nowLocal()
+  const soon = isDueSoon(profile, now)
+  const title = profile.status ? (soon ? 'Mang thai · Sắp đẻ' : STATUS_TEXT[profile.status]) : '—'
   return (
-    <Panel
-      tone="emphasis"
-      title={<span className="flex flex-wrap items-center gap-2.5 text-base font-semibold">Trạng thái sinh sản<StatusBadge profile={profile} />{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</span>}
-      actions={(shown.length > 0 || showMore) && (
-        <div className="flex flex-wrap items-center justify-end gap-2.5">
+    <Panel tone="emphasis" className={`justify-between gap-4 ${className ?? ''}`}>
+      <div className="flex flex-col gap-1">
+        <h2 className="m-0 flex flex-wrap items-center gap-2 text-xs font-normal text-side-text">Trạng thái sinh sản{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</h2>
+        <p className="m-0 text-[26px] font-bold leading-tight text-white">{title}</p>
+        {profile.statusAt && <p className="m-0 text-xs text-side-text">Từ {formatDate(profile.statusAt)}</p>}
+      </div>
+      <NextStep profile={profile} now={now} />
+      {(shown.length > 0 || showMore) && (
+        <div className="flex flex-wrap items-center gap-2.5">
           {shown.map((action) => (
             <Button key={action} variant={action === primary ? 'onDarkPrimary' : 'onDark'} onClick={() => onAction(action)}><Icon name={ACTION_ICON[action]} size={16} />{ACTION_LABEL[action]}</Button>
           ))}
           {showMore && <MoreMenu onPick={onAction} />}
         </div>
       )}
-    >
-      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 @min-[640px]:grid-cols-4">
-        <DarkKV k="Số lần phối (chu kỳ này)">{profile.servicesInCurrentCycle}</DarkKV>
-        <DarkKV k="Số lần đẻ">{profile.parity}</DarkKV>
-        <DarkKV k="Lần đẻ gần nhất"><span className="whitespace-nowrap">{formatDate(profile.lastCalvingAt)}</span></DarkKV>
-        <DarkKV k="Cân gần nhất"><span className="whitespace-nowrap">{profile.latestWeightKg == null ? '—' : `${profile.latestWeightKg} kg · thực tế`}</span></DarkKV>
-        {profile.status === 'PREGNANT' && <>
-          <DarkKV k="Khoảng cách lứa gần nhất">{dash(ind.lastCalvingIntervalDays, 'ngày')}</DarkKV>
-          <DarkKV k="Phối / đậu thai">{ind.conceptionDetail ?? ind.conceptionSummary}</DarkKV>
-        </>}
-      </dl>
-      {hasCalvings ? (
-        <dl className="m-0 grid grid-cols-2 gap-3 rounded-xl bg-white/8 px-3.5 py-2.5 @min-[640px]:grid-cols-5">
-          <DarkKV k="Tuổi đẻ lứa đầu" strong>{dash(ind.ageAtFirstCalvingMonths, 'tháng')}</DarkKV>
-          <DarkKV k="Khoảng cách lứa gần nhất" strong>{dash(ind.lastCalvingIntervalDays, 'ngày')}</DarkKV>
-          <DarkKV k="Ngày sau đẻ" strong>{dash(ind.daysSinceLastCalving, 'ngày')}</DarkKV>
-          <DarkKV k="Ngày không mang thai" strong>{dash(ind.daysOpen, 'ngày')}</DarkKV>
-          <DarkKV k="Thụ thai" strong>{ind.conceptionSummary}</DarkKV>
-        </dl>
-      ) : <p className="m-0 rounded-xl bg-white/8 px-3.5 py-2.5 text-xs text-white">Chưa có chỉ số sinh sản: bò chưa đẻ lứa nào.</p>}
     </Panel>
   )
 }
 
-/** Cặp nhãn – giá trị trên khối xanh đậm: nhãn #d9e8df (≈ 9:1 trên nền), giá trị trắng. */
-function DarkKV({ k, strong, children }: { k: string; strong?: boolean; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="mb-[3px] text-[11px] text-side-text">{k}</dt>
-      <dd className={`m-0 text-[13px] text-white ${strong ? 'font-semibold' : 'font-medium'}`}>{children}</dd>
+/** "Việc tiếp theo" theo trạng thái: một câu và, khi có, một thanh tiến độ (sau đẻ, mang thai). */
+function NextStep({ profile, now }: { profile: ReproductionFemale; now: string }) {
+  const box = (label: string, text: ReactNode, progress?: number) => (
+    <div className="flex flex-col gap-2 rounded-xl bg-white/8 px-4 py-3">
+      <p className="m-0 text-[11px] text-side-text">{label}</p>
+      <p className="m-0 text-sm font-semibold text-white">{text}</p>
+      {progress !== undefined && (
+        <div className="h-2 overflow-hidden rounded-full bg-white/15" aria-hidden="true">
+          <span className="block h-full rounded-full bg-[#9fd3b2]" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+        </div>
+      )}
     </div>
+  )
+  if (profile.status === 'IN_ESTRUS' && profile.breedingWindow) {
+    const w = profile.breedingWindow
+    const today = w.from.slice(0, 10) === now.slice(0, 10)
+    const range = `${w.from.slice(11, 16)} – ${w.to.slice(11, 16)}${today ? ' hôm nay' : ` ngày ${formatDate(w.from)}`}`
+    return box('Cửa sổ phối gợi ý', now > w.to ? `Đã qua ${range}; vẫn ghi phối được nếu bò còn chịu đực` : `Nên phối ${range}`)
+  }
+  if (profile.status === 'POST_CALVING') {
+    const need = profile.eligibility?.requiredPostpartumDays ?? 45
+    const days = profile.eligibility?.daysSinceCalving ?? profile.indicators.daysSinceLastCalving ?? 0
+    const ready = profile.lastCalvingAt ? formatDate(addDaysText(profile.lastCalvingAt, need)) : '—'
+    return box('Hồi phục sau đẻ', days >= need ? 'Đủ ngày hồi phục – có thể phối lại' : `Ngày ${days} / ${need} · có thể phối lại từ ${ready}`, (days / need) * 100)
+  }
+  if (profile.status === 'BRED') {
+    const breeding = profile.events.filter((e) => e.type === 'BREEDING' && e.status === 'VALID').sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0]
+    if (!breeding) return null
+    const days = daysBetween(breeding.occurredAt, now)
+    return box('Việc tiếp theo', days >= 30 ? `Đã phối ${days} ngày – khám thai được rồi` : `Đã phối ${days} ngày · khám thai từ ${formatDate(addDaysText(breeding.occurredAt, 30))}`)
+  }
+  if (profile.status === 'PREGNANT' && profile.openPregnancy?.expectedCalvingAt) {
+    const left = daysBetween(now, profile.openPregnancy.expectedCalvingAt)
+    const text = left >= 0 ? `Dự kiến đẻ ${formatDate(profile.openPregnancy.expectedCalvingAt)} · còn ${left} ngày` : `Quá ngày dự kiến đẻ ${-left} ngày`
+    return box(isDueSoon(profile, now) ? 'Chuẩn bị chuồng đẻ' : 'Việc tiếp theo', text, ((283 - Math.max(0, left)) / 283) * 100)
+  }
+  if (profile.status === 'AWAITING_BREEDING') return box('Việc tiếp theo', 'Theo dõi lên giống; ghi phối khi bò chịu đực')
+  return null
+}
+
+/** Dải chỉ số sinh sản (nền trắng, phụ): chỉ hiện chỉ số đã có giá trị, không hiện "—" (D68). */
+function IndicatorStrip({ profile, className }: { profile: ReproductionFemale; className?: string }) {
+  const ind = profile.indicators
+  const items: Array<[string, string | null]> = [
+    ['Số lứa đẻ', profile.parity ? String(profile.parity) : null],
+    ['Lần đẻ gần nhất', profile.lastCalvingAt ? formatDate(profile.lastCalvingAt) : null],
+    ['Tuổi đẻ lứa đầu', ind.ageAtFirstCalvingMonths == null ? null : `${ind.ageAtFirstCalvingMonths} tháng`],
+    ['Khoảng cách lứa gần nhất', ind.lastCalvingIntervalDays == null ? null : `${ind.lastCalvingIntervalDays} ngày`],
+    ['Số lần phối (chu kỳ này)', profile.servicesInCurrentCycle ? String(profile.servicesInCurrentCycle) : null],
+    ['Thụ thai', profile.parity || profile.servicesInCurrentCycle ? ind.conceptionDetail ?? ind.conceptionSummary : null],
+  ]
+  const shown = items.filter((item): item is [string, string] => item[1] != null)
+  if (!shown.length) return null
+  return (
+    <Panel className={className} title={<span className="text-sm font-semibold">Chỉ số sinh sản</span>}>
+      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
+        {shown.map(([k, v]) => (
+          <div key={k} className="min-w-0"><dt className="mb-[3px] text-[11px] text-label">{k}</dt><dd className="m-0 text-[13px] font-semibold text-ink">{v}</dd></div>
+        ))}
+      </dl>
+    </Panel>
   )
 }
 
@@ -129,7 +175,8 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
   const [params, setParams] = useSearchParams()
   const setDialog = (next: ReproductionDialogTarget | null) => {
-    setLocalDialog(next && next.mode !== 'record' ? next : null)
+    // Ghi theo URL (?m=…) không cần giữ cục bộ; riêng khám thai "quan sát" (D67) cần giữ cờ điền sẵn.
+    setLocalDialog(next && (next.mode !== 'record' || next.observed) ? next : null)
     if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
     else if (!next && params.has('r')) {
       // Opened from the timeline (?m=correct|void&r=<id>): clear both so the dialog does not reopen.
@@ -171,15 +218,16 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
 
   const status = profile.status
   const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')
-  const showWindow = status === 'IN_ESTRUS' && !!profile.breedingWindow
   const hasCalvings = profile.calvings.some((calving) => calving.status === 'VALID')
+  const context = showEligibility ? <EligibilityCard profile={profile} />
+    : status === 'BRED' ? <LastBreedingCard profile={profile} onConfirmObserved={canManage && profile.herdStatus === 'ACTIVE' ? () => setDialog({ mode: 'record', action: 'RECORD_PREGNANCY_CHECK', observed: true }) : undefined} />
+      : status === 'PREGNANT' ? <PregnancyCard profile={profile} /> : null
 
-  const pair = showEligibility && showWindow
-  // Lưới Bento theo vùng nội dung (docs/BeefCare-Bento-Grid.md §2): 1 cột, 8 cột từ 640 px, 12 cột từ 1.024 px. Các cặp khối
-  // chỉ đứng cạnh nhau từ 880 px (laptop 1.280 px có sidebar) để bảng và dải giờ không bị ép.
+  // Lưới Bento (docs/BeefCare-Bento-Grid.md §2): hàng đầu 7 + 5 từ 880 px – trạng thái và khối ngữ cảnh của trạng thái đó;
+  // dưới là dải chỉ số, lịch sử sinh bê và dòng thời gian, mỗi khối một hàng (D68).
   return (
     <div className="@container">
-      <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6 [&>*]:col-span-full [&>*]:min-w-0">
+      <div className="grid grid-cols-1 gap-4 @min-[880px]:grid-cols-12 @min-[1024px]:gap-6 [&>*]:col-span-full [&>*]:min-w-0">
       {notice && <Note tone="ok">{notice}</Note>}
       {error && <Note tone="err">{error}</Note>}
       {!canManage && <Note tone="info">Chế độ chỉ xem.</Note>}
@@ -189,15 +237,11 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
         <Panel title="Trạng thái sinh sản"><Note>Không theo dõi sinh sản cho bò này theo giai đoạn hoặc mục đích nuôi. Nếu đã có khám thai hoặc sự kiện đẻ thực tế, hãy ghi từ "Thêm". Dòng thời gian vẫn được giữ.</Note></Panel>
       ) : (
         <>
-          <StatusCard profile={profile} canManage={canManage} onAction={run} />
-          {showEligibility && <div className={pair ? '@min-[880px]:col-span-4! @min-[1024px]:col-span-6!' : undefined}><EligibilityCard profile={profile} /></div>}
-          {showWindow && <div className={pair ? '@min-[880px]:col-span-4! @min-[1024px]:col-span-6!' : undefined}><WindowCard profile={profile} /></div>}
-          {status === 'BRED' && <LastBreedingCard profile={profile} />}
-          {status === 'PREGNANT' && <>
-            <div className="@min-[880px]:col-span-5! @min-[1024px]:col-span-8!"><PregnancyCard profile={profile} /></div>
-            <div className="@min-[880px]:col-span-3! @min-[1024px]:col-span-4!"><CalfHistoryCard profile={profile} /></div>
-          </>}
-          {status === 'POST_CALVING' && hasCalvings && <CalfHistoryCard profile={profile} />}
+          <StatusCard profile={profile} canManage={canManage} onAction={run} className={context ? '@min-[880px]:col-span-7!' : undefined} />
+          {context && <div className="flex @min-[880px]:col-span-5! [&>*]:flex-1">{context}</div>}
+          {/* Hàng 2: chỉ số (5) cạnh lịch sử sinh bê (7) khi bò đã đẻ; chưa đẻ thì chỉ số chiếm cả hàng. */}
+          <IndicatorStrip profile={profile} className={hasCalvings ? '@min-[880px]:col-span-5!' : undefined} />
+          {hasCalvings && <div className="flex @min-[880px]:col-span-7! [&>*]:flex-1"><CalfHistoryCard profile={profile} /></div>}
         </>
       )}
 

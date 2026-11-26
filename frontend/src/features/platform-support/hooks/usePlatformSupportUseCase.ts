@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { supportApi } from '../api/supportApi'
 import { SupportError } from '../domain/supportRules'
-import type { Actor, CompleteCommand, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
+import type { Actor, CompleteCommand, CreateInternalCommand, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
 
 /**
  * Feature-owned query and command boundary for support screens.
@@ -52,10 +52,6 @@ export function useSupportRecipients(role: TargetRole) {
   return useQuery(() => supportApi.listRecipients(role), [role])
 }
 
-export function useSupportDomainResults(actor: Actor, code: string) {
-  return useQuery(() => supportApi.listDomainResults(actor, code), [actor.id, actor.role, code])
-}
-
 /** Memoized mutation boundary used by support pages and dialogs. */
 export function useSupportCommands() {
   const claim = useCallback((actor: Actor, code: string, command: { reason?: string; expectedVersion: number }) => supportApi.claim(actor, code, command), [])
@@ -67,8 +63,8 @@ export function useSupportCommands() {
   const classify = useCallback((actor: Actor, code: string, command: { category?: TicketCategory; priority?: TicketPriority; expectedVersion?: number }) => supportApi.classify(actor, code, command), [])
   const resolve = useCallback((actor: Actor, code: string, command: { content: string; expectedVersion?: number }) => supportApi.resolve(actor, code, command), [])
   const close = useCallback((actor: Actor, code: string, command: { reviewed: boolean; note?: string; expectedVersion?: number }) => supportApi.close(actor, code, command), [])
-  const createInternal = useCallback((actor: Actor, code: string, command: { targetRole: TargetRole; recipientId: number; question: string; context?: Array<{ type: string; id: number; label: string }> }) => supportApi.createInternal(actor, code, command), [])
-  const manageInternal = useCallback((actor: Actor, code: string, irCode: string, command: { action: 'REASSIGN' | 'CANCEL'; recipientId?: number; reason: string }) => supportApi.manageInternal(actor, code, irCode, command), [])
+  const createInternal = useCallback((actor: Actor, code: string, command: CreateInternalCommand) => supportApi.createInternal(actor, code, command), [])
+  const manageInternal = useCallback((actor: Actor, code: string, irCode: string, command: { action: 'REASSIGN' | 'CANCEL' | 'CLARIFY'; recipientId?: number; reason?: string; clarificationText?: string }) => supportApi.manageInternal(actor, code, irCode, command), [])
   const markNotificationRead = useCallback((id: number) => supportApi.markNotificationRead(id), [])
   const markAllNotificationsRead = useCallback(() => supportApi.markAllNotificationsRead(), [])
   const completeInternal = useCallback((actor: Actor, code: string, command: CompleteCommand) => supportApi.completeInternal(actor, code, command), [])

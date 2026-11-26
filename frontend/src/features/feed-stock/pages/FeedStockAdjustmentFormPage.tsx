@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useSession } from '../../../app/session/sessionContext'
 import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { listFeedStock } from '../api/feedStockApi'
@@ -97,7 +98,8 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
   postAdjustment: ReturnType<typeof useFeedStockAdjustmentForm>['post']
 }) {
   const navigate = useNavigate()
-  const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
+  const session = useSession()
+  const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows, session?.fullName ?? ''))
   const [currentRecord, setCurrentRecord] = useState(record)
   const [docs, setDocs] = useState<Array<{ name: string; ext: string }>>([])
   const [attachments, setAttachments] = useState(initialAttachments)

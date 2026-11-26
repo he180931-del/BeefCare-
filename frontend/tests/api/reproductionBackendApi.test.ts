@@ -161,7 +161,7 @@ test('TC-11-13 / TC-11-08 / TC-11-07 / BR-D14: lỗi backend thành câu tiếng
   assert.deepEqual(sire.issues, [{ field: 'sireCattleId', message: 'Đực giống phải là một bò đực khác của trại này.' }])
   const early = mapReproductionError(backendError(422, 'MSG-FE11-10', { event: 'động dục', time: '05/11/2026 06:30', field: 'bredAt' })) as ReproductionValidationError
   assert.deepEqual(early.issues, [{ field: 'occurredAt', message: 'Thời điểm không được sớm hơn động dục liên kết (05/11/2026 06:30).' }])
-  assert.equal((mapReproductionError(backendError(422, 'MSG-FE11-05', { cattle_code: 'BC-087' })) as Error).message, 'BC-087 đang có thai đã xác nhận. Hãy xem lại trạng thái sinh sản trước khi ghi.')
+  assert.equal((mapReproductionError(backendError(422, 'MSG-FE11-05', { cattle_code: 'BC-087' })) as Error).message, 'BC-087 đang có thai đã xác nhận nên không ghi động dục / phối. Nếu bò có biểu hiện lên giống khi đang mang thai, hãy ghi ở "Diễn biến thai" (loại Theo dõi).')
   const entry = mapReproductionError(backendError(422, 'MSG-COM-15', { date: '2026-10-25', field: 'observedAt' })) as ReproductionValidationError
   assert.equal(entry.issues[0].message, 'Thời điểm không được trước ngày nhập đàn (25/10/2026).')
   assert.equal((mapReproductionError(backendError(422, 'MSG-FE11-11', { reason: 'PURPOSE' })) as Error).message, 'Con này không được theo dõi sinh sản. Nếu thực sự đã khám thai hoặc đẻ, hãy ghi từ Thao tác khác.')

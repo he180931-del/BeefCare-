@@ -28,6 +28,7 @@ export default function CaseViewDialog({ cattleCode, caseId, onClose, onReopen }
 
 function CaseView({ card, rows, onClose, onReopen }: { card: HealthCaseCard; rows: HealthTimelineRow[]; onClose: () => void; onReopen?: () => void }) {
   const treatments = rows.filter((r) => r.type === 'TREATMENT' && r.status === 'VALID')
+  const shown = rows.filter((r) => r.status !== 'VOIDED')
   const lost = card.outcome === 'DIED' || card.outcome === 'MISSING'
   return (
     <Modal title={`Ca ${card.caseCode} · ${caseLabel(card)}`} sub={`Mở ${fmtDate(card.openedDate)} · đóng ${fmtDate(card.closedAt?.slice(0, 10) ?? '')}`} width={700} onClose={onClose}>
@@ -47,9 +48,9 @@ function CaseView({ card, rows, onClose, onReopen }: { card: HealthCaseCard; row
         )}
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="m-0 text-[13px] font-semibold text-ink">Diễn biến &amp; điều trị ({rows.length})</h3>
+        <h3 className="m-0 text-[13px] font-semibold text-ink">Diễn biến &amp; điều trị ({shown.length})</h3>
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-          {rows.map((r, i) => <TimelineRow key={r.id} row={r} first={i === 0} canEdit={false} onEdit={() => undefined} />)}
+          {shown.map((r, i) => <TimelineRow key={r.id} row={r} first={i === 0} canEdit={false} onEdit={() => undefined} />)}
         </ul>
       </section>
       <ModalFooter>

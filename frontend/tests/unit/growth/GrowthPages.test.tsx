@@ -25,13 +25,28 @@ describe('danh sách đàn /can-nang', () => {
     const user = userEvent.setup()
     renderAs('OWNER', <GrowthRoutes />, '/')
     expect(await screen.findByText('BC-000188')).toBeInTheDocument()
-    expect(screen.getByText('chu kỳ cân 30 ngày')).toBeInTheDocument()
+    // D72: một khối nổi bật "Cần cân lại"; khối cần chú ý đỏ nhạt khi có bò BCS / ADG thấp.
+    const tiles = screen.getByRole('region', { name: 'Chỉ số tăng trưởng' })
+    expect(tiles.querySelectorAll('.bg-brand-dark')).toHaveLength(1)
+    expect(within(tiles).getByText('Cần cân lại')).toBeInTheDocument()
+    expect(within(tiles).getByText(/^(Cần chú ý|Thể trạng ổn)$/)).toBeInTheDocument()
     await user.type(screen.getByLabelText('Tìm mã hiển thị, số tai'), 'Hoa')
-    expect(await screen.findByText('BC-000125 “Hoa Đỏ”')).toBeInTheDocument()
+    expect(await screen.findByText('BC-000125 · Hoa Đỏ')).toBeInTheDocument()
     expect(screen.queryByText('BC-000188')).not.toBeInTheDocument()
     await user.clear(screen.getByLabelText('Tìm mã hiển thị, số tai'))
     await user.type(screen.getByLabelText('Tìm mã hiển thị, số tai'), 'zzz')
     expect(await screen.findByText('Không có bò phù hợp')).toBeInTheDocument()
+  })
+
+  it('D74: "Xem" ở khối cần chú ý mở tab BCS thấp; tab Tất cả bỏ lọc', async () => {
+    const user = userEvent.setup()
+    renderAs('OWNER', <GrowthRoutes />, '/')
+    await user.click(await screen.findByRole('button', { name: 'Xem bò BCS thấp' }))
+    expect(await screen.findByRole('row', { name: /^Mở hồ sơ BC-000087/ })).toBeInTheDocument()
+    const rows = screen.getAllByRole('row', { name: /^Mở hồ sơ / })
+    rows.forEach((row) => expect(within(row).getByText('BCS thấp')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Tất cả' }))
+    expect(await screen.findByText('BC-000188')).toBeInTheDocument()
   })
 
   it('báo lỗi tải và cho thử lại', async () => {
@@ -44,7 +59,7 @@ describe('danh sách đàn /can-nang', () => {
 })
 
 describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
-  it('TC-08-11: renders an em dash when the ten-day ADG rule yields no value', async () => {
+  it('TC-08-11: renders an em dash when there are not enough weighings for ADG', async () => {
     const profile = await growthApi.getProfile('BC-000203')
     vi.spyOn(growthApi, 'getProfile').mockResolvedValue({
       ...profile,
@@ -58,9 +73,9 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
 
     renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
 
-    const label = await screen.findByText('Tăng cân bình quân (ADG)')
-    expect(label.parentElement?.parentElement).toHaveTextContent('—')
-    expect(label.parentElement?.parentElement).toHaveTextContent('Cần ≥ 2 lần cân cách nhau từ 14 ngày trong 90 ngày gần nhất')
+    const label = await screen.findByText('Tăng cân bình quân')
+    expect(label.parentElement).toHaveTextContent('—')
+    expect(label.parentElement).toHaveTextContent('Cần ≥ 2 lần cân cách nhau từ 14 ngày trong 90 ngày gần nhất')
   })
 
   it('ưu tiên dự kiến xuất bán và tiến độ vỗ béo, sau đó là biểu đồ và lịch sử đo (Figma Tab 17)', async () => {
@@ -69,7 +84,7 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     const progress = screen.getByRole('region', { name: 'Tiến độ vỗ béo' })
     const nextSteps = screen.getByRole('region', { name: 'Tăng cân và lần cân tới' })
     const trend = screen.getByRole('region', { name: 'Cân nặng theo thời gian' })
-    const history = screen.getByRole('region', { name: 'Lịch sử đo' })
+    const history = screen.getByRole('region', { name: /^Lịch sử đo/ })
 
     expect(within(projection).getByText('Ước tính')).toBeInTheDocument()
     expect(within(projection).getByText('Đủ 380 kg vào khoảng')).toBeInTheDocument()
@@ -146,7 +161,7 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
   it('D43: sửa được khi để trống ghi chú', async () => {
     const user = userEvent.setup()
     renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
-    await screen.findByText('Lịch sử đo')
+    await screen.findByText(/^Lịch sử đo \(/)
     await user.click(screen.getAllByRole('button', { name: 'Sửa' })[0])
     const dialog = await screen.findByRole('dialog')
     await user.clear(within(dialog).getByLabelText('Ghi chú'))
@@ -157,7 +172,7 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
   it('D43: Xóa hỏi xác nhận, rồi lần đo biến mất khỏi lịch sử đo', async () => {
     const user = userEvent.setup()
     renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
-    await screen.findByText('Lịch sử đo')
+    await screen.findByText(/^Lịch sử đo \(/)
     await user.click(screen.getAllByRole('button', { name: 'Xóa' })[0])
     const dialog = await screen.findByRole('dialog', { name: /Xóa lần đo/ })
     await user.click(within(dialog).getByRole('button', { name: 'Xóa' }))
@@ -174,7 +189,7 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
 
   it('TECHNICIAN chỉ xem, không có nút ghi nhận và cột Thao tác', async () => {
     renderAs('TECHNICIAN', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
-    await screen.findByText('Lịch sử đo')
+    await screen.findByText(/^Lịch sử đo \(/)
     expect(screen.queryByRole('button', { name: /Ghi nhận cân & BCS/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Thao tác')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -217,10 +232,11 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     expect(await screen.findByText('Chưa có lần đo nào')).toBeInTheDocument()
     expect(screen.getByText('Chưa có lần cân hợp lệ để vẽ biểu đồ.')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Dự kiến xuất bán' })).not.toBeInTheDocument()
-    // Không có dự kiến: 5 chỉ số đứng chung một hàng trước biểu đồ.
-    const summary = screen.getByRole('region', { name: 'Chỉ số tăng trưởng' })
-    expect(within(summary).getByText('BCS gần nhất')).toBeInTheDocument()
-    expect(within(summary).getByText('Số lần đo')).toBeInTheDocument()
+    // D72: không có dự kiến – một khối nổi bật "Cân gần nhất" (tăng cân, thể trạng, lần cân tới) đứng trước biểu đồ.
+    const summary = screen.getByRole('heading', { name: 'Cân gần nhất' }).closest('section') as HTMLElement
+    expect(summary).toHaveClass('bg-brand-dark')
+    expect(within(summary).getByText('Thể trạng (BCS)')).toBeInTheDocument()
+    expect(within(summary).getByText(/Lần cân tới/)).toBeInTheDocument()
     expect(summary.compareDocumentPosition(screen.getByRole('region', { name: 'Cân nặng theo thời gian' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 

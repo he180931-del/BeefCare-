@@ -58,6 +58,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
       { label: 'DỊCH VỤ', items: [item('Dịch vụ trang trại', '/nen-tang/dich-vu', 'building-community'), item('Gói đăng ký', '/nen-tang/goi-dang-ky', 'calendar-dollar'), item('Thanh toán & đối soát', '/nen-tang/thanh-toan', 'arrows-exchange'), item('Bảng giá gói', '/nen-tang/bang-gia', 'currency-dong'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'TÀI CHÍNH NỀN TẢNG', items: [item('Biên nhận gói', '/nen-tang/bien-nhan', 'receipt'), item('Thu chi khác', '/nen-tang/thu-chi', 'cash'), item('Báo cáo dòng tiền', '/nen-tang/bao-cao-dong-tien', 'chart-line')] },
       { label: 'KHÁC', items: [item('Thông báo đối soát', '/nen-tang/thong-bao-doi-soat', 'bell'), item('Thông báo hỗ trợ', '/nen-tang/thong-bao-ho-tro', 'bell')] },
+      { label: 'TÀI KHOẢN', items: [item('Hồ sơ của tôi', `${PLATFORM_PROFILE}?m=ho-so`, 'user-circle')] },
     ],
   },
   SA: {
@@ -66,6 +67,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     groups: [
       { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'KHÁC', items: [item('Thông báo', '/nen-tang/thong-bao', 'bell')] },
+      { label: 'TÀI KHOẢN', items: [item('Hồ sơ của tôi', `${PLATFORM_PROFILE}?m=ho-so`, 'user-circle')] },
     ],
   },
 }
@@ -122,9 +124,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   return (
     <TopbarTitleContext.Provider value={setOverride}>
       <div className="min-h-screen overflow-x-clip">
-        {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
+        {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden print:hidden" onClick={() => setOpen(false)} />}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-[264px] overflow-hidden bg-side transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed inset-y-0 left-0 z-30 w-[264px] overflow-hidden bg-side transition-transform lg:translate-x-0 print:hidden ${open ? 'translate-x-0' : '-translate-x-full'}`}
         >
           <div className="absolute left-[22px] top-5 flex items-center gap-2.5 text-[19px] font-bold text-white">
             <img src={logo} alt="" className="size-[38px] rounded-[10px] object-cover" />
@@ -166,8 +168,8 @@ export default function Layout({ title, user = 'owner', children }: { title: str
           <img src={farm} alt="" className="pointer-events-none absolute bottom-0 left-0 h-[234px] w-[264px] object-cover opacity-[0.72]" />
         </aside>
 
-        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px]" style={{ backgroundImage: `url(${wave})` }}>
-          <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px]">
+        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px] print:ml-0 print:bg-none! print:bg-white" style={{ backgroundImage: `url(${wave})` }}>
+          <header className="flex min-h-[72px] items-center bg-white px-4 py-2 lg:pl-8 lg:pr-[30px] print:hidden">
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-11 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 wrap-anywhere pr-3 text-sm font-bold leading-tight text-ink">{override || title}</div>
             {!platform && (

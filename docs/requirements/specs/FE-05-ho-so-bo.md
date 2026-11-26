@@ -121,7 +121,7 @@ Mỗi lần đổi một nhóm trường: bò, nhóm trường, giá trị cũ, 
 ## 5. Luồng xử lý
 
 ### UC-FE05-01 Xem danh sách bò
-SCR-18: tìm, lọc, tab nhóm đàn có số đếm → bấm dòng mở SCR-19. Mặc định trạng thái đàn = ACTIVE. Không có kết quả → MSG-COM-04.
+SCR-18: tìm, lọc, tab nhóm đàn có số đếm → bấm dòng mở SCR-19. Mặc định trạng thái đàn = ACTIVE. Không có kết quả → MSG-COM-04. 10 con mỗi trang (D75).
 
 ### UC-FE05-02 Xem hồ sơ bò
 SCR-19: tiêu đề (ảnh, mã, tên, dòng tóm tắt, huy hiệu theo thứ tự §3.2), các khối Định danh, Thông tin cá thể, Tóm tắt chăm sóc, Nhắc việc liên quan; các tab. Bò EXITED: chỉ huy hiệu "Đã xuất · loại · ngày" + MSG-COM-13; VOIDED: "Nhập nhầm – đã hủy" + MSG-COM-18; phiếu chết PENDING: MSG-COM-17 kèm link phiếu (Owner: SCR-43).
@@ -163,22 +163,25 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 1 | Header / Tiêu đề | Chữ | "n đang nuôi · m đã xuất" (không đếm bò VOIDED) |
 | 2 | New entry voucher / Phiếu nhập mới | Nút (Owner, Manager) | Mở SCR-24 |
 | 3 | Search / Tìm | Ô chữ | Khớp mã hiển thị, số tai hoặc tên |
-| 4 | Breed, Sex, Pen / Giống, Giới tính, Chuồng | Dropdown | Mặc định Tất cả |
-| 5 | Purpose / Mục đích | Dropdown | Các mục đích ACTIVE; mặc định Tất cả |
-| 6 | Life stage / Giai đoạn | Dropdown | Bê chưa cai sữa, Bê cai sữa, Bò tơ, Trưởng thành; mặc định Tất cả |
+| 4 | Breed, Sex, Pen / Giống, Giới tính, Chuồng | Dropdown | Mặc định Tất cả. Chuồng ở hàng bộ lọc chính; Giống, Giới tính nằm trong "Bộ lọc khác" (D75) |
+| 5 | Purpose / Mục đích | Dropdown | Các mục đích ACTIVE; mặc định Tất cả; trong "Bộ lọc khác" |
+| 6 | Life stage / Giai đoạn | Dropdown | Bê chưa cai sữa, Bê cai sữa, Bò tơ, Trưởng thành; mặc định Tất cả; trong "Bộ lọc khác" |
+| 6a | More filters / Bộ lọc khác | Nút | Mở / đóng nhóm Giống, Giới tính, Giai đoạn, Mục đích, Dữ liệu cân, Sắp xếp; hiện số bộ lọc đang áp, tự mở khi có bộ lọc đang áp (D75) |
 | 7 | Health / Sức khỏe | Dropdown | Tất cả, Khỏe mạnh, Theo dõi, Đang điều trị, Đang cách ly thịt |
 | 8 | Herd status / Trạng thái đàn | Dropdown | ACTIVE (mặc định), Chờ xuất, EXITED, VOIDED, Tất cả |
 | 9 | Herd group tabs / Tab nhóm đàn | Tab có số đếm | Tất cả, Bò cái sinh sản, Bò tơ, Vỗ béo, Bê, Đực giống, Khác, Đã xuất; tab Khác luôn hiện kể cả 0; tổng các nhóm = tổng ACTIVE |
-| 10 | Cattle / Bò | Cột | Mã hiển thị + tên (sắp xếp được) |
-| 11 | Breed / Giống | Cột | Tên giống |
-| 12 | Sex · Age / Giới tính · Tuổi | Cột | Ví dụ "Cái · 4 năm 7 tháng"; "~" khi ước tính |
+| 10 | Cattle / Bò | Cột | Mã hiển thị + tên (sắp xếp được); dòng phụ: giống · giới tính · tuổi, ví dụ "Lai Sind · Cái · ~3t 7th" ("~" khi ước tính) (D75) |
+| 11 | Breed / Giống | — | Gộp vào dòng phụ của cột Bò (D75); sắp xếp theo giống ở "Sắp xếp" |
+| 12 | Sex · Age / Giới tính · Tuổi | — | Gộp vào dòng phụ của cột Bò (D75); sắp xếp theo ngày sinh ở "Sắp xếp" |
 | 13 | Pen / Chuồng | Cột | Mã + tên chuồng hiện tại |
-| 14 | Purpose · Stage / Mục đích · Giai đoạn | Cột | Ví dụ "Bò sinh sản · Trưởng thành"; **không** thay giai đoạn bằng nhóm đàn |
-| 15 | Latest weight / Cân gần nhất | Cột | "342 kg · 12/10"; "*" = cân ước tính |
-| 16 | Status / Trạng thái | Huy hiệu | Chờ xuất / Chờ xác nhận chết / mất; EXITED: "Đã xuất · loại · ngày"; VOIDED: "Nhập nhầm – đã hủy" |
-| 17 | Health / Sức khỏe | Huy hiệu | Chỉ ACTIVE: Khỏe mạnh / Theo dõi / Đang điều trị; "Cách ly thịt đến dd/mm"; "Nghi truyền nhiễm" khi có ca OPEN gắn cờ |
-| 18 | Reproduction / Sinh sản | Huy hiệu | Bò cái ACTIVE thuộc diện: Chờ phối / Động dục / Đã phối / Mang thai ("Sắp đẻ") / Sau sinh; còn lại "—" |
-| 19 | Open / Mở | Thao tác dòng | Mở SCR-19 |
+| 14 | Purpose · Stage / Mục đích · Giai đoạn | Cột | Mục đích, dòng phụ giai đoạn, ví dụ "Bò sinh sản" / "Trưởng thành"; **không** thay giai đoạn bằng nhóm đàn |
+| 15 | Latest weight / Cân gần nhất | Cột | "342 kg", dòng phụ ngày cân khi có; "*" = cân ước tính |
+| 16 | Status / Trạng thái | Chữ trong cột Tình trạng | Chỉ hiện khi khác Đang nuôi (D75): Chờ xuất / Chờ xác nhận chết / mất; EXITED: "Đã xuất · loại · ngày"; VOIDED: "Nhập nhầm – đã hủy" |
+| 17 | Health / Sức khỏe | Cột Tình trạng | Chỉ ACTIVE: "Khỏe mạnh" là chữ xám thường; Theo dõi (vàng) / Đang điều trị (đỏ) là huy hiệu; "Cách ly thịt đến dd/mm"; "Nghi truyền nhiễm" khi có ca OPEN gắn cờ (D75) |
+| 18 | Reproduction / Sinh sản | Huy hiệu | Bò cái ACTIVE thuộc diện: Chờ phối / Động dục / Đã phối / Mang thai ("Sắp đẻ") / Sau sinh; còn lại để trống (D75) |
+| 19 | Open / Mở | Thao tác dòng | Cả dòng bấm được (chuột, Enter / Space) mở SCR-19 |
+| 20 | Row edge / Vạch đầu dòng | Màu | Đỏ khi đang điều trị; vàng khi theo dõi, cách ly thịt hoặc chờ xuất; không tô khi bình thường (D75) |
+| 21 | Pagination / Phân trang | Điều hướng | 10 con mỗi trang; "Hiển thị a–b / n con" (D75) |
 
 ### SCR-19 Hồ sơ bò – Tổng quan
 
@@ -382,3 +385,4 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 24/11/2026 | 28/10/2026 | D75: SCR-18 theo Bento – tab gạch chân, bộ lọc và bảng trong một khối; nút "Bộ lọc khác"; giống / giới tính / tuổi gộp vào dòng phụ của Bò; trạng thái chỉ hiện khi khác Đang nuôi; vạch màu đầu dòng; 10 con mỗi trang | Tuấn |

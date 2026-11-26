@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import ServiceChangeDialog from '../../../src/features/platform-service/components/ServiceChangeDialog'
 import { platformServiceApi } from '../../../src/features/platform-service/api/platformServiceApi'
 import type { FarmOverview, FarmServicePreview } from '../../../src/features/platform-service/types'
@@ -18,14 +18,11 @@ const preview: FarmServicePreview = {
 }
 
 describe('ServiceChangeDialog reason boundaries', () => {
-  let getFarmService: ReturnType<typeof vi.spyOn<typeof platformServiceApi, 'getFarmService'>>
-  let suspendFarm: ReturnType<typeof vi.spyOn<typeof platformServiceApi, 'suspendFarm'>>
+  let suspendFarm: MockInstance<typeof platformServiceApi.suspendFarm>
 
   beforeEach(() => {
-    getFarmService = vi.spyOn(platformServiceApi, 'getFarmService')
-    suspendFarm = vi.spyOn(platformServiceApi, 'suspendFarm')
-    getFarmService.mockResolvedValue(preview)
-    suspendFarm.mockResolvedValue({ farmName: farm.farmName, serviceStatus: 'SUSPENDED' } as never)
+    vi.spyOn(platformServiceApi, 'getFarmService').mockResolvedValue(preview)
+    suspendFarm = vi.spyOn(platformServiceApi, 'suspendFarm').mockResolvedValue({ ...farm, suspended: true, serviceStatus: 'SUSPENDED' })
     vi.stubGlobal('crypto', { randomUUID: () => 'unit-test-idempotency-key' })
   })
 

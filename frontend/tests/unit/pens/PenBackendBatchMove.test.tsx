@@ -16,6 +16,7 @@ async function openBatchMove(conflict: boolean) {
     const path = new URL(String(input), 'http://backend.test').pathname
     if (path === '/api/farms/9/pens/11') return json({ ...from, cattle })
     if (path === '/api/csrf') return json({ token: 'csrf' })
+    if (path === '/api/farms/9/members') return json({ items: [] })
     if (path === '/api/farms/9/pen-moves/check') {
       return json({ destinationActive: true, capacity: 5, freePlaces: 5, movingCount: 2, blocked: false,
         cattle: cattle.map((cow) => ({ cattleId: cow.id, cattleCode: cow.code, currentPenCode: 'A',

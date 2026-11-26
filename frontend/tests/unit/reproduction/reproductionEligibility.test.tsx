@@ -26,10 +26,10 @@ describe('điều kiện phối khi bò chưa có lần cân', () => {
     expect(eligibilityLabel({ ...noWeighing, actualWeightKg: 200 })).toBe('Chưa đạt · cân 200 kg')
   })
 
-  it('tab Sinh sản: dòng cân hiện "Chưa có lần cân" ở cả giá trị và kết quả', () => {
+  it('tab Sinh sản: dòng cân hiện "Chưa có lần cân", không gọi là "Chưa đạt"', () => {
     render(<EligibilityCard profile={{ eligibility: noWeighing } as ReproductionFemale} />)
-    const row = screen.getByRole('cell', { name: 'Cân ≥ 230 kg' }).closest('tr') as HTMLElement
-    expect(within(row).getAllByText(NO_WEIGHING)).toHaveLength(2)
+    const row = screen.getByText('Cân ≥ 230 kg').closest('li') as HTMLElement
+    expect(within(row).getByText(NO_WEIGHING)).toBeInTheDocument()
     expect(within(row).queryByText('Chưa đạt')).not.toBeInTheDocument()
   })
 })
@@ -48,8 +48,34 @@ describe('TC-11-15: OPEN health-case eligibility slice', () => {
     expect(eligibilityScore(eligibility)).toMatchObject({ met: 2, total: 3, label: 'Chưa đạt 2/3', failed: ['sức khỏe'] })
 
     render(<EligibilityCard profile={{ eligibility } as ReproductionFemale} />)
-    const healthRow = screen.getByRole('cell', { name: 'Không có ca bệnh mở' }).closest('tr') as HTMLElement
+    const healthRow = screen.getByText('Không có ca bệnh mở').closest('li') as HTMLElement
     expect(within(healthRow).getByText('Có ca mở')).toBeInTheDocument()
-    expect(within(healthRow).getByText('Chưa đạt')).toBeInTheDocument()
+    expect(screen.getByText('Chưa đạt 2/3')).toBeInTheDocument()
+  })
+})
+
+describe('D67: tiêu chí sau đẻ và nhắc cân lại', () => {
+  const postpartum = mapEligibility({
+    met: false, failed: ['POSTPARTUM_INTERVAL'],
+    criteria: [
+      { name: 'MINIMUM_AGE', required: '13', value: '40', met: true },
+      { name: 'MINIMUM_WEIGHT', required: '230', value: '380', met: true },
+      { name: 'OPEN_HEALTH_CASE', required: '0', value: '0', met: true },
+      { name: 'POSTPARTUM_INTERVAL', required: '45', value: '14', met: false },
+    ],
+  }) as BreedingEligibility
+
+  it('bò mới đẻ 14 ngày: thêm dòng "Sau đẻ ≥ 45 ngày", chưa đạt 3/4', () => {
+    expect(postpartum).toMatchObject({ postpartumMet: false, requiredPostpartumDays: 45, daysSinceCalving: 14 })
+    expect(eligibilityLabel(postpartum)).toBe('Chưa đạt · sau đẻ 14 ngày')
+    render(<EligibilityCard profile={{ eligibility: postpartum } as ReproductionFemale} />)
+    expect(screen.getByText('Sau đẻ ≥ 45 ngày').closest('li')).toHaveTextContent('14 ngày')
+    expect(screen.getByText('Chưa đạt 3/4')).toBeInTheDocument()
+  })
+
+  it('chỉ thiếu lần cân: huy hiệu tổng là "Cần cân lại" (vàng), không phải "Chưa đạt"', () => {
+    render(<EligibilityCard profile={{ eligibility: noWeighing } as ReproductionFemale} />)
+    expect(screen.getByText('Cần cân lại')).toBeInTheDocument()
+    expect(screen.queryByText(/^Chưa đạt/)).not.toBeInTheDocument()
   })
 })

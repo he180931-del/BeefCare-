@@ -21,7 +21,7 @@
 | UC-FE10-02 | Mở ca sức khỏe (luôn mở ca mới – D58; phản ứng sau tiêm) | Owner, Manager | Popup Mở ca sức khỏe |
 | UC-FE10-03 | Cập nhật ca bệnh: ghi theo dõi, chuyển OPEN ⇄ CHRONIC, đóng ca trong một lần lưu (D58) | Owner, Manager | Popup Cập nhật ca bệnh |
 | UC-FE10-04 | Ghi điều trị | Owner, Manager | Popup Ghi điều trị |
-| UC-FE10-05 | Sửa / hủy điều trị hoặc lần theo dõi | Owner, Manager | Popup Sửa / Hủy điều trị hoặc theo dõi |
+| UC-FE10-05 | Sửa / xóa điều trị hoặc lần theo dõi | Owner, Manager | Popup Sửa hoặc Xóa điều trị / theo dõi (D73) |
 
 **Liên quan:** đóng ca Chết / Mất tích tạo phiếu chết PENDING cho Owner (FE-13, REM-12); xác nhận xuất đàn đóng ca với kết quả CLOSED_BY_EXIT (FE-13); danh mục thuốc (FE-18); cách ly thịt hiển thị ở FE-05.
 
@@ -109,8 +109,8 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | R-10-07 | Đóng ca Chết / Mất tích: **trong cùng transaction** tạo 1 phiếu xuất PENDING (loại DEATH; Mất tích là OTHER với lý do "Missing") liên kết ca, thông báo Owner, tạo REM-12; bò **vẫn ACTIVE** đến khi Owner xác nhận / bỏ. Hiện MSG-FE10-05. | GBR-47, GBR-95, UC-03 AF4 |
 | R-10-08 | Xác nhận xuất đàn (FE-13) đóng các ca OPEN / CHRONIC với kết quả CLOSED_BY_EXIT. | Table 3.4-4 |
 | R-10-09 | Ghi điều trị: lưu điều trị + dòng thời gian; tính lại ngày hết ngưng thịt và sức khỏe; ca CHRONIC trở về OPEN trong cùng transaction, trừ khi người dùng bỏ chọn "Chuyển ca về Đang mở" (D59). | UC-04, GBR-46 |
-| R-10-10 | Sửa / hủy điều trị hoặc theo dõi: bắt buộc lý do; giữ giá trị gốc (Record Revision); kiểm thứ tự thời gian trong ca và version; tính lại ngày hết ngưng thịt và sức khỏe trong cùng transaction; ngày hết ngưng thịt đổi → MSG-FE10-12. | GBR-46, BR-D15 |
-| R-10-11 | Quan sát mở ca chỉ sửa, **không hủy** → MSG-FE10-13; ca mở nhầm thì đóng có lý do (UC-03). | UC-05 AF3 |
+| R-10-10 | Sửa / xóa điều trị hoặc theo dõi: ghi chú không bắt buộc, tối đa 500 ký tự (D73); xóa là hủy mềm (VOIDED), bản ghi không còn hiện trong diễn biến ca; giữ giá trị gốc (Record Revision); kiểm thứ tự thời gian trong ca và version; tính lại ngày hết ngưng thịt và sức khỏe trong cùng transaction; ngày hết ngưng thịt đổi → MSG-FE10-12. | GBR-46, BR-D15 |
+| R-10-11 | Quan sát mở ca chỉ sửa, **không xóa** → MSG-FE10-13; ca mở nhầm thì đóng có lý do (UC-03). | UC-05 AF3 |
 | R-10-12 | Hủy điều trị cuối của ca OPEN → sức khỏe về Theo dõi nếu không còn ca OPEN nào có điều trị. | UC-05 AF2 |
 | R-10-13 | Không sửa / hủy bản ghi thuộc ca CLOSED_BY_EXIT. | UC-05 PRE-2 |
 | R-10-14 | Owner và Manager ghi, đổi trạng thái, sửa, hủy (D41); Technician xem. | GBR-08 |
@@ -138,8 +138,8 @@ Một popup thay cho "Ghi theo dõi" và "Cập nhật / Đóng ca": thời đi�
 Popup → thuốc (điền sẵn liều, đường dùng, ngưng thịt tham chiếu), liều, đường dùng, thời điểm, số ngày, ngày ngưng thịt, người thực hiện, tư vấn → hiện ngày hết ngưng thịt → **Lưu** → R-10-09 → MSG-FE10-03.
 E2 thuốc ngưng → MSG-FE18-08 · E3 thời gian → MSG-COM-07 / MSG-FE10-07 · E4 ca CLOSED / bò EXITED → MSG-COM-05 / 13.
 
-### UC-FE10-05 Sửa / hủy
-Popup → loại bản ghi; chọn Sửa (trường theo loại) hoặc Hủy; hiện ngày hết ngưng thịt trước → sau → lý do → **Lưu** → R-10-10 → MSG-FE10-11 (+ MSG-FE10-12).
+### UC-FE10-05 Sửa / xóa
+Dòng diễn biến có hai nút riêng **Sửa** và **Xóa** (lần ghi mở ca chỉ có Sửa). Sửa: popup trường theo loại, ngày hết ngưng thịt trước → sau, Ghi chú (không bắt buộc) → **Lưu**. Xóa: popup xác nhận kèm ngày hết ngưng thịt trước → sau → **Xóa**. → R-10-10 → MSG-FE10-11 (+ MSG-FE10-12).
 
 ### UC-FE10-01 Xem
 SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của bò).
@@ -178,7 +178,7 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | 6 | Meat withdrawal until / Cách ly thịt đến | | Ngày hết ngưng thịt của bò (điều trị + tiêm tại trại) hoặc "—" |
 | 7 | Record treatment / Update case / Ghi điều trị, Cập nhật ca bệnh | Owner, Manager | Mở popup tương ứng (D58: bỏ nút "Ghi theo dõi" và "Cập nhật trạng thái") |
 | 8 | Time, Type, Details, Recorded by / Thời điểm, Loại, Chi tiết, Người ghi | | Theo thời gian: Mở ca (dấu hiệu, thân nhiệt), Theo dõi (diễn biến, mô tả), Điều trị (thuốc, liều, đường dùng, ngưng thịt); "Đã sửa" / dòng hủy mờ |
-| 9 | Actions / Thao tác | Owner, Manager | "Sửa · Hủy" trên dòng theo dõi và điều trị; "Sửa" trên quan sát mở ca |
+| 9 | Actions / Thao tác | Owner, Manager | "Sửa" và "Xóa" trên dòng theo dõi và điều trị; chỉ "Sửa" trên quan sát mở ca (D73) |
 | **Ca trước đây** | | | |
 | 10 | Case code, Signs, Outcome · month | | Chỉ đọc |
 
@@ -236,16 +236,16 @@ Gộp vào popup Cập nhật ca bệnh (D58).
 
 "Có phần theo dõi" = Giữ trạng thái, hoặc có nhập mô tả, diễn biến hay thân nhiệt.
 
-### Popup Sửa / Hủy điều trị hoặc theo dõi
+### Popup Sửa / Xóa điều trị hoặc theo dõi (D73)
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | 1 | Record / Bản ghi | Chỉ đọc | — | Loại (Điều trị / Theo dõi), mã ca, thời điểm, người ghi | — |
-| 2 | Action / Hành động | Radio | * | Sửa (mặc định) / Hủy; quan sát mở ca chỉ Sửa | MSG-FE10-13 |
-| 3 | Field / Current / New | Bảng | — | Điều trị: thuốc, liều, đường dùng, thời điểm dùng đầu, liệu trình, ngưng thịt, người thực hiện. Theo dõi: thời điểm, thân nhiệt, diễn biến, mô tả, người quan sát. Kiểm như popup ghi | MSG-COM-07, MSG-FE10-06, MSG-FE10-07 |
+| 2 | Action / Hành động | Theo nút bấm | — | Nút Sửa hoặc Xóa ở dòng diễn biến quyết định popup; quan sát mở ca không có nút Xóa | MSG-FE10-13 |
+| 3 | Field / Current / New (chỉ khi Sửa) | Bảng | — | Điều trị: thuốc, liều, đường dùng, thời điểm dùng đầu, liệu trình, ngưng thịt, người thực hiện. Theo dõi: thời điểm, thân nhiệt, diễn biến, mô tả, người quan sát. Kiểm như popup ghi | MSG-COM-07, MSG-FE10-06, MSG-FE10-07 |
 | 4 | Meat withdrawal until / Cách ly thịt đến | Chỉ đọc | — | "trước → sau"; tô nổi khi đổi | — |
-| 5 | Reason / Lý do | Ô chữ dài | * | ≤ 500 | MSG-COM-06 |
-| 6 | Cancel / Save | Nút | — | — | MSG-COM-13, MSG-COM-18, MSG-COM-05, MSG-COM-02; thành công MSG-FE10-11 (+ MSG-FE10-12) |
+| 5 | Note / Ghi chú (chỉ khi Sửa) | Ô chữ dài | — | ≤ 500 | MSG-COM-10 |
+| 6 | Cancel / Save (Lưu hoặc Xóa) | Nút | — | — | MSG-COM-13, MSG-COM-18, MSG-COM-05, MSG-COM-02; thành công MSG-FE10-11 (+ MSG-FE10-12) |
 
 ---
 
@@ -282,9 +282,9 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | MSG-FE10-08 | Toast thành công | Ca {case_code} đã chuyển sang theo dõi dài hạn. |
 | MSG-FE10-09 | Toast thành công | Ca {case_code} đã chuyển về đang mở. |
 | MSG-FE10-10 | Trong hộp thoại | Thay bằng ô chọn "Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)" – D59. |
-| MSG-FE10-11 | Toast thành công | Đã {sửa/hủy} {loại bản ghi}. Thay đổi và lý do được giữ trong lịch sử. |
+| MSG-FE10-11 | Toast thành công | Đã {sửa/xóa} bản ghi {loại bản ghi}. (D73) |
 | MSG-FE10-12 | Sau khi lưu | Cách ly thịt của {cattle_code} đổi từ {old_date} thành {new_date}. |
-| MSG-FE10-13 | Trong hộp thoại | Không thể hủy quan sát mở ca. Hãy sửa nó, hoặc đóng ca kèm lý do. |
+| MSG-FE10-13 | Trong hộp thoại | Không thể xóa quan sát mở ca. Hãy sửa nó, hoặc đóng ca kèm lý do. |
 | MSG-FE10-14 | Toast thành công | Đã mở lại ca {case_code}. Lý do được lưu trong lịch sử. (D62) |
 
 ---
@@ -314,7 +314,7 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | TC-10-19 | Điều trị hết ngưng 10/11 | Sửa ngưng thịt 7 → 14 | Hết 17/11; MSG-FE10-12 "10/11 → 17/11"; revision giữ 7 | I | R-10-10 |
 | TC-10-20 | Điều trị duy nhất của ca OPEN | Hủy có lý do | VOIDED; sức khỏe về Theo dõi; ngày ngưng thịt tính lại | I | R-10-12 |
 | TC-10-21 | Quan sát mở ca | Hủy | MSG-FE10-13 | I | R-10-11 |
-| TC-10-22 | Sửa / hủy | Không lý do | MSG-COM-06 | U, H | R-10-10 |
+| TC-10-22 | Sửa / xóa | Không ghi chú → lưu được; ghi chú > 500 ký tự → MSG-COM-10 (D73) | Thành công / MSG-COM-10 | U, H | R-10-10 |
 | TC-10-23 | Ca CLOSED_BY_EXIT | Sửa điều trị | Bị chặn | I | R-10-13 |
 | TC-10-24 | Technician | Gọi mở ca / ghi điều trị | 403 | H | R-10-14 |
 | TC-10-25 | Thuốc ngưng | Ghi điều trị | MSG-FE18-08 | I | UC-04 E2 |
@@ -355,3 +355,4 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 24/11/2026 | 28/10/2026 | D64: mã ca HC-nnnn đếm theo trại (trước lấy theo ID toàn hệ thống HC-nnnnnn) – R-10-02 | Tuấn |
 | 24/11/2026 | 28/10/2026 | D65: popup Ghi điều trị – liều số + đơn vị, số ngày dùng (mỗi ngày 1 lần) kèm tổng, "Ngày dùng cuối", "Ghi chú" thay "Lời khuyên thú y"; ghi chú thuốc hiện dưới ô Thuốc – dòng 3, 4, 6, 11 | Tuấn |
 | 24/11/2026 | 28/10/2026 | D66: SCR-36 theo Bento – khối chỉ số, bảng vạch màu theo mức độ, bộ lọc, tab, kỳ chỉ ở tab Đã đóng / Tất cả, gộp cột Chuồng vào Bò, cả dòng mở hồ sơ; tab Theo dõi dài hạn không còn lọc theo kỳ; A1 `counts` thêm `treating`, `severe`, `moderate`, `mild`, `contagious` | Tuấn |
+| 24/11/2026 | 28/10/2026 | D73: Sửa / Xóa tách riêng ở dòng diễn biến; ghi chú không bắt buộc; bản ghi đã xóa ẩn khỏi diễn biến (UC-FE10-05, R-10-10, TC-10-22) | Tuấn |

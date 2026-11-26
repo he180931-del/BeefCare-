@@ -54,8 +54,9 @@ describe('cattle pages in backend mode', () => {
 
     expect(await screen.findByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Mã hiển thị, số tai, tên gọi…')).toBeInTheDocument()
-    expect(screen.getByText(/Hiển thị 1–1 trong 2/)).toBeInTheDocument()
+    expect(screen.queryByText(/Hiển thị 1–1 trong 2/)).not.toBeInTheDocument()
     expect(screen.getByText(/17 con đang nuôi/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
     expect(screen.getByRole('combobox', { name: /Mục đích/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /Sức khỏe/i })).toBeInTheDocument()
     expect(requested.some((url) => new URL(url).searchParams.get('page') === '0')).toBe(true)
@@ -91,6 +92,7 @@ describe('cattle pages in backend mode', () => {
     await assertGroup(/Đực giống/, 'BREEDING_BULLS')
     await assertGroup(/Khác/, 'OTHER')
     await user.click(screen.getByRole('button', { name: /Tất cả/ }))
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
     const stage = screen.getByRole('combobox', { name: /Giai đoạn/i })
     expect(screen.queryByRole('option', { name: 'Giai đoạn: Bê' })).not.toBeInTheDocument()
     await user.selectOptions(stage, 'UNWEANED_CALF')

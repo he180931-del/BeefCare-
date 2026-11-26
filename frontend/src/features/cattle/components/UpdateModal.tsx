@@ -12,7 +12,7 @@ import type { CattleViewModel as CowSeed } from '../types'
 
 const TABS = [
   ['identity', 'Định danh & mô tả'],
-  ['purpose', 'Mục đích nuôi'],
+  ['purpose', 'Mục đích sản xuất'],
   ['stage', 'Giai đoạn'],
 ] as const
 type Tab = typeof TABS[number][0]
@@ -89,6 +89,16 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     } catch (e) {
       if (codeOf(e) === 'MSG-FE05-11' && !acknowledged) {
         setConfirmRepro(`Sau thay đổi này ${cow.code} sẽ không còn được theo dõi sinh sản. Lịch sử sinh sản được giữ lại. Tiếp tục?`)
+        return
+      }
+      // Field errors of the backend are shown under their field (MSG-FE05-02 ear tag, MSG-FE05-12 purpose).
+      if (codeOf(e) === 'MSG-FE05-02') {
+        const params = (e as BackendError).params
+        setIdentityErrors((current) => ({ ...current, tag: cattleError({ code: 'MSG-FE05-02', params: { ear_tag: identity.tag.trim(), ...params } }, '') }))
+        return
+      }
+      if (codeOf(e) === 'MSG-FE05-12') {
+        setErrors((current) => ({ ...current, value: cattleError(e, '') }))
         return
       }
       setFailure(cattleError(e, 'Không lưu được thay đổi. Vui lòng thử lại.'))
@@ -236,14 +246,14 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
             <ErrorText>{errors.value}</ErrorText>
           </Field>
           {canChangePurpose && backend && datedFields}
-          <Note tone="grey">{canChangePurpose ? 'Mục đích loại Đực giống chỉ dùng cho bò đực, Sinh sản chỉ dùng cho bò cái.' : 'Mục đích nuôi chỉ Chủ trại được đổi. Bò đã xuất hoặc đã hủy chỉ xem.'}</Note>
+          <Note tone="grey">{canChangePurpose ? 'Mục đích loại Đực giống chỉ dùng cho bò đực, Sinh sản chỉ dùng cho bò cái.' : 'Chỉ Chủ trại mới đổi được mục đích sản xuất.'}</Note>
         </>
       )}
 
       {tab === 'stage' && (
         <>
           <Field label="Giai đoạn hiện tại">
-            <input className={fieldCls} value={cow.stage} readOnly />
+            <input className={fieldCls} value={[cow.stage, cow.stageSince && cow.stageSince !== '—' && `từ ${cow.stageSince}`, cow.ageLong].filter(Boolean).join(' · ')} readOnly />
           </Field>
           <Field label="Giai đoạn mới *">
             <Select className="[&_select]:!leading-[normal]" value={stage} onChange={(e) => setStage(e.target.value)}>
@@ -253,7 +263,6 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
           </Field>
           {datedFields}
           {suggestion && <Note tone="info">Điền sẵn theo gợi ý đổi giai đoạn. Lưu xong, gợi ý này được đánh dấu đã giải quyết.</Note>}
-          <Note tone="grey">Mục đích nuôi chỉ Chủ trại được đổi. Bò đã xuất hoặc đã hủy chỉ xem.</Note>
         </>
       )}
 

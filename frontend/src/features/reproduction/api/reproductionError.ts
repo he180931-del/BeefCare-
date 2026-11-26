@@ -56,7 +56,7 @@ export function mapReproductionError(error: unknown): unknown {
   switch (code) {
     case 'FE11-03': return new ReproductionDuplicateError(`Đã có ${textValue(p.event_type, 'bản ghi')} tương tự của ${textValue(p.cattle_code)} lúc ${textValue(p.time) || at(p.at)}. Vẫn lưu?`)
     case 'FE11-04': return issue('Đực giống phải là một bò đực khác của trại này.')
-    case 'FE11-05': return new Error(`${textValue(p.cattle_code)} đang có thai đã xác nhận. Hãy xem lại trạng thái sinh sản trước khi ghi.`)
+    case 'FE11-05': return new Error(`${textValue(p.cattle_code)} đang có thai đã xác nhận nên không ghi động dục / phối. Nếu bò có biểu hiện lên giống khi đang mang thai, hãy ghi ở "Diễn biến thai" (loại Theo dõi).`)
     case 'FE11-07': return new Error(`Bản ghi này đang được các bản ghi sau dùng (${textValue(p.records)}). Hãy sửa hoặc hủy các bản ghi đó trước.`)
     case 'FE11-10': return issue(`Thời điểm không được sớm hơn ${textValue(p.event, 'sự kiện')} liên kết (${textValue(p.time) || at(p.at)}).`)
     case 'FE11-11': return new Error('Con này không được theo dõi sinh sản. Nếu thực sự đã khám thai hoặc đẻ, hãy ghi từ Thao tác khác.')

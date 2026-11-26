@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, Table, Td, Th } from '../../../shared/ui'
-import { acceptsSummary, criteriaOf } from '../domain/penRules'
+import { acceptsSummary, criteriaOf, PEN_STATUS_LABELS } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../types'
 
@@ -22,7 +22,7 @@ export default function BarnTable({ rows, selected, onSelect, loading, emptyText
           </Th>
           <Th className={cx(TH, HEAD, 'xl:w-[138px]')}>Tên</Th>
           <Th className={cx(TH, HEAD, 'xl:w-[120px]')}>Số con / Sức chứa</Th>
-          <Th className={cx(TH, HEAD)}>Nhận</Th>
+          <Th className={cx(TH, HEAD, 'max-[639px]:hidden')}>Nhận</Th>
           <Th className={cx(TH, HEAD)}>Trạng thái</Th>
         </tr>
       </thead>
@@ -43,9 +43,9 @@ export default function BarnTable({ rows, selected, onSelect, loading, emptyText
               <Td className={cx(TH, 'font-medium')}>{barn.code}</Td>
               <Td className={TH}>{penName(barn)}</Td>
               <Td className={cx(TH, full && 'font-semibold text-err-fg')}>{barn.count} / {barn.capacity}</Td>
-              <Td className={TH}>{acceptsSummary(criteriaOf(barn))}</Td>
+              <Td className={cx(TH, 'max-[639px]:hidden')}>{acceptsSummary(criteriaOf(barn))}</Td>
               <Td className={TH}>
-                {barn.status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>}
+                {barn.status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check" className="!border-0">{PEN_STATUS_LABELS.ACTIVE}</Badge> : <Badge>{PEN_STATUS_LABELS.INACTIVE}</Badge>}
               </Td>
             </tr>
           )

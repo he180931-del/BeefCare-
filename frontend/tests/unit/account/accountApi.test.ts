@@ -25,6 +25,15 @@ describe('profile and password rules', () => {
     expect(validatePasswordChange({ currentPassword: 'x', newPassword: 'longenough1', confirmPassword: 'different1' }, ctx).confirmPassword).toMatch(/chưa khớp/)
     expect(validatePasswordChange({ newPassword: 'longenough1', confirmPassword: 'longenough1' }, { ...ctx, requireCurrent: false })).toEqual({})
   })
+
+  it('counts Unicode code points for change-password boundaries without composition rules', () => {
+    const ctx = { email: 'owner@example.test', requireCurrent: false }
+    const valid = '😀'.repeat(128)
+    const invalid = '😀'.repeat(129)
+
+    expect(validatePasswordChange({ newPassword: valid, confirmPassword: valid }, ctx)).toEqual({})
+    expect(validatePasswordChange({ newPassword: invalid, confirmPassword: invalid }, ctx)).toMatchObject({ newPassword: expect.any(String) })
+  })
 })
 
 describe('account API (local mode)', () => {

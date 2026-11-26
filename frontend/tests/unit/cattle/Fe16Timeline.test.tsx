@@ -160,7 +160,7 @@ describe('FE-16 timeline tab', () => {
     renderTab('TECHNICIAN', [techEntry])
     const row = screen.getByText('Nhập đàn – mua ngoài').closest('div')!.parentElement!.parentElement!
     await user.click(within(row).getByRole('button', { name: 'Xem chi tiết' }))
-    expect(screen.getByText('Bạn không có quyền xem chi tiết này.')).toBeInTheDocument()
+    expect(screen.getByText('Vai trò của bạn không được xem chi tiết sự kiện này.')).toBeInTheDocument()
     vi.restoreAllMocks()
   })
 })
@@ -262,7 +262,7 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     const denied = ev({ category: 'ENTRY_EXIT', type: 'HERD_EXIT', sourceId: null, occurredAt: '2026-10-01T03:00:00Z', status: 'CONFIRMED', values: { exitType: 'SALE' }, canOpen: false, canCorrect: false })
     renderTab('TECHNICIAN', [denied])
     await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
-    expect(screen.getByText('Bạn không có quyền xem chi tiết này.')).toBeInTheDocument()
+    expect(screen.getByText('Vai trò của bạn không được xem chi tiết sự kiện này.')).toBeInTheDocument()
   })
 
   it('the reproduction tab opens its revise dialog from ?m=correct&r=<id> for the Owner or a Manager only', async () => {
@@ -273,13 +273,13 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       <MemoryRouter initialEntries={[`/cattle/BC-000142?tab=repro&m=correct&r=${target.id}`]}><ReproductionProfileTab cattleCode="BC-000142" role={role} /></MemoryRouter>,
     )
     const manager = at('MANAGER')
-    expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
     manager.unmount()
     const owner = at('OWNER') // D41
-    expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
     owner.unmount()
     at('TECHNICIAN')
     expect(await screen.findByText('Chế độ chỉ xem.')).toBeInTheDocument()
-    expect(screen.queryByText('Sửa bản ghi')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /^Sửa / })).not.toBeInTheDocument()
   })
 })

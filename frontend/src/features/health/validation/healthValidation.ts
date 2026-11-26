@@ -129,6 +129,13 @@ export function statusErrors(cmd: CaseUpdateInput, ctx: { now: string; entryDate
   return errors
 }
 
+/** D73: ghi chú khi sửa / xóa bản ghi theo dõi, điều trị – không bắt buộc, tối đa 500 ký tự. */
+export function noteErrors(note: string | undefined): FieldErrors {
+  const errors: FieldErrors = {}
+  put(errors, 'reason', textError('Ghi chú', note, { max: 500 }))
+  return errors
+}
+
 export function reasonErrors(reason: string | undefined): FieldErrors {
   const errors: FieldErrors = {}
   put(errors, 'reason', textError('Lý do', reason, { required: true, max: 500 }))

@@ -1,6 +1,10 @@
 export const EMAIL_MAX_LENGTH = 254
 export const PASSWORD_MAX_LENGTH = 128
 
+function passwordCodePointLength(value: string): number {
+  return Array.from(value).length
+}
+
 export function normalizeEmail(value: string): string {
   return value.trim().toLocaleLowerCase('en-US')
 }
@@ -20,7 +24,7 @@ export function validateSignIn(values: SignInValues): Partial<Record<keyof SignI
   if (!values.email.trim()) errors.email = 'Vui lòng nhập email.'
   else if (!isValidEmail(values.email)) errors.email = 'Email không hợp lệ.'
   if (!values.password) errors.password = 'Vui lòng nhập mật khẩu.'
-  else if (values.password.length > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu không được dài quá 128 ký tự.'
+  else if (passwordCodePointLength(values.password) > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu không được dài quá 128 ký tự.'
   return errors
 }
 
@@ -32,7 +36,7 @@ export function validateRegistration(values: RegistrationValues): Partial<Record
   if (!values.email.trim()) errors.email = 'Vui lòng nhập email.'
   else if (!isValidEmail(values.email)) errors.email = 'Email không hợp lệ.'
   if (!values.password) errors.password = 'Vui lòng nhập mật khẩu.'
-  else if (values.password.length < 8 || values.password.length > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu cần từ 8 đến 128 ký tự.'
+  else if (passwordCodePointLength(values.password) < 8 || passwordCodePointLength(values.password) > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu cần từ 8 đến 128 ký tự.'
   else if (normalizeEmail(values.password) === normalizeEmail(values.email)) errors.password = 'Mật khẩu không được trùng với email.'
   if (!values.confirmPassword) errors.confirmPassword = 'Vui lòng xác nhận mật khẩu.'
   else if (values.password !== values.confirmPassword) errors.confirmPassword = 'Mật khẩu xác nhận chưa khớp.'
@@ -43,7 +47,7 @@ export function validateRegistration(values: RegistrationValues): Partial<Record
 export function validateReset(values: ResetValues): Partial<Record<'email' | 'password' | 'confirmPassword', string>> {
   const errors: Partial<Record<'email' | 'password' | 'confirmPassword', string>> = {}
   if (!values.password) errors.password = 'Vui lòng nhập mật khẩu mới.'
-  else if (values.password.length < 8 || values.password.length > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu cần từ 8 đến 128 ký tự.'
+  else if (passwordCodePointLength(values.password) < 8 || passwordCodePointLength(values.password) > PASSWORD_MAX_LENGTH) errors.password = 'Mật khẩu cần từ 8 đến 128 ký tự.'
   else if (values.email && normalizeEmail(values.password) === normalizeEmail(values.email)) errors.password = 'Mật khẩu không được trùng với email.'
   if (!values.confirmPassword) errors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới.'
   else if (values.password !== values.confirmPassword) errors.confirmPassword = 'Mật khẩu xác nhận chưa khớp.'
