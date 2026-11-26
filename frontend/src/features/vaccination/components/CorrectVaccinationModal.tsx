@@ -31,7 +31,9 @@ export function latestCorrectionNote(record: VaccinationRecord): string {
 function Form({ record, options, onClose, onSaved }: Props & { options: VaccinationOptions }) {
   const onFarm = record.source === 'ON_FARM'
   const initialDose = splitDose(record.dose)
-  const [vaccineId, setVaccineId] = useState(String(record.vaccineId ?? options.vaccines[0].id))
+  // D82: mũi "Nhập lịch sử" tên tự do không có vắc-xin danh mục – mặc định giữ tên cũ (''), chỉ đổi khi người dùng chọn.
+  const freeText = record.vaccineId == null
+  const [vaccineId, setVaccineId] = useState(freeText ? '' : String(record.vaccineId))
   const [administeredAt, setAdministeredAt] = useState(record.administeredAt)
   const [amount, setAmount] = useState(initialDose.amount)
   const [route, setRoute] = useState<VaccineRoute | ''>(record.route ?? '')
@@ -53,7 +55,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
     setErrors({})
     try {
       await correctRecord(record.id, {
-        expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
+        expectedVersion: record.version, vaccineId: vaccineId ? Number(vaccineId) : undefined, administeredAt, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
         route: route || undefined, routeOther: route === 'OTHER' ? routeOther : undefined,
         withdrawalDays: withdrawal.trim() === '' ? 0 : parseNum(withdrawal) ?? Number.NaN, vaccinator: vaccinator || undefined, note,
       })
@@ -76,7 +78,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
         <tbody>
           <tr>
             <Td className="font-medium">Vắc-xin</Td><Td>{record.vaccineLabel}</Td>
-            <Td><Select aria-label="Vắc-xin mới" value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select><FieldError>{errors.vaccineId}</FieldError></Td>
+            <Td><Select aria-label="Vắc-xin mới" value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{freeText && <option value="">{`Giữ: ${record.vaccineLabel}`}</option>}{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select><FieldError>{errors.vaccineId}</FieldError></Td>
           </tr>
           <tr>
             <Td className="font-medium">Thời điểm tiêm</Td><Td>{when}</Td>

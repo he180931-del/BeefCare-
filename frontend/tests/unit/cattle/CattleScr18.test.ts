@@ -39,10 +39,9 @@ describe('SCR-18 cattle contract', () => {
     expect(cow.birth).toBe('~01/01/2024 (ước tính)')
   })
 
-  it('orders header badges herd group → health → contagious → meat withdrawal → reproduction (SCR-19 #4, §3.2)', () => {
+  it('orders header badges health → contagious → meat withdrawal → reproduction, without the herd group (SCR-19 #4, §3.2, D78)', () => {
     const cow = mapBackendCattle({ id: 45, displayCode: 'BC-045', herdStatus: 'ACTIVE', herdGroup: 'BREEDING_FEMALES', healthState: 'HEALTHY', suspectedContagious: true, withdrawalActive: true, withdrawalEndDate: '2026-12-05', reproductiveStatus: 'POST_CALVING' })
     expect(cow.headerBadges).toEqual([
-      ['Bò cái sinh sản', 'info'],
       ['Khỏe mạnh', 'ok'],
       ['Nghi truyền nhiễm – cách ly', 'err'],
       ['Cách ly thịt đến 05/12/2026', 'warn'],
@@ -61,8 +60,16 @@ describe('SCR-18 cattle contract', () => {
     expect(open.care.repro).toBe('Chờ phối · Chưa đủ: tuổi; cân nặng')
     expect(mapBackendCattle({ id: 48, herdStatus: 'ACTIVE', sex: 'FEMALE', reproductiveStatus: 'IN_ESTRUS', breedingEligible: true }).care.repro).toBe('Động dục · Đủ điều kiện phối')
     expect(mapBackendCattle({ id: 49, herdStatus: 'ACTIVE', sex: 'MALE', reproductiveStatus: 'NOT_APPLICABLE' }).care.repro).toBe('Không áp dụng')
-    // Overdue doses are not in the profile: never claim the cattle is unvaccinated.
-    expect(mapBackendCattle({ id: 49, herdStatus: 'ACTIVE' }).care.vaccine.label).toBe('—')
+  })
+
+  it('summarises the vaccination state from the overdue dose count (SCR-19 #21, D78)', () => {
+    const vaccine = (vaccinationOverdue?: number | null) =>
+      mapBackendCattle({ id: 49, displayCode: 'BC-049', herdStatus: 'ACTIVE', vaccinationOverdue }).care.vaccine
+    expect(vaccine(2)).toEqual({ label: '2 mũi quá hạn', tone: 'err' })
+    expect(vaccine(0)).toEqual({ label: 'Đúng lịch', tone: 'grey' })
+    // Thiếu số liệu (bò đã xuất đàn, backend cũ): "—" trỏ sang tab Tiêm phòng, không khẳng định là chưa tiêm.
+    expect(vaccine(undefined)).toEqual({ label: '—', tone: 'grey' })
+    expect(vaccine(null)).toEqual({ label: '—', tone: 'grey' })
   })
 
   it('takes purpose / life stage "from" dates from the latest PROFILE_CHANGE, else the herd-entry date (SCR-19 #12, #13)', () => {

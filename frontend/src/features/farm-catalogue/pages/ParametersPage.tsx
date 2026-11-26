@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { catalogueError } from '../api/catalogueError'
-import { Badge, Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Panel, Select } from '../../../shared/ui'
+import { Badge, Button, DateInput, ErrorBlock, Field, Icon, LoadingBlock, Note, Panel, Select } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useSession } from '../../../app/session/sessionContext'
 import { useCatalogueParametersUseCase } from '../hooks/useCatalogueUseCase'
@@ -186,7 +186,6 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
         </Panel>
       )}
 
-      <Foot>Chủ trại và Quản lý có thể lưu phiên bản tham số mới kèm nguồn và ngày áp dụng. Giá trị ngoài khoảng cho phép được báo dưới ô nhập.</Foot>
       {showHistory && <VersionHistoryDialog versions={data} onClose={closeHistory} />}
     </>
   )

@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useSession } from '../../../app/session/sessionContext'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, Card, DateInput, Field, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { listFeedStock } from '../api/feedStockApi'
 import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, listFeedReceiptMembers, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
@@ -25,7 +25,6 @@ import { FeedReceiptPrintView } from '../components/FeedReceiptPrintView'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
 import { newFeedCommandKey } from '../api/command'
 
-const FOOT = 'Tạo phiếu nhập kho thức ăn (Chủ trại, Quản lý). “Lưu nháp” chưa cộng kho; “Lưu & cộng kho” cộng tồn từng thức ăn và cập nhật giá nhập bình quân. Số lô và hạn dùng dùng để cảnh báo lô sắp hết hạn; phần còn nợ được theo dõi như công nợ nhà cung cấp.'
 const TITLE = 'Thức ăn › Phiếu nhập kho'
 const newReceiptCommandKey = () => newFeedCommandKey('feed-receipt')
 
@@ -688,8 +687,6 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       </div>
 
       {currentRecord && <FeedReceiptPrintView receipt={currentRecord} attachments={attachments} farmName={session?.farmName} />}
-
-      <Foot>{FOOT}</Foot>
 
       {modal === 'ncc' && !readOnly && (
         <FeedSupplierQuickDialog

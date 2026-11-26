@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, DateInput, Foot, Icon, Note, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
+import { Button, DateInput, Icon, Note, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useFeedReceiptList } from '../hooks/useFeedReceiptList'
 import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from '../domain/feedReceiptList'
@@ -122,7 +122,6 @@ export default function FeedReceiptPage() {
         )}
       </section>
       </div>
-      <Foot>Danh sách phiếu nhập kho thức ăn. Phiếu NHÁP chưa cộng kho, chưa ghi công nợ. Hủy phiếu đã nhập chỉ được khi tồn kho còn đủ để trừ lại số đã nhập; nếu không, dùng phiếu điều chỉnh kho.</Foot>
     </Layout>
   )
 }

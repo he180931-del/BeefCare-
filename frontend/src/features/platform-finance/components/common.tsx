@@ -4,6 +4,16 @@ import { Badge, Field, inputCls, Note } from '../../../shared/ui'
 import { STATE_LABEL } from '../domain/financeRules'
 import type { RecordState } from '../types'
 
+/** Ô lọc: tên trường ở trên, ô nhập hoặc chọn ở dưới. */
+export function FilterField({ label, width, children }: { label: string; width?: number; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 max-w-full flex-col gap-1" style={width ? { width } : undefined}>
+      <span className="text-[12px] font-medium text-ink">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 export interface Flash { tone: 'ok' | 'err'; text: string }
 
 export const FINANCE_BASE = '/nen-tang/thu-chi'

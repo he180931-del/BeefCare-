@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, Panel } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
 import { caseLabel, daysBetween, fmtDate, fmtMonth, OUTCOME_LABEL } from '../domain/healthFormat'
-import { isWithdrawalActive, MSG } from '../domain/healthRules'
+import { healthHistorySummary, isWithdrawalActive, MSG } from '../domain/healthRules'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { useHealthFormOptions, useHealthProfile } from '../hooks/useHealthProfile'
 import type { CaseOutcome, HealthCaseCard, HealthTimelineRow, PendingExit } from '../types'
@@ -28,16 +28,6 @@ const withdrawalLeft = (end: string, now: string) => {
 /** Số ca đã đóng hiện sẵn ở khối "Các ca trước"; phần còn lại xem bằng "Xem thêm". */
 const PREVIOUS_ROWS = 5
 const OUTCOME_TONE: Record<CaseOutcome, 'ok' | 'err' | 'outline'> = { RECOVERED: 'ok', DIED: 'err', MISSING: 'err', CLOSED_BY_EXIT: 'outline' }
-
-const PAGE_NOTE = 'Tab Sức khỏe trong hồ sơ bò. Mỗi ca đang mở hoặc mạn tính có 1 thẻ với diễn biến theo thời gian. "Ngưng sử dụng thịt đến" là ngày muộn nhất từ các lần điều trị và mũi tiêm tại trại. Nút ghi chỉ hiện cho Quản lý; vai trò khác chỉ xem.'
-const DIALOG_NOTES: Record<string, string> = {
-  'open-case': 'Mở ca mới cho một vấn đề mới. Diễn biến của ca đang có ghi ở "Cập nhật ca bệnh".',
-  treatment: 'Hộp thoại ghi 1 lần điều trị (Chủ trại, Quản lý). Thuốc lấy từ danh mục; liều, đường dùng và số ngày ngưng được điền sẵn, có thể sửa. Hết ngưng = ngày dùng cuối + số ngày ngưng, dùng để tính ngày được xuất bán. Ca mạn tính hiện thêm lưu ý điều trị dài ngày.',
-  'update-case': 'Ghi diễn biến và (nếu cần) đổi trạng thái ca trong một lần lưu.',
-  'case-view': 'Xem lại ca đã đóng: tóm tắt, thuốc đã dùng và toàn bộ diễn biến.',
-  reopen: 'Mở lại ca đã đóng Khỏi / Chết / Mất tích (Chết / Mất tích: chỉ Chủ trại). Ca đóng do xuất đàn không mở lại được.',
-  correct: 'Hộp thoại sửa hoặc hủy 1 lần điều trị hoặc theo dõi (Chủ trại, Quản lý). Lần ghi mở ca chỉ sửa, không hủy.',
-}
 
 export default function HealthProfileTab({ cattleCode }: { cattleCode: string }) {
   const canRecord = useCanRecord()
@@ -63,6 +53,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const canAdd = canRecord && !exited && !pendingExit
   const canEdit = canRecord && !exited
   const withdrawing = isWithdrawalActive(profile.withdrawalEndDate, now())
+  const history = healthHistorySummary([...activeCases, ...previousCases])
   const saved = (message: string) => { showToast(message); dialog.close(); refetch() }
 
   const target: HealthCaseCard | undefined = activeCases.find((c) => c.caseCode === dialog.caseCode) ?? activeCases[0]
@@ -92,6 +83,15 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
               <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
               <Meta label="Đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
               <Meta label="Theo dõi dài hạn">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
+            </div>
+            {/* D79: lịch sử từ trước đến nay, không phải đếm tay ở "Các ca trước". */}
+            <div className="flex flex-col gap-2 border-t border-edge pt-3">
+              <span className="text-[11px] font-semibold text-label">Từ trước đến nay</span>
+              <div className="grid grid-cols-3 gap-3">
+                <Meta label="Tổng số ca">{history.cases}</Meta>
+                <Meta label="Lần điều trị">{history.treatments}</Meta>
+                <Meta label="Ca gần nhất">{history.lastOpened ? fmtMonth(history.lastOpened) : 'Chưa có'}</Meta>
+              </div>
             </div>
             {withdrawing && (
               <Note tone="warn">
@@ -136,8 +136,6 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
           </Card>
         </div>
       </div>
-      <Foot>{PAGE_NOTE}</Foot>
-      {active && DIALOG_NOTES[active] && <Foot>{DIALOG_NOTES[active]}</Foot>}
 
       {active === 'open-case' && canAdd && options && (
         <OpenCaseDialog cattle={cattle} activeCases={activeCases} options={options} onClose={dialog.close} onSaved={saved} onUpdateCase={(code) => openDialog('update-case', code)} />
@@ -147,7 +145,12 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
         <UpdateCaseDialog key={target.id} card={target} cattleCode={cattle.code} options={options} onClose={dialog.close} onSaved={(message, result) => { saved(message); if (result.deathVoucher) setNotice(result.deathVoucher) }} />
       )}
       {dialog.m === 'case-view' && reopening && (
-        <CaseViewDialog cattleCode={cattle.code} caseId={reopening.id} onClose={dialog.close} onReopen={canReopen(reopening) ? () => openDialog('reopen', reopening.caseCode) : undefined} />
+        <CaseViewDialog
+          cattleCode={cattle.code} caseId={reopening.id} canEdit={canEdit} options={options ?? undefined}
+          onClose={dialog.close} onReopen={canReopen(reopening) ? () => openDialog('reopen', reopening.caseCode) : undefined}
+          // D81: sửa / xóa bản ghi của ca đã đóng xong thì tải lại tab để ngày ngưng thịt và cảnh báo cập nhật ngay.
+          onSaved={(message) => { showToast(message); refetch() }}
+        />
       )}
       {active === 'reopen' && reopening && canReopen(reopening) && <ReopenCaseDialog card={reopening} cattleCode={cattle.code} onClose={dialog.close} onSaved={saved} />}
       {(active === 'correct' || active === 'void') && canEdit && options && entry && <CorrectRecordDialog action={active} row={entry} profile={profile} options={options} onClose={dialog.close} onSaved={saved} />}

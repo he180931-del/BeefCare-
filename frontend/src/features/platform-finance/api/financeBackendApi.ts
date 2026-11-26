@@ -129,9 +129,13 @@ const mapLine = (value: unknown): ReportLine => {
   return { sourceType: textValue(row.sourceType) === 'SUBSCRIPTION_RECEIPT' ? 'RECEIPT' : 'MANUAL', code: textValue(row.code), scope, farmName: scope === 'GENERAL' ? 'Chung nền tảng' : textValue(row.farmName), direction: textValue(row.direction) === 'EXPENSE' || textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', category: textValue(row.category), amountVnd: decimal(row.amount ?? row.amountVnd), cashDate: iso(row.cashDate), status: textValue(row.status), reference: textValue(row.sourceReference ?? row.reference), sourceVersion: row.sourceVersion == null ? null : numberValue(row.sourceVersion) }
 }
 
+/** R-21-06 / SCR-73: a single-farm report labels its total row "Tổng cộng", not "Toàn nền tảng". */
+const withTotalLabel = (summary: ReportSummary, singleFarm: boolean): ReportSummary =>
+  singleFarm ? { ...summary, scopes: summary.scopes.map((x) => (x.scope === 'PLATFORM' ? { ...x, farmName: 'Tổng cộng' } : x)) } : summary
+
 const mapReport = (value: unknown): CashReport => {
   const row = asRecord(value)
-  return { id: numberValue(row.id), code: textValue(row.code, `SNAP-${numberValue(row.id)}`), expired: row.expired === true, criteria: (() => { const c = asRecord(row.criteria); const source = textValue(c.sourceFilter, 'ALL'); return { dateFrom: iso(c.dateFrom), dateTo: iso(c.dateTo), farmId: c.farmId == null ? null : numberValue(c.farmId), sourceFilter: (source === 'ALL' ? 'BOTH' : source.replace('_ONLY', '')) as ReportCriteria['sourceFilter'] } })(), summary: mapSummary(row.summary), lines: asRows(row.lines).map(mapLine), generatedAt: toBusinessTime(row.generatedAt), expiresAt: toBusinessTime(row.expiresAt) }
+  return { id: numberValue(row.id), code: textValue(row.code, `SNAP-${numberValue(row.id)}`), expired: row.expired === true, criteria: (() => { const c = asRecord(row.criteria); const source = textValue(c.sourceFilter, 'ALL'); return { dateFrom: iso(c.dateFrom), dateTo: iso(c.dateTo), farmId: c.farmId == null ? null : numberValue(c.farmId), sourceFilter: (source === 'ALL' ? 'BOTH' : source.replace('_ONLY', '')) as ReportCriteria['sourceFilter'] } })(), summary: withTotalLabel(mapSummary(row.summary), asRecord(row.criteria).farmId != null), lines: asRows(row.lines).map(mapLine), generatedAt: toBusinessTime(row.generatedAt), expiresAt: toBusinessTime(row.expiresAt) }
 }
 
 export function createFinanceBackendApi(transport: BackendTransport) {

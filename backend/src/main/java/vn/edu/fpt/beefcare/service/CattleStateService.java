@@ -54,6 +54,7 @@ public class CattleStateService {
         Long contagious = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status) in ('OPEN','CHRONIC') and h.isSuspectedContagious=true", Long.class)
             .setParameter("id", cattleId).getSingleResult();
         result.put("suspectedContagious", contagious > 0);
+        result.put("vaccinationOverdue", overdueDoses(cattleId, today));
 
         List<?> pregnancy = em.createQuery("select p from PregnancyEpisode p where p.cattle.id=:id and upper(p.status)='OPEN' order by p.id desc", vn.edu.fpt.beefcare.domain.PregnancyEpisode.class)
             .setParameter("id", cattleId).setMaxResults(1).getResultList();
@@ -97,6 +98,23 @@ public class CattleStateService {
         }
         result.put("failedBreedingConditions", failures);
         return result;
+    }
+
+    /**
+     * SCR-19 #21: số mũi tiêm quá hạn của một con bò – mũi còn chờ tiêm (PLANNED) của lịch đang chạy (ACTIVE)
+     * và đã qua ngày dự kiến. Mũi đã tiêm hoặc đã hủy không tính; không còn trạng thái hoãn (D46).
+     */
+    private int overdueDoses(Long cattleId, LocalDate today) {
+        Long count = em
+            .createQuery(
+                "select count(d) from ScheduledDose d where d.cattle.id=:id and upper(d.status)='PLANNED' " +
+                "and upper(d.schedule.status)='ACTIVE' and d.dueDate<:today",
+                Long.class
+            )
+            .setParameter("id", cattleId)
+            .setParameter("today", today)
+            .getSingleResult();
+        return count.intValue();
     }
 
     /** Value of the MINIMUM_WEIGHT criterion when the cattle has no VALID weighing yet. */

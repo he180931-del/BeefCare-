@@ -2,7 +2,7 @@ import { type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader, Panel } from '../../../shared/ui'
+import { Badge, Button, Card, ErrorBlock, Field, Info, LoadingBlock, Note, PageHeader, Panel } from '../../../shared/ui'
 import { homePathFor } from '../../authorization'
 import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { Avatar, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
@@ -81,7 +81,6 @@ function FarmInformationForm() {
           </Card>
         </div>
       </div>
-      <Foot>Múi giờ áp dụng cho lịch nhắc và thời điểm ghi nhận; giờ bắt đầu ca là mốc cho lịch vận hành; ghi chú lưu quy trình thường lệ của trại.</Foot>
     </Layout>
   )
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import {
-  activateTableRow, activateTableRowByKey, Badge, DateInput, EmptyBlock, ErrorBlock, Foot, Icon, interactiveRowClass, LoadingBlock,
+  activateTableRow, activateTableRowByKey, Badge, DateInput, EmptyBlock, ErrorBlock, Icon, interactiveRowClass, LoadingBlock,
   PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs, Td, Th,
 } from '../../../shared/ui'
 import { cx } from '../../../shared/ui/cx'
@@ -110,7 +110,6 @@ export default function HealthCaseList() {
           )}
           {rows.length > PAGE_SIZE && <div className="border-t border-rule px-4 py-3"><Pagination page={page} pageCount={pageCount} onChange={setPage} summary={`${rows.length} ca`} /></div>}
         </Panel>
-        <Foot>Danh sách ca sức khỏe của đàn (mọi vai trò xem được). Không ghi nhận trực tiếp ở đây: mở ca, ghi điều trị và cập nhật ca trong tab Sức khỏe của hồ sơ bò.</Foot>
       </div>
     </Layout>
   )

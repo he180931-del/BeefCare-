@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import { Button, ErrorBlock, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
 import { SetupLayout, Stepper } from '../../farm-workspace'
 import { useIsPhone, useTick } from '../components/shared'
@@ -127,7 +127,6 @@ export default function TransferPage() {
         )}
         {/* Chỉ khi chạy thử (vite dev); bản build production loại bỏ nhánh này. */}
         {import.meta.env.DEV && pending && <DevTransferSimulator farmId={farmId} payment={current} onSent={() => void check()} />}
-        <Foot>Đối chiếu mã yêu cầu, ngân hàng nhận, số tài khoản, số tiền và nội dung chuyển khoản; mã quét chỉ hiển thị khi yêu cầu còn hiệu lực.</Foot>
       </div>
       {cancelling && (
         <CancelRequestDialog farmId={farmId} payment={current} onClose={() => setCancelling(false)}

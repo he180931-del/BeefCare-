@@ -1,5 +1,5 @@
+import { useState, type ReactNode, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
 import { Icon, type IconName, Td as UiTd, Th as UiTh } from '../../../shared/ui'
-import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 import type { Tone } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
@@ -28,17 +28,20 @@ const CHIP_ICONS: Record<string, IconName> = {
 }
 export const chipIcon = (label: string): IconName | undefined => CHIP_ICONS[label]
 
-/** Phân đoạn: chỉ tab đang chọn có viền (Figma). */
-export function Seg({ options, value, onChange }: { options: ReadonlyArray<readonly [string, string]>; value: string; onChange: (value: string) => void }) {
+/**
+ * Phân đoạn: chỉ tab đang chọn có viền (Figma). `scroll` (D79): một hàng, màn hẹp cuộn ngang thay vì xuống nhiều hàng –
+ * dùng khi có nhiều lựa chọn như chip dòng thời gian.
+ */
+export function Seg({ options, value, onChange, scroll }: { options: ReadonlyArray<readonly [string, string]>; value: string; onChange: (value: string) => void; scroll?: boolean }) {
   return (
-    <div className="inline-flex max-w-full flex-wrap gap-[3px] rounded-[5px] bg-chip p-[3px]">
+    <div className={cx('inline-flex max-w-full gap-[3px] rounded-[5px] bg-chip p-[3px]', scroll ? 'flex-nowrap overflow-x-auto [scrollbar-width:none]' : 'flex-wrap')}>
       {options.map(([v, label]) => (
         <button
           key={v}
           type="button"
           onClick={() => onChange(v)}
           className={cx(
-            'cursor-pointer rounded border px-3.5 py-[7px] text-xs leading-[normal]',
+            'shrink-0 cursor-pointer whitespace-nowrap rounded border px-3.5 py-[7px] text-xs leading-[normal]',
             v === value ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted',
           )}
         >
@@ -65,6 +68,37 @@ export function Panel({ title, action, gap = 'gap-3', pad = 'p-4', tone = 'defau
         </div>
       )}
       {children}
+    </section>
+  )
+}
+
+/**
+ * Khối Bento gập được (D79): tiêu đề là nút, nội dung chỉ dựng khi mở để tab Tổng quan không dài trên điện thoại.
+ * `note` là tóm tắt một dòng luôn thấy, trả lời được câu hỏi thường gặp mà không cần mở.
+ */
+export function Collapsible({ title, note, defaultOpen = false, className, children }: {
+  title: string
+  note?: ReactNode
+  defaultOpen?: boolean
+  className?: string
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={cx('flex min-w-0 flex-col gap-3 rounded-2xl border border-field bg-white p-4', className)}>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#212121]"
+        >
+          {title}
+          <Icon name="chevron-down" size={14} className={cx('transition-transform', open && 'rotate-180')} />
+        </button>
+        {note && <span className="text-[12px] text-muted">{note}</span>}
+      </div>
+      {open && children}
     </section>
   )
 }

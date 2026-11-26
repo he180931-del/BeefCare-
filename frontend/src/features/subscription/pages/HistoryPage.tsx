@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, PANEL_SURFACE, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Icon, LoadingBlock, PageHeader, PANEL_SURFACE, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useSession } from '../../../app/session/sessionContext'
 import { Facts, PaymentBadge, paymentLabel, useIsPhone } from '../components/shared'
@@ -195,11 +195,6 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
           </div>
         )}
         {id && open && open.state !== 'PENDING' && farmName && <PaymentDetail payment={open} farmName={farmName} onClose={backToList} />}
-        <Foot>
-          {rows.length === 0 && !filtered
-            ? 'Chưa có giao dịch thanh toán của trại; mở trang gói dịch vụ để xem kỳ hiện tại và bảng giá.'
-            : 'Tìm theo mã thanh toán, lọc trạng thái hoặc khoảng ngày; yêu cầu đang chờ có thể mở lại hướng dẫn chuyển khoản.'}
-        </Foot>
       </div>
     </Layout>
   )

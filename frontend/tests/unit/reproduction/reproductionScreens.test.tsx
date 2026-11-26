@@ -89,6 +89,12 @@ describe('profile tab: pregnant female (frame 2617:10399)', () => {
     expect(screen.getByText('Ngày phối + 283 ngày')).toBeInTheDocument()
     expect(screen.getByText('Lịch sử sinh bê')).toBeInTheDocument()
     expect(screen.getByText('Bê 1: Sống · Cái · 22 kg')).toBeInTheDocument()
+    // D79: Chỉ số sinh sản gập sẵn, dòng tóm tắt giữ số lứa và lần đẻ gần nhất; mở ra mới thấy đủ.
+    const indicators = screen.getByRole('button', { name: 'Chỉ số sinh sản' })
+    expect(indicators).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText(/^Số lứa đẻ: \d+ · Lần đẻ gần nhất: /)).toBeInTheDocument()
+    expect(screen.queryByText('Tuổi đẻ lứa đầu')).not.toBeInTheDocument()
+    await user.click(indicators)
     expect(screen.getByText('Tuổi đẻ lứa đầu')).toBeInTheDocument()
     expect(screen.getByText('3 lần đậu / 5 lần phối')).toBeInTheDocument()
     for (const label of ['Ghi khám thai', 'Ghi diễn biến thai', 'Ghi sự kiện đẻ']) expect(screen.getByRole('button', { name: label })).toBeInTheDocument()

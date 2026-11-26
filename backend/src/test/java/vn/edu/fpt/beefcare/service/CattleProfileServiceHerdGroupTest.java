@@ -13,7 +13,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 
 class CattleProfileServiceHerdGroupTest {
 
-    private final CattleProfileService service = new CattleProfileService(null, null, null, null, null, null, null, null, null, null, null, null);
+    private final CattleProfileService service = new CattleProfileService(null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     @Test
     void tc0501FemaleAdultBreedingIsBreedingFemale() {

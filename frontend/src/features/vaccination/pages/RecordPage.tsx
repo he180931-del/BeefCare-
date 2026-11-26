@@ -175,7 +175,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
           </tbody>
         </Table>
       </Card>
-      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (Chủ trại, Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không tính ngày ngưng.</Foot>
+      <Foot>"Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không tính ngày ngưng.</Foot>
     </div>
   )
 }

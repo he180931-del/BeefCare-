@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Panel, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, Panel, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
+import { cattleVaccinationSummary } from '../domain/vaccinationRules'
 import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
 import type { CattleVaccination, DoseRow, VaccinationRecord } from '../types'
 import CorrectVaccinationModal from './CorrectVaccinationModal'
 import DeleteVaccinationModal from './DeleteVaccinationModal'
-import { DoseStatusBadge, SOURCE_LABEL, healthCasePath, profilePath, recordPath, useCanWrite, useNotice } from './vaccinationParts'
+import { DoseStatusBadge, SOURCE_LABEL, healthCasePath, profilePath, useCanWrite, useNotice } from './vaccinationParts'
 
 export default function VaccinationProfileTab({ cattleCode }: { cattleCode: string }) {
   const canWrite = useCanWrite()
@@ -46,12 +48,42 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
+      <Summary data={data} />
       <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} />
       <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} onDelete={(id) => setModal('delete', 'r', id)} />
-      <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Sửa · Hủy; vai trò khác chỉ xem.</Foot>
       {canWrite && correctTarget && <CorrectVaccinationModal key={correctTarget.id} record={correctTarget} onClose={() => setModal(null)} onSaved={saved} />}
       {canWrite && deleteTarget && <DeleteVaccinationModal key={deleteTarget.id} record={deleteTarget} onClose={() => setModal(null)} onDeleted={saved} />}
     </div>
+  )
+}
+
+/** SCR-34 (D78): trả lời ngay "con này tiêm đủ chưa" – chỉ tô đỏ khi còn mũi quá hạn. */
+function Summary({ data }: { data: CattleVaccination }) {
+  const { scheduled, overdue, done, withdrawalEnd } = cattleVaccinationSummary(data.doses, data.records, businessDate())
+  const cells: Array<[string, ReactNode]> = [
+    ['Đã tiêm', `${done} mũi`],
+    ['Còn theo lịch', `${scheduled} mũi`],
+    ['Quá hạn', overdue > 0 ? <Badge tone="err">{overdue} mũi</Badge> : 'Không'],
+  ]
+  return (
+    <Panel tone={overdue > 0 ? 'warn' : 'default'} title={<span className="text-sm font-semibold">Tình trạng tiêm phòng</span>} className="gap-3! p-4!">
+      <div className="grid grid-cols-3 gap-3">
+        {cells.map(([label, value]) => (
+          <div key={label} className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-[11px] text-label">{label}</span>
+            <span className="text-[13px] font-medium text-ink">{value}</span>
+          </div>
+        ))}
+      </div>
+      {withdrawalEnd && (
+        <Note tone="warn">
+          <span className="flex items-center gap-2">
+            <Icon name="alert-triangle" size={16} className="shrink-0" />
+            Ngưng sử dụng thịt đến {fmtDate(withdrawalEnd)}
+          </span>
+        </Note>
+      )}
+    </Panel>
   )
 }
 
@@ -87,7 +119,7 @@ function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect, onDel
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const rows = data.records.filter((r) => r.status !== 'VOIDED').sort((a, b) => (a.administeredAt < b.administeredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   return (
-    <Card variant="panel" title={title}>
+    <Panel title={<span className="text-sm font-semibold">{title}</span>} className="gap-3! p-4!">
       {rows.length === 0 ? (
         <EmptyBlock title="Chưa có mũi tiêm nào"  />
       ) : (
@@ -101,7 +133,7 @@ function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect, onDel
           <tbody>{rows.map((r) => <HistoryRow key={r.id} r={r} canWrite={canWrite} onCorrect={onCorrect} onDelete={onDelete} />)}</tbody>
         </Table>
       )}
-    </Card>
+    </Panel>
   )
 }
 

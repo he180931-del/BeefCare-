@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, SearchSelect, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Icon, Info, inputCls, KV, Note, SearchSelect, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
@@ -599,11 +599,6 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           </section>
         </div>
 
-        <Foot>
-          {isBuy
-            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã bò, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
-            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.'}
-        </Foot>
       </div>
 
       {deathCalf && <CalfDeathModal calf={deathCalf} onClose={() => setDeathCalf(null)} onConfirm={async reason => {

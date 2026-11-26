@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import {
-  activateTableRow, activateTableRowByKey, Button, ErrorBlock, Foot, Icon, interactiveRowClass, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs,
+  activateTableRow, activateTableRowByKey, Button, ErrorBlock, Icon, interactiveRowClass, PageHeader, Pagination, Panel, SearchInput, Select, Table, Tabs,
 } from '../../../shared/ui'
 import { cx } from '../../../shared/ui/cx'
 import { dm } from '../../../shared/lib/format'
 import { useSession } from '../../../app/session/sessionContext'
 import { LIFE_STAGE_OPTIONS, useCattleListQueries } from '../hooks/useCattleQueries'
 import { Chip, Th, Td, chipIcon } from '../components/parts'
-import type { StatusChip } from '../types'
 import type { CattleViewModel as CowSeed } from '../types'
 
 // Máy chủ thật lọc, đếm và phân trang; bản mô phỏng tính tại trình duyệt từ đàn mẫu.
@@ -343,7 +342,6 @@ export default function CowList() {
           )}
         </Panel>
 
-        <Foot>Nhấn một dòng để mở hồ sơ bò. Các tab nhóm đàn cộng lại bằng tổng bò đang nuôi.</Foot>
       </div>
     </Layout>
   )

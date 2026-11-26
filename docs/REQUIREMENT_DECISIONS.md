@@ -1143,6 +1143,53 @@ An yêu cầu "bản Excel chuẩn để input vào thành phiếu nhập" và i
 
 Không đổi route, DTO, OpenAPI hay migration.
 
+### D78 — Hồ sơ bò: tiêu đề gọn, tóm tắt tiêm phòng có số liệu (26/11/2026)
+
+Rà soát SCR-19 và các tab chăm sóc sau D66–D75:
+
+1. **Tiêu đề hồ sơ (SCR-19 #3, #4).** Dòng tóm tắt có thêm **cân gần nhất** ở cuối: "342 kg* (18/10/2026)"; "*" là cân ước tính, bỏ trống khi chưa có lần cân. Huy hiệu bỏ **nhóm đàn** (đã có ở cột Mục đích và bộ lọc SCR-18) và bỏ huy hiệu **Đang nuôi**; chỉ Chờ xuất, Đã xuất và Nhập nhầm – đã hủy mới hiện. Thứ tự còn lại: sức khỏe → nghi truyền nhiễm → cách ly thịt → sinh sản.
+2. **Tóm tắt chăm sóc – Tiêm phòng (SCR-19 #21).** Backend trả thêm `vaccinationOverdue` trong trạng thái suy ra của hồ sơ: số mũi còn chờ tiêm (PLANNED) của lịch đang chạy (ACTIVE) đã qua ngày dự kiến. Giao diện hiện "n mũi quá hạn" (đỏ) khi n > 0, "Đúng lịch" khi n = 0, "—" khi không có số liệu (bò đã xuất đàn). Trước đó ô này luôn là "—".
+3. **Tab Tiêm phòng (SCR-34).** Thêm khối **Tình trạng tiêm phòng** đầu tab: Đã tiêm (số lần còn hiệu lực), Còn theo lịch, Quá hạn, kèm dải cảnh báo "Ngưng sử dụng thịt đến dd/mm/yyyy" khi còn hiệu lực. Khối chỉ đổi nền khi có mũi quá hạn. Tab chuyển sang khung Bento như Sức khỏe (D66), Sinh sản (D71), Cân nặng (D72); ghi chú cuối trang rút còn một dòng.
+4. **Ngày cân gần nhất.** Hồ sơ và danh sách bò đọc `latestWeightDate` nhưng backend chưa bao giờ trả trường này, nên ngày cân luôn trống (SCR-18 #15 "342 kg · 12/10" và SCR-19 #17). Projection hồ sơ bổ sung `latestWeightDate` lấy từ thời điểm đo của lần cân hợp lệ gần nhất, quy về ngày theo giờ trại.
+5. **Tab Sinh sản** đã chỉ hiện cho bò cái từ trước; giữ nguyên.
+
+Không đổi route, migration hay quyền.
+
+### D79 — Hồ sơ bò gọn cho điện thoại: tab Tổng quan, dòng thời gian, khối gập (26/11/2026)
+
+Tiếp D78, xử lý các điểm còn lại của bản rà soát hồ sơ bò. Nguyên tắc chung: khối nào gập thì **luôn kèm một dòng tóm tắt** để thông tin hay dùng vẫn thấy ngay, không phải mở.
+
+1. **SCR-19 còn 6 tab (5 với bò đực).** Lịch sử chuồng (SCR-20) và Thẻ QR (SCR-21) thành hai khối gập cuối tab Tổng quan. Dòng tóm tắt khi gập: "Tên chuồng · từ ngày · n/sức chứa con" và "Mã thẻ · cấp ngày". Liên kết cũ `?tab=barns` / `?tab=qr` mở tab Tổng quan với khối tương ứng mở sẵn và cuộn tới.
+2. **Tóm tắt chăm sóc bấm được.** Mỗi ô mở tab chứa số liệu gốc: Cân gần nhất / ADG / BCS → Cân & BCS; Sức khỏe, Cách ly thịt → Sức khỏe; Sinh sản → Sinh sản (bò đực chỉ là chữ "Không áp dụng"); Tiêm phòng → Tiêm phòng.
+3. **Thông tin cá thể gọn.** Khối Định danh gộp vào Thông tin cá thể. Luôn hiện Giống, Ngày sinh · tuổi, Mục đích, Giai đoạn (kèm gợi ý REM-08) và Cách ly nhập đàn khi còn hiệu lực. Mã hiển thị, số tai, giới tính (đã có ở tiêu đề), nguồn nhập, bố mẹ, tên gọi, mô tả nằm sau "Xem thêm". Chuồng hiện tại không lặp lại lần thứ ba.
+4. **Dòng thời gian (SCR-50).** Thêm chip **Chăm sóc** (Cân & BCS, Tiêm phòng, Sức khỏe, Sinh sản), là chip mặc định khi bò có sự kiện chăm sóc; chưa có thì mặc định "Tất cả" để không mở ra trang trống. Mỗi sự kiện một dòng: tiêu đề + giá trị, nhãn, ngày; bấm tiêu đề để xem chi tiết, lý do, thời điểm xảy ra / ghi và người ghi. Có "Mở rộng tất cả"; bật "Hiện chỉnh sửa" thì mọi dòng tự mở vì đó là lúc soát lý do.
+5. **Tab Sức khỏe (SCR-37).** Khối Tình trạng sức khỏe thêm dòng **Từ trước đến nay**: tổng số ca, tổng lần điều trị, tháng của ca gần nhất. Không thêm "số ngày ngưng thịt tích lũy" vì các đợt ngưng chồng lên nhau và con số không giúp quyết định gì.
+6. **Tab Sinh sản (SCR-39).** Chỉ số sinh sản gập sẵn, dòng tóm tắt giữ số lứa và lần đẻ gần nhất. Lịch sử sinh bê hiện lứa gần nhất, "Xem n lứa trước" mở phần còn lại. Dòng thời gian sinh sản hiện 5 sự kiện mới nhất trong khoảng đã chọn, "Xem thêm n sự kiện" mở hết; khi mở từ dòng thời gian hồ sơ (một bản ghi nguồn) thì không gập. Lịch sử chỉnh sửa gập sẵn, kèm số lần sửa.
+7. **Bỏ ghi chú rối mắt trên toàn ứng dụng (theo D52).** Bỏ mọi dòng chữ nhỏ cuối màn chỉ mô tả màn hình hoặc liệt kê quyền vai trò – hồ sơ bò và các tab chăm sóc, đàn bò, nhập / xuất đàn, chuồng, thức ăn, danh mục và tham số, thông báo trại, tổng quan và báo cáo, thành viên và lời mời, gói dịch vụ, hỗ trợ, audit. Chỉ giữ: dữ liệu ("Số liệu tính lúc …" ở Tổng quan trại, "Cập nhật lúc …" ở Lời mời) và câu giúp nhập liệu hoặc giải thích một giá trị – "Nhập lịch sử" không tính ngày ngưng (Ghi tiêm); bê sống mặc định lưu nháp, "Đăng ký ngay" cần chuồng và mục đích (Ghi đẻ); "—" ở ADG (Cân nặng); điều kiện phối chỉ để tham khảo; Kỹ thuật viên chỉ xem.
+
+Không đổi API, DTO, OpenAPI hay migration.
+
+### D81 — FE-10: sửa / xóa bản ghi của ca đã đóng ngay trong "Xem ca" (26/11/2026)
+
+Lỗi: lần điều trị thuộc ca đã đóng (Khỏi / Chết / Mất tích) ghi sai số ngày ngưng thịt thì cảnh báo cách ly thịt treo đến hết ngày ngưng và không có cách sửa – popup "Xem ca" chỉ đọc, adapter backend cũng không nhận bản ghi của ca đã đóng ("Bản ghi chưa được tải"). Spec chỉ khóa ca đóng do xuất đàn (R-10-13); backend đã cho sửa đúng như vậy.
+
+1. Popup "Xem ca" của ca đã đóng có Sửa / Xóa trên từng dòng diễn biến cho Chủ trại và Quản lý (lần ghi mở ca chỉ Sửa), dùng chính popup Sửa / Xóa của ca đang mở (R-10-10): ngưng thịt trước → sau, ghi chú không bắt buộc, lưu lịch sử thay đổi. Ca CLOSED_BY_EXIT và bò đã rời đàn vẫn chỉ xem; Kỹ thuật viên chỉ xem.
+2. Lưu xong tải lại popup và tab Sức khỏe, nên ngày ngưng thịt, cảnh báo cách ly và trạng thái sức khỏe cập nhật ngay.
+3. Không đổi R-18-18: sửa số ngày ngưng trong danh mục thuốc vẫn không viết lại bản ghi đã ghi; muốn đổi bản ghi cũ thì sửa từng bản ghi như trên.
+
+Không đổi API, DTO hay migration.
+
+### D82 — FE-05 / FE-06 / FE-09 / FE-11: khai báo lúc nhập đàn đi tiếp vào hồ sơ bò (26/11/2026)
+
+Lỗi: khai báo tiêm / bệnh / sinh sản lúc nhập đàn chỉ được lưu, không đọc lại ở đâu – hồ sơ không có SCR-19 #11, tab Sinh sản luôn trả `declaredPregnancyMonths = null` nên bò khai mang thai vẫn hiện "Chờ phối", và mũi tiêm gõ tên tự do (FE-06 §3.3 cho phép) bị bỏ im lặng vì `vaccination.vaccine_id` bắt buộc.
+
+1. **Hồ sơ bò (SCR-19 #11):** `entry.declarations[]` trả mọi nhóm khai báo (VACCINATION / DISEASE / REPRODUCTION, KNOWN / NONE / UNKNOWN). Giao diện hiện mục "Khai báo khi nhập" sau "Xem thêm"; "Không rõ" giữ là "Không rõ" (GBR-30). Mọi vai trò xem được; sửa qua phiếu nhập. Bò sinh tại trại hoặc đã hủy nhập không có mục.
+2. **Mũi tên tự do:** thành bản ghi HISTORICAL chỉ có tên (`vaccine_name_snapshot`), `vaccine_id` để trống. Migration mới `20261126000100` bỏ NOT NULL và thêm ràng buộc `ck_vaccination_vaccine_or_name`: chỉ HISTORICAL có tên được thiếu vắc-xin; ON_FARM vẫn bắt buộc (entity cũng kiểm). Sửa dòng nhập khớp mũi tự do theo tên (không phân biệt hoa thường) để thay đúng bản ghi, không nhân đôi. Popup sửa bản ghi tiêm mặc định "Giữ: <tên>" thay vì tự đổi sang vắc-xin đầu danh mục. Mọi bản ghi HISTORICAL khai lúc nhập nay lưu tên snapshot.
+3. **Sinh sản (SCR-39 #3, SCR-38):** `declaredPregnancy {estMonths, entryDate}` có khi bò cái đang nuôi được khai "mang thai: Có" và chưa có khám thai (mọi kết quả) hoặc lần đẻ VALID từ ngày nhập, và trạng thái chưa là Đã phối / Mang thai. Tab hiện "Khai báo mang thai ~n tháng (chưa khám)", nút chính Ghi khám thai; Ghi phối giống / Ghi động dục hỏi cảnh báo trước (không chặn). Danh sách: huy hiệu, Việc cần làm "Khám thai", Thời hạn = hạn REM-03.
+4. Giữ nguyên: khai báo mang thai **không** mở giai đoạn mang thai, khai báo bệnh **không** tạo ca (FE-06 §3.3); REM-03 vẫn do đối soát nhắc việc đóng.
+
+API: thêm `Entry.declarations`, `Declaration`, `DeclaredVaccine`, `WorklistItem.declaredPregnancy`, `DeclaredPregnancy`; `declaredPregnancyMonths` của A2 đổi thành `declaredPregnancy`. Migration mới, không sửa migration đã áp dụng.
+
 ### D83 — FE-07 / FE-14: mở đúng thông báo và làm rõ trạng thái nhắc việc (26/11/2026)
 
 1. SCR-26 mở chi tiết theo mã trong liên kết, kể cả khi danh sách của Chủ trại hoặc Quản lý đang rỗng hay không chứa mã đó. A2 dùng route chi tiết theo trại đã có. Backend kiểm lại quyền, phiên bản đã gửi và quyền xem nháp của tác giả. Người nhận mở bản mới nhất thì đánh dấu lượt gửi tương ứng đã đọc; mở bản cũ không đánh dấu bản mới.

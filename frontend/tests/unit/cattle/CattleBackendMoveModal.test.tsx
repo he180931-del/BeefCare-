@@ -48,7 +48,7 @@ describe('Cattle profile backend move pen flow', () => {
     const user = userEvent.setup()
     render(<MemoryRouter initialEntries={['/cattle/BC-BACKEND-MOVE']}><Routes><Route path="/cattle/:code" element={<CowProfile />} /></Routes></MemoryRouter>)
 
-    expect((await screen.findAllByText('BC-BACKEND-MOVE')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/BC-BACKEND-MOVE/)).length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Lịch sử chuồng' }))
     await user.click(screen.getByRole('button', { name: 'Chuyển chuồng' }))
     expect(screen.getByRole('heading', { name: /Chuyển chuồng/ })).toBeInTheDocument()
@@ -93,7 +93,7 @@ describe('Cattle profile backend move pen flow', () => {
     const { default: CowProfile } = await import('../../../src/features/cattle/pages/CowProfile')
     const user = userEvent.setup()
     render(<MemoryRouter initialEntries={['/cattle/BC-BACKEND-BLOCKED']}><Routes><Route path="/cattle/:code" element={<CowProfile />} /></Routes></MemoryRouter>)
-    await screen.findAllByText('BC-BACKEND-BLOCKED')
+    await screen.findAllByText(/BC-BACKEND-BLOCKED/)
     await user.click(screen.getByRole('button', { name: 'Lịch sử chuồng' }))
     await user.click(screen.getByRole('button', { name: 'Chuyển chuồng' }))
     await user.selectOptions(screen.getAllByRole('combobox')[0], 'B1')

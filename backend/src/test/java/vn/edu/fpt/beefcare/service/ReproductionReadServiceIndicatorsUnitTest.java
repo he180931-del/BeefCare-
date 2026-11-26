@@ -22,6 +22,7 @@ class ReproductionReadServiceIndicatorsUnitTest {
     private final ReproductionReadService service = new ReproductionReadService(
         null,
         new FarmClock(Clock.fixed(Instant.parse("2026-10-20T00:00:00Z"), FARM_ZONE)),
+        null,
         null
     );
 

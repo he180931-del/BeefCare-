@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { Button, EmptyBlock, ErrorBlock, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
@@ -88,7 +88,6 @@ export default function TicketListPage() {
           <TicketTable items={data.items} />
         )}
         {pageCount > 1 && <Pagination page={data.page} pageCount={pageCount} onChange={(page) => setFilters((f) => ({ ...f, page }))} summary={`${data.total} yêu cầu`} />}
-        <Foot>Lọc phiếu theo trạng thái; mỗi dòng cho biết mã phiếu, chủ đề, danh mục, trại, trạng thái và lần cập nhật gần nhất.</Foot>
       </div>
       {m === 'da-gui' && submitted.data && (
         <SubmittedDialog ticket={submitted.data} onClose={closeModal} onList={closeModal} onView={() => navigate(`/ho-tro/${submitted.data!.id}`)} />

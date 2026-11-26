@@ -122,7 +122,9 @@ public class PlatformFinanceService {
             if (to != null) p.add(cb.lessThanOrEqualTo(root.get("occurredOn"), to));
             return cb.and(p.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
-        return records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id"))).map(this::dto);
+        Page<ManualFinanceRecord> found = records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id")));
+        Map<String, Long> sources = found.stream().anyMatch(r -> StringUtils.hasText(r.getSourceReference())) ? unclaimedEvidenceIds() : Map.of();
+        return found.map(r -> RecordDTO.from(r, StringUtils.hasText(r.getSourceReference()) ? sources.get(r.getSourceReference()) : null));
     }
 
     @Transactional(readOnly = true)
@@ -295,7 +297,7 @@ public class PlatformFinanceService {
         List<ReportLine> lines = new ArrayList<>();
         if (!"MANUAL_ONLY".equals(sourceFilter)) addReceipts(lines, request.dateFrom(), request.dateTo(), selectedFarm);
         if (!"RECEIPTS_ONLY".equals(sourceFilter)) addManual(lines, request.dateFrom(), request.dateTo(), selectedFarm);
-        ReportSummary summary = summarize(lines);
+        ReportSummary summary = summarize(lines, selectedFarm != null);
         CashReportSnapshot snapshot = new CashReportSnapshot();
         snapshot.setAsOf(clock.now());
         snapshot.setDateFrom(request.dateFrom());
@@ -333,24 +335,6 @@ public class PlatformFinanceService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReportLine> exportRows(Long id) {
-        access.requireRole(PlatformRole.PM);
-        CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
-            .orElseThrow(PlatformFinanceService::snapshotExpired);
-        try { return mapper.readValue(snapshot.getDetailsJson(), new TypeReference<>() {}); }
-        catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
-    }
-
-    @Transactional(readOnly = true)
-    public List<RecordDTO> recordsForExport(Long id) {
-        access.requireRole(PlatformRole.PM);
-        CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
-            .orElseThrow(PlatformFinanceService::snapshotExpired);
-        try { return mapper.readValue(snapshot.getDetailsJson(), new TypeReference<>() {}); }
-        catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
-    }
-
-    @Transactional(readOnly = true)
     public ExportSnapshot exportSnapshot(Long id) {
         access.requireRole(PlatformRole.PM);
         CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
@@ -369,8 +353,12 @@ public class PlatformFinanceService {
     }
 
     private void addReceipts(List<ReportLine> lines, LocalDate from, LocalDate to, Farm selectedFarm) {
+        // One receipt per PAID payment: its first accepted transfer (same rule as the receipts page, GBR-82).
+        Map<Long, BankTransferEvidence> firstAccepted = new LinkedHashMap<>();
         evidence.findAllByReviewStatusIgnoreCaseOrderByBankPaidAtAscIdAsc("ACCEPTED").stream()
             .filter(e -> e.getPayment() != null && "PAID".equalsIgnoreCase(e.getPayment().getState()))
+            .forEach(e -> firstAccepted.merge(e.getPayment().getId(), e, (a, b) -> a.getId() < b.getId() ? a : b));
+        firstAccepted.values().stream()
             .filter(e -> inRange(e.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate(), from, to))
             .filter(e -> selectedFarm == null || selectedFarm.getId().equals(e.getPayment().getSubscription().getFarm().getId()))
             .forEach(e -> {
@@ -386,7 +374,7 @@ public class PlatformFinanceService {
             .forEach(r -> lines.add(new ReportLine("MANUAL_FINANCE", r.getRecordCode(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? "Chung nền tảng" : r.getFarm().getName(), r.getType(), r.getCategory(), r.getDescription(), r.getAmountVnd(), r.getOccurredOn(), r.getState(), r.getSourceReference(), r.getVersion())));
     }
 
-    private ReportSummary summarize(List<ReportLine> rows) {
+    private ReportSummary summarize(List<ReportLine> rows, boolean singleFarm) {
         BigDecimal receiptIncome = ZERO, otherIncome = ZERO, expense = ZERO;
         Map<String, ScopeTotals> scopes = new LinkedHashMap<>();
         for (ReportLine row : rows) {
@@ -402,7 +390,7 @@ public class PlatformFinanceService {
             }
         }
         BigDecimal income = receiptIncome.add(otherIncome);
-        ScopeTotals platform = new ScopeTotals("PLATFORM", null, "Toàn nền tảng", receiptIncome, otherIncome, expense);
+        ScopeTotals platform = new ScopeTotals("PLATFORM", null, singleFarm ? "Tổng cộng" : "Toàn nền tảng", receiptIncome, otherIncome, expense);
         scopes.put("PLATFORM", platform);
         Map<LocalDate, BigDecimal> daily = new java.util.TreeMap<>();
         rows.stream().filter(row -> "INCOME".equals(row.direction())).forEach(row -> daily.merge(row.cashDate(), row.amount(), BigDecimal::add));
@@ -537,20 +525,20 @@ public class PlatformFinanceService {
      * draft. Resolve it server-side so reopening a draft cannot silently drop its source.
      */
     private RecordDTO dto(ManualFinanceRecord record) {
-        Long sourceEvidenceId = null;
-        if (StringUtils.hasText(record.getSourceReference())) {
-            sourceEvidenceId = evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
-                .filter(item -> record.getSourceReference().equals(sourceReference(item)))
-                .map(BankTransferEvidence::getId)
-                .findFirst()
-                .orElse(null);
-        }
+        Long sourceEvidenceId = StringUtils.hasText(record.getSourceReference()) ? unclaimedEvidenceIds().get(record.getSourceReference()) : null;
         return RecordDTO.from(record, sourceEvidenceId);
+    }
+    /** sourceReference → evidence id of bank transfers not tied to a payment; newest first wins, as before. */
+    private Map<String, Long> unclaimedEvidenceIds() {
+        Map<String, Long> ids = new java.util.HashMap<>();
+        for (BankTransferEvidence item : evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc()) ids.putIfAbsent(sourceReference(item), item.getId());
+        return ids;
     }
     private static boolean inRange(LocalDate date, LocalDate from, LocalDate to) { return !date.isBefore(from) && !date.isAfter(to); }
     private void validateDateRange(LocalDate from, LocalDate to, boolean required) {
         if (from == null || to == null) { if (required) throw DomainException.required("dateFrom and dateTo"); return; }
-        if (to.isBefore(from) || to.isAfter(clock.today()) || from.isBefore(to.minusMonths(24))) throw DomainException.invalid("dateRange");
+        // A period may end in the future (e.g. the whole current month); only order and the 24-month cap are enforced (R-21-08).
+        if (to.isBefore(from) || from.isBefore(to.minusMonths(24))) throw DomainException.invalid("dateRange");
     }
     private static List<String> normalize(List<String> values) { return values.stream().filter(StringUtils::hasText).map(v -> v.trim().toUpperCase(Locale.ROOT)).distinct().toList(); }
     private static String blankToNull(String value) { return StringUtils.hasText(value) ? value.trim() : null; }

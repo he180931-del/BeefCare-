@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, ErrorBlock, FilterSelect, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, ErrorBlock, FilterSelect, Icon, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { BackendError } from '../../../shared/api/backendClient'
-import { useDemoState } from '../../../demo/demoModules'
 import { useFinanceCurrentReport, useFinanceFarms, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
-import { FlashNote, RoField, useFlash } from '../components/common'
-import { getPageCount, IncomeChart, paginateReportRows, REPORT_DETAIL_PAGE_SIZE, REPORT_SCOPE_PAGE_SIZE, ScopeTable } from '../components/ReportParts'
+import { FilterField, FlashNote, RoField, useFlash } from '../components/common'
+import { buildWorkbookPreview, byCategory, byFarm, CumulativeChart, DonutChart, dailyFlows, getPageCount, IncomeExpenseChart, paginateReportRows, RankBars, REPORT_DETAIL_PAGE_SIZE, REPORT_SCOPE_PAGE_SIZE, ScopeTable, sumBy, WorkbookPreview } from '../components/ReportParts'
 import { categoryLabel, formatDate, formatDateTime, formatMoney, formatVnd } from '../domain/financeRules'
 import { validateCriteria } from '../validation/financeValidation'
-import type { CashReport, ReportCriteria, ScopeTotals, SourceFilter } from '../types'
+import type { CashReport, ReportCriteria, ReportLine, ScopeTotals, SourceFilter } from '../types'
 
 const TITLE = 'Báo cáo dòng tiền nền tảng'
+const lineKind = (l: ReportLine) => (l.sourceType === 'RECEIPT' ? 'Biên nhận gói' : 'Khoản thu chi')
+type LineFilter = { q: string; direction: '' | 'IN' | 'OUT'; category: string }
+const NO_FILTER: LineFilter = { q: '', direction: '', category: '' }
+const matchLine = (l: ReportLine, f: LineFilter) => (!f.direction || l.direction === f.direction) && (!f.category || l.category === f.category) && (!f.q.trim() || `${l.code} ${l.reference} ${categoryLabel(l.category)}`.toLowerCase().includes(f.q.trim().toLowerCase()))
 const SOURCE_LABEL: Record<SourceFilter, string> = { BOTH: 'Biên nhận + thủ công', RECEIPTS: 'Chỉ biên nhận gói', MANUAL: 'Chỉ khoản thủ công' }
 const scopeLabel = (c: ReportCriteria, farmName: string) => `${c.dateFrom.slice(8, 10)}/${c.dateFrom.slice(5, 7)}–${formatDate(c.dateTo)} · ${farmName} · Asia/Ho_Chi_Minh · VND`
 const emptyReport = (criteria: ReportCriteria): CashReport => ({
@@ -23,14 +26,16 @@ const emptyReport = (criteria: ReportCriteria): CashReport => ({
 /** SCR-73: báo cáo dòng tiền nền tảng chạy trên bản chốt, xuất XLSX đúng bản chốt đang xem. */
 export default function CashReportRoutes() {
   const [m, open, close] = useModalParam()
-  const demo = useDemoState()
   const [flash, setFlash] = useFlash()
   const useCases = usePlatformFinanceUseCases()
   const [criteria, setCriteria] = useState<ReportCriteria>(() => useCases.defaultReportCriteria())
   const [shown, setShown] = useState<CashReport | null>(null)
   const [focus, setFocus] = useState<ScopeTotals | null>(null)
   const [scopePage, setScopePage] = useState(1)
-  const [detailPage, setDetailPage] = useState(1)
+  const [farmPage, setFarmPage] = useState(1)
+  const [draft, setDraft] = useState<LineFilter>(NO_FILTER)
+  const [applied, setApplied] = useState<LineFilter>(NO_FILTER)
+  const [line, setLine] = useState<ReportLine | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const farms = useFinanceFarms()
@@ -41,11 +46,9 @@ export default function CashReportRoutes() {
   const setCrit = (p: Partial<ReportCriteria>) => setCriteria((c) => ({ ...c, ...p }))
   useEffect(() => {
     setScopePage(1)
-    setDetailPage(1)
   }, [report.id, report.criteria.dateFrom, report.criteria.dateTo, report.criteria.farmId, report.criteria.sourceFilter])
   useEffect(() => {
     setScopePage((page) => Math.min(page, getPageCount(s.scopes.filter((row) => row.scope !== 'PLATFORM'), REPORT_SCOPE_PAGE_SIZE)))
-    setDetailPage((page) => Math.min(page, getPageCount(report.lines, REPORT_DETAIL_PAGE_SIZE)))
   }, [report.id, report.lines.length, s.scopes.length])
 
   const noSnapshot = error instanceof BackendError && (error.status === 404 || error.status === 410)
@@ -53,9 +56,8 @@ export default function CashReportRoutes() {
   if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={financeError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
 
   const hasSnapshot = report.id > 0
-  const expired = report.expired || demo === 'het-han'
+  const expired = report.expired
   const farmLabel = report.criteria.farmId ? farms.data?.find((f) => f.id === report.criteria.farmId)?.name ?? 'Một trại' : 'Tất cả trại'
-  const dirty = JSON.stringify(criteria) !== JSON.stringify(report.criteria)
 
   const run = async () => {
     const problem = validateCriteria(criteria)
@@ -64,15 +66,14 @@ export default function CashReportRoutes() {
     try {
       const next = await useCases.runReport(criteria)
       setShown(next)
-      setFlash({ tone: 'ok', text: `Báo cáo ${next.code} được tạo lúc ${formatDateTime(next.generatedAt)}.` })
-      open(next.lines.length === 0 ? 'rong' : 'lam-moi')
+      setFlash({ tone: 'ok', text: `Đã làm mới báo cáo ${next.code} lúc ${formatDateTime(next.generatedAt)}.` })
+      close()
     } catch (e) { setFormError(financeError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
   }
   const doExport = async () => {
     if (!hasSnapshot) return
     open('dang-tao')
     try {
-      if (demo === 'xuat-loi') throw new Error('export-failed')
       const file = await useCases.exportXlsx(report.id)
       if ('blob' in file) {
         const url = URL.createObjectURL(file.blob as Blob)
@@ -90,105 +91,113 @@ export default function CashReportRoutes() {
   const critText = scopeLabel(report.criteria, farmLabel)
   const snapshot = `${report.code} · ${formatDateTime(report.generatedAt)}`
 
+  const days = dailyFlows(report.lines)
+  const farmNet = focus ? focus.subscriptionReceipts + focus.otherIncome - focus.expense : 0
+  const allFarmLines = focus ? report.lines.filter((l) => (focus.scope === 'FARM' ? l.farmName === focus.farmName : l.scope === 'GENERAL')) : []
+  const farmCategories = [...new Set(allFarmLines.map((l) => l.category))]
+  const farmLines = allFarmLines.filter((l) => matchLine(l, applied))
+  const farmData = paginateReportRows(farmLines, farmPage, REPORT_DETAIL_PAGE_SIZE)
+  const openFarm = (row: ScopeTotals) => { setFocus(row); setFarmPage(1); setDraft(NO_FILTER); setApplied(NO_FILTER); open('rieng-trai') }
+  const lineAmount = (l: ReportLine) => <span className={l.direction === 'OUT' ? 'text-err-fg' : 'text-ok-fg'}>{l.direction === 'OUT' ? '−' : '+'}{formatVnd(l.amountVnd)}</span>
+
   return (
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
-        <PageHeader title={TITLE} sub="Biên nhận tính theo thời điểm ngân hàng ghi nhận; khoản thủ công đã ghi sổ tính theo ngày phát sinh · giờ Việt Nam">
-          <Button onClick={() => open('xuat')} disabled={!hasSnapshot}><Icon name="table-export" size={16} /> Xuất XLSX</Button>
+        <PageHeader title={TITLE}>
+          <Button onClick={() => open('xuat')} disabled={!hasSnapshot}><Icon name="table-export" size={16} /> Xuất báo cáo</Button>
         </PageHeader>
         <FlashNote flash={flash} />
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex items-center gap-2 text-[12px] text-muted">Kỳ *<div className="w-[150px]"><DateInput id="rp-from" value={criteria.dateFrom} onChange={(v) => setCrit({ dateFrom: v })} /></div>–<div className="w-[150px]"><DateInput id="rp-to" value={criteria.dateTo} onChange={(v) => setCrit({ dateTo: v })} /></div></div>
-          <div className="w-[200px]"><FilterSelect aria-label="Trang trại" value={criteria.farmId ?? ''} onChange={(e) => setCrit({ farmId: e.target.value ? Number(e.target.value) : null })}><option value="">Trang trại: Tất cả</option>{(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</FilterSelect></div>
-          <div className="w-[240px]"><FilterSelect aria-label="Nguồn" value={criteria.sourceFilter} onChange={(e) => setCrit({ sourceFilter: e.target.value as SourceFilter })}>{(Object.keys(SOURCE_LABEL) as SourceFilter[]).map((k) => <option key={k} value={k}>Nguồn: {SOURCE_LABEL[k]}</option>)}</FilterSelect></div>
+        <div data-testid="report-filters" className="flex flex-wrap items-end gap-3 lg:flex-nowrap">
+          <FilterField label="Từ ngày *" width={160}><DateInput compact id="rp-from" value={criteria.dateFrom} onChange={(v) => setCrit({ dateFrom: v })} /></FilterField>
+          <FilterField label="Đến ngày *" width={160}><DateInput compact id="rp-to" value={criteria.dateTo} onChange={(v) => setCrit({ dateTo: v })} /></FilterField>
+          <FilterField label="Trang trại" width={220}><FilterSelect aria-label="Trang trại" value={criteria.farmId ?? ''} onChange={(e) => setCrit({ farmId: e.target.value ? Number(e.target.value) : null })}><option value="">Tất cả</option>{(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</FilterSelect></FilterField>
+          <FilterField label="Nguồn" width={240}><FilterSelect aria-label="Nguồn" value={criteria.sourceFilter} onChange={(e) => setCrit({ sourceFilter: e.target.value as SourceFilter })}>{(Object.keys(SOURCE_LABEL) as SourceFilter[]).map((k) => <option key={k} value={k}>{SOURCE_LABEL[k]}</option>)}</FilterSelect></FilterField>
+          <Button className="shrink-0" variant="primary" onClick={run} disabled={busy}><Icon name="refresh" size={16} /> Chạy báo cáo</Button>
         </div>
         {formError && <Note tone="err">{formError}</Note>}
         {expired && <div role="alert"><Note tone="warn">Kết quả báo cáo này đã hết hạn. Hãy chạy lại báo cáo.</Note></div>}
-        <Card>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-[240px] flex-1">
-              <div className="text-[13px] font-semibold text-ink">Kết quả đang xem · {report.code}</div>
-              <div className="text-[11px] text-muted">Dữ liệu chốt lúc {formatDateTime(report.generatedAt)} · đơn vị đồng. Xuất XLSX dùng đúng kết quả và bộ lọc đang xem.{dirty ? ' Bộ lọc đã đổi – hãy chạy lại để cập nhật.' : ''}</div>
-            </div>
-            <Button variant="link" onClick={() => open('chi-tiet')}>Xem chi tiết giao dịch</Button>
-            <Button onClick={run} disabled={busy}><Icon name="refresh" size={16} /> Chạy / làm mới báo cáo</Button>
-          </div>
-        </Card>
         <div className="grid gap-4 md:grid-cols-3">
           <Metric label="Tổng thu" value={`${formatVnd(s.totalIncome)} đ`} note={`Gói ${formatVnd(s.subscriptionReceipts)} · thu khác ${formatVnd(s.otherIncome)}`} />
           <Metric label="Tổng chi" value={`${formatVnd(s.totalExpense)} đ`} note="Chỉ khoản đã ghi sổ" />
-          <Metric label="Dòng tiền ròng" value={`${formatMoney(s.netCashFlow)} đ`} note="Không gồm nháp, hủy bỏ, chứng từ chưa khớp" />
+          <Metric label="Dòng tiền ròng" value={`${formatMoney(s.netCashFlow)} đ`} note="Thu − chi · không phải lợi nhuận theo luật định" />
         </div>
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_416px]">
-          <Card title="Thu theo ngày" sub="Biên nhận gói + thu khác đã ghi sổ · triệu đồng"><IncomeChart days={s.dailyIncome} /></Card>
-          <Card title="Phạm vi tính">
-            <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[12px] text-ink">
-              <li>• Thu gồm biên nhận gói và thu khác đã ghi sổ.</li>
-              <li>• Khoản chung nền tảng được tách riêng; không tính vào dòng tiền ròng khi lọc một trại.</li>
-              <li>• Nháp, đã hủy bỏ, tiền chuyển nhầm và khoản hoàn ngoài hệ thống không vào tổng.</li>
-              <li className="text-muted">• {s.note}</li>
-            </ul>
-          </Card>
-        </div>
-        <ScopeTable scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={(row) => { setFocus(row); open('rieng-trai') }} />
+        {report.lines.length === 0 ? (
+          <Card><Note tone="info">{hasSnapshot ? 'Không có giao dịch trong kỳ. Bộ lọc và thời điểm chốt được giữ; XLSX vẫn xuất được với số 0.' : s.note}</Note></Card>
+        ) : (
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card title="Thu và chi theo ngày" sub="Triệu đồng · theo ngày dòng tiền"><IncomeExpenseChart days={days} /></Card>
+              <Card title="Xu hướng dòng tiền ròng" sub="Cộng dồn thu trừ chi theo ngày"><CumulativeChart days={days} /></Card>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card title="Cơ cấu thu" sub="Theo danh mục"><DonutChart items={sumBy(report.lines, 'IN', byCategory)} empty="Chưa có khoản thu." /></Card>
+              <Card title="Chi theo danh mục"><DonutChart items={sumBy(report.lines, 'OUT', byCategory)} empty="Chưa có khoản chi." /></Card>
+              <Card title="Thu theo trại"><RankBars items={sumBy(report.lines, 'IN', byFarm)} empty="Chưa có khoản thu." /></Card>
+            </div>
+          </>
+        )}
+        <ScopeTable resetKey={`${report.id}|${report.criteria.dateFrom}|${report.criteria.dateTo}|${report.criteria.farmId ?? ''}|${report.criteria.sourceFilter}`} scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={openFarm} />
       </div>
 
-      {m === 'chi-tiet' && (
-        <Modal title="Chi tiết giao dịch của báo cáo" width={840} onClose={close}>
+      {m === 'rieng-trai' && focus && (
+        <Modal title={`Giao dịch của ${focus.farmName}`} width={760} onClose={close}>
           <div className="flex flex-col gap-3">
-            <RoField label="Bản chốt / thời điểm" value={snapshot} />
-            <RoField label="Tiêu chí" value={`${formatDate(report.criteria.dateFrom).slice(0, 5)} – ${formatDate(report.criteria.dateTo)} · ${farmLabel} · VND · Asia/Ho_Chi_Minh`} />
-            {report.lines.length === 0 ? <Note tone="info">Chi tiết rỗng; bộ lọc và thời điểm chốt được giữ.</Note> : (() => {
-              const pageData = paginateReportRows(report.lines, detailPage, REPORT_DETAIL_PAGE_SIZE)
-              return <>
-                <div>
-                  <Table stack={false}>
-                    <thead><tr><Th>Mã</Th><Th>Phạm vi</Th><Th>Danh mục</Th><Th>Số tiền</Th><Th>Ngày</Th><Th>Nguồn</Th><Th>Phiên bản nguồn</Th></tr></thead>
-                    <tbody>{pageData.rows.map((l) => (
-                      <tr key={l.code}><Td>{l.code}</Td><Td>{l.farmName}</Td><Td>{categoryLabel(l.category)}</Td><Td><span className={l.direction === 'OUT' ? 'text-err-fg' : ''}>{l.direction === 'OUT' ? '−' : '+'}{formatVnd(l.amountVnd)}</span></Td><Td>{formatDate(l.cashDate)}</Td><Td>{l.reference}</Td><Td>{l.sourceVersion == null ? '—' : `v${l.sourceVersion}`}</Td></tr>
-                    ))}</tbody>
-                  </Table>
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                ['Tổng thu', focus.subscriptionReceipts + focus.otherIncome, 'text-ok-fg'],
+                ['Tổng chi', focus.expense, 'text-err-fg'],
+                ['Ròng', farmNet, farmNet < 0 ? 'text-err-fg' : 'text-ink'],
+              ] as const).map(([label, value, tone]) => (
+                <div key={label} className="rounded-lg border border-edge bg-white px-3 py-2">
+                  <div className="text-[11px] text-muted">{label}</div>
+                  <div className={`whitespace-nowrap text-[15px] font-semibold ${tone}`}>{label === 'Ròng' ? formatMoney(value) : formatVnd(value)} đ</div>
                 </div>
-                {pageData.total > REPORT_DETAIL_PAGE_SIZE && <Pagination page={pageData.page} pageCount={pageData.pageCount} onChange={setDetailPage} summary={`Hiển thị ${(pageData.page - 1) * REPORT_DETAIL_PAGE_SIZE + 1}–${Math.min(pageData.page * REPORT_DETAIL_PAGE_SIZE, pageData.total)} / ${pageData.total} giao dịch`} />}
+              ))}
+            </div>
+            <form role="search" className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(draft); setFarmPage(1) }}>
+              <SearchInput className="min-w-[180px] flex-1 [&_input]:!h-[38px] [&_input]:!rounded-md [&_input]:!py-0 [&_input]:!text-xs" aria-label="Tìm giao dịch" placeholder="Mã, nguồn, danh mục…" value={draft.q} onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))} />
+              <div className="w-[130px]"><FilterSelect aria-label="Loại giao dịch" value={draft.direction} onChange={(e) => setDraft((d) => ({ ...d, direction: e.target.value as LineFilter['direction'] }))}><option value="">Thu &amp; chi</option><option value="IN">Thu</option><option value="OUT">Chi</option></FilterSelect></div>
+              <div className="w-[170px]"><FilterSelect aria-label="Danh mục giao dịch" value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}><option value="">Mọi danh mục</option>{farmCategories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}</FilterSelect></div>
+              <Button type="submit" variant="primary">Tìm</Button>
+            </form>
+            {farmLines.length === 0 ? <Note tone="info">{allFarmLines.length === 0 ? 'Trại này không có giao dịch trong bản chốt.' : 'Không có giao dịch khớp bộ lọc.'}</Note> : (
+              <>
+                <Table stack={false}>
+                  <thead><tr><Th>Ngày</Th><Th>Loại</Th><Th>Mã</Th><Th>Danh mục</Th><Th>Số tiền</Th></tr></thead>
+                  <tbody>{farmData.rows.map((l) => (
+                    <tr key={l.code} tabIndex={0} aria-label={`Xem giao dịch ${l.code}`} className={interactiveRowClass} onClick={(event) => activateTableRow(event, () => setLine(l))} onKeyDown={(event) => activateTableRowByKey(event, () => setLine(l))}><Td>{formatDate(l.cashDate)}</Td><Td>{lineKind(l)}</Td><Td>{l.code}</Td><Td>{categoryLabel(l.category)}</Td><Td>{lineAmount(l)}</Td></tr>
+                  ))}</tbody>
+                </Table>
+                {farmData.total > REPORT_DETAIL_PAGE_SIZE && <Pagination page={farmData.page} pageCount={farmData.pageCount} onChange={setFarmPage} summary={`Hiển thị ${(farmData.page - 1) * REPORT_DETAIL_PAGE_SIZE + 1}–${Math.min(farmData.page * REPORT_DETAIL_PAGE_SIZE, farmData.total)} / ${farmData.total} giao dịch`} />}
               </>
-            })()}
-            <Note tone="info">Các dòng là dữ liệu và phiên bản đã chốt trong bản chốt. Mở nguồn được kiểm tra quyền riêng. Biên nhận tính theo bank_paid; khoản Đã ghi sổ tính theo ngày phát sinh.</Note>
+            )}
           </div>
           <ModalFooter><ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về báo cáo</ModalButton></ModalFooter>
         </Modal>
       )}
-      {m === 'rieng-trai' && focus && (
-        <Modal title={`Báo cáo riêng ${focus.farmName.replace('Trại bò ', 'Trại ').replace(' – Ba Vì', '')}`} width={640} onClose={close}>
-          <div className="flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <RoField label="Bản chốt / thời điểm" value={snapshot} />
-              <RoField label="Biên nhận đăng ký gói" value={`${formatVnd(focus.subscriptionReceipts)} VND`} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <RoField label="Thu thủ công / chi thủ công" value={`${formatVnd(focus.otherIncome)} / ${formatVnd(focus.expense)} VND`} />
-              <RoField label="Ròng của trại" value={`${formatMoney(focus.subscriptionReceipts + focus.otherIncome - focus.expense)} VND`} />
-            </div>
-            <RoField label="Khoản chung nền tảng (tham khảo)" value={`Chi ${formatVnd(s.scopes.find((x) => x.scope === 'GENERAL')?.expense ?? 0)} VND · Không tính vào ròng trại`} />
-            <Note tone="info">Khoản còn Nháp ở bản chốt này nên chưa tính. Không phân bổ chi Chung nền tảng vào trại.</Note>
+      {line && (
+        <Modal title={`Chi tiết ${line.code}`} width={560} onClose={() => setLine(null)}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <RoField label="Loại giao dịch" value={`${lineKind(line)} · ${line.direction === 'IN' ? 'Thu' : 'Chi'}`} />
+            <RoField label="Số tiền" value={`${line.direction === 'OUT' ? '−' : '+'}${formatVnd(line.amountVnd)} đ`} />
+            <RoField label="Ngày dòng tiền" value={formatDate(line.cashDate)} />
+            <RoField label="Danh mục" value={categoryLabel(line.category)} />
+            <RoField label="Phạm vi" value={line.scope === 'GENERAL' ? 'Chung nền tảng' : line.farmName} />
+            <RoField label="Trạng thái" value={line.status} />
+            <RoField label={line.sourceType === 'RECEIPT' ? 'Thanh toán / chứng từ nguồn' : 'Diễn giải / tham chiếu'} value={line.reference} />
+            <RoField label="Phiên bản nguồn" value={line.sourceVersion == null ? '—' : `v${line.sourceVersion}`} />
           </div>
-          <ModalFooter>
-            <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về tất cả trại</ModalButton>
-            <ModalButton variant="primary" onClick={() => { void doExport() }}>Xuất bản chốt này</ModalButton>
-          </ModalFooter>
+          <ModalFooter><ModalButton onClick={() => setLine(null)}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton></ModalFooter>
         </Modal>
       )}
       {m === 'xuat' && (
-        <Modal title="Xuất báo cáo đang xem" width={640} onClose={close}>
-          <div className="flex flex-col gap-3">
-            <RoField label="Bản chốt / thời điểm" value={snapshot} />
-            <RoField label="Định dạng" value="XLSX · Tổng hợp và Chi tiết" />
-            <RoField label="Tiêu chí" value={scopeLabel(report.criteria, farmLabel)} />
-            <Note tone="info">Tổng hợp: tiêu chí, định nghĩa, tổng gói / thu khác / chi / ròng, từng trại và Chung nền tảng riêng.</Note>
-            <Note tone="info">Chi tiết: ID và phiên bản nguồn, loại/phạm vi/trại, ngày dòng tiền, tiền, Thanh toán / Chứng từ, thời hạn / kỳ mua. Xuất đúng bản chốt đang xem, không tự chạy lại số mới.</Note>
+        <Modal title="Xem trước báo cáo" width={960} onClose={close}>
+          <div className="flex flex-col gap-2">
+            <WorkbookPreview sheets={buildWorkbookPreview(report, farmLabel, SOURCE_LABEL[report.criteria.sourceFilter])} />
           </div>
           <ModalFooter>
             <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
-            <ModalButton variant="primary" onClick={() => { void doExport() }}><Icon name="table-export" size={16} /> Xuất XLSX</ModalButton>
+            <ModalButton variant="primary" onClick={() => { void doExport() }}><Icon name="table-export" size={16} /> Tải xuống XLSX</ModalButton>
           </ModalFooter>
         </Modal>
       )}
@@ -213,33 +222,6 @@ export default function CashReportRoutes() {
           <ModalFooter>
             <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về báo cáo</ModalButton>
             <ModalButton variant="primary" onClick={() => { void refreshAndClose() }}><Icon name="refresh" size={16} /> Làm mới báo cáo</ModalButton>
-          </ModalFooter>
-        </Modal>
-      )}
-      {m === 'rong' && (
-        <Modal title="Không có giao dịch trong kỳ" width={640} onClose={close}>
-          <div className="flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2"><RoField label="Bản chốt / thời điểm" value={snapshot} /><RoField label="Tiêu chí" value={`${formatDate(report.criteria.dateFrom).slice(0, 5)} – ${formatDate(report.criteria.dateTo)} · ${farmLabel}`} /></div>
-            <RoField label="Tổng thu / tổng chi / ròng" value={`${formatVnd(s.totalIncome)} / ${formatVnd(s.totalExpense)} / ${formatMoney(s.netCashFlow)} VND`} />
-            <Note tone="info">Chi tiết rỗng; bộ lọc và thời điểm chốt được giữ. XLSX vẫn có Tổng hợp số 0 và hàng tiêu đề Chi tiết.</Note>
-          </div>
-          <ModalFooter>
-            <ModalButton onClick={close}>Đổi bộ lọc</ModalButton>
-            <ModalButton variant="primary" onClick={() => { void doExport() }}><Icon name="table-export" size={16} /> Xuất báo cáo rỗng</ModalButton>
-          </ModalFooter>
-        </Modal>
-      )}
-      {m === 'lam-moi' && (
-        <Modal title="Đã làm mới báo cáo" width={640} onClose={close}>
-          <div className="flex flex-col gap-3">
-            <RoField label="Bản chốt / thời điểm" value={snapshot} />
-            <RoField label="Tiêu chí" value={scopeLabel(report.criteria, farmLabel)} />
-            <RoField label="Gói / thu khác / chi / ròng" value={`${formatVnd(s.subscriptionReceipts)} / ${formatVnd(s.otherIncome)} / ${formatVnd(s.totalExpense)} / ${formatMoney(s.netCashFlow)} VND`} />
-            <Note tone="info">Đây là kết quả mới. Bản chốt trước vẫn giữ dữ liệu/thời điểm cũ; xuất dùng đúng bản chốt mới đang xem.</Note>
-          </div>
-          <ModalFooter>
-            <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về báo cáo</ModalButton>
-            <ModalButton variant="primary" onClick={() => open('xuat')}>Xuất bản chốt mới</ModalButton>
           </ModalFooter>
         </Modal>
       )}

@@ -1,4 +1,4 @@
-import { addMinutes, computeReport, filterReceipts, filterRecords, isReportExpired } from '../domain/financeRules'
+import { addMinutes, computeReport, FINANCE_CATEGORIES, filterReceipts, filterRecords, isReportExpired } from '../domain/financeRules'
 import { validateCriteria, validateRecordFields } from '../validation/financeValidation'
 import type { BankTransactionChoice, CashReport, Farm, FinanceRecord, NoticeKind, PmNotice, Receipt, ReceiptFilters, RecordFields, RecordFilters, RecordState, ReportCriteria } from '../types'
 import { BANK_SEED, DEMO_NOW, FARMS, NOTICES_SEED, PM_NAME, RECEIPTS_SEED, RECORDS_SEED } from './financeMock'
@@ -42,7 +42,7 @@ export function createFinanceDemoStore(seed = { receipts: RECEIPTS_SEED, records
     if (claim && (f.type === 'INCOME' || claim.startsWith('Khoản'))) throw new Error(`Giao dịch ngân hàng này đã được ghi nhận là ${claim}. Không thể ghi như khoản thu khác.`)
   }
   const checkFields = (f: RecordFields, exceptCode?: string) => {
-    const errors = validateRecordFields(f)
+    const errors = validateRecordFields(f, clock.slice(0, 10), FINANCE_CATEGORIES)
     const first = Object.values(errors)[0]
     if (first) throw new Error(first)
     checkSource(f, exceptCode)

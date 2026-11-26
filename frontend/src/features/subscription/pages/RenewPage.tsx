@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Panel } from '../../../shared/ui'
+import { Button, Card, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Panel } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
@@ -92,7 +92,6 @@ export default function RenewPage() {
             </div>
           </Panel>
         </div>
-        <Foot>Chọn thời hạn 1, 2 hoặc 3 năm; xem lại số tiền và thời gian dự kiến trước khi gửi yêu cầu thanh toán.</Foot>
       </div>
       {dialog.element}
     </Layout>

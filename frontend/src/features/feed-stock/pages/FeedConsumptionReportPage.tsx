@@ -1,14 +1,14 @@
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useSession } from '../../../app/session/sessionContext'
 import { toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { Button, Card, DateInput, Foot, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, DateInput, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatDate, formatKg, formatNumber, formatVnd } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { useFeedConsumptionReport } from '../hooks/useFeedConsumptionReport'
 import type { FeedConsumptionGroupBy, FeedConsumptionProjectionRow, FeedConsumptionServerRow } from '../types/feedConsumption'
 
-const FOOT = 'Báo cáo tiêu thụ và chi phí thức ăn theo kỳ (Chủ trại, Quản lý). Dữ liệu tiêu thụ lấy từ bản ghi cho ăn VALID; hao hụt điều chỉnh được theo dõi riêng. “In báo cáo” xuất bản in PDF.'
+const currency = (value: number | null) => value === null ? '—' : formatNumber(value, 0)
 const oneDecimal = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 const money = (value: number | null | undefined) => value == null ? '—' : formatVnd(value)
@@ -187,7 +187,6 @@ export default function FeedConsumptionReportPage() {
           )}
           {mayLackSources && !loaded && <Note tone="grey">Một số trường hợp thiếu nguồn số liệu sẽ hiển thị “—”.</Note>}
         </section>
-        <Foot>{FOOT}</Foot>
         <footer className="print-only print-footer"><span>BeefCare · Báo cáo tiêu thụ &amp; chi phí thức ăn</span><span>Trang in · {session?.farmName ?? '—'}</span></footer>
       </div>
     </Layout>

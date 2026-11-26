@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, PageHeader, Panel, Select } from '../../../shared/ui'
+import { Badge, Button, DateInput, ErrorBlock, Field, Icon, LoadingBlock, PageHeader, Panel, Select } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
 import { useManagementReportUseCases } from '../hooks/useFarmOverviewUseCases'
 import ReportResult from '../components/ReportResult'
@@ -144,7 +144,6 @@ export default function ManagementReportPage() {
 
           {report.loading && !report.data && <LoadingBlock />}
           {Boolean(report.error) && <ErrorBlock message={userFacingError(report.error, 'Không tính được số liệu.')} onRetry={report.refetch} />}
-          <Foot>Bảy loại báo cáo; kỳ tối đa 24 tháng theo múi giờ trại. Bộ lọc chỉ gửi khi có nghĩa với loại báo cáo đã chọn.</Foot>
         </div>
         {report.data && !report.error && <ReportResult report={report.data} farmName={session?.farmName} appliedFilters={filterSummary(applied, appliedEntry.filters)} />}
       </div>

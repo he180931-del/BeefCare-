@@ -14,6 +14,9 @@ const fields = (over: Partial<RecordFields> = {}): RecordFields => ({
   type: 'EXPENSE', category: 'SERVER_STORAGE', amountVnd: 500000, occurredOn: '2026-10-17', scope: 'GENERAL', farmId: null,
   documentNumber: 'HD-1', description: 'Thử', sourceType: 'MANUAL', sourceEvidenceId: null, ...over,
 })
+const TODAY = '2026-10-19'
+const CATS = { INCOME: ['IMPLEMENTATION_SUPPORT', 'USER_TRAINING', 'COST_REIMBURSEMENT', 'OTHER_INCOME'], EXPENSE: ['SERVER_STORAGE', 'DOMAIN_SOFTWARE', 'EMAIL_NOTIFICATIONS', 'OTHER_EXPENSE'] }
+const validate = (f: RecordFields) => validateRecordFields(f, TODAY, CATS)
 const ALL = { dateFrom: '2026-10-01', dateTo: '2026-10-18', farmId: null, sourceFilter: 'BOTH' as const }
 
 describe('quy tắc nhập khoản (SRS 21.3)', () => {
@@ -22,19 +25,22 @@ describe('quy tắc nhập khoản (SRS 21.3)', () => {
     expect(validateCriteria({ dateFrom: '2024-10-18', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBe('Kỳ báo cáo tối đa 24 tháng.')
   })
   it('TC-21-03: số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
-    expect(validateRecordFields(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
-    expect(validateRecordFields(fields({ amountVnd: -5 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
-    expect(validateRecordFields(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
-    expect(validateRecordFields(fields())).toEqual({})
+    expect(validate(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
+    expect(validate(fields({ amountVnd: -5 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
+    expect(validate(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
+    expect(validate(fields())).toEqual({})
   })
   it('danh mục phải hợp với loại (MSG-FE21-10) và trại bắt buộc khi gắn với trại', () => {
-    expect(validateRecordFields(fields({ type: 'INCOME' })).category).toContain('không dùng được cho')
-    expect(validateRecordFields(fields({ scope: 'FARM' })).farmId).toBeTruthy()
-    expect(validateRecordFields(fields({ occurredOn: '2026-12-01' })).occurredOn).toBeTruthy()
+    expect(validate(fields({ type: 'INCOME' })).category).toContain('không dùng được cho')
+    expect(validate(fields({ scope: 'FARM' })).farmId).toBeTruthy()
+    expect(validate(fields({ occurredOn: '2026-12-01' })).occurredOn).toBeTruthy()
+  })
+  it('nguồn ngân hàng: số tiền và ngày lấy từ giao dịch nên không kiểm ở form', () => {
+    expect(validate(fields({ sourceType: 'BANK', sourceEvidenceId: null, amountVnd: 0, occurredOn: '' }))).toEqual({ sourceEvidenceId: 'Hãy chọn chứng từ ngân hàng.' })
   })
 
   it('TC-21-04: rejects the next calendar day against a fixed business date', () => {
-    expect(validateRecordFields(fields({ occurredOn: '2026-11-21' }), '2026-11-20').occurredOn)
+    expect(validateRecordFields(fields({ occurredOn: '2026-11-21' }), '2026-11-20', CATS).occurredOn)
       .toBe('Ngày phát sinh không được ở tương lai.')
   })
 

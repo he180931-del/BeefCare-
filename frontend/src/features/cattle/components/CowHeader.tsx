@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Icon, type IconName } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
@@ -7,6 +7,10 @@ import CowPhoto from './CowPhoto'
 import { isFemale } from '../domain/profileRules'
 import type { CattleViewModel as CowSeed } from '../types'
 
+/**
+ * Các tab của SCR-19. D79: Lịch sử chuồng (SCR-20) và Thẻ QR (SCR-21) là khối gập cuối tab Tổng quan, không còn là tab;
+ * còn 6 tab (5 với bò đực) để vừa một hàng trên điện thoại.
+ */
 export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['', 'Tổng quan', 'id'],
   ['timeline', 'Dòng thời gian', 'timeline-event'],
@@ -14,19 +18,24 @@ export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['vaccine', 'Tiêm phòng', 'vaccine'],
   ['health', 'Sức khỏe', 'stethoscope'],
   ['repro', 'Sinh sản', 'dna'],
-  ['barns', 'Lịch sử chuồng', 'fence'],
-  ['qr', 'Thẻ QR', 'qrcode'],
 ]
+
+/** Liên kết cũ ?tab=barns / ?tab=qr (dòng thời gian, đánh dấu trang) mở tab Tổng quan và mở sẵn khối tương ứng. */
+export const OVERVIEW_SECTIONS = ['barns', 'qr'] as const
+export type OverviewSection = (typeof OVERVIEW_SECTIONS)[number]
 
 /** SCR-19: the Reproduction tab is shown for females only. */
 export const cowTabs = (cow: CowSeed) => COW_TABS.filter(([value]) => value !== 'repro' || isFemale(cow))
 
-/** Herd status badge (§3.2, SCR-19 #4): Đang nuôi, or Chờ xuất while on a pending exit voucher; EXITED / VOIDED alone. */
+/**
+ * Huy hiệu trạng thái đàn (§3.2, SCR-19 #4). D78: bò đang nuôi bình thường không hiện huy hiệu nào –
+ * chỉ Chờ xuất, Đã xuất và Nhập nhầm – đã hủy mới cần báo.
+ */
 export function HerdStatusChip({ cow }: { cow: CowSeed }) {
   if (cow.status === 'VOIDED') return <Chip tone="err">Nhập nhầm – đã hủy</Chip>
   if (cow.status === 'EXITED') return <Chip>{cow.exitStatusLabel ?? 'Đã xuất đàn'}</Chip>
   if (cow.exitPending || cow.status === 'EXIT_PENDING') return <Chip tone="warn">Chờ xuất</Chip>
-  return <Chip tone="ok" icon="circle-check">Đang nuôi</Chip>
+  return null
 }
 
 // Nút chính bên phải thay đổi theo tab; hộp thoại ?m= do tab chăm sóc tương ứng mở, tiêm phòng có trang ghi nhận riêng.
@@ -39,14 +48,19 @@ const TAB_ACTIONS: Record<string, { label: string; modal?: string; page?: (code:
   health: { label: 'Mở ca sức khỏe', modal: 'open-case' },
 }
 
-/** Mô tả dòng 2 của header: "Số tai X · giống · giới · tuổi · Chuồng X". */
+/**
+ * Mô tả dòng 2 của header: "Số tai X · giống · giới · tuổi · Chuồng X · 342 kg* (18/10)".
+ * D78: cân gần nhất nằm ngay tiêu đề; "*" là cân ước tính, ngày cân trong ngoặc khi có.
+ */
 export const cowDesc = (cow: CowSeed): string =>
   [
     cow.tag ? `Số tai ${cow.tag}` : 'Gắn tai sau',
     cow.breed,
     cow.sex,
-    cow.headerAge !== false && cow.ageLong,
+    // Không rõ ngày sinh thì bỏ hẳn phần tuổi, không để "—" giữa dòng.
+    cow.headerAge !== false && cow.ageLong !== '—' && cow.ageLong,
     cow.barn && `Chuồng ${cow.barn}`,
+    cow.weight != null && `${cow.weight} kg${cow.weightEst ? '*' : ''}${cow.weightDate && cow.weightDate !== '—' ? ` (${cow.weightDate})` : ''}`,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -66,6 +80,16 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   // Chủ trại và Quản lý ghi nhận chăm sóc (GBR-08, D41); Kỹ thuật viên không thấy nút này.
   const canRecord = useCanRecordCare()
   const action = canWrite && canRecord ? TAB_ACTIONS[tab] : undefined
+  // D79: khi đổi tab, chỉ cuộn ngang thanh tab cho tab đang chọn lọt vào tầm nhìn – không bao giờ cuộn dọc cả trang.
+  const tabsRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const bar = tabsRef.current
+    const current = bar?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (!bar || !current) return
+    const box = bar.getBoundingClientRect()
+    const item = current.getBoundingClientRect()
+    if (item.left < box.left || item.right > box.right) bar.scrollLeft += item.left - box.left
+  }, [tab])
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-[18px] rounded-2xl border border-field bg-white p-4">
@@ -102,19 +126,21 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
           {copied && <span className="text-[11px] text-muted" role="status">{copied}</span>}
         </div>
       </div>
-      <div className="flex flex-wrap items-start gap-x-1">
+      {/* D79: một hàng tab; màn hẹp cuộn ngang thay vì xuống nhiều hàng, tab đang chọn luôn được cuộn vào tầm nhìn. */}
+      <nav ref={tabsRef} aria-label="Các tab hồ sơ bò" className="-mx-1 flex items-start gap-x-1 overflow-x-auto px-1 [scrollbar-width:none]">
         {cowTabs(cow).map(([v, l, icon]) => (
           <button
             key={v}
             type="button"
+            aria-current={v === tab ? 'page' : undefined}
             onClick={() => onTab(v)}
-            className="flex cursor-pointer flex-col items-start gap-1.5 px-3 text-[13px] leading-[normal]"
+            className="flex shrink-0 cursor-pointer flex-col items-start gap-1.5 whitespace-nowrap px-3 text-[13px] leading-[normal]"
           >
             <span className={`flex items-center gap-1.5 ${v === tab ? 'font-semibold text-[#212121]' : 'text-muted'}`}><Icon name={icon} size={14} />{l}</span>
             <span className={`h-[3px] w-full rounded-[2px] ${v === tab ? 'bg-brand' : ''}`} />
           </button>
         ))}
-      </div>
+      </nav>
     </div>
   )
 }
