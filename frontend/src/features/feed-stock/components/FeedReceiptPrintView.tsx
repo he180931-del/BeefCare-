@@ -89,7 +89,7 @@ export function FeedReceiptPrintView({ receipt, attachments, farmName }: FeedRec
   const statusClass = receipt.status === 'DRAFT' ? 'feed-receipt-print-status--draft' : receipt.status === 'VOIDED' ? 'feed-receipt-print-status--voided' : ''
 
   return (
-    <article className="feed-receipt-print-root" data-testid="feed-receipt-print">
+    <article className="feed-receipt-print-root print-layout-root" data-testid="feed-receipt-print">
       <header className="feed-receipt-print-header feed-receipt-print-avoid-break">
         <div>
           {farmName && <div className="feed-receipt-print-farm">{farmName}</div>}
@@ -114,7 +114,7 @@ export function FeedReceiptPrintView({ receipt, attachments, farmName }: FeedRec
         <h2>Danh sách thức ăn</h2>
         <table aria-label="Danh sách thức ăn nhập kho">
           <thead>
-            <tr><th style={{ width: '5%' }}>STT</th><th style={{ width: '20%' }}>Mã / tên thức ăn</th><th style={{ width: '12%' }}>Số lô</th><th style={{ width: '12%' }}>Hạn dùng</th><th style={{ width: '13%' }}>SL mua / đơn vị</th><th style={{ width: '12%' }}>Quy đổi kg</th><th style={{ width: '13%' }}>Đơn giá</th><th style={{ width: '13%' }}>Thành tiền</th></tr>
+            <tr><th style={{ width: '6%' }}>STT</th><th style={{ width: '19%' }}>Mã / tên thức ăn</th><th style={{ width: '12%' }}>Số lô</th><th style={{ width: '12%' }}>Hạn dùng</th><th style={{ width: '13%' }}>SL mua / đơn vị</th><th style={{ width: '12%' }}>Quy đổi kg</th><th style={{ width: '13%' }}>Đơn giá</th><th style={{ width: '13%' }}>Thành tiền</th></tr>
           </thead>
           <tbody>
             {receipt.lines.map((line, index) => (

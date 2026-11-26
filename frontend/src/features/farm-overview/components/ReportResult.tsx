@@ -181,7 +181,7 @@ function ReportPrintDocument({ report, farmName, appliedFilters }: { report: Rep
   const printFilters = appliedFilters.length > 0 ? appliedFilters.join(' · ') : 'Toàn bộ phạm vi phù hợp'
 
   return (
-    <article className="report-print-document" data-testid="report-print-document" aria-label={`${report.reportType} · ${displayTitle}`}>
+    <article className="report-print-document print-layout-root" data-testid="report-print-document" aria-label={`${report.reportType} · ${displayTitle}`}>
       <header className="report-print-header">
         <div className="report-print-brand">BEEFCARE</div>
         <div className="report-print-title">

@@ -1142,3 +1142,27 @@ An yêu cầu "bản Excel chuẩn để input vào thành phiếu nhập" và i
 5. In / xuất PDF chi tiết phiếu nhập, phiếu xuất: ẩn mọi nút, cột Thao tác, ghi chú hướng dẫn, nền trang; hai cột xếp thành một cột để nội dung không bị đẩy sang trang sau.
 
 Không đổi route, DTO, OpenAPI hay migration.
+
+### D83 — FE-07 / FE-14: mở đúng thông báo và làm rõ trạng thái nhắc việc (26/11/2026)
+
+1. SCR-26 mở chi tiết theo mã trong liên kết, kể cả khi danh sách của Chủ trại hoặc Quản lý đang rỗng hay không chứa mã đó. A2 dùng route chi tiết theo trại đã có. Backend kiểm lại quyền, phiên bản đã gửi và quyền xem nháp của tác giả. Người nhận mở bản mới nhất thì đánh dấu lượt gửi tương ứng đã đọc; mở bản cũ không đánh dấu bản mới.
+2. SCR-44 tách ba trường hợp: nguồn chưa có nhắc việc, có dữ liệu nhưng bộ lọc không khớp, và tải lỗi. Câu hướng dẫn bám theo trạng thái và không đổi quy tắc sinh hoặc đối soát nhắc việc.
+3. SCR-45 mở lịch sử đúng yêu cầu thanh toán theo mã đích và `farmId` khi có. Route vẫn kiểm tra quyền ở trại sở hữu yêu cầu.
+
+### D84 — FE-15: mở lại hướng dẫn, làm rõ dữ liệu và in báo cáo quản lý (26/11/2026)
+
+1. SCR-48 có nút **Hướng dẫn** để mở lại danh sách bước đã ẩn hoặc đã hoàn thành. **Ẩn hướng dẫn** điều khiển tự hiện; **Đóng** khung mở thủ công chỉ áp dụng cho lần xem hiện tại.
+2. SCR-49 tách tiêu chí đang chỉnh và kết quả đã chạy, giữ kỳ, bộ lọc và thời điểm tính trên kết quả. Dùng nhãn nghiệp vụ thay cho ký hiệu cỡ mẫu khó hiểu. Dòng giải thích RPT-01 nêu điều kiện tính đàn cuối kỳ khi không có bò đủ điều kiện. Các chỉ số và quy tắc tính giữ theo dữ liệu báo cáo.
+3. RPT-01 đến RPT-07 có bản in A4 dọc, lề 14 mm, dùng kết quả đã chạy và giữ chi tiết dù đang thu gọn. **In / xuất** mở hộp thoại in của trình duyệt, cho phép lưu PDF. Q3 của FE-15 áp dụng phạm vi này; xuất Excel và API tải file nằm ngoài phạm vi.
+
+### D85 — FE-23: phiếu nhập thức ăn, bản in và ghi cữ không có khẩu phần (26/11/2026)
+
+1. SCR-79 cho chọn **Người nhận hàng** trong danh sách gợi ý hoặc nhập tên tự do; lưu chữ tối đa 100 ký tự theo SRS. Tăng / giảm **Số lượng** theo bước 0,1 đơn vị. Giữ độ chính xác khi nhập tay và đọc phiếu đã lưu. Ô **Đơn vị** hiện tên đơn vị đã chọn và quy đổi theo danh mục.
+2. SCR-79, SCR-81, SCR-83 và SCR-85 có bản in riêng từ dữ liệu tương ứng. In A4 dọc có lề, kiểm cả trường hợp chuyển màn trong cùng tab. Báo cáo tiêu thụ cần giữ khoảng trống quanh nội dung khi cấu hình in đặt lề bằng 0.
+3. Làm rõ luồng có sẵn của SCR-83: khi chuồng chưa có khẩu phần hiệu lực, Chủ trại / Quản lý vẫn dùng nút **Ghi cữ cho ăn** để ghi thực tế và trừ kho. Điều kiện tạo mới hoặc sửa khẩu phần có hiệu lực từ ngày mai giữ theo GBR-101 và R-23-08.
+
+### D86 — FE-15: Báo cáo thu chi của trại (26/11/2026)
+
+1. Sidebar **Quản trị** đổi **Báo cáo** thành **Báo cáo quản lý**, giữ đường dẫn và RPT-01 → RPT-07. Thêm **Báo cáo thu chi** ngay sau mục đó.
+2. Báo cáo tổng hợp khoản thu xuất đàn, chi nhập đàn, chi nhập thức ăn đã ghi. Chủ trại xem thêm khoản đã trả gói dịch vụ của trại. Dùng ngày tiền phát sinh và quyền của chứng từ nguồn; ghi thu, trả, hủy và theo dõi nợ vẫn thực hiện tại chứng từ gốc.
+3. Dòng tiền của trại dùng API theo trại, có kỳ, bộ lọc, tổng thu / chi / ròng và danh sách mở được chứng từ. Quy tắc nguồn, giao diện và ca nghiệm thu nằm trong [spec Báo cáo thu chi của trại](requirements/specs/FE-15-bao-cao-thu-chi-trai.md).

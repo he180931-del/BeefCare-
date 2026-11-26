@@ -37,10 +37,71 @@ body {
   @apply bg-page font-sans text-[13px] text-[#212121];
 }
 
+/* Reports and feed documents opt into this page layout. */
+@page beefcare-document {
+  size: A4 portrait;
+  margin: 14mm;
+}
+
 /* In phiếu / báo cáo: nút thao tác không có nghĩa trên giấy hay PDF. */
 @media print {
+  html:has(.print-layout-root),
+  body:has(.print-layout-root),
+  #root:has(.print-layout-root) {
+    height: auto !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
   body {
     background: #fff;
+  }
+
+  body:has(.print-layout-root) {
+    page: beefcare-document;
+    margin: 0 !important;
+  }
+
+  /* Remove screen-only branches from the page flow so they cannot create blank pages. */
+  body:has(.print-layout-root) :not(.print-layout-root, .print-layout-root *, :has(.print-layout-root)) {
+    display: none !important;
+  }
+
+  .min-h-screen:has(.print-layout-root) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  main:has(.print-layout-root) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-layout-root {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
   }
 
   button,
@@ -48,8 +109,7 @@ body {
     display: none !important;
   }
 
-  /* Khối thông tin (Card) không bị cắt ngang giữa hai trang khi còn vừa một trang. */
-  main section {
+  body:not(:has(.print-layout-root)) main section {
     break-inside: avoid;
   }
 }

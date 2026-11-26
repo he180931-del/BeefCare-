@@ -2,26 +2,12 @@
   display: none;
 }
 
-@page {
-  size: A4 portrait;
-  margin: 14mm 12mm;
-}
-
 @media print {
-  body * {
-    visibility: hidden !important;
-  }
-
-  .feed-receipt-print-root,
-  .feed-receipt-print-root * {
-    visibility: visible !important;
-  }
-
   .feed-receipt-print-root {
     display: block !important;
-    position: absolute;
-    inset: 0;
-    width: 100%;
+    position: static !important;
+    inset: auto !important;
+    width: auto;
     box-sizing: border-box;
     color: #111827;
     background: #fff;
@@ -83,7 +69,9 @@
   }
 
   .feed-receipt-print-root tr,
-  .feed-receipt-print-root .feed-receipt-print-avoid-break {
+  .feed-receipt-print-root .feed-receipt-print-header,
+  .feed-receipt-print-root .feed-receipt-print-meta,
+  .feed-receipt-print-root .feed-receipt-print-signatures {
     break-inside: avoid;
     page-break-inside: avoid;
   }

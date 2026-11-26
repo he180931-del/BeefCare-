@@ -7475,6 +7475,86 @@
         }
       }
     },
+    "/api/farms/{farmId}/dashboard/cash-flow" : {
+      "get" : {
+        "tags" : [ "farm-dashboard-resource" ],
+        "operationId" : "cashFlow",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "source",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "HERD_EXIT", "HERD_ENTRY", "FEED_RECEIPT", "SUBSCRIPTION" ]
+          }
+        }, {
+          "name" : "direction",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "IN", "OUT" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FarmCashFlowView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/dashboard/getting-started/steps/{step}/done" : {
       "post" : {
         "tags" : [ "farm-dashboard-resource" ],
@@ -12569,6 +12649,41 @@
                   "items" : {
                     "$ref" : "#/components/schemas/AnnouncementView"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/announcements/{id}" : {
+      "get" : {
+        "tags" : [ "farm-announcements-resource" ],
+        "operationId" : "get_12",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnnouncementView"
                 }
               }
             }
@@ -20151,6 +20266,75 @@
             "items" : {
               "type" : "string"
             }
+          }
+        }
+      },
+      "FarmCashFlowView" : {
+        "type" : "object",
+        "required" : [ "generatedAt", "totalIncome", "totalExpense", "netCashFlow", "totalElements", "items" ],
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totalIncome" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "totalExpense" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "netCashFlow" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CashFlowItem"
+            }
+          }
+        }
+      },
+      "CashFlowItem" : {
+        "type" : "object",
+        "required" : [ "id", "source", "direction", "cashDate", "amountVnd", "documentId" ],
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "HERD_EXIT", "HERD_ENTRY", "FEED_RECEIPT", "SUBSCRIPTION" ]
+          },
+          "direction" : {
+            "type" : "string",
+            "enum" : [ "IN", "OUT" ]
+          },
+          "cashDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "amountVnd" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "documentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "documentCode" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "method" : {
+            "type" : "string",
+            "nullable" : true
           }
         }
       },

@@ -1,4 +1,4 @@
-import { asRecord, asRows, numberValue } from '../../../shared/api/parse'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
@@ -265,6 +265,15 @@ export function createFeedReceiptApi({
   const expectedVersion = async (id: number, provided?: number) => provided ?? (await getFromList(id)).version
 
   return {
+    async listMembers(): Promise<string[]> {
+      if (mode !== 'backend') return []
+      const response = asRecord(await transport.get(transport.farmPath(farmId, '/members')))
+      const names = asRows(response.items)
+        .filter((row) => textValue(row.status) === 'ACTIVE')
+        .map((row) => textValue(row.fullName, textValue(row.email)).trim())
+        .filter(Boolean)
+      return [...new Set(names)]
+    },
     async list(): Promise<FeedReceipt[]> {
       if (mode === 'backend') {
         const rows = asRows(await transport.get(root)).map(mapReceipt)
@@ -444,6 +453,7 @@ const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: activeF
 export const feedReceiptServerBacked = backendMode === 'backend'
 
 export const listFeedReceipts = () => feedReceiptApi.list()
+export const listFeedReceiptMembers = () => feedReceiptApi.listMembers()
 export const getFeedReceipt = (id: string) => feedReceiptApi.get(id)
 export const getFeedReceiptDemo = getFeedReceipt
 export const saveFeedReceiptDraft = (input: FeedReceiptDraftInput, options?: ReceiptMutationOptions) => feedReceiptApi.saveDraft(input, options)

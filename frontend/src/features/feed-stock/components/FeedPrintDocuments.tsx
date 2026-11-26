@@ -14,7 +14,7 @@ type PrintDocumentProps = { farmName?: string; children: ReactNode }
 function PrintDocument({ farmName, children }: PrintDocumentProps) {
   const session = useSession()
   return (
-    <article className="feed-print-document mx-auto max-w-[980px] rounded-2xl border border-field bg-white p-6 text-ink shadow-sm sm:p-8">
+    <article className="feed-print-document print-layout-root mx-auto max-w-[980px] rounded-2xl border border-field bg-white p-6 text-ink shadow-sm sm:p-8">
       <div className="feed-print-document-header mb-6 flex flex-wrap items-start justify-between gap-4 border-b-2 border-brand pb-4">
         <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">BeefCare · {farmName ?? session?.farmName ?? 'Trang trại'}</p>
       </div>

@@ -1,25 +1,11 @@
 @media print {
-  @page {
-    size: A4;
-    margin: 14mm 12mm;
-  }
-
   body {
     background: #fff !important;
   }
 
-  body * {
-    visibility: hidden !important;
-  }
-
-  .feed-print-document,
-  .feed-print-document * {
-    visibility: visible !important;
-  }
-
   .feed-print-document {
-    position: absolute;
-    inset: 0;
+    position: static !important;
+    inset: auto !important;
     width: 100%;
     max-width: none !important;
     border: 0 !important;

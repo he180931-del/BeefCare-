@@ -62,14 +62,17 @@ export default function FeedConsumptionReportPage() {
       <style>{`
         .feed-report-print .print-only { display: none; }
         @media print {
-          @page { size: A4 landscape; margin: 12mm; }
-          html, body { overflow: visible !important; background: #fff !important; }
-          body * { visibility: hidden; }
-          .feed-report-print, .feed-report-print * { visibility: visible; }
-          .feed-report-print { position: static; width: auto; max-width: none; overflow: visible !important; color: #111; }
+          @page beefcare-feed-report { size: A4 portrait; margin: 0; }
+          body:has(.feed-report-print.print-layout-root) { page: beefcare-feed-report; }
+          .feed-report-print.print-layout-root {
+            color: #111;
+            /* Keep the content inset even when the print dialog bypasses page margins. */
+            padding: 14mm !important;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+          }
           .feed-report-print .no-print { display: none !important; }
           .feed-report-print .print-only { display: block; }
-          .feed-report-print .print-section { break-inside: avoid; page-break-inside: avoid; }
           .feed-report-print .print-table > div { overflow: visible !important; }
           .feed-report-print .print-table table { width: 100% !important; table-layout: fixed; font-size: 9pt; }
           .feed-report-print .print-table th, .feed-report-print .print-table td { padding: 4pt 5pt; overflow-wrap: anywhere; }
@@ -80,7 +83,7 @@ export default function FeedConsumptionReportPage() {
           .feed-report-print .print-footer { display: flex; justify-content: space-between; margin-top: 8mm; border-top: 1px solid #b7c5bd; padding-top: 3mm; font-size: 8pt; color: #52635a; }
         }
       `}</style>
-      <div className="feed-report-print flex flex-col gap-4">
+      <div className="feed-report-print print-layout-root flex flex-col gap-4">
         <header role="banner" className="print-only print-section border-b border-[#183528] pb-3" aria-label="Đầu trang báo cáo in">
           <div className="text-lg font-bold tracking-wide">BeefCare</div>
           <h1 className="m-0 mt-1 text-2xl font-bold">Báo cáo tiêu thụ &amp; chi phí thức ăn</h1>
@@ -92,9 +95,11 @@ export default function FeedConsumptionReportPage() {
           </dl>
         </header>
 
-        <PageHeader title="Báo cáo tiêu thụ & chi phí thức ăn" sub="Tiêu thụ thực tế từ nhật ký cho ăn, chi phí theo giá nhập bình quân">
-          <Button className="no-print" onClick={() => window.print()}><span className="inline-flex items-center gap-1.5"><Icon name="printer" size={16} />In báo cáo</span></Button>
-        </PageHeader>
+        <div className="no-print">
+          <PageHeader title="Báo cáo tiêu thụ & chi phí thức ăn" sub="Tiêu thụ thực tế từ nhật ký cho ăn, chi phí theo giá nhập bình quân">
+            <Button onClick={() => window.print()}><span className="inline-flex items-center gap-1.5"><Icon name="printer" size={16} />In báo cáo</span></Button>
+          </PageHeader>
+        </div>
         <div className="no-print"><FeedManagementTabs /></div>
         {loaded?.source === 'backend' && <Note tone="info">Đang xem số liệu máy chủ. Chi phí lấy theo giá đã chốt ở từng cữ.</Note>}
 

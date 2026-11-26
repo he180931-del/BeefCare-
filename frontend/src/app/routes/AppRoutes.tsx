@@ -7,7 +7,7 @@ import { loadPenListPage } from '../../features/pen-management/routes'
 import { loadFeedCataloguePage, loadFeedConsumptionReportPage, loadFeedFeedingPage, loadFeedFeedingPrintPage, loadFeedRationFormPage, loadFeedRationPage, loadFeedRationPrintPage, loadFeedReceiptFormPage, loadFeedReceiptPage, loadFeedStockAdjustmentFormPage, loadFeedStockAdjustmentPage, loadFeedStockPage, loadFeedTodayRationsPage } from '../../features/feed-stock/routes'
 import { loadCalvingPage, loadReproductionWorklistPage, loadTechnicianReproductionPage } from '../../features/reproduction/routes'
 import { loadAcceptInvitationPage, loadFarmInformationPage, loadFarmRegistrationPage, loadFarmSelectPage, loadInvitationsPage, loadMembersPage, loadOwnerRegistrationPage } from '../../features/farm-workspace/routes'
-import { loadFarmDashboardPage, loadManagementReportPage, loadRemindersPage, loadTechnicianHomePage, loadTechnicianRemindersPage } from '../../features/farm-overview/routes'
+import { loadCashFlowReportPage, loadFarmDashboardPage, loadManagementReportPage, loadRemindersPage, loadTechnicianHomePage, loadTechnicianRemindersPage } from '../../features/farm-overview/routes'
 import { loadAnnouncementRoutes, loadTechnicianAnnouncementRoutes } from '../../features/farm-announcements/routes'
 import { loadGrowthRoutes } from '../../features/growth/routes'
 import { loadVaccinationRoutes } from '../../features/vaccination/routes'
@@ -62,6 +62,7 @@ const AcceptInvitation = lazy(loadAcceptInvitationPage)
 const FarmDashboard = lazy(loadFarmDashboardPage)
 const Reminders = lazy(loadRemindersPage)
 const ManagementReport = lazy(loadManagementReportPage)
+const CashFlowReport = lazy(loadCashFlowReportPage)
 const TechnicianHome = lazy(loadTechnicianHomePage)
 const TechnicianReminders = lazy(loadTechnicianRemindersPage)
 const Announcements = lazy(loadAnnouncementRoutes)
@@ -115,6 +116,7 @@ export default function AppRoutes() {
         <Route path="/tong-quan" element={desk(<FarmDashboard />)} />
         <Route path="/nhac-viec" element={desk(<Reminders />)} />
         <Route path="/bao-cao" element={desk(<ManagementReport />)} />
+        <Route path="/bao-cao-thu-chi" element={desk(<CashFlowReport />)} />
         <Route path="/thong-bao/*" element={desk(<Announcements />)} />
         <Route path="/herd-entry" element={desk(<ImportList />)} />
         <Route path="/herd-entry/new" element={desk(<ImportNew />)} />

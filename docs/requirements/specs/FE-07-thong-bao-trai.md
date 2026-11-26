@@ -105,7 +105,7 @@ SCR-26 → **Đính chính** (tác giả) → SCR-28 hiện phiên bản hiện 
 E1 không phải tác giả → MSG-COM-01 · E2 thiếu tiêu đề / nội dung / lý do → MSG-COM-06 · E4 đã đổi → MSG-COM-05 · E5 lỗi → MSG-COM-02.
 
 ### UC-FE07-04 Xem
-SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện thoại: Chưa đọc (n) / Tất cả) → mở chi tiết → lượt gửi thành READ.
+SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện thoại: Chưa đọc (n) / Tất cả) → mở chi tiết từ danh sách hoặc liên kết thông báo trong ứng dụng. Chủ trại và Quản lý tải chi tiết theo mã trên liên kết ngay cả khi danh sách hiện tại rỗng hoặc không chứa mã đó. Khi người nhận mở bản mới nhất họ có quyền đọc, lượt gửi tương ứng chuyển sang READ. Liên kết đến bản cũ không đánh dấu đã đọc bản mới hơn (D83).
 
 ---
 
@@ -121,7 +121,7 @@ SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện tho�
 | 4 | Version · date · recipients | Dòng danh sách | — | Ví dụ "v2 · 10/10 · 3 người nhận" |
 | 5 | State / Trạng thái | Huy hiệu | — | DRAFT / PUBLISHED |
 | **Chi tiết** | | | | |
-| 6 | Title, Author · role, Published at, Version | Chỉ đọc | — | Mở → lượt gửi thành READ |
+| 6 | Title, Author · role, Published at, Version | Chỉ đọc | — | Mở chi tiết đúng trại và phiên bản được phép xem. Bản mới nhất người nhận mở → đánh dấu lượt gửi tương ứng đã đọc (D83) |
 | 7 | Body / Nội dung | Rich text | — | Như đã đăng |
 | 8 | Version history / Lịch sử phiên bản | Link | — | Các phiên bản trước kèm lý do đính chính |
 | 9 | Correct / Đính chính | Nút | Tác giả, thông báo PUBLISHED | Mở SCR-28 |
@@ -170,13 +170,13 @@ SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện tho�
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Danh sách thông báo | `tab: RECEIVED\|AUTHORED\|DRAFTS\|UNREAD` | `{counts {drafts, unread}, items[{announcementId, title, versionNo, publishedAt, recipientCount, state, unread, deliveryId}]}` | COM-03 | `GET /api/farms/{farmId}/announcements` (thiếu tham số tab, xem Q1) |
-| A2 | Chi tiết | — | `{announcementId, title, body, author {name, role}, publishedAt, versionNo, versions[{versionNo, publishedAt, by, reason}], canCorrect, deliveries? (chỉ tác giả) [{recipient, role, status, readAt}], myDeliveryId}` | COM-01, COM-08 | chưa có riêng – thêm `GET …/announcements/{id}` |
+| A2 | Chi tiết | `farmId, id` | `AnnouncementView` gồm nội dung, tác giả, phiên bản, lịch sử được phép xem và `myDeliveryId` của người nhận. Chỉ tác giả xem nháp của mình và trạng thái gửi. | COM-01, COM-08 | `GET /api/farms/{farmId}/announcements/{id}` (D83) |
 | A3 | Tạo nháp | `title, body, allManagers, allTechnicians, memberIds[]` + `Idempotency-Key` | `{…, resolvedRecipients[{membershipId, name, role, status}], version}` | FE07-02, COM-06, COM-10, COM-02 | `POST /api/farms/{farmId}/announcements/drafts` |
 | A4 | Sửa nháp | Như A3 + `version` | Như A3 | FE07-02, COM-01, COM-05 | `PUT …/announcements/{id}/draft` |
 | A5 | Xem trước người nhận khi đăng | — | `{recipients[], count}` | FE07-05 | chưa có riêng – có thể trả trong A4 |
 | A6 | Đăng | `version` + `Idempotency-Key` | `{state: PUBLISHED, versionNo: 1, recipientCount}` | FE07-05, FE07-02, COM-05, COM-02 | `POST …/announcements/{id}/publish` |
 | A7 | Đính chính | `title, body, reason, version` + `Idempotency-Key` | `{versionNo, recipientCount}` | COM-01, COM-06, COM-05, COM-02 | `POST …/announcements/{id}/corrections` |
-| A8 | Đánh dấu đã đọc | — | `{readAt}` | COM-01 | `POST …/announcements/recipients/{deliveryId}/read` – A1 / A2 phải trả `deliveryId` để FE gọi được |
+| A8 | Đánh dấu đã đọc | `recipientId` + `Idempotency-Key` | Thời điểm đọc của lượt gửi | COM-01 | `POST …/announcements/recipients/{recipientId}/read`. Khi mở A2, dùng `myDeliveryId` cho bản mới nhất người nhận được phép xem. |
 
 ---
 
@@ -213,6 +213,9 @@ SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện tho�
 | TC-07-15 | Dịch vụ thông báo in-app lỗi | Đăng | Đăng vẫn thành công; thông báo gửi lại sau, mỗi người 1 lần | I | R-07-11 |
 | TC-07-16 | Technician | Gọi tạo nháp | 403 | H | §2 |
 | TC-07-17 | Nội dung có thẻ `<script>` | Lưu và xem | Không chạy script (chỉ giữ định dạng cho phép) | I, E | SCR-27 (Q2) |
+| TC-07-18 | Chủ trại hoặc Quản lý có quyền xem thông báo, danh sách hiện tại không có bản ghi | Mở liên kết với mã thông báo hợp lệ | A2 tải và hiện đúng chi tiết | E | D83, A2 |
+| TC-07-19 | Mã không tồn tại, thuộc trại khác hoặc nháp của người khác | Mở liên kết theo mã | Không lộ nội dung; báo không tìm thấy | H, E | D83, A2 |
+| TC-07-20 | Người nhận đã nhận v1 và v2, v2 chưa đọc | Mở liên kết v1 rồi mở v2 | Mở v1 giữ v2 chưa đọc; mở v2 đánh dấu đúng lượt gửi READ | I, E | D83, A8 |
 
 ---
 
@@ -233,3 +236,4 @@ SCR-26: tab Đã nhận / Đã viết / Nháp (n) (Technician trên điện tho�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TaiDX duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | D83: mở chi tiết theo liên kết, điều kiện đánh dấu đã đọc và hợp đồng A2 / A8 | TaiDX |

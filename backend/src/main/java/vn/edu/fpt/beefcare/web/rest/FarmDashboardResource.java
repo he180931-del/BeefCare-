@@ -16,6 +16,8 @@ import vn.edu.fpt.beefcare.service.FarmReportService;
 import vn.edu.fpt.beefcare.service.dto.FarmDashboardDtos.ReportRequest;
 import vn.edu.fpt.beefcare.service.dto.FarmDashboardDtos.ReportView;
 import java.util.List;
+import vn.edu.fpt.beefcare.service.FarmCashFlowService;
+import vn.edu.fpt.beefcare.service.dto.FarmCashFlowDtos.FarmCashFlowView;
 
 /** Owner / Manager farm dashboard projections; the service enforces tenant and role access. */
 @RestController
@@ -24,7 +26,8 @@ public class FarmDashboardResource {
     private final FarmDashboardService dashboards;
     private final FarmReportService reports;
     private final FarmOnboardingService onboarding;
-    public FarmDashboardResource(FarmDashboardService dashboards,FarmReportService reports,FarmOnboardingService onboarding){this.dashboards=dashboards;this.reports=reports;this.onboarding=onboarding;}
+    private final FarmCashFlowService cashFlows;
+    public FarmDashboardResource(FarmDashboardService dashboards,FarmReportService reports,FarmOnboardingService onboarding,FarmCashFlowService cashFlows){this.dashboards=dashboards;this.reports=reports;this.onboarding=onboarding;this.cashFlows=cashFlows;}
 
     /** SCR-48 "Getting started" panel; marking a review step and dismissing are naturally idempotent. */
     @GetMapping("/getting-started")
@@ -51,5 +54,18 @@ public class FarmDashboardResource {
     @org.springframework.web.bind.annotation.PostMapping("/reports")
     public ReportView report(@PathVariable Long farmId,@org.springframework.web.bind.annotation.RequestBody ReportRequest request){
         return reports.report(farmId,request);
+    }
+
+    @GetMapping("/cash-flow")
+    public FarmCashFlowView cashFlow(
+        @PathVariable Long farmId,
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,
+        @RequestParam(required=false) String source,
+        @RequestParam(required=false) String direction,
+        @RequestParam(defaultValue="0") int page,
+        @RequestParam(defaultValue="20") int size
+    ){
+        return cashFlows.cashFlow(farmId,from,to,source,direction,page,size);
     }
 }

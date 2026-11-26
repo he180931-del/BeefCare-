@@ -73,12 +73,15 @@ describe('SCR-85 consumption report presentation and print output', () => {
     screen.getByRole('button', { name: /In báo cáo/ }).click()
     expect(printSpy).toHaveBeenCalledOnce()
     const css = [...document.querySelectorAll('style')].map((node) => node.textContent).join('\n')
-    expect(css).toContain('@page { size: A4 landscape; margin: 12mm; }')
+    expect(css).toContain('@page beefcare-feed-report { size: A4 portrait; margin: 0; }')
+    expect(css).toContain('padding: 14mm !important')
+    expect(css).toContain('box-decoration-break: clone')
+    expect(document.querySelector('.feed-report-print')).toHaveClass('print-layout-root')
     expect(css).toContain('table-header-group')
     expect(css).toContain('table-footer-group')
     expect(css).toContain('overflow: visible')
     expect(document.querySelector('header[aria-label="Đầu trang báo cáo in"]')).toHaveClass('print-only')
-    expect(screen.getByRole('button', { name: /In báo cáo/ })).toHaveClass('no-print')
+    expect(screen.getByRole('button', { name: /In báo cáo/ }).closest('.no-print')).not.toBeNull()
   })
 
   it('shows the no VALID feeding record state without an empty report table', () => {
