@@ -39,6 +39,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
     @Autowired ManualFinanceBankClaimRepository claims;
     @Autowired CashReportSnapshotRepository snapshots;
     @Autowired BankTransferEvidenceRepository evidences;
+    @Autowired vn.edu.fpt.beefcare.service.payment.PlatformSubscriptionQueryService subscriptionQueries;
 
     private static final AtomicInteger KEYS = new AtomicInteger();
     private static final long BASE_TXN = 910_000L;
@@ -421,6 +422,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(farmOnly.subscriptionReceipts()).isEqualByComparingTo("1200000"); assertThat(farmOnly.otherIncome()).isEqualByComparingTo("50000");
         assertThat(farmOnly.totalExpense()).isEqualByComparingTo("80000"); assertThat(farmOnly.netCashFlow()).isEqualByComparingTo("1170000");
         assertThat(farmOnly.scopes()).noneMatch(x -> "GENERAL".equals(x.scope()));
+        assertThat(totals(farmOnly, "PLATFORM", null).farmName()).isEqualTo("Tổng cộng");
         ReportSummary farmBOnly = api().runReport(new ReportRequest(from, TODAY, farmB.getId(), "ALL"), key()).getBody().summary();
         assertThat(farmBOnly.totalIncome()).isEqualByComparingTo("0"); assertThat(farmBOnly.netCashFlow()).isEqualByComparingTo("-15000");
 
@@ -448,6 +450,67 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY, from, null, "ALL"), key())), "MSG-COM-10", 400);
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY.minusYears(3), TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(from, TODAY, null, "NOPE"), key())), "MSG-COM-10", 400);
+    }
+
+    /** A PAID payment that never got an accepted bank transfer (bad data): it has no bank-paid time, so it is not a receipt. */
+    private Payment paidWithoutEvidence(Payment sibling, AppUser owner, String quoteRef) {
+        Payment p = new Payment();
+        p.setQuoteRef(quoteRef); p.setDurationYears(1); p.setAmountVnd(new BigDecimal("1200000")); p.setState("PAID");
+        p.setRequestedAt(clock.instant().minusSeconds(60)); p.setExpiresAt(clock.instant().plusSeconds(86_340)); p.setPurchasedStart(clock.instant());
+        p.setSubscription(sibling.getSubscription()); p.setRequestedBy(owner); p.setPriceVersion(sibling.getPriceVersion());
+        p.setReceivingAccountNamespace("LOCAL-MOCK"); p.setReceivingEnvironment("MOCK"); p.setReceivingAccount("MOCK-ACCOUNT"); p.setReceivingBankCode("MOCKBANK"); p.setVersion(0L);
+        return save(p);
+    }
+
+    @Test void receiptsPageAndCashReportCountTheSameReceiptsOncePerPayment() {
+        AppUser manager = pm();
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        Payment paid = paidReceipt(farm, owner, 82_300L, "BC999999999993");
+        paidWithoutEvidence(paid, owner, "BC999999999994");
+        // a second accepted transfer linked to the same payment must not create a second receipt
+        BankTransferEvidence again = bankTransfer(82_301L, "IN", 1_200_000, "BC999999999993");
+        again.setPayment(paid); again.setReviewStatus("ACCEPTED"); save(again);
+        actAs(manager);
+
+        ReportSummary report = api().runReport(new ReportRequest(TODAY.minusDays(5), TODAY, farm.getId(), "RECEIPTS_ONLY"), key()).getBody().summary();
+        var page = subscriptionQueries.receipts(null, farm.getId(), TODAY.minusDays(5), TODAY, 0, 25);
+        var unfiltered = subscriptionQueries.receipts(null, farm.getId(), null, null, 0, 25);
+
+        assertThat(report.subscriptionReceipts()).isEqualByComparingTo("1200000");
+        assertThat(page.receiptsInPeriod()).isEqualTo(1);
+        assertThat(page.totalAmount()).isEqualByComparingTo(report.subscriptionReceipts());
+        assertThat(unfiltered.items()).extracting(r -> r.paymentId()).containsExactly(paid.getId());
+    }
+
+    @Test void periodMayEndInTheFutureButStaysWithin24Months() {
+        pm();
+        posted(fields("INCOME", "OTHER_INCOME", 40_000, TODAY.minusDays(1), null));
+        LocalDate monthEnd = TODAY.plusDays(20);
+
+        ReportSummary s = api().runReport(new ReportRequest(TODAY.minusDays(5), monthEnd, null, "ALL"), key()).getBody().summary();
+        assertThat(s.otherIncome()).isEqualByComparingTo("40000");
+        assertThat(api().records(null, null, null, null, null, TODAY.minusDays(5), monthEnd, 0, 25).getContent()).hasSize(1);
+
+        assertCode(catchThrowable(() -> api().runReport(new ReportRequest(monthEnd, TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
+        assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY.minusMonths(24).minusDays(1), TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
+    }
+
+    @Test void recordListLooksUpBankSourcesOncePerPage() {
+        pm();
+        org.hibernate.stat.Statistics stats = em.getEntityManagerFactory().unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true);
+        java.util.function.LongSupplier statementsForList = () -> {
+            em.flush(); em.clear(); stats.clear();
+            var page = api().records(null, null, null, null, null, null, null, 0, 25).getContent();
+            assertThat(page).allSatisfy(r -> assertThat(r.sourceEvidenceId()).isNotNull());
+            return stats.getPrepareStatementCount();
+        };
+        createFromBank(bankTransfer(82_400L, "IN", 10_000, null), "INCOME", "OTHER_INCOME");
+        long withOne = statementsForList.getAsLong();
+        for (int i = 1; i < 4; i++) createFromBank(bankTransfer(82_400L + i, "IN", 10_000 + i, null), "INCOME", "OTHER_INCOME");
+        long withFour = statementsForList.getAsLong();
+        assertThat(withFour).isEqualTo(withOne);
     }
 
     @Test void expiredSnapshotIsGoneAndCannotBeExported() {

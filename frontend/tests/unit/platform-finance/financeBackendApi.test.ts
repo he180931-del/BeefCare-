@@ -89,6 +89,22 @@ describe('financeBackendApi', () => {
     expect(report.lines[0]).toMatchObject({ sourceVersion: 7, farmName: 'Chung nền tảng' })
   })
 
+  it('báo cáo lọc một trại ghi dòng tổng là "Tổng cộng"', async () => {
+    const http = transport({
+      '/api/platform/finance/reports/latest': {
+        id: 13, code: 'SNAP-13',
+        criteria: { dateFrom: '2026-11-01', dateTo: '2026-11-30', farmId: 5, sourceFilter: 'ALL' },
+        summary: { subscriptionReceipts: 5000, otherIncome: 0, totalIncome: 5000, totalExpense: 0, netCashFlow: 5000, scopes: [
+          { scope: 'FARM', farmId: 5, farmName: 'Trại A', subscriptionReceipts: 5000, otherIncome: 0, expense: 0 },
+          { scope: 'PLATFORM', farmId: null, farmName: 'Tổng cộng', subscriptionReceipts: 5000, otherIncome: 0, expense: 0 },
+        ], dailyIncome: [], note: '' },
+        lines: [], generatedAt: '2026-11-26T10:00:00Z', expiresAt: '2026-12-26T10:00:00Z',
+      },
+    })
+    const report = await createFinanceBackendApi(http).currentReport()
+    expect(report.summary.scopes.map((x) => x.farmName)).toEqual(['Trại A', 'Tổng cộng'])
+  })
+
   it('giải mã recordCode thành id số trước khi gọi detail và command', async () => {
     const http = transport({
       '/api/platform/finance/records?page=0&size=100': {

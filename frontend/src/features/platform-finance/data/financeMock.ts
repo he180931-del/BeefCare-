@@ -94,10 +94,10 @@ export const RECORDS_SEED: FinanceRecord[] = [
 ]
 
 export const BANK_SEED: BankTransactionChoice[] = [
-  { sourceReference: 'SePay / LIVE / beefcare-main / FT26291000843', transactionId: 843, amount: 1200000, bankPaidAt: '2026-10-18T09:05:12', direction: 'IN', bank: 'SePay', paymentReference: 'BCF7K2Q9', claimedBy: 'Thanh toán BCF7K2Q9', evidenceCode: 'EV-0843' },
-  { sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1010', transactionId: 1010, amount: 1500000, bankPaidAt: '2026-10-10T14:20:00', direction: 'IN', bank: 'SePay', paymentReference: 'FT26290…', evidenceCode: 'EV-0838' },
-  { sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1014', transactionId: 1014, amount: 800000, bankPaidAt: '2026-10-14T16:40:00', direction: 'IN', bank: 'SePay', paymentReference: 'FT26294…', evidenceCode: 'EV-0846' },
-  { sourceReference: 'SePay / LIVE / beefcare-main / TX-PRINT-1008', transactionId: 1008, amount: 2700000, bankPaidAt: '2026-10-08T11:12:00', direction: 'OUT', bank: 'SePay', paymentReference: 'FT26288…', evidenceCode: 'EV-0835' },
+  { sourceReference: 'SePay / LIVE / beefcare-main / FT26291000843', transactionId: 843, evidenceId: 843, amount: 1200000, bankPaidAt: '2026-10-18T09:05:12', direction: 'IN', bank: 'SePay', paymentReference: 'BCF7K2Q9', claimedBy: 'Thanh toán BCF7K2Q9', evidenceCode: 'EV-0843' },
+  { sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1010', transactionId: 1010, evidenceId: 1010, amount: 1500000, bankPaidAt: '2026-10-10T14:20:00', direction: 'IN', bank: 'SePay', paymentReference: 'FT26290…', evidenceCode: 'EV-0838' },
+  { sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1014', transactionId: 1014, evidenceId: 1014, amount: 800000, bankPaidAt: '2026-10-14T16:40:00', direction: 'IN', bank: 'SePay', paymentReference: 'FT26294…', evidenceCode: 'EV-0846' },
+  { sourceReference: 'SePay / LIVE / beefcare-main / TX-PRINT-1008', transactionId: 1008, evidenceId: 1008, amount: 2700000, bankPaidAt: '2026-10-08T11:12:00', direction: 'OUT', bank: 'SePay', paymentReference: 'FT26288…', evidenceCode: 'EV-0835' },
 ]
 
 const n = (id: number, kind: 'RECON' | 'SUPPORT', title: string, summary: string, createdTime: string, unread: boolean, actionLabel: string, href: string): PmNotice => ({ id, kind, title, summary, createdTime, readTime: unread ? null : createdTime, actionLabel, href })
