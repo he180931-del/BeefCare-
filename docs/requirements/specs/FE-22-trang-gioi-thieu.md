@@ -95,7 +95,7 @@ Responsive: điện thoại và máy tính (NFR – theo FE-01 shell).
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Nội dung trang | — | `LandingContent {release, hero{…}, figures[], features[6], steps[4], faq[{q, a}], contact{email, phone}}` | — | `GET /api/public/landing` |
-| A2 | Giá hiệu lực | — | `PriceVersion {version, effectiveFrom, prices{1, 2, 3}}` (không có người công bố, không có phiên bản lên lịch) | 5xx → FE hiện MSG-FE22-01 | `GET /api/public/prices` |
+| A2 | Giá hiệu lực | — | `PriceVersion {id, price1y, price2y, price3y, effectiveAt, terms}` (không có người công bố, không có phiên bản lên lịch) | 5xx → FE hiện MSG-FE22-01 | `GET /api/public/prices` |
 
 Ghi chú: A1 có thể là nội dung tĩnh đóng gói trong FE (vì "đổi bằng triển khai"); A2 bắt buộc gọi BE, không cache phía FE quá thời gian phiên (R-22-03).
 
@@ -144,3 +144,4 @@ Ghi chú: A1 có thể là nội dung tĩnh đóng gói trong FE (vì "đổi b�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | A2: ghi đúng dạng dữ liệu `PriceVersion` mà `GET /api/public/prices` đang trả | Claude (theo yêu cầu LamKD) |

@@ -119,7 +119,7 @@ export default function CashReportRoutes() {
         <div className="grid gap-4 md:grid-cols-3">
           <Metric label="Tổng thu" value={`${formatVnd(s.totalIncome)} đ`} note={`Gói ${formatVnd(s.subscriptionReceipts)} · thu khác ${formatVnd(s.otherIncome)}`} />
           <Metric label="Tổng chi" value={`${formatVnd(s.totalExpense)} đ`} note="Chỉ khoản đã ghi sổ" />
-          <Metric label="Dòng tiền ròng" value={`${formatMoney(s.netCashFlow)} đ`} note="Không gồm nháp, hủy bỏ, chứng từ chưa khớp" />
+          <Metric label="Dòng tiền ròng" value={`${formatMoney(s.netCashFlow)} đ`} note="Thu − chi · không phải lợi nhuận theo luật định" />
         </div>
         {report.lines.length === 0 ? (
           <Card><Note tone="info">{hasSnapshot ? 'Không có giao dịch trong kỳ. Bộ lọc và thời điểm chốt được giữ; XLSX vẫn xuất được với số 0.' : s.note}</Note></Card>

@@ -195,7 +195,7 @@ Bố cục SCR-72 từ trên xuống: **Loại** (kèm **Danh mục** bên dư�
 | 5 | Snapshot info / Thông tin bản chốt | Chỉ đọc | — | Một dòng: mã snapshot, thời điểm chốt, kỳ, trại, múi giờ, VND. Thông báo (lỗi / hết hạn / bộ lọc đã đổi) gom một chỗ | MSG-FE21-12 |
 | 6 | Total income / Tổng thu | Số | — | Biên lai + thu khác POSTED, có tách | — |
 | 7 | Total expense / Tổng chi | Số | — | Chi POSTED | — |
-| 8 | Net cash flow / Dòng tiền ròng | Số | — | Thu − chi; nhãn "không phải lợi nhuận theo luật định" | — |
+| 8 | Net cash flow / Dòng tiền ròng | Số | — | Thu − chi; ghi chú dưới số: "Thu − chi · không phải lợi nhuận theo luật định" | — |
 | 9 | Charts / Biểu đồ | Biểu đồ | — | Tính từ dòng của snapshot: Thu và chi theo ngày (cột đôi); Xu hướng dòng tiền ròng (đường lũy kế); Cơ cấu thu theo danh mục; Chi theo danh mục; Thu theo trại (thanh xếp hạng có %) | — |
 | 10 | Cash flow by farm / Dòng tiền theo trại | Bảng | — | Cột Trại / Thu từ gói đăng ký / Thu khác / Chi / Ròng. Dòng: Chung nền tảng, từng trại có nguồn, trại khác (gộp), Tổng nền tảng. Lọc 1 trại → chỉ trại đó, không có Chung. Bấm trại → UC-FE21-08 AF1 | — |
 | 11 | Export report / Xuất báo cáo | Nút | — | Mở Xem trước báo cáo (mô phỏng Excel, 4 sheet) → Tải xuống XLSX (UC-FE21-09) | MSG-FE21-13 / MSG-FE21-14 / MSG-FE21-12 |
