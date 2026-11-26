@@ -15,10 +15,11 @@
 
 logging:
   level:
-    ROOT: DEBUG
-    tech.jhipster: DEBUG
-    org.hibernate.SQL: DEBUG
-    vn.edu.fpt.beefcare: DEBUG
+    ROOT: INFO
+    tech.jhipster: INFO
+    # Keep SQL statements out of the local console; application WARN/ERROR logs remain visible.
+    org.hibernate.SQL: INFO
+    vn.edu.fpt.beefcare: INFO
 
 spring:
   devtools:
@@ -47,11 +48,20 @@ spring:
     cache: false
 
 beefcare:
+  # Local dev cadence: keep scheduled DB polling useful for manual testing without
+  # waking the application every 1-5 seconds. Each value remains environment-overridable.
+  sepay:
+    processing-delay-ms: ${BEEFCARE_SEPAY_PROCESSING_DELAY_MS:30000}
   email:
+    poll-delay-ms: ${BEEFCARE_EMAIL_POLL_DELAY_MS:30000}
     provider: mock
     link-signing-key: ${BEEFCARE_LINK_SECRET:beefcare-development-link-signing-key-rotate-before-live-0001}
     frontend-base-url: ${BEEFCARE_PUBLIC_URL:http://127.0.0.1:8080}
     backend-base-url: ${BEEFCARE_BACKEND_URL:http://127.0.0.1:8080}
+  outbox:
+    poll-delay-ms: ${BEEFCARE_OUTBOX_POLL_DELAY_MS:30000}
+  jobs:
+    support-requeue-delay-ms: ${BEEFCARE_JOBS_SUPPORT_REQUEUE_DELAY_MS:60000}
 
 server:
   port: 8080

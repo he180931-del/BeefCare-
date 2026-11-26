@@ -53,7 +53,7 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 | Số giấy kiểm dịch | Chuỗi | Không | ≤ 50; trống → cảnh báo MSG-FE06-24, không chặn | SCR-24 |
 | Biển số xe | Chuỗi | Không | ≤ 20 | SCR-24 |
 | Ghi chú nhận | Chuỗi dài | Không | ≤ 1.000 | SCR-24 |
-| Cách tính giá | `PER_KG` / `PER_HEAD` | Có (PURCHASE) | Áp cho mọi dòng; mặc định theo kg | GBR-92 |
+| Cách tính giá | `PER_KG` / `PER_HEAD` | Có (PURCHASE) | Áp cho mọi dòng; phiếu mới mặc định **theo con** (D76); nháp / phiếu cũ giữ cách đã lưu | GBR-92, D76 |
 | Tiền bò | Số nguyên VND | Suy ra | Σ tiền dòng | GBR-91 |
 | Phí vận chuyển | Số nguyên VND | Không | ≥ 0 | SCR-24 |
 | Tổng phải trả | Suy ra | — | Tiền bò + phí vận chuyển | GBR-91 |
@@ -74,18 +74,18 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 | Số dòng | Số | Hệ thống | Duy nhất trong phiếu | §3.2 |
 | Số tai | Chuỗi | Không | ≤ 30; duy nhất trong bò ACTIVE và các dòng khác; trống = "Gắn tai sau" | Popup Dòng bò |
 | Tên | Chuỗi | Không | ≤ 50 | Popup |
-| Ảnh | File | Không | JPG / PNG ≤ 5 MB; thành ảnh của bò khi ghi sổ | Popup |
+| Ảnh | File | Không | JPG / PNG ≤ 5 MB; thành ảnh của bò khi ghi sổ. **Chưa có trên popup** (backend đã có A19 `entry-lines/{entryId}/photo`) – việc còn lại | Popup |
 | Màu lông, đặc điểm | Chuỗi | Không | ≤ 255; khuyến nghị khi không có số tai | Popup |
 | Giống | Danh mục | Có | ACTIVE | Popup |
 | Giới tính | Enum | Có | Đực / Cái | Popup |
-| Ngày sinh / tuổi | Ngày, tháng-năm, hoặc tuổi (tháng) | Không | Tuổi 1–240 → tháng sinh = ngày nhập − tuổi, độ chính xác Ước tính | Popup |
-| Độ chính xác ngày sinh | Enum | — | Chính xác / Ước tính / Không rõ | Popup |
+| Ngày sinh / tuổi | Tháng-năm (ô Năm + ô Tháng) | Không | Popup chỉ nhập tháng sinh ước tính (D63, D76): đủ năm + tháng → `YYYY-MM-01`, tuổi lúc nhập suy ra phải 1–240 tháng; trống cả hai → không rõ; chỉ chọn một → chặn lưu. Excel vẫn nhận ngày sinh hoặc tuổi (tháng) | Popup, D76 |
+| Độ chính xác ngày sinh | Enum | Suy ra | Chính xác / Ước tính / Không rõ. Popup không có ô chọn: có tháng → Ước tính, trống → Không rõ; ngày EXACT từ Excel / nháp giữ nguyên khi không đổi tháng (D63) | Popup, D63 |
 | Giai đoạn | Enum | Có | Đề xuất từ tuổi lúc nhập theo tham số trại; sửa được | GBR-25 |
 | Mục đích | Danh mục | Có | ACTIVE; SIRE chỉ đực, BREEDING chỉ cái | GBR-25 |
-| Cân lúc nhập (kg) | Số | Có (bắt buộc khi tính theo kg) | 1–1.500 | Popup, GBR-92 |
-| Cơ sở cân | Enum | Có | Đo / Ước tính ("UT") | GBR-92 |
+| Cân lúc nhập (kg) | Số | Bắt buộc khi tính theo kg; không bắt buộc khi theo con | 1–1.500 | Popup, GBR-92, D63 |
+| Cơ sở cân | Enum | Suy ra | Đo / Ước tính ("UT"). Popup không có ô chọn: có cân → Đo, không cân → trống; dòng Ước tính từ Excel / nháp giữ nguyên khi không đổi số cân (D63) | GBR-92, D63 |
 | Chuồng nhận | Chuồng | Có | ACTIVE, đủ chỗ; không đạt tiêu chí → lý do cảnh báo | GBR-20, 21 |
-| Đơn giá | Số nguyên VND | Không | ≥ 0 | Popup |
+| Đơn giá | Số nguyên VND | Có (PURCHASE) | **> 0**: popup và ghi sổ chặn giá 0 ("Đơn giá / Thành tiền phải lớn hơn 0"). Theo kg là đ/kg; theo con là **thành tiền của con** (D76) | Popup, D76, D87 |
 | Tiền dòng | Suy ra | — | Đơn giá × cân (theo kg) hoặc đơn giá (theo con) | GBR-91 |
 | Cách ly đến | Ngày | Không | Không trước ngày nhập; chọn nhanh +14 / +21 ngày | Popup |
 | Nguồn | Enum | Hệ thống | `EXTERNAL` (mua) / `FARM_BORN` | GBR-29 |
@@ -139,9 +139,9 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 | R-06-06 | Ngày nhập không ở tương lai, không trước ngày sinh của bất kỳ dòng nào → MSG-FE06-03. | SCR-24 |
 | R-06-07 | Chuồng nhận ACTIVE và đủ chỗ cho **tổng** số dòng vào chuồng đó (MSG-FE04-05); không đạt tiêu chí → lý do cảnh báo bắt buộc (MSG-FE04-06); chuồng sẽ đầy sau phiếu → cảnh báo MSG-FE06-17. | GBR-20, 21, AF6 |
 | R-06-08 | Số tai / mã thẻ duy nhất (MSG-FE05-02 / MSG-FE12-08). | BR-D08 |
-| R-06-09 | Tính tiền: tiền dòng theo kg = đơn giá × cân; theo con = đơn giá; số nguyên VND. Tính theo kg thì mọi dòng phải có cân. Cân ước tính gắn nhãn "UT". | GBR-91, 92 |
+| R-06-09 | Tính tiền: tiền dòng theo kg = đơn giá × cân; theo con = thành tiền của con (lưu `unitPrice`); số nguyên VND, **> 0** với phiếu mua (D87). Tính theo kg thì mọi dòng phải có cân. Cân ước tính gắn nhãn "UT". Đổi cách tính giá đặt giá mọi dòng về 0 và cảnh báo nhập lại. | GBR-91, 92, D76, D87 |
 | R-06-10 | Đã trả ≤ tổng phải trả (MSG-FE06-13); có tiền đã trả thì bắt buộc hình thức. | GBR-91 |
-| R-06-11 | Sau ghi sổ hệ thống **liệt kê** lịch tiêm có tiêu chí khớp bò mới (MSG-FE06-05); **không** tự thêm bò vào lịch. | GBR-32 |
+| R-06-11 | Sau ghi sổ hệ thống **liệt kê** lịch tiêm có tiêu chí khớp bò mới (MSG-FE06-05); **không** tự thêm bò vào lịch. Backend trả `matchingSchedules` ở A6; giao diện **chưa hiện** MSG-FE06-05 (việc còn lại, D87). | GBR-32 |
 | R-06-12 | Sửa bản ghi nhập 1 con (ngày nhập, thông tin nguồn, cân + cơ sở, đơn giá, giống, giới tính, ngày sinh + độ chính xác, khai báo lịch sử): bắt buộc lý do; lưu giá trị cũ / mới, người, thời điểm (Record Revision); tính lại tổng phiếu; Internal ID không đổi. Ngày nhập của phiếu mua áp cho **mọi** bò của phiếu. | GBR-33 |
 | R-06-13 | Sửa không được làm sai thứ tự ngày (ngày nhập không sau sự kiện đã ghi của bò; ngày sinh không sau ngày nhập) và không đổi giới tính bò đã có sự kiện sinh sản → MSG-FE06-07. | UC-03 bước 4, E1 |
 | R-06-14 | Hủy bản ghi nhập 1 con chỉ khi bò **không có sự kiện nào** ngoài nhập và lần xếp chuồng đầu → nếu có: MSG-FE06-09. Hủy: dòng VOID, bò VOIDED (cuối cùng), đóng phân chuồng, thẻ RETIRED, bỏ khỏi danh sách / đếm / báo cáo, trừ tiền dòng khỏi tổng phiếu; ID và mã không tái sử dụng. Dòng VALID cuối cùng → chuyển sang hủy cả phiếu. | GBR-33, UC-03 AF1 |
@@ -165,9 +165,9 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 3. Chọn cách tính giá → **+ Thêm bò** → popup Dòng bò (lặp cho từng con).
 4. Hệ thống hiện các dòng, tiền dòng, tổng, thay đổi lấp đầy chuồng, kiểm tra trước khi lưu.
 5. Đính kèm chứng từ; nhập phí vận chuyển, đã trả, hình thức, hạn trả → hiện tổng phải trả, còn nợ.
-6. **Lưu & tạo hồ sơ n con** (tùy chọn In thẻ QR sau khi lưu) → R-06-02 → MSG-FE06-01 → mở SCR-75; có lịch tiêm khớp → MSG-FE06-05 kèm link thêm vào lịch.
+6. **Lưu & tạo hồ sơ n con** → R-06-02 → quay về SCR-23 (D87; phiếu vừa ghi sổ nằm đầu danh sách, mở SCR-75 từ đó). Toast MSG-FE06-01 và MSG-FE06-05 (lịch tiêm khớp) chưa hiện – việc còn lại.
 
-AF1 phiếu bê sinh tại trại (SCR-25, R-06-18) · AF2 "Đăng ký ngay" khi ghi đẻ (FE-12) · AF3 nhập từ Excel (R-06-21, MSG-FE06-18 / 19) · AF4 **Lưu nháp** → MSG-FE06-10 · AF5 sửa / xóa dòng · AF6 cảnh báo chuồng · AF7 bê chết trước khi đăng ký (R-06-20) · AF8 bỏ nháp / hủy → MSG-COM-14.
+AF1 phiếu bê sinh tại trại (SCR-25, R-06-18) · AF2 "Đăng ký ngay" khi ghi đẻ (FE-12) · AF3 nhập từ Excel (R-06-21, MSG-FE06-18 / 19) · AF4 **Lưu nháp** → SCR-23 (MSG-FE06-10 chưa hiện) · AF5 sửa / xóa dòng · AF6 cảnh báo chuồng · AF7 bê chết trước khi đăng ký (R-06-20) · AF8 bỏ nháp / hủy → MSG-COM-14.
 E1 không có dòng → MSG-FE06-16 · E2 ngày sai → MSG-FE06-03 · E3 trùng số tai / mã thẻ → MSG-FE05-02 / MSG-FE12-08 · E4 chuồng ngưng / thiếu chỗ → MSG-FE04-05 · E5 bê đã đăng ký / không sống → MSG-FE06-02 / 04 · E6 đã trả > tổng → MSG-FE06-13 · E7 thiếu người bán / trường bắt buộc → MSG-COM-06 · E8 danh mục ngưng → MSG-FE18-08 · E9 lỗi lưu → MSG-COM-02, phiếu vẫn DRAFT.
 
 ### UC-FE06-02 Xem phiếu
@@ -210,7 +210,7 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | 18 | Outstanding (đ) / Còn nợ | Cột | — |
 | 19 | Status / Trạng thái | Huy hiệu | DRAFT / POSTED / VOIDED (kèm lý do hủy) |
 | 20 | Actions / Thao tác | Nút | "Tiếp tục" (DRAFT) / "Xem" |
-| 21 | Note / Ghi chú | Chữ chỉ đọc | Nháp không tạo bò, không đổi chuồng / công nợ; phiếu đã ghi sổ sửa theo từng con, hủy cả phiếu chỉ khi mọi bò chưa có sự kiện khác |
+| 21 | ~~Note / Ghi chú~~ | — | Bỏ theo D79 #7 (ghi chú chỉ mô tả màn hình) |
 
 ### SCR-24 Phiếu nhập – Mua
 
@@ -227,14 +227,14 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | **2. Bò trong phiếu** | | | | | | |
 | 8 | Import from Excel / Nhập từ Excel | Nút | — | Mở popup Nhập từ Excel | — | — |
 | 9 | + Add cattle / Thêm bò | Nút | — | Mở popup Dòng bò | — | — |
-| 10 | Pricing basis / Cách tính giá | Radio | * | Theo kg / Theo con, áp mọi dòng | Theo kg | — |
+| 10 | Pricing basis / Cách tính giá | Nút chọn | * | Theo kg / Theo con, áp mọi dòng; đổi cách tính đặt giá các dòng về 0 kèm cảnh báo | Theo con (D76) | — |
 | 11 | # / Ear tag – Số tai | Cột | — | Số dòng; số tai hoặc "Gắn tai sau" | — | — |
 | 12 | Breed · sex / Giống · giới tính | Cột | — | — | — | — |
 | 13 | Life stage · purpose / Giai đoạn · mục đích | Cột | — | — | — | — |
 | 14 | Age / Tuổi | Cột | — | Tuổi ước tính tại ngày nhập | — | — |
 | 15 | Weight / Cân | Cột | — | kg; "UT" khi ước tính | — | — |
 | 16 | Receiving pen / Chuồng nhận | Dropdown trong dòng | * | Chuồng ACTIVE kèm số con / sức chứa | — | MSG-FE04-05 |
-| 17 | Unit price / Đơn giá | Cột | — | đ/kg hoặc đ/con | — | — |
+| 17 | Unit price / Đơn giá | Cột | — | Chỉ hiện khi Theo kg (đ/kg); Theo con chỉ có cột Thành tiền (D76) | — | — |
 | 18 | Line amount / Tiền dòng | Tính | — | GBR-91 | — | — |
 | 19 | ⋯ | Menu | — | Sửa dòng / Xóa | — | — |
 | 20 | Totals row / Dòng tổng | Tính | — | Số con, tổng cân, tiền bò | — | — |
@@ -251,9 +251,9 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | **Bảng tóm tắt bên** | | | | | | |
 | 29 | Voucher summary / Tóm tắt phiếu | Chỉ đọc | — | Số con, tổng cân (số con ước tính), chuồng nhận với lấp đầy trước → sau, trạng thái DRAFT | — | — |
 | 30 | Checks before saving / Kiểm tra trước khi lưu | Chỉ đọc | — | Số tai duy nhất; tiêu chí chuồng từng dòng; sức chứa đủ; ngày nhập hợp lệ. Cảnh báo: cân ước tính; chuồng sẽ đầy (MSG-FE06-17); không có giấy kiểm dịch (MSG-FE06-24) | — | — |
-| 31 | Print QR tags after saving / In thẻ QR sau khi lưu | Checkbox | — | — | Bật | — |
-| 32 | Save & create n cattle / Lưu & tạo hồ sơ n con | Nút | — | Ghi sổ | — | MSG-FE06-16, MSG-COM-05, MSG-COM-02; thành công MSG-FE06-01 (+ MSG-FE06-05) → SCR-75 |
-| 33 | Save draft / Cancel – Lưu nháp / Hủy | Nút | — | Bỏ được phiếu nháp từ màn hình này | — | MSG-FE06-10 / MSG-COM-14 |
+| 31 | Print QR tags after saving / In thẻ QR sau khi lưu | Checkbox | — | Giá trị gửi kèm A6 (`printQr`) và lưu trong nháp; **chưa mở bản in thẻ** sau ghi sổ (gap in QR hàng loạt) | Bật | — |
+| 32 | Save & create n cattle / Lưu & tạo hồ sơ n con | Nút | — | Ghi sổ | — | MSG-FE06-16, MSG-COM-05, MSG-COM-02; thành công → SCR-23 (D87) |
+| 33 | Save draft / Cancel – Lưu nháp / Hủy | Nút | — | Bỏ được phiếu nháp từ màn hình này; lưu nháp xong → SCR-23 | — | MSG-COM-14 |
 
 ### Popup Dòng bò (phiếu mua nháp)
 
@@ -261,22 +261,22 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 |---|---|---|---|---|---|---|
 | 1 | Ear tag number / Số tai | Ô chữ | — | ≤ 30; duy nhất trong bò ACTIVE và các dòng khác; trống = gắn sau | Trống | MSG-COM-10, MSG-FE05-02 |
 | 2 | Name / Tên | Ô chữ | — | ≤ 50 | Trống | MSG-COM-10 |
-| 3 | Photo / Ảnh | File | — | JPG / PNG ≤ 5 MB | — | MSG-COM-10 |
+| 3 | Photo / Ảnh | File | — | JPG / PNG ≤ 5 MB. **Chưa có trên popup** – việc còn lại (backend A19 đã có) | — | MSG-COM-10 |
 | 4 | Colour and markings / Màu lông, đặc điểm | Ô chữ | — | ≤ 255 | Trống | MSG-COM-10 |
 | 5 | Breed / Giống | Dropdown | * | Giống ACTIVE | — | MSG-COM-06, MSG-FE18-08 |
 | 6 | Sex / Giới tính | Radio | * | Đực / Cái | — | MSG-COM-06 |
-| 7 | Birth date or age / Ngày sinh hoặc tuổi | Ngày / tháng-năm / số tháng | — | Tuổi 1–240; hiện tuổi ước tính lúc nhập | — | MSG-COM-10, MSG-FE06-03 |
-| 8 | Birth date accuracy / Độ chính xác | Radio | — | Chính xác / Ước tính / Không rõ; nhập tuổi → Ước tính | Không rõ khi trống | — |
+| 7 | Birth month (estimated) / Tháng sinh (ước tính) | Ô Năm + ô Tháng (D76) | — | Năm: năm nhập lùi 20 năm; tháng sau tháng nhập bị khóa trong năm nhập; tuổi lúc nhập suy ra 1–240 tháng; chỉ chọn một ô → "Chọn đủ tháng và năm sinh, hoặc để trống cả hai."; xóa tháng sinh không xóa giai đoạn | Trống | MSG-COM-10, MSG-FE06-03 |
+| 8 | ~~Birth date accuracy / Độ chính xác~~ | — | — | Không có ô chọn (D63): có tháng → Ước tính, trống → Không rõ; EXACT từ Excel / nháp giữ nguyên khi không đổi tháng | — | — |
 | 9 | Life stage / Giai đoạn | Dropdown | * | Đề xuất theo tuổi và tham số trại; sửa được | Đề xuất | MSG-COM-06 |
 | 10 | Production purpose / Mục đích | Dropdown | * | Mục đích ACTIVE kèm loại; SIRE chỉ đực, BREEDING chỉ cái | — | MSG-COM-06, MSG-FE05-12 |
-| 11 | Entry weight (kg) / Cân lúc nhập | Số | * | 1–1.500 | — | MSG-COM-06, MSG-COM-10 |
-| 12 | Weight basis / Cơ sở cân | Radio | * | Đo / Ước tính | — | MSG-COM-06 |
+| 11 | Entry weight (kg) / Cân nhập (kg) | Số | * khi Theo kg | 1–1.500; Theo con không bắt buộc, nếu nhập vẫn 1–1.500 | — | MSG-COM-06, MSG-COM-10 |
+| 12 | ~~Weight basis / Cơ sở cân~~ | — | — | Không có ô chọn (D63): có cân → Đo; giữ Ước tính cũ nếu không đổi số cân; bảng vẫn hiện "UT" | — | — |
 | 13 | Receiving pen / Chuồng nhận | Dropdown | * | Chuồng ACTIVE kèm số con / sức chứa; hiện kết quả kiểm tiêu chí | — | MSG-FE04-05, MSG-FE04-06 |
 | 14 | Warning reason / Lý do cảnh báo | Ô chữ dài | * khi không đạt tiêu chí | ≤ 500 | — | MSG-COM-06 |
-| 15 | Unit price / Line amount – Đơn giá / Tiền dòng | Số / Tính | — | ≥ 0 / tính tự động | — | MSG-COM-10 |
+| 15 | Theo kg: Unit price / Line amount – Đơn giá (đ/kg) / Thành tiền · Theo con: Line amount – Thành tiền (đ) | Số / Tính | * | Số nguyên > 0 (D87). Theo kg: thành tiền = đơn giá × cân, chỉ đọc. Theo con: một ô Thành tiền lưu `unitPrice` (D76) | — | "Đơn giá / Thành tiền phải lớn hơn 0." |
 | 16 | Quarantine until / Cách ly đến | Ngày | — | Không trước ngày nhập; nút nhanh +14, +21 ngày | — | MSG-COM-10 |
 | **Lịch sử trước khi nhập** | | | | | | |
-| 17 | Vaccination / Tiêm phòng | Radio | * | Có / Không / Không rõ; Có → dòng: vắc-xin (ACTIVE hoặc chữ tự do), ngày (tùy chọn), nguồn thông tin | Không rõ | MSG-COM-06 |
+| 17 | Vaccination / Tiêm phòng | Radio | * | Có / Không / Không rõ; Có → dòng: **Tên vaccine** (một ô, gợi ý tên vaccine ACTIVE, không hiện mã; trùng tên danh mục gửi `vaccineId`, còn lại chữ tự do – D76, D82), ngày (tùy chọn), nguồn thông tin | Không rõ | MSG-COM-06 |
 | 18 | Known diseases / Bệnh đã biết | Radio | * | Có / Không / Không rõ; Có → mô tả ≤ 1.000 | Không rõ | MSG-COM-06 |
 | 19 | Reproduction / Sinh sản | Radio | * (chỉ bò cái) | Có / Không / Không rõ; Có → số lứa đã đẻ 0–15, mang thai lúc nhập (Có / Không / Không rõ), số tháng 1–9 (khi Có), mô tả ≤ 1.000 | Không rõ | MSG-COM-06, MSG-COM-10 |
 | 20 | Remove from voucher / Cancel / Save line | Nút | — | Xóa khỏi phiếu / Hủy / Lưu dòng | — | — |
@@ -285,10 +285,10 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc / Nội dung |
 |---|---|---|---|---|
-| 1 | Download template / Tải mẫu | Nút | — | .xlsx cột: Số tai, Giống, Giới tính, Ngày sinh hoặc Tuổi (tháng), Độ chính xác, Màu lông, Cân, Cơ sở cân, Chuồng, Mục đích, Đơn giá, Cách ly đến |
+| 1 | Download template / Tải mẫu | Nút | — | .xlsx 3 trang (D77): **Danh sách bò** (trang duy nhất được đọc; cột Số tai, Giống, Giới tính, Ngày sinh hoặc Tuổi (tháng), Độ chính xác, Màu lông, Cân, Cơ sở cân, Chuồng, Mục đích, Đơn giá, Cách ly đến; danh sách chọn cho Giới tính, Độ chính xác, Cơ sở cân, Giống, Chuồng, Mục đích; Số tai dạng văn bản), **Hướng dẫn**, **Danh mục**. Tiêu đề tiếng Anh của SRS vẫn nhập được; nhận giá trị tiếng Việt và "85.000" = 85000 |
 | 2 | Select file / Chọn tệp | File | * | .xlsx, ≤ 200 dòng dữ liệu, ≤ 5 MB; hiện tên tệp, số dòng; "Đổi tệp" |
 | 3 | Row / Ear tag / Breed · sex / Weight / Pen | Bảng | — | Giá trị đọc từ từng dòng |
-| 4 | Result / Kết quả | Cột | — | Hợp lệ / Cảnh báo (kèm giá trị mặc định đã áp) / Lỗi (kèm lý do) |
+| 4 | Result / Kết quả | Cột | — | Hợp lệ / Cảnh báo (kèm giá trị mặc định đã áp) / Lỗi (kèm lý do) – lời tiếng Việt theo tên cột, không hiện mã `CHK-…` (D77) |
 | 5 | Summary / Tóm tắt | Chữ | — | MSG-FE06-18 |
 | 6 | Cancel / Add n cattle to the voucher | Nút | — | Chỉ thêm dòng hợp lệ (gồm cảnh báo); MSG-FE06-19 |
 
@@ -310,13 +310,13 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | 12 | Summary panel / Tóm tắt | Chỉ đọc | — | Số bê, tổng cân sơ sinh, chuồng trước → sau, giai đoạn Bê chưa cai sữa, DRAFT; "Bê sinh tại trại không có giá, không thanh toán" | — | — |
 | 13 | Checks before saving / Kiểm tra | Chỉ đọc | — | Bê vẫn PENDING_CONFIRMATION; thẻ duy nhất; chuồng đủ chỗ; mẹ ACTIVE | — | — |
 | 14 | Print QR tags after saving | Checkbox | — | — | Bật | — |
-| 15 | Save & create n cattle / Save draft / Cancel | Nút | — | — | — | MSG-FE06-02, MSG-FE06-04; MSG-FE06-01 → SCR-75; MSG-FE06-10 → SCR-23 |
+| 15 | Save & create n cattle / Save draft / Cancel | Nút | — | — | — | MSG-FE06-02, MSG-FE06-04; ghi sổ hoặc lưu nháp xong → SCR-23 (D87) |
 
 ### SCR-75 Chi tiết phiếu nhập
 
 | # | Trường | Nội dung / Hành vi |
 |---|---|---|
-| 1 | Header / Tiêu đề | Mã phiếu, huy hiệu trạng thái; nút "In phiếu", "Hủy phiếu" (chỉ POSTED) |
+| 1 | Header / Tiêu đề | Mã phiếu, huy hiệu trạng thái; nút "In phiếu", "Hủy phiếu" (chỉ POSTED). In / PDF ẩn mọi nút, cột Thao tác, ghi chú hướng dẫn, nền; hai cột xếp thành một (D77) |
 | 2 | Voucher information / Thông tin phiếu | Ngày nhập, loại, giấy kiểm dịch, người bán + liên hệ, biển số, người tạo / ghi sổ và thời điểm, ghi chú |
 | 3 | Cattle code / Ear tag – Mã bò / Số tai | Mã hiển thị (link SCR-19), số tai |
 | 4 | Breed · sex, Entry weight, Receiving pen | Từ dòng |
@@ -444,8 +444,8 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | TC-06-15 | Bò cái khai báo mang thai ~4 tháng, 2 lứa đã đẻ | Ghi sổ | Hồ sơ "Khai báo mang thai ~4 tháng (chưa khám)"; REM-03 được tạo; không có giai đoạn mang thai; số lứa = 2 | I | §3.3 |
 | TC-06-16 | Khai báo Không rõ | Mở hồ sơ | Hiện "Không rõ", không hiện "Không" | E | GBR-30 |
 | TC-06-17 | Bò đực | Popup Dòng bò | Không có nhóm Sinh sản | E | Popup |
-| TC-06-18 | Popup | Tuổi 0 / 241; cân 0 / 1.501; số tai 31 ký tự | MSG-COM-10 | U, H | Popup |
-| TC-06-19 | Nhập tuổi 18 tháng, ngày nhập 06/11/2026 | — | Tháng sinh 05/2025, độ chính xác Ước tính | U | Popup |
+| TC-06-18 | Popup | Tháng sinh làm tuổi lúc nhập 0 / 241 tháng; chỉ chọn Năm không chọn Tháng; cân 0 / 1.501; số tai 31 ký tự; Thành tiền 0 | Chặn lưu với lời dưới ô | U, H | Popup, D76, D87 |
+| TC-06-19 | Ngày nhập 06/11/2026, chọn Năm 2025 + Tháng 05 | Lưu con | `birthDate` 2025-05-01, độ chính xác Ước tính, tuổi lúc nhập 18 tháng; tháng 12/2026 bị khóa | U | Popup, D76 |
 | TC-06-20 | Tệp Excel 201 dòng / 6 MB / .csv | Tải lên | Bị từ chối | I | R-06-21 |
 | TC-06-21 | Excel 10 dòng: 7 hợp lệ, 1 thiếu ngày sinh, 2 trùng số tai | Thêm | MSG-FE06-18 "10 dòng: 8 hợp lệ (1 cảnh báo) · 2 lỗi"; 8 dòng được thêm, dòng thiếu ngày sinh = Không rõ | I | R-06-21 |
 | TC-06-22 | Bê sống PENDING, mẹ M, bố từ lần phối; có thể còn assigned_* cũ khác nguồn | Lập phiếu FARM_BORN, kể cả payload cố ghi đè cha mẹ | A11 và bò sau ghi sổ lấy cha mẹ nguồn, không đọc assigned_*; ngày nhập = ngày sinh; UNWEANED_CALF; mục đích mặc định UNDECIDED đầu tiên; cha mẹ, giới tính, ngày sinh, cân sơ sinh **không sửa được**; không có tiền (D55) | I, E | R-06-18 |
@@ -500,3 +500,4 @@ Backend / OpenAPI / schema, Excel, phiếu bê sinh tại trại (trừ tiêu đ
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | Đưa D63 / D76 / D77 vào thẳng các bảng (mặc định Theo con, tháng sinh Năm + Tháng, bỏ ô độ chính xác và cơ sở cân, Thành tiền theo con, tên vaccine, mẫu Excel 3 trang, in phiếu); D87: giá > 0, ghi sổ / lưu nháp về SCR-23; bỏ ghi chú SCR-23 #21 (D79); ghi rõ phần chưa làm (ảnh dòng, MSG-FE06-01/05/10, in QR sau lưu) | Claude (cho AnNT) |

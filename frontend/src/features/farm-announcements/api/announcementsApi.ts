@@ -202,11 +202,7 @@ export function createAnnouncementsApi({ mode, farmId, transport, store }: { mod
 
     async get(id: number, viewer: Viewer): Promise<AnnouncementView> {
       if (mode === 'backend') {
-        return call(async () => {
-          const item = (await loadViews()).find((announcement) => announcement.id === id)
-          if (!item) throw new AnnouncementError('NOT_FOUND', MESSAGES.notFound)
-          return item
-        })
+        return call(async () => mapAnnouncement(await transport.get(`${base}/${id}`)))
       }
       return store.get(id, viewer)
     },
@@ -280,7 +276,7 @@ export function createAnnouncementsApi({ mode, farmId, transport, store }: { mod
     async markRead(viewer: Viewer, id: number): Promise<ReadResult | null> {
       if (mode === 'backend') {
         return call(async () => {
-          const announcement = (await loadViews()).find((item) => item.id === id)
+          const announcement = mapAnnouncement(await transport.get(`${base}/${id}`))
           if (!announcement?.myDeliveryId) return null
           const row = asRecord(await command(`${base}/recipients/${announcement.myDeliveryId}/read`, undefined, 'POST'))
           return { recipientId: requiredNumber(row, 'recipientId'), readTime: requiredText(row, 'readTime') }

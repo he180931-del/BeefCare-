@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdEntry } from '../../../src/features/herd-entry/types'
+import type { EntryCow, HerdEntry } from '../../../src/features/herd-entry/types'
 import type { Pen } from '../../../src/features/pen-management/types'
 
 const apiState = vi.hoisted(() => ({
@@ -146,6 +146,25 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     expect(screen.getByRole('button', { name: 'Theo kg' })).toBeInTheDocument()
     expect(screen.getByText('20.060.000')).toBeInTheDocument()
     expect(screen.getByText('24.225.000')).toBeInTheDocument()
+  })
+
+  it('TC-06-09: calculates 300 kg at 80,000 plus 500,000 freight in the production form', async () => {
+    const cow: EntryCow = {
+      tag: 'TC-06-09', name: '', breed: 'Lai Sind', sex: 'Cái', dob: '2025-04', dobAccuracy: 'Ước tính',
+      stage: 'Bò tơ', purpose: 'Bò sinh sản · loại Sinh sản', weight: 300, estimated: false, weightBasis: 'MEASURED',
+      barn: 'A1', unitPrice: 80_000, pricing: 'kg', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
+    }
+    apiState.entries = [{
+      id: 'PN-2026-0200', date: '2026-11-01', type: 'Mua ngoài', source: sellers[0].name, count: 1, status: 'Nháp',
+      draft: { type: 'Mua ngoài', date: '2026-11-01', sourceId: 's1', cows: [cow], freight: 500_000, paid: 0, method: '', due: '' },
+    }]
+
+    renderPage('/herd-entry/new?id=PN-2026-0200')
+    await waitForForm()
+
+    const line = screen.getByRole('row', { name: /TC-06-09/ })
+    expect(within(line).getByText('24.000.000')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' })).getByText('24.500.000 đ')).toBeInTheDocument()
   })
 
   it('tự sinh mã phiếu kế tiếp và không cho người dùng sửa mã', async () => {

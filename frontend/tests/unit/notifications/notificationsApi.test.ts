@@ -49,10 +49,10 @@ describe('notificationsApi (SCR-45)', () => {
     http.get.mockResolvedValue([
       { id: 1, category: 'subscription', targetType: 'SUBSCRIPTION', targetId: 1151, title: 'a', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
       { id: 2, category: 'service', targetType: 'Farm', targetId: 1152, title: 'b', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
-      { id: 3, category: 'subscription', targetType: 'Payment', targetId: 2001, title: 'c', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 3, category: 'subscription', targetType: 'Payment', targetId: 2001, farmId: 1153, title: 'c', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
     ])
     await expect(api.listMine()).resolves.toMatchObject([
-      { id: 1, targetType: 'SUBSCRIPTION', targetId: 1151 }, { id: 2, targetType: 'FARM_SERVICE', targetId: 1152 }, { id: 3, targetType: 'PAYMENT_REQUEST', targetId: 2001 },
+      { id: 1, targetType: 'SUBSCRIPTION', targetId: 1151 }, { id: 2, targetType: 'FARM_SERVICE', targetId: 1152 }, { id: 3, targetType: 'PAYMENT_REQUEST', targetId: 2001, farmId: 1153 },
     ])
     // /mine also returns feed, announcement and internal-request notices: not shown here, never as a payment.
     http.get.mockResolvedValue([
@@ -84,9 +84,21 @@ describe('notificationRules', () => {
 
   it('đích mở theo loại', () => {
     expect(notificationTarget({ targetType: 'TICKET', targetId: 1031 })).toBe('/ho-tro/1031')
-    // targetId names the farm for SUBSCRIPTION and FARM_SERVICE; a payment request names only the payment.
+    // targetId names the farm for SUBSCRIPTION and FARM_SERVICE; a payment request carries its own farm context.
     expect(notificationTarget({ targetType: 'SUBSCRIPTION', targetId: 1151 })).toBe('/goi-dich-vu?farm=1151')
     expect(notificationTarget({ targetType: 'FARM_SERVICE', targetId: 3 })).toBe('/goi-dich-vu?farm=3')
-    expect(notificationTarget({ targetType: 'PAYMENT_REQUEST', targetId: 7 })).toBe('/goi-dich-vu')
+    expect(notificationTarget({ targetType: 'PAYMENT_REQUEST', targetId: 7, farmId: 22 })).toBe('/goi-dich-vu/lich-su/7?farm=22')
+    expect(notificationTarget({ targetType: 'PAYMENT_REQUEST', targetId: 7, farmId: null })).toBe('/goi-dich-vu/lich-su/7')
+  })
+
+  it('mở mỗi payment notification tới đúng payment và farm của nó', () => {
+    const notices = [
+      { targetType: 'PAYMENT_REQUEST' as const, targetId: 701, farmId: 17 },
+      { targetType: 'PAYMENT_REQUEST' as const, targetId: 702, farmId: 29 },
+    ]
+    expect(notices.map(notificationTarget)).toEqual([
+      '/goi-dich-vu/lich-su/701?farm=17',
+      '/goi-dich-vu/lich-su/702?farm=29',
+    ])
   })
 })

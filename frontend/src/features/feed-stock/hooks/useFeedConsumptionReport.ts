@@ -65,9 +65,9 @@ export function useFeedConsumptionReport() {
     return list
   }, [backendReport, groupBy, projection, serverRows])
   const feedBars = useMemo(() => backendReport
-    ? backendReport.costByFeed.map((row) => ({ key: row.feedCode, label: row.feedName, totalCost: row.cost }))
+    ? backendReport.costByFeed.map((row) => ({ key: row.feedCode, label: row.feedName, kg: row.kg, totalCost: row.cost }))
     : [...(projection ? filterFeedConsumptionReport(report!, { from, to, groupBy: 'FEED' }, loaded?.catalogue ?? []).rows : [])]
-      .map((row) => ({ key: row.key, label: row.label, totalCost: row.totalCost }))
+      .map((row) => ({ key: row.key, label: row.label, kg: row.actualKg, totalCost: row.totalCost }))
       .sort((a, b) => (b.totalCost ?? 0) - (a.totalCost ?? 0)),
   [backendReport, from, loaded?.catalogue, projection, report, to])
   const maxCost = Math.max(1, ...feedBars.map((row) => row.totalCost ?? 0))

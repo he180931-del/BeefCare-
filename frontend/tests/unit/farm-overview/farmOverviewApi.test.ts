@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createFarmOverviewApi } from '../../../src/features/farm-overview/api/farmOverviewApi'
 import { createFarmOverviewDemoStore } from '../../../src/features/farm-overview/data/farmOverviewDemoStore'
-import { reminderGroupKey, typeOptionsFor } from '../../../src/features/farm-overview/domain/reminderRules'
+import { dueLabel, EMPTY_FILTERS, filterReminders, reminderGroupKey, toItem, typeOptionsFor } from '../../../src/features/farm-overview/domain/reminderRules'
 import { REPORT_CATALOGUE } from '../../../src/features/farm-overview/domain/reportRules'
-import type { ReportRequest } from '../../../src/features/farm-overview/types'
+import type { ReminderSeed, ReportRequest } from '../../../src/features/farm-overview/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const make = () => createFarmOverviewApi({ mode: 'local', farmId: 1, transport: transport(), store: createFarmOverviewDemoStore() })
@@ -93,6 +93,7 @@ describe('getting started (new farm, D10)', () => {
 describe('reminders', () => {
   it('groups reminders by farm-local date and keeps the Technician feed filter available', () => {
     expect(reminderGroupKey({ dueAt: '2026-11-14T18:00:00Z', urgency: 'TODAY' }, true, 'Asia/Ho_Chi_Minh')).toBe('2026-11-15')
+    expect(reminderGroupKey({ dueAt: '2026-11-10T16:30:00Z', urgency: 'TODAY' }, true, 'Asia/Ho_Chi_Minh')).toBe('2026-11-10')
     expect(typeOptionsFor('TECHNICIAN')).toContain('feed')
     expect(typeOptionsFor('TECHNICIAN')).not.toContain('draft-calf')
   })
@@ -114,13 +115,30 @@ describe('reminders', () => {
     expect(item.dueAt).toBeNull()
     expect(item.urgency).toBe('UPCOMING')
   })
+
+  it('TC-14-09: classifies the planned dose on 20/11 as upcoming on 15/11, then counts overdue days', () => {
+    const seed: ReminderSeed = {
+      id: 1409, rule: 'REM-06', type: 'vaccination', title: 'Liều tiêm dự kiến', code: 'BC-1409',
+      breed: null, pen: null, due: '2026-11-20', basis: 'PLANNED', parameterVersion: 1,
+      source: 'Lịch tiêm', to: null, openLabel: null, audience: ['OWNER'],
+    }
+    const planned = toItem(seed, '2026-11-15')
+    expect(planned.urgency).toBe('UPCOMING')
+    expect(filterReminders([planned], { ...EMPTY_FILTERS, range: 'due7' }, '2026-11-15')).toEqual([planned])
+
+    const oneDayLate = toItem(seed, '2026-11-21')
+    expect(oneDayLate.urgency).toBe('OVERDUE')
+    expect(dueLabel(oneDayLate, '2026-11-21')).toBe('Hôm qua')
+    const threeDaysLate = toItem(seed, '2026-11-23')
+    expect(dueLabel(threeDaysLate, '2026-11-23')).toBe('Quá hạn 3 ngày')
+  })
 })
 
 describe('management reports', () => {
   it('builds RPT-05 totals from the per-pen rows', async () => {
     const view = await make().runReport(rpt05, 'OWNER')
-    expect(view.tiles.map((t) => t.value)).toEqual(['86', '41', '58%', '17'])
-    expect(view.tiles[1].note).toBe('TTNT 33 · tự nhiên 8')
+    expect(view.tiles.map((t) => t.value)).toEqual(['86', '58%', '18', '17'])
+    expect(view.tiles.find((tile) => tile.label === 'Đậu thai lần phối đầu')?.note).toBe('19/33 có kết quả khám thai')
     expect(view.totalRow?.cells).toMatchObject({ cows: '86', breed: '41', check: '36', preg: '26', calv: '18', interval: '—' })
     expect(view.rows[2].cells.interval).toEqual({ badge: 'Thiếu dữ liệu (4 con)' })
     expect(view.chart?.bars).toHaveLength(3)
@@ -402,12 +420,13 @@ describe('backend mode', () => {
     })
     expect(view.tiles).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: 'Số bò cuối kỳ', value: '2' }),
-      expect.objectContaining({ label: 'Tỷ lệ thụ thai chung', value: 'Chưa đủ dữ liệu', note: 'n = 2' }),
+      expect.objectContaining({ label: 'Tỷ lệ thụ thai chung', value: 'Chưa đủ dữ liệu', note: 'Mẫu tính: 2' }),
     ]))
     expect(view.rows[0]?.label).toBe('Chuồng: P1')
     expect(view.totalRow).toBeNull()
     expect(view.chart).toMatchObject({
       title: 'Tỷ lệ thụ thai theo tháng',
+      sub: 'Lần phối có kết quả khám thai',
       bars: [{ label: '10/2026', value: null, numerator: 1, denominator: 2 }],
     })
   })
@@ -422,7 +441,7 @@ describe('backend mode', () => {
       rows: [
         { pen: 'P1', cattleCount: 1, insufficientWeights: 1, gainKg: 45, feedKg: 40, feedCost: 200000, feedKgForIncluded: 20, feedCostForIncluded: 100000, feedKgPerGain: 0.667, feedCostPerGain: 3333.33 },
       ],
-      totalRow: { label: 'Tổng', cells: { cattleCount: 1, insufficientWeights: 1, gainKg: 30, feedKg: 40, feedCost: 200000, feedKgForIncluded: 20, feedCostForIncluded: 100000, feedKgPerGain: 0.667, feedCostPerGain: 3333.33 } },
+      totalRow: { label: 'Tổng', cells: { cattleCount: 1, insufficientWeights: 1, gainKg: 30, feedKg: 40, feedCost: 200000, feedKgForIncluded: 20, feedCostForIncluded: 100000, feedKgPerGain: 0.667, feedCostPerGain: 3333.33, projectedDaysToTarget: null } },
       chart: null, unavailableData: [],
     }
     const { api } = backend(
@@ -435,13 +454,13 @@ describe('backend mode', () => {
     expect(view.totalRow).toMatchObject({
       label: 'Tổng', cells: {
         cattleCount: '1', insufficientWeights: '1', gainKg: '30', feedKg: '40', feedCost: '200.000',
-        feedKgForIncluded: '20', feedCostForIncluded: '100.000', feedKgPerGain: '0,667', feedCostPerGain: '3.333,33',
+        feedKgForIncluded: '20', feedCostForIncluded: '100.000', feedKgPerGain: '0,667', feedCostPerGain: '3.333,33', projectedDaysToTarget: 'Chưa có dữ liệu',
       },
     })
     expect(view.tiles).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: 'ADG (kg/ngày)', value: 'Chưa đủ dữ liệu', note: '1,5 / 1 · n = 1' }),
-      expect.objectContaining({ label: 'Thức ăn trên mỗi kg tăng (kg/kg)', value: 'Chưa đủ dữ liệu', note: '20 / 30 · n = 1' }),
-      expect.objectContaining({ label: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)', value: 'Chưa đủ dữ liệu', note: '100.000 / 30 · n = 1' }),
+      expect.objectContaining({ label: 'ADG (kg/ngày)', value: 'Chưa đủ dữ liệu', note: 'Mẫu tính: 1' }),
+      expect.objectContaining({ label: 'Thức ăn trên mỗi kg tăng (kg/kg)', value: 'Chưa đủ dữ liệu', note: 'Mẫu tính: 1' }),
+      expect.objectContaining({ label: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)', value: 'Chưa đủ dữ liệu', note: 'Mẫu tính: 1' }),
     ]))
     expect(view.chart).toBeNull()
   })
@@ -449,7 +468,7 @@ describe('backend mode', () => {
   it('maps additive report sections and preserves chart zero separately from unavailable values', async () => {
     const report = {
       reportType: 'RPT-03', from: '2026-10-01', to: '2026-10-31', generatedAt: '2026-11-14T04:00:00Z', summary: {},
-      rows: [], totalRow: null, chart: null, unavailableData: [],
+      rows: [], totalRow: null, chart: null, unavailableData: ['backend warning must stay visible', 'backend warning must stay visible'],
       sections: [{
         key: 'schedule', title: 'Tuân thủ theo lịch tiêm', rowHeading: 'Lịch tiêm',
         rows: [{ label: 'Lịch A', planned: 0, done: 0, deferred: 0, overdue: 0 }],
@@ -477,6 +496,7 @@ describe('backend mode', () => {
     expect(view.charts?.[0]).toMatchObject({
       unit: 'mũi', bars: [{ label: 'Lịch A', value: 0 }, { label: 'Lịch B', value: null, sampleSize: 2 }],
     })
+    expect(view.unavailableData).toEqual(['backend warning must stay visible', 'backend warning must stay visible'])
   })
 
   it('names entry sources and exit types instead of showing backend enum codes (RPT-01)', async () => {
@@ -508,14 +528,24 @@ describe('backend mode', () => {
   it('maps the RPT-05 tracked female status tile and breakdown section', async () => {
     const report = {
       reportType: 'RPT-05', from: '2026-10-01', to: '2026-10-28', generatedAt: '2026-11-16T04:00:00Z',
-      summary: { trackedFemales: 3, overdueFemales: { count: 0, items: [] } }, rows: [], totalRow: null, chart: null, unavailableData: [],
+      summary: { trackedFemales: 3, overdueFemales: { count: 2, items: [{ cattleId: 11, displayCode: 'BC-0011', daysSinceCalving: 127 }, { cattleId: 12, displayCode: 'BC-0012', daysSinceCalving: 143 }] } }, rows: [{ dimension: 'pen', value: 'Pen=12', count: 0 }], totalRow: null, chart: null, unavailableData: [],
       sections: [{
         key: 'trackedFemalesByStatus', title: 'Bò cái theo dõi theo trạng thái sinh sản', rowHeading: 'Trạng thái sinh sản',
         rows: [
           { label: 'Chờ phối (AWAITING_BREEDING)', count: 1 },
           { label: 'Mang thai (PREGNANT)', count: 2 },
+          { label: 'PREGNANT (n=0)', count: 0 },
         ],
         totalRow: { label: 'Tổng (con)', cells: { count: 3 } },
+      }, {
+        key: 'breedingMethod', title: 'Lần phối theo phương pháp', rowHeading: 'Phương pháp',
+        rows: [{ label: 'AI', count: 2 }], totalRow: { label: 'Tổng (lần phối)', cells: { count: 2 } },
+      }, {
+        key: 'pregnancyCheckResult', title: 'Khám thai theo kết quả', rowHeading: 'Kết quả khám',
+        rows: [{ label: 'PREGNANT', count: 2 }], totalRow: { label: 'Tổng (lượt khám)', cells: { count: 2 } },
+      }, {
+        key: 'calvingCourse', title: 'Lần đẻ theo diễn biến', rowHeading: 'Diễn biến đẻ',
+        rows: [{ label: 'LIVE', count: 1 }], totalRow: { label: 'Tổng (lần đẻ)', cells: { count: 1 } },
       }],
     }
     const { api } = backend(
@@ -525,18 +555,25 @@ describe('backend mode', () => {
 
     const view = await api.runReport(rpt05, 'OWNER')
 
-    expect(view.tiles).toContainEqual({ label: 'Bò cái theo dõi', value: '3', note: '' })
+    expect(view.tiles).toContainEqual({ key: 'trackedFemales', label: 'Bò cái theo dõi', value: '3', note: '' })
+    expect(view.tiles).toContainEqual({ key: 'overdueFemales.count', label: 'Cái quá hạn thụ thai · Số con', value: '2', note: '' })
+    expect(view.overdueFemales).toEqual({ count: 2, items: [{ cattleId: 11, displayCode: 'BC-0011', daysSinceCalving: 127 }, { cattleId: 12, displayCode: 'BC-0012', daysSinceCalving: 143 }] })
+    expect(view.rows[0]?.label).toBe('Chuồng: Pen=12')
     // The overdue list itself is detail, not an indicator: only its count becomes a tile.
     expect(view.tiles.map((tile) => tile.label)).toEqual(['Bò cái theo dõi', 'Cái quá hạn thụ thai · Số con'])
     expect(view.sections?.[0]).toMatchObject({
       key: 'trackedFemalesByStatus', rowHeading: 'Trạng thái sinh sản',
       columns: [{ key: 'count', label: 'Số con' }],
       rows: [
-        { label: 'Chờ phối (AWAITING_BREEDING)', cells: { count: '1' } },
-        { label: 'Mang thai (PREGNANT)', cells: { count: '2' } },
+        { label: 'Chờ phối', cells: { count: '1' } },
+        { label: 'Mang thai · Có thai', cells: { count: '2' } },
+        { label: 'Có thai', cells: { count: '0' } },
       ],
       totalRow: { label: 'Tổng (con)', cells: { count: '3' } },
     })
+    expect(view.sections?.find((section) => section.key === 'breedingMethod')).toMatchObject({ columns: [{ key: 'count', label: 'Số lần phối' }] })
+    expect(view.sections?.find((section) => section.key === 'pregnancyCheckResult')).toMatchObject({ columns: [{ key: 'count', label: 'Số lượt khám' }] })
+    expect(view.sections?.find((section) => section.key === 'calvingCourse')).toMatchObject({ columns: [{ key: 'count', label: 'Số lần đẻ' }] })
   })
 
   it('uses only pen and herd-group filters for vaccination reports', async () => {
@@ -555,6 +592,34 @@ describe('backend mode', () => {
     expect(view.scope).not.toContain('Trưởng thành')
     expect(view.totalRow).toBeNull()
     expect(view.chart).toBeNull()
+  })
+
+  it('omits breed, herd-group, and life-stage filters for fattening reports', async () => {
+    const report = { reportType: 'RPT-07', from: '2026-10-01', to: '2026-10-31', generatedAt: '2026-11-14T04:00:00Z', summary: {}, rows: [], unavailableData: [] }
+    const { api, command } = backend(
+      { '/context': contextBody, '/pens': penBody, '/catalogues/breeds': [{ id: 5, code: 'SIND', name: 'Lai Sind' }] },
+      { '/dashboard/reports': report },
+    )
+
+    await api.runReport({ ...rpt05, reportType: 'RPT-07', pen: 'P1', breed: 'Lai Sind', herdGroup: 'BREEDING_FEMALE', lifeStage: 'ADULT' }, 'OWNER')
+
+    expect(command.mock.calls[0]?.[1]).toEqual({
+      reportType: 'RPT-07', from: rpt05.dateFrom, to: rpt05.dateTo, penIds: [9], breedIds: [], herdGroups: [], lifeStages: [],
+    })
+  })
+
+  it('maps every backend report type without dropping the typed report envelope', async () => {
+    const report = { reportType: 'RPT-01', from: '2026-10-01', to: '2026-10-31', generatedAt: '2026-11-14T04:00:00Z', summary: { headAtEnd: 1 }, rows: [{ dimension: 'pen', value: 'P1', count: 1 }], totalRow: null, chart: null, unavailableData: [] }
+    const { api, command } = backend(
+      { '/context': contextBody, '/pens': penBody, '/catalogues/breeds': [] },
+      { '/dashboard/reports': report },
+    )
+    command.mockImplementation(async (_path: string, body: unknown) => ({ ...report, reportType: (body as { reportType: string }).reportType }))
+    for (const reportType of ['RPT-01', 'RPT-02', 'RPT-03', 'RPT-04', 'RPT-05', 'RPT-06', 'RPT-07'] as const) {
+      const view = await api.runReport({ ...rpt05, reportType }, 'OWNER')
+      expect(view).toMatchObject({ reportType, title: reportType === 'RPT-05' ? 'Sinh sản' : expect.any(String), printTitle: reportType === 'RPT-05' ? 'Hiệu quả sinh sản' : expect.any(String), rows: [{ label: 'Chuồng: P1' }], unavailableData: [] })
+    }
+    expect(command).toHaveBeenCalledTimes(7)
   })
 
   it('shows exactly the filter combinations required by the FE-15 report spec', () => {

@@ -34,6 +34,7 @@ function mapRecord(value: unknown): FeedFeedingRecord {
     action: revision.action === 'VOID' || revision.action === 'VOIDED' ? 'VOIDED' as const : 'CORRECTED' as const,
     reason: requiredString(revision.reason, 'revisions[].reason'),
     changedAt: requiredString(revision.changedAt, 'revisions[].changedAt'),
+    actorName: nullableString(revision.actorName),
     lines: asRows(revision.lines).map((line) => ({
       feedItemId: requiredNumber(line.feedItemId, 'revisions[].lines[].feedItemId'),
       feedCode: requiredString(line.feedCode, 'revisions[].lines[].feedCode'),

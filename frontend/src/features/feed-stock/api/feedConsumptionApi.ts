@@ -60,8 +60,8 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   if (numberFields.some((field) => !isFiniteNumber(tiles[field])) || ['kg', 'cost', 'kgPerHeadDay', 'costPerHeadDay', 'days', 'headDays'].some((field) => !isFiniteNumber(total[field]))) throw new Error('Tổng hợp báo cáo tiêu thụ từ máy chủ không hợp lệ.')
   const costByFeed = asRows(body.costByFeed).map((row) => { if (typeof row.feedCode !== 'string' || typeof row.feedName !== 'string' || !isFiniteNumber(row.kg) || !isFiniteNumber(row.cost)) throw new Error('Chi phí theo thức ăn từ máy chủ không hợp lệ.'); return { feedCode: row.feedCode, feedName: row.feedName, kg: row.kg, cost: row.cost } })
   const adjustmentLosses = asRecord(body.adjustmentLosses)
-  const adjustmentLossKg = isFiniteNumber(adjustmentLosses.kg) ? adjustmentLosses.kg : NaN
-  const adjustmentLossValue = isFiniteNumber(adjustmentLosses.value) ? adjustmentLosses.value : NaN
+  const adjustmentLossKg = adjustmentLosses.kg == null ? null : isFiniteNumber(adjustmentLosses.kg) ? adjustmentLosses.kg : NaN
+  const adjustmentLossValue = adjustmentLosses.value == null ? null : isFiniteNumber(adjustmentLosses.value) ? adjustmentLosses.value : NaN
   if ((adjustmentLossKg !== null && !Number.isFinite(adjustmentLossKg))
     || (adjustmentLossValue !== null && !Number.isFinite(adjustmentLossValue))) {
     throw new Error('Dữ liệu tổn thất trong báo cáo không hợp lệ.')

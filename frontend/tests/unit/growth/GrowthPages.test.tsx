@@ -59,6 +59,25 @@ describe('danh sách đàn /can-nang', () => {
 })
 
 describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
+  it('TC-08-11: renders an em dash when there are not enough weighings for ADG', async () => {
+    const profile = await growthApi.getProfile('BC-000203')
+    vi.spyOn(growthApi, 'getProfile').mockResolvedValue({
+      ...profile,
+      cattle: { ...profile.cattle, herdGroup: 'BREEDING_FEMALES', targetWeightKg: undefined },
+      records: [],
+      rowAdg: {},
+      adg90: undefined,
+      projection: undefined,
+      chart: [],
+    })
+
+    renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
+
+    const label = await screen.findByText('Tăng cân bình quân')
+    expect(label.parentElement).toHaveTextContent('—')
+    expect(label.parentElement).toHaveTextContent('Cần ≥ 2 lần cân cách nhau từ 14 ngày trong 90 ngày gần nhất')
+  })
+
   it('ưu tiên dự kiến xuất bán và tiến độ vỗ béo, sau đó là biểu đồ và lịch sử đo (Figma Tab 17)', async () => {
     renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
     const projection = await screen.findByRole('region', { name: 'Dự kiến xuất bán' })

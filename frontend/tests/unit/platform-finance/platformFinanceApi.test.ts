@@ -24,8 +24,9 @@ describe('quy tắc nhập khoản (SRS 21.3)', () => {
     expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
     expect(validateCriteria({ dateFrom: '2024-10-18', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBe('Kỳ báo cáo tối đa 24 tháng.')
   })
-  it('số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
+  it('TC-21-03: số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
     expect(validate(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
+    expect(validate(fields({ amountVnd: -5 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
     expect(validate(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
     expect(validate(fields())).toEqual({})
   })
@@ -36,6 +37,17 @@ describe('quy tắc nhập khoản (SRS 21.3)', () => {
   })
   it('nguồn ngân hàng: số tiền và ngày lấy từ giao dịch nên không kiểm ở form', () => {
     expect(validate(fields({ sourceType: 'BANK', sourceEvidenceId: null, amountVnd: 0, occurredOn: '' }))).toEqual({ sourceEvidenceId: 'Hãy chọn chứng từ ngân hàng.' })
+  })
+
+  it('TC-21-04: rejects the next calendar day against a fixed business date', () => {
+    expect(validateRecordFields(fields({ occurredOn: '2026-11-21' }), '2026-11-20', CATS).occurredOn)
+      .toBe('Ngày phát sinh không được ở tương lai.')
+  })
+
+  it('TC-21-22: rejects a period of 25 months and accepts the 24-month boundary', () => {
+    expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
+    expect(validateCriteria({ dateFrom: '2024-09-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' }))
+      .toBe('Kỳ báo cáo tối đa 24 tháng.')
   })
   it('định dạng tiền kiểu Việt Nam', () => expect(formatVnd(1200000)).toBe('1.200.000'))
 })

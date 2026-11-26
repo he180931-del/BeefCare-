@@ -39,7 +39,7 @@ describe('application route smoke', () => {
 
 describe('farm screens without an entered farm (UC-FE02-02)', () => {
   beforeEach(() => sessionStorage.clear())
-  it.each(['/tong-quan', '/cattle', '/pens', '/thuc-an/nhat-ky', '/thanh-vien', '/kt', '/kt/dan-bo/BC-1'])('sends %s to Select Farm instead of a default farm', async (path) => {
+  it.each(['/tong-quan', '/cattle', '/pens', '/thuc-an/nhat-ky', '/thanh-vien', '/bao-cao-thu-chi', '/kt', '/kt/dan-bo/BC-1'])('sends %s to Select Farm instead of a default farm', async (path) => {
     render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/chon-trai')

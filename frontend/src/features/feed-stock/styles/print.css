@@ -1,0 +1,68 @@
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  .feed-print-document {
+    position: static !important;
+    inset: auto !important;
+    width: 100%;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .feed-print-actions,
+  .feed-print-screen > :not(.feed-print-document) {
+    display: none !important;
+  }
+
+  .feed-print-table {
+    border-collapse: collapse;
+  }
+
+  .feed-print-table thead {
+    display: table-header-group;
+  }
+
+  .feed-print-table tfoot {
+    display: table-row-group;
+  }
+
+  .feed-print-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .feed-print-table th,
+  .feed-print-table td {
+    border: 1px solid #bdbdbd;
+    padding: 6px 7px;
+    vertical-align: top;
+  }
+
+  .feed-print-table th {
+    background: #eef4ef;
+    font-weight: 700;
+  }
+
+  .feed-print-signatures {
+    display: grid !important;
+  }
+}
+
+.feed-print-table th,
+.feed-print-table td {
+  border-bottom: 1px solid #dedede;
+  padding: 0.5rem 0.4rem;
+  vertical-align: top;
+}
+
+.feed-print-table th {
+  color: #5b6a60;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}

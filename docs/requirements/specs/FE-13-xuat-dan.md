@@ -112,9 +112,9 @@ Phiếu DEATH **không có số tiền** (GBR-95).
 5. Cách tính giá, đơn giá, cân thực tế (nếu có) → tiền dòng, tổng.
 6. Đính kèm; khấu trừ, đặt cọc, hình thức, hạn thu → tổng phải thu, còn phải thu.
 7. Bảng kiểm trước khi xác nhận (R-13-06).
-8. Tick xác nhận → **Xác nhận xuất n con** → R-13-04, R-13-07 → MSG-FE13-02 → SCR-76.
+8. Tick xác nhận → **Xác nhận xuất n con** → R-13-04, R-13-07 → quay về SCR-41 (D87). Toast MSG-FE13-02 chưa hiện ở luồng này – việc còn lại.
 
-AF1 xác nhận phiếu chết PENDING (SCR-43) · AF2 bỏ phiếu chết → MSG-FE13-04 · AF3 **Lưu nháp** → MSG-FE13-06 · AF4 bỏ dòng · AF5 có cảnh báo → MSG-FE13-01 (không chặn) · AF6 ghi chết trực tiếp · AF7 bỏ nháp / hủy → MSG-COM-14.
+AF1 xác nhận phiếu chết PENDING (SCR-43) · AF2 bỏ phiếu chết → MSG-FE13-04 · AF3 **Lưu nháp** → SCR-41 (MSG-FE13-06 chưa hiện) · AF4 bỏ dòng · AF5 có cảnh báo → MSG-FE13-01 (không chặn) · AF6 ghi chết trực tiếp · AF7 bỏ nháp / hủy → MSG-COM-14.
 E1 ngày → MSG-FE13-03 · E2 bò đã trên phiếu khác → MSG-FE13-08 · E3 không có dòng → MSG-FE06-16 · E4 đặt cọc > tổng → MSG-FE06-13 · E5 thiếu trường → MSG-COM-06 · E6 chưa tick → MSG-COM-16 · E7 bò không còn ACTIVE / phiếu đã đổi → MSG-COM-05 · E8 lỗi → MSG-COM-02.
 
 ### UC-FE13-03 Hủy phiếu
@@ -147,7 +147,7 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | 14 | Total amount, To collect (đ) | Cột | "—" với phiếu chết |
 | 15 | Status / Trạng thái | Huy hiệu | DRAFT / PENDING / CONFIRMED / VOIDED / DISMISSED (kèm lý do) |
 | 16 | Actions / Thao tác | Nút | Owner: "Tiếp tục" (DRAFT), "Xem & xác nhận" (PENDING), "Xem". Manager: "Xem" |
-| 17 | Note / Ghi chú | Chữ | Phiếu từ ca sức khỏe giữ bò ACTIVE đến khi Owner xác nhận; hủy phiếu đã xác nhận đưa mọi con về ACTIVE |
+| 17 | ~~Note / Ghi chú~~ | — | Bỏ theo D79 #7; danh sách hiện thông báo kết quả khi quay về từ SCR-43 (MSG-FE13-04 / MSG-FE13-10) |
 
 ### SCR-42 Phiếu xuất (Bán / Loại thải / Khác)
 
@@ -187,8 +187,8 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | 27 | Summary panel / Tóm tắt | Chỉ đọc | — | Số con, tổng cân xuất (số con ước tính), chuồng trước → sau, trạng thái | — | — |
 | 28 | Checks before confirmation / Kiểm tra trước khi xác nhận | Bảng | — | Mục / kết quả: ngưng thịt (bò, ngày hết), ca OPEN / CHRONIC, mũi và nhắc việc tương lai (số, sẽ hủy), thai đang có, bê nháp của bò mẹ | — | MSG-FE13-01 |
 | 29 | I have reviewed … and confirm the exit / Tôi đã xem các mục trên và xác nhận xuất | Checkbox | * | — | Không tick | MSG-COM-16 |
-| 30 | Confirm exit of n cattle / Xác nhận xuất n con | Nút | — | Hiện tóm tắt hậu quả GBR-35 bên dưới | — | MSG-FE06-16, MSG-COM-05, MSG-COM-02; thành công MSG-FE13-02 → SCR-76 |
-| 31 | Save draft / Cancel | Nút | — | Bỏ nháp được | — | MSG-FE13-06 / MSG-COM-14 |
+| 30 | Confirm exit of n cattle / Xác nhận xuất n con | Nút | — | Hiện tóm tắt hậu quả GBR-35 bên dưới | — | MSG-FE06-16, MSG-COM-05, MSG-COM-02; thành công → SCR-41 (D87) |
+| 31 | Save draft / Cancel | Nút | — | Bỏ nháp được; lưu nháp xong → SCR-41 | — | MSG-COM-14 |
 
 ### SCR-43 Phiếu chết / mất tích
 
@@ -331,3 +331,4 @@ SCR-76 → **Ghi thu tiền** (khi còn phải thu) → popup dùng chung → MS
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 23/11/2026 | 28/10/2026 | D62 (chủ FE-13 đồng ý): bác phiếu chết / mất PENDING thì ca sức khỏe nguồn mở lại; mở lại ca Chết / Mất tích ở FE-10 bác phiếu PENDING – R-13-09, A9, MSG-FE13-10, TC-13-13; popup "Bác đề xuất xuất đàn" đổi chú thích | Tuấn |
+| 26/11/2026 | 28/10/2026 | D87: xác nhận / lưu nháp SCR-42 quay về SCR-41; bỏ ghi chú SCR-41 #17 (D79); ghi rõ MSG-FE13-02 / 06 chưa hiện ở SCR-42 | Claude (cho AnNT) |

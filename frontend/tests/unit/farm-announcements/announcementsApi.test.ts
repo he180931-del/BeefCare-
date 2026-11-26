@@ -198,7 +198,7 @@ describe('backend mode', () => {
     const store = createAnnouncementsDemoStore()
     const spy = vi.spyOn(store, 'list')
     const backend = {
-      get: vi.fn(async () => [publishedRow()]),
+      get: vi.fn(async (path: string) => path.endsWith('/announcements/8') ? publishedRow() : [publishedRow()]),
       command: vi.fn(),
       farmPath: (farmId: string | number, suffix = '') => `/api/farms/${farmId}${suffix}`,
     }
@@ -206,6 +206,7 @@ describe('backend mode', () => {
     await expect(api.list(long)).resolves.toMatchObject([{ id: 8, title: 'Thông báo ca trực', versionNo: 1, recipientCount: 1 }])
     expect(backend.get).toHaveBeenCalledWith('/api/farms/1/announcements')
     await expect(api.get(8, long)).resolves.toMatchObject({ id: 8, versions: [{ versionNo: 1 }], deliveries: [{ recipientId: 28 }], isAuthor: true })
+    expect(backend.get).toHaveBeenCalledWith('/api/farms/1/announcements/8')
     await expect(api.listUnread(mai)).resolves.toEqual([])
     expect(spy).not.toHaveBeenCalled()
   })
@@ -236,7 +237,7 @@ describe('backend mode', () => {
     const backend = {
       get: vi.fn(async (path: string) => path.endsWith('/preview')
         ? { announcement: publishedRow({ state: 'DRAFT', canCorrect: false, recipientCount: 0, deliveries: null, publishedTime: null }), recipients: [{ id: 3, name: 'Kỹ thuật viên', role: 'TECHNICIAN', active: true }] }
-        : [publishedRow({ myDeliveryId: 28 })]),
+        : path.endsWith('/announcements/8') ? publishedRow({ myDeliveryId: 28 }) : [publishedRow({ myDeliveryId: 28 })]),
       command: vi.fn(async (path: string, body: unknown, options: unknown) => {
         posted.push({ path, body, options })
         if (path.endsWith('/read')) return { recipientId: 28, readTime: '2026-11-14T03:10:00Z' }
@@ -251,6 +252,7 @@ describe('backend mode', () => {
     await api.publish(long, 8, 2)
     await api.correct(long, 8, { title: 'Sửa', body: 'Nội dung', reason: 'Đổi lịch', expectedVersion: 3 })
     await expect(api.markRead(mai, 8)).resolves.toEqual({ recipientId: 28, readTime: '2026-11-14T03:10:00Z' })
+    expect(backend.get).toHaveBeenCalledWith('/api/farms/9/announcements/8')
 
     expect(posted.map(({ path, body }) => [path, body])).toEqual([
       ['/api/farms/9/announcements/drafts', { title: 'Tiêu đề', body: 'Nội dung', recipientRoles: ['TECHNICIAN'], recipientMemberIds: [] }],

@@ -36,6 +36,50 @@ describe('authentication validation', () => {
     expect(validateRegistration({ fullName: 'Nguyen Van An', email: 'AN@BEEFCARE.VN', password: 'BeefCare123!', confirmPassword: 'BeefCare123!', termsAccepted: true })).toEqual({})
   })
 
+  const registration = (patch: Partial<Parameters<typeof validateRegistration>[0]> = {}) => ({
+    fullName: 'Nguyễn Văn An', email: 'an@example.vn', password: 'UniquePass123!', confirmPassword: 'UniquePass123!', termsAccepted: true, ...patch,
+  })
+
+  it('TC-01-01: accepts full names of 2–100 characters and rejects 1/101', () => {
+    expect(validateRegistration(registration({ fullName: 'A' })).fullName).toBe('Họ và tên cần từ 2 đến 100 ký tự.')
+    expect(validateRegistration(registration({ fullName: 'An' }))).not.toHaveProperty('fullName')
+    expect(validateRegistration(registration({ fullName: 'x'.repeat(100) }))).not.toHaveProperty('fullName')
+    expect(validateRegistration(registration({ fullName: 'x'.repeat(101) })).fullName).toBe('Họ và tên cần từ 2 đến 100 ký tự.')
+  })
+
+  it('TC-01-02: reports the required-name message for whitespace-only registration name', () => {
+    expect(validateRegistration(registration({ fullName: '   ' })).fullName).toBe('Vui lòng nhập họ và tên.')
+  })
+
+  it('TC-01-03: rejects malformed and 255-character registration emails', () => {
+    for (const email of ['abc', 'a@b', `${'a'.repeat(243)}@example.com`]) {
+      expect(email.length === 255 || !/^\S+@\S+\.\S+$/.test(email)).toBe(true)
+      expect(validateRegistration(registration({ email })).email).toBe('Email không hợp lệ.')
+    }
+  })
+
+  it('TC-01-04: enforces registration password boundaries 7/8/128/129', () => {
+    for (const length of [7, 8, 128, 129]) {
+      const password = `P${'x'.repeat(length - 1)}`
+      const errors = validateRegistration(registration({ password, confirmPassword: password }))
+      expect(errors.password).toBe(length === 7 || length === 129 ? 'Mật khẩu cần từ 8 đến 128 ký tự.' : undefined)
+    }
+  })
+
+  it('TC-01-05: registration rejects a password matching email ignoring case', () => {
+    expect(validateRegistration(registration({ email: 'Owner@Farm.VN', password: 'owner@farm.vn', confirmPassword: 'owner@farm.vn' })).password)
+      .toBe('Mật khẩu không được trùng với email.')
+  })
+
+  it('TC-01-06: registration reports the confirmation mismatch message', () => {
+    expect(validateRegistration(registration({ confirmPassword: 'DifferentPass1!' })).confirmPassword).toBe('Mật khẩu xác nhận chưa khớp.')
+  })
+
+  it('TC-01-07: registration requires accepting terms', () => {
+    expect(validateRegistration(registration({ termsAccepted: false })).termsAccepted)
+      .toBe('Vui lòng đồng ý với Điều khoản sử dụng và Chính sách dữ liệu.')
+  })
+
   it('rejects using the account email as its password and mismatched reset confirmation', () => {
     expect(validateReset({ email: 'owner@beefcare.vn', password: 'OWNER@BEEFCARE.VN', confirmPassword: 'OWNER@BEEFCARE.VN' })).toHaveProperty('password')
     expect(validateReset({ email: '', password: 'BeefCare123!', confirmPassword: 'different' })).toHaveProperty('confirmPassword')

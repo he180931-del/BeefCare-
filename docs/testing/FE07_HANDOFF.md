@@ -1,5 +1,14 @@
 # FE-07 handoff
 
+## Contract/deep-link gap — 24/11/2026
+
+- `docs/api/openapi.json` now documents `GET /api/farms/{farmId}/announcements/{id}` with a `200` response of `AnnouncementView`. The existing `announcementsApi.get` already calls this farm-scoped detail route, so no API adapter or backend edit was needed.
+- Detail access requires an ACTIVE membership in the requested farm and `VIEW_ANNOUNCEMENTS`. The service loads by `(farmId, id)`, returns an author's own draft/published announcement, or returns only a published version for which the caller has a delivery. Drafts stay private to their author; recipient views do not expose draft content or the author's delivery table.
+- Missing, cross-farm, draft-for-recipient, or non-recipient detail access raises the typed `COM-08` not-found error. The frontend maps `MSG-COM-08`/HTTP 404 to `AnnouncementError('NOT_FOUND')`; the deep-link page keeps the existing Vietnamese not-found error block and retry behavior.
+- `AnnouncementView.myDeliveryId` is the caller's current visible delivery ID (null for authors/drafts). `unread` and `readTime` come from that delivery. Opening only the newest visible version calls `POST /announcements/recipients/{myDeliveryId}/read`; the frontend does not mark a stale version target as read.
+- The Owner/Manager list page now uses a valid positive route/query id as the detail query even when the list is empty or omits that id. A successful direct response renders the existing detail; a typed error remains an error block. Existing list errors, selection behavior, and normal empty-tab placeholders remain unchanged.
+- Focused FE-07 verification: JSON parse exit `0`; from `frontend/`, `.\node_modules\.bin\vitest run --passWithNoTests tests/unit/farm-announcements` exit `0`, **39/39 tests** (3 files). Only existing React Router v7 future-flag notices were emitted. No full typecheck or backend test was run in this slice.
+
 ## Notification navigation increment — 16/11/2026
 
 - Owner/Manager received delivery rows now open the existing detail screen at
@@ -148,8 +157,8 @@ Result: **30 tests passed, 0 failures/errors/skips**: `FarmAnnouncementServiceTe
 ## Remaining gaps and limits
 
 - H2 migration and service readback passed. Migration upgrade over an existing database with draft rows and a full authenticated HTTP mapping for the new route were not tested. The PostgreSQL smoke evidence above predates the named-recipient change; this current change has not been exercised on PostgreSQL.
-- OpenAPI export/catalog refresh remains pending. `docs/api/openapi.json` is stale for the additive request/response fields and new recipient-options route until `OpenApiContractTest` passes and the exported contract is copied/refreshed.
-- The SRS data contract calls for a distinct announcement detail GET. The current adapter gets detail from the farm-scoped announcement list; no `GET /api/farms/{farmId}/announcements/{id}` route was added in this slice.
+- The detail route is now present in `docs/api/openapi.json`; a fresh backend `OpenApiContractTest`/catalog export was not run in this frontend-only slice.
+- The SRS data contract's distinct announcement detail GET is now represented in both the backend resource and the OpenAPI document. A full authenticated HTTP readback for that route remains unverified here.
 - Publish and correction enqueue `ANNOUNCEMENT_PUBLISHED` / `ANNOUNCEMENT_CORRECTED` outbox events. The JOB-07 consumer and its QA readback are now recorded in `docs/testing/JOB07_HANDOFF.md`; the Owner/Manager and Technician routes for visible announcement versions are covered by the 16/11 UI increment above.
 - PostgreSQL transaction/rollback behavior, a full MockMvc authenticated flow, live session permissions and JOB-07 remain unverified for the current named-recipient change. The H2 persistence test does not prove PostgreSQL behavior. UI behavior is covered by component tests; no manual browser runtime or visual comparison was performed.
 - UI behavior was covered by component tests; no manual browser runtime or visual comparison was performed.

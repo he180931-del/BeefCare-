@@ -3,5 +3,6 @@
 export const loadFarmDashboardPage = () => import('./pages/FarmDashboardPage')
 export const loadRemindersPage = () => import('./pages/RemindersPage')
 export const loadManagementReportPage = () => import('./pages/ManagementReportPage')
+export const loadCashFlowReportPage = () => import('./pages/CashFlowReportPage')
 export const loadTechnicianHomePage = () => import('./pages/TechnicianHomePage')
 export const loadTechnicianRemindersPage = () => import('./pages/TechnicianRemindersPage')

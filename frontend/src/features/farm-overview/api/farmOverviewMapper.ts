@@ -5,7 +5,7 @@ import { REPORT_CATALOGUE } from '../domain/reportRules'
 import { STEP_DEFS } from '../domain/gettingStarted'
 import { technicianHomeReminders } from '../domain/reminderRules'
 import type {
-  DashboardFilters, DashboardView, GettingStarted, HerdGroup, PenInfo, ReportMetricChart, ReportRequest, ReportSection, ReportView,
+  DashboardFilters, DashboardView, GettingStarted, HerdGroup, PenInfo, ReportMetricChart, ReportOverdueFemales, ReportRequest, ReportSection, ReportView,
   ReminderItem, ReminderTarget, ReminderTargetType, ReminderType, ReminderList, TechnicianHome, Urgency, ViewerRole,
 } from '../types'
 import { failShape, requiredNumber, requiredRows, requiredString } from './farmOverviewError'
@@ -79,55 +79,121 @@ function reminderSourceAction(rule: string, sourceType: string | null, sourceId:
   return { to: null, openLabel: null }
 }
 
-const REPORT_ENUM_LABEL: Record<string, string> = { EXTERNAL: 'Mua ngoài', FARM_BORN: 'Bê sinh tại trại', SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết / mất', OTHER: 'Khác', UNKNOWN: 'Chưa rõ' }
+const REPORT_ENUM_LABEL: Record<string, string> = {
+  EXTERNAL: 'Mua ngoài', FARM_BORN: 'Bê sinh tại trại', SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết / mất', OTHER: 'Khác', UNKNOWN: 'Chưa rõ',
+  DONE: 'Đã tiêm', DEFERRED: 'Hoãn', CANCELLED: 'Đã hủy', ON_FARM: 'Tại trại', VALID: 'Hợp lệ',
+  BREEDING: 'Phối', PREGNANCY_CHECK: 'Khám thai', PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa kết luận',
+  AWAITING_BREEDING: 'Chờ phối', IN_ESTRUS: 'Động dục', BRED: 'Đã phối', POST_CALVING: 'Sau sinh',
+  LIVE: 'Sống', STILLBORN: 'Chết lúc sinh', NATURAL: 'Tự nhiên', AI: 'TTNT', OPEN: 'Đang mở', CLOSED: 'Đã đóng', CHRONIC: 'Mạn tính',
+}
+const stripSampleAnnotation = (value: string) => value
+  .replace(/\s*\(\s*n\s*(?:=|≥|>=|>)\s*[\d.,]+\s*\)/gi, '')
+  .replace(/(^|[\s·•;,:-]+)n\s*(?:=|≥|>=|>)\s*[\d.,]+/gi, '$1')
+  .trim()
+const formatEnumText = (value: string) => stripSampleAnnotation(value)
+  .replace(/\s*\(([^)]*)\)/g, (_match, inner: string) => {
+    const text = inner.trim(), hasTechnicalToken = /\b[A-Z][A-Z0-9_]*\b/.test(text)
+    const translated = text.replace(/\b[A-Z][A-Z0-9_]*\b/g, (token) => REPORT_ENUM_LABEL[token] ?? token)
+    return text ? (hasTechnicalToken ? ` · ${translated}` : ` (${translated})`) : ''
+  })
+  .replace(/\b[A-Z][A-Z0-9_]*\b/g, (token) => REPORT_ENUM_LABEL[token] ?? token)
+  .replace(/^(.*) · \1$/, '$1')
+  .replace(/\s{2,}/g, ' ')
+  .trim()
 const labelForKey = (key: string) => ({
   headAtEnd: 'Số bò cuối kỳ', entriesInPeriod: 'Nhập đàn trong kỳ', exitsInPeriod: 'Xuất đàn trong kỳ', entriesBySource: 'Nhập đàn theo nguồn', exitsByType: 'Xuất đàn theo loại', closedCasesByOutcome: 'Ca đóng theo kết quả', validWeighings: 'Lượt cân hợp lệ', averageGroupWeightKg: 'Cân trung bình theo nhóm', estimatedWeightCount: 'Lượt cân ước tính', averageADGKgPerDay: 'Tăng trọng bình quân ngày (kg/ngày)', doses: 'Mũi tiêm trong kỳ', onFarmVaccinations: 'Mũi tiêm tại trại', openedCases: 'Ca mở trong kỳ', movedToChronic: 'Ca chuyển theo dõi mạn tính', closedCases: 'Ca đóng trong kỳ', casesByOutcome: 'Ca theo kết quả', casesBySeverity: 'Ca theo mức độ', chronicAtEnd: 'Ca mạn tính cuối kỳ', treatments: 'Lượt điều trị', treatmentsByMedicine: 'Điều trị theo thuốc', cattleWithActiveMeatWithdrawalAtEnd: 'Bò đang ngưng thịt cuối kỳ', trackedFemales: 'Bò cái theo dõi', breedings: 'Lần phối', checks: 'Lần khám thai', calvings: 'Lần đẻ', liveCalves: 'Bê sinh sống', stillbirths: 'Chết lúc sinh', episodesLost: 'Thai mất', episodesCalved: 'Thai đã đẻ', averageCalvingIntervalDays: 'Khoảng cách lứa đẻ (ngày)', averageDaysOpen: 'Ngày trống trung bình', averageServicesPerConception: 'Số lần phối trên mỗi lần thụ thai', overallConceptionRate: 'Tỷ lệ thụ thai chung', firstServiceConceptionRate: 'Tỷ lệ thụ thai lần phối đầu', pregnancyLossRate: 'Tỷ lệ sẩy thai', averageAgeAtFirstCalvingMonths: 'Tuổi đẻ lứa đầu (tháng)', overdueFemales: 'Cái quá hạn thụ thai', entries: 'Nhập đàn', exits: 'Xuất đàn', penMoves: 'Lượt chuyển chuồng', averageHead: 'Đầu con bình quân', cattleIncluded: 'Bò đủ dữ liệu cân', insufficientWeights: 'Bò thiếu dữ liệu cân', cattleCount: 'Bò đủ dữ liệu cân', gainKg: 'Tổng tăng trọng (kg)', feedKg: 'Thức ăn đã dùng (kg)', feedCost: 'Chi phí thức ăn (đ)', feedKgForIncluded: 'Thức ăn tính tỷ lệ (bò đủ cân, kg)', feedCostForIncluded: 'Chi phí tính tỷ lệ (bò đủ cân, đ)', planned: 'Kế hoạch', done: 'Đã tiêm', deferred: 'Hoãn', overdue: 'Quá hạn', cancelled: 'Đã hủy', feedKgPerGain: 'Thức ăn trên mỗi kg tăng (kg/kg)', feedCostPerGain: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)', count: 'Số con', recordsWithoutWeight: 'Bản ghi hợp lệ thiếu trọng lượng', estimatedCount: 'Lượt cân ước tính', estimatedShare: 'Tỷ lệ cân ước tính', adgKgPerDay: 'ADG (kg/ngày)', adgSampleSize: 'Số bò có ADG', averageStartWeightKg: 'Cân đầu kỳ (kg)', averageEndWeightKg: 'Cân cuối kỳ (kg)', totalGainKg: 'Tổng tăng trọng (kg)', averageAdgKgPerDay: 'ADG (kg/ngày)', feedUsedKg: 'Thức ăn đã dùng (kg)', feedPerKgGain: 'Thức ăn trên mỗi kg tăng (kg/kg)', feedCostPerKgGain: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)', targetReached: 'Đạt cân mục tiêu', projectedDaysToTarget: 'Số ngày dự kiến đến mục tiêu',
 }[key] ?? REPORT_ENUM_LABEL[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (first) => first.toUpperCase()))
-const formatValue = (value: unknown): string => { if (value == null) return 'Chưa có dữ liệu'; if (typeof value === 'number') return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(value); if (typeof value === 'boolean') return value ? 'Có' : 'Không'; if (typeof value === 'string') return value; if (Array.isArray(value)) return value.map(formatValue).join(', '); return Object.entries(asRecord(value)).map(([key, item]) => `${labelForKey(key)}: ${formatValue(item)}`).join(' · ') }
+const formatValue = (value: unknown): string => { if (value == null) return 'Chưa có dữ liệu'; if (typeof value === 'number') return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(value); if (typeof value === 'boolean') return value ? 'Có' : 'Không'; if (typeof value === 'string') return formatEnumText(value); if (Array.isArray(value)) return value.map(formatValue).join(', '); return Object.entries(asRecord(value)).map(([key, item]) => `${labelForKey(key)}: ${formatValue(item)}`).join(' · ') }
 
 function flattenSummary(summary: Record<string, unknown>): ReportView['tiles'] {
   const tiles: ReportView['tiles'] = []
-  const visit = (key: string, value: unknown, parent = '') => {
+  const visit = (key: string, value: unknown, parent = '', path: string[] = []) => {
     const label = [parent, labelForKey(key)].filter(Boolean).join(' · ')
+    const tileKey = [...path, key].join('.')
     if (Array.isArray(value) && (value.length === 0 || value.some((item) => item !== null && typeof item === 'object'))) return
-    if (value == null || typeof value !== 'object' || Array.isArray(value)) { tiles.push({ label, value: formatValue(value), note: value == null ? 'Chưa có dữ liệu' : '' }); return }
+    if (value == null || typeof value !== 'object' || Array.isArray(value)) { tiles.push({ key: tileKey, label, value: formatValue(value), note: value == null ? 'Chưa có dữ liệu' : '' }); return }
     const record = asRecord(value)
-    if (Object.hasOwn(record, 'value') || Object.hasOwn(record, 'n')) { const n = nullableNumber(record.n); const insufficient = textValue(record.status) === 'INSUFFICIENT_DATA' || (n !== null && n < 3); const numerator = nullableNumber(record.numerator); const denominator = nullableNumber(record.denominator); const ratioBasis = numerator !== null && denominator !== null ? `${formatValue(numerator)} / ${formatValue(denominator)}` : ''; const sampleNote = n === null ? (textValue(record.status) || '') : `n = ${n}`; tiles.push({ label, value: insufficient ? 'Chưa đủ dữ liệu' : formatValue(record.value), note: [ratioBasis, sampleNote].filter(Boolean).join(' · ') }); return }
-    const entries = Object.entries(record); if (!entries.length) { tiles.push({ label, value: 'Chưa có dữ liệu', note: 'Chưa có dữ liệu' }); return }; entries.forEach(([child, childValue]) => visit(child, childValue, label))
+    if (Object.hasOwn(record, 'value') || Object.hasOwn(record, 'n')) {
+      const n = nullableNumber(record.n), insufficient = textValue(record.status) === 'INSUFFICIENT_DATA' || (n !== null && n < 3)
+      const numerator = nullableNumber(record.numerator), denominator = nullableNumber(record.denominator)
+      const hasMeaningfulBasis = numerator !== null && denominator !== null && denominator > 0 && !insufficient
+      const ratioBasis = hasMeaningfulBasis ? `${formatValue(numerator)} / ${formatValue(denominator)}` : ''
+      const sampleNote = n === null ? ({ INSUFFICIENT_DATA: 'Chưa đủ dữ liệu', AVAILABLE: 'Đủ mẫu' } as Record<string, string>)[textValue(record.status)] ?? '' : `Mẫu tính: ${n}`
+      tiles.push({ key: tileKey, label, value: insufficient ? 'Chưa đủ dữ liệu' : formatValue(record.value), note: [ratioBasis, sampleNote].filter(Boolean).join(' · ') })
+      return
+    }
+    const entries = Object.entries(record); if (!entries.length) { tiles.push({ key: tileKey, label, value: 'Chưa có dữ liệu', note: 'Chưa có dữ liệu' }); return }; entries.forEach(([child, childValue]) => visit(child, childValue, label, [...path, key]))
   }
   Object.entries(summary).forEach(([key, value]) => visit(key, value)); return tiles
 }
 
+function mapOverdueFemales(summary: Record<string, unknown>): ReportOverdueFemales | null | undefined {
+  if (!Object.hasOwn(summary, 'overdueFemales')) return undefined
+  if (summary.overdueFemales == null) return null
+  const raw = asRecord(summary.overdueFemales), count = requiredNumber(raw, 'count')
+  if (!Number.isSafeInteger(count) || count < 0) return failShape('summary.overdueFemales.count')
+  const items = requiredRows(raw.items, 'summary.overdueFemales.items').map((item) => {
+    const cattleId = requiredNumber(item, 'cattleId'), daysSinceCalving = requiredNumber(item, 'daysSinceCalving')
+    if (!Number.isSafeInteger(cattleId) || cattleId <= 0) return failShape('summary.overdueFemales.items.cattleId')
+    if (!Number.isSafeInteger(daysSinceCalving) || daysSinceCalving < 0) return failShape('summary.overdueFemales.items.daysSinceCalving')
+    return { cattleId, displayCode: requiredString(item, 'displayCode'), daysSinceCalving }
+  })
+  return { count, items }
+}
+
 function labelForRow(row: Record<string, unknown>) {
   const dimension = textValue(row.dimension), value = textValue(row.value)
-  if (dimension && value) { const dimensionLabel = ({ herdGroup: 'Nhóm đàn', pen: 'Chuồng', breed: 'Giống', purpose: 'Mục đích', lifeStage: 'Giai đoạn', schedule: 'Lịch tiêm', onFarmVaccine: 'Vắc-xin tại trại', caseOutcome: 'Kết quả ca', severity: 'Mức độ', treatmentMedicine: 'Thuốc điều trị', eventTypeAndResult: 'Sự kiện sinh sản', entrySource: 'Nguồn nhập đàn', exitType: 'Loại xuất đàn', penMoveTo: 'Chuồng chuyển đến' } as Record<string, string>)[dimension] ?? labelForKey(dimension); const displayValue = fromBackendGroup[value] ? HERD_GROUP_LABEL[fromBackendGroup[value]!] : REPORT_ENUM_LABEL[value] ?? value; return `${dimensionLabel}: ${displayValue}` }
+  if (dimension && value) { const dimensionLabel = ({ herdGroup: 'Nhóm đàn', pen: 'Chuồng', breed: 'Giống', purpose: 'Mục đích', lifeStage: 'Giai đoạn', schedule: 'Lịch tiêm', onFarmVaccine: 'Vắc-xin tại trại', caseOutcome: 'Kết quả ca', severity: 'Mức độ', treatmentMedicine: 'Thuốc điều trị', eventTypeAndResult: 'Sự kiện sinh sản', entrySource: 'Nguồn nhập đàn', exitType: 'Loại xuất đàn', penMoveTo: 'Chuồng chuyển đến' } as Record<string, string>)[dimension] ?? labelForKey(dimension); const displayValue = fromBackendGroup[value] ? HERD_GROUP_LABEL[fromBackendGroup[value]!] : formatEnumText(value); return `${dimensionLabel}: ${displayValue}` }
   const group = textValue(row.group), pen = textValue(row.pen), schedule = textValue(row.schedule), label = textValue(row.label)
-  if (label) return label; if (group && pen) return `${fromBackendGroup[group] ? HERD_GROUP_LABEL[fromBackendGroup[group]!] : group} · chuồng ${pen}`; if (pen) return `Chuồng ${pen}`; if (group) return fromBackendGroup[group] ? HERD_GROUP_LABEL[fromBackendGroup[group]!] : group; if (schedule) return schedule; return 'Kết quả'
+  if (label) return formatEnumText(label); if (group && pen) return `${fromBackendGroup[group] ? HERD_GROUP_LABEL[fromBackendGroup[group]!] : formatEnumText(group)} · chuồng ${pen}`; if (pen) return `Chuồng ${pen}`; if (group) return fromBackendGroup[group] ? HERD_GROUP_LABEL[fromBackendGroup[group]!] : formatEnumText(group); if (schedule) return formatEnumText(schedule); return 'Kết quả'
 }
-function formatReportDimension(value: string) { const group = fromBackendGroup[value]; if (group) return HERD_GROUP_LABEL[group]; if (Object.hasOwn(LIFE_STAGE_LABEL, value)) return LIFE_STAGE_LABEL[value as keyof typeof LIFE_STAGE_LABEL]; if (Object.hasOwn(REPORT_ENUM_LABEL, value)) return REPORT_ENUM_LABEL[value]; return value }
+function formatReportDimension(value: string) { const group = fromBackendGroup[value]; if (group) return HERD_GROUP_LABEL[group]; if (Object.hasOwn(LIFE_STAGE_LABEL, value)) return LIFE_STAGE_LABEL[value as keyof typeof LIFE_STAGE_LABEL]; return formatEnumText(value) }
+
+const sectionCountLabel = (sectionKey: string, key: string) => key === 'count' ? ({
+  breedingMethod: 'Số lần phối',
+  pregnancyCheckResult: 'Số lượt khám',
+  calvingCourse: 'Số lần đẻ',
+}[sectionKey] ?? 'Số con') : labelForKey(key)
 
 function mapReportSection(value: unknown): ReportSection {
   const rawSection = asRecord(value), rawRows = requiredRows(rawSection.rows, 'sections.rows'), hidden = new Set(['dimension', 'value', 'pen', 'group', 'stage', 'schedule', 'label']), rawTotal = rawSection.totalRow == null ? null : asRecord(rawSection.totalRow)
   if (rawTotal && (typeof rawTotal.cells !== 'object' || rawTotal.cells === null || Array.isArray(rawTotal.cells))) return failShape('sections.totalRow.cells')
-  const totalCells = rawTotal ? asRecord(rawTotal.cells) : {}, keys = [...new Set([...rawRows.flatMap((item) => Object.keys(item)), ...Object.keys(totalCells)].filter((key) => !hidden.has(key)))]
+  const sectionKey = requiredString(rawSection, 'key'), totalCells = rawTotal ? asRecord(rawTotal.cells) : {}, keys = [...new Set([...rawRows.flatMap((item) => Object.keys(item)), ...Object.keys(totalCells)].filter((key) => !hidden.has(key)))]
   const rows = rawRows.map((item) => ({ label: typeof item.label === 'string' ? formatReportDimension(item.label) : labelForRow(item), cells: Object.fromEntries(keys.map((key) => [key, formatValue(item[key])])) }))
-  return { key: requiredString(rawSection, 'key'), title: requiredString(rawSection, 'title'), rowHeading: requiredString(rawSection, 'rowHeading'), columns: keys.map((key) => ({ key, label: labelForKey(key) })), rows, totalRow: rawTotal ? { label: requiredString(rawTotal, 'label'), cells: Object.fromEntries(keys.map((key) => [key, formatValue(totalCells[key])])) } : null }
+  return { key: sectionKey, title: formatEnumText(requiredString(rawSection, 'title')), rowHeading: formatEnumText(requiredString(rawSection, 'rowHeading')), columns: keys.map((key) => ({ key, label: sectionCountLabel(sectionKey, key) })), rows, totalRow: rawTotal ? { label: formatEnumText(requiredString(rawTotal, 'label')), cells: Object.fromEntries(keys.map((key) => [key, formatValue(totalCells[key])])) } : null }
+}
+
+function cleanChartSubtitle(value: string): string {
+  return formatEnumText(value
+    .replace(/(?:[.;]\s*)?tỷ lệ chỉ hiện khi\s*n\s*(?:≥|>=|>)\s*3\.?/gi, '')
+    .replace(/\s*;\s*$/, '')
+    .trim())
 }
 
 function mapMetricChart(value: unknown): ReportMetricChart {
   const rawChart = asRecord(value), unit = requiredString(rawChart, 'unit'), optionalNumber = (row: Record<string, unknown>, key: string) => row[key] == null ? null : requiredNumber(row, key)
   const bars = requiredRows(rawChart.bars, 'charts.bars').map((bar) => { const value = optionalNumber(bar, 'value'), sampleSize = optionalNumber(bar, 'sampleSize'), numerator = optionalNumber(bar, 'numerator'), denominator = optionalNumber(bar, 'denominator'); if (sampleSize !== null && (!Number.isSafeInteger(sampleSize) || sampleSize < 0)) return failShape('charts.bars.sampleSize'); if ((numerator === null) !== (denominator === null)) return failShape('charts.bars.ratio'); if (numerator !== null && denominator !== null && (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator < 0 || numerator > denominator)) return failShape('charts.bars.ratio'); if (unit === '%' && value !== null && (value < 0 || value > 100)) return failShape('charts.bars.value'); if (unit === '%' && (numerator === null || denominator === null || (denominator < 3) !== (value === null))) return failShape('charts.bars.ratio'); return { label: formatReportDimension(requiredString(bar, 'label')), value, sampleSize, numerator, denominator } })
-  return { title: requiredString(rawChart, 'title'), sub: requiredString(rawChart, 'sub'), unit, bars }
+  return { title: formatEnumText(requiredString(rawChart, 'title')), sub: cleanChartSubtitle(requiredString(rawChart, 'sub')), unit, bars }
 }
 
 export function mapReport(body: unknown, request: ReportRequest, timeZone: string): ReportView {
   const row = asRecord(body), reportType = requiredString(row, 'reportType') as ReportRequest['reportType'], from = requiredString(row, 'from'), to = requiredString(row, 'to'), generatedAt = requiredString(row, 'generatedAt')
   if (typeof row.summary !== 'object' || row.summary === null || Array.isArray(row.summary)) failShape('summary')
-  const summary = asRecord(row.summary), rawRows = requiredRows(row.rows, 'rows'), hidden = new Set(['dimension', 'value', 'pen', 'group', 'stage', 'schedule', 'label']), keys = [...new Set(rawRows.flatMap((item) => Object.keys(item).filter((key) => !hidden.has(key))))], columns = keys.map((key) => ({ key, label: labelForKey(key) })), rows = rawRows.map((item) => ({ label: labelForRow(item), cells: Object.fromEntries(keys.map((key) => [key, formatValue(item[key])])) }))
-  let totalRow: ReportView['totalRow'] = null; if (row.totalRow != null) { if (typeof row.totalRow !== 'object' || Array.isArray(row.totalRow)) return failShape('totalRow'); const rawTotal = asRecord(row.totalRow); if (typeof rawTotal.cells !== 'object' || rawTotal.cells === null || Array.isArray(rawTotal.cells)) return failShape('totalRow.cells'); const cells = asRecord(rawTotal.cells); totalRow = { label: requiredString(rawTotal, 'label'), cells: Object.fromEntries(keys.map((key) => [key, formatValue(cells[key])])) } }
-  let chart: ReportView['chart'] = null; if (row.chart != null) { const rawChart = asRecord(row.chart); const bars = requiredRows(rawChart.bars, 'chart.bars').map((bar) => { const value = nullableNumber(bar.value), numerator = requiredNumber(bar, 'numerator'), denominator = requiredNumber(bar, 'denominator'); if ((value !== null && (value < 0 || value > 100)) || !Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator < 0 || denominator < 0 || numerator > denominator || (denominator < 3) !== (value === null)) return failShape('chart.bars.value'); return { label: requiredString(bar, 'label'), value, numerator, denominator } }); chart = { title: requiredString(rawChart, 'title'), sub: requiredString(rawChart, 'sub'), bars } }
-  const unavailableData = Array.isArray(row.unavailableData) ? row.unavailableData.filter((item): item is string => typeof item === 'string') : [], sections = row.sections == null ? [] : requiredRows(row.sections, 'sections').map(mapReportSection), charts = row.charts == null ? [] : requiredRows(row.charts, 'charts').map(mapMetricChart), title = REPORT_CATALOGUE.find((item) => item.code === reportType)?.title ?? reportType, allowed = new Set(REPORT_CATALOGUE.find((item) => item.code === reportType)?.filters ?? []), filters = [allowed.has('pen') && request.pen ? `Chuồng ${request.pen}` : '', allowed.has('breed') && request.breed ? `Giống ${request.breed}` : '', allowed.has('group') && request.herdGroup ? HERD_GROUP_LABEL[request.herdGroup] : '', allowed.has('stage') && request.lifeStage ? LIFE_STAGE_LABEL[request.lifeStage] : ''].filter(Boolean), scope = [`${from} – ${to}`, ...filters].join(' · ')
-  return { reportType, title, from, to, generatedAt, timeZone, scope, tiles: flattenSummary(summary), columns, rows, totalRow, chart, unavailableData, sections, charts }
+  const summary = asRecord(row.summary), rawRows = requiredRows(row.rows, 'rows'), hidden = new Set(['dimension', 'value', 'pen', 'group', 'stage', 'schedule', 'label'])
+  let rawTotal: Record<string, unknown> | null = null
+  if (row.totalRow != null) {
+    if (typeof row.totalRow !== 'object' || Array.isArray(row.totalRow)) return failShape('totalRow')
+    rawTotal = asRecord(row.totalRow)
+    if (typeof rawTotal.cells !== 'object' || rawTotal.cells === null || Array.isArray(rawTotal.cells)) return failShape('totalRow.cells')
+  }
+  const totalCells = rawTotal ? asRecord(rawTotal.cells) : {}
+  const keys = [...new Set([...rawRows.flatMap((item) => Object.keys(item)), ...Object.keys(totalCells)].filter((key) => !hidden.has(key)))]
+  const columns = keys.map((key) => ({ key, label: labelForKey(key) }))
+  const rows = rawRows.map((item) => ({ label: labelForRow(item), cells: Object.fromEntries(keys.map((key) => [key, formatValue(item[key])])) }))
+  const totalRow: ReportView['totalRow'] = rawTotal ? { label: formatEnumText(requiredString(rawTotal, 'label')), cells: Object.fromEntries(keys.map((key) => [key, formatValue(totalCells[key])])) } : null
+  let chart: ReportView['chart'] = null; if (row.chart != null) { const rawChart = asRecord(row.chart); const bars = requiredRows(rawChart.bars, 'chart.bars').map((bar) => { const value = nullableNumber(bar.value), numerator = requiredNumber(bar, 'numerator'), denominator = requiredNumber(bar, 'denominator'); if ((value !== null && (value < 0 || value > 100)) || !Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator < 0 || denominator < 0 || numerator > denominator || (denominator < 3) !== (value === null)) return failShape('chart.bars.value'); return { label: formatReportDimension(requiredString(bar, 'label')), value, numerator, denominator } }); chart = { title: formatEnumText(requiredString(rawChart, 'title')), sub: cleanChartSubtitle(requiredString(rawChart, 'sub')), bars } }
+  const unavailableData = Array.isArray(row.unavailableData) ? row.unavailableData.filter((item): item is string => typeof item === 'string') : [], sections = row.sections == null ? [] : requiredRows(row.sections, 'sections').map(mapReportSection), charts = row.charts == null ? [] : requiredRows(row.charts, 'charts').map(mapMetricChart), catalogueEntry = REPORT_CATALOGUE.find((item) => item.code === reportType), title = catalogueEntry?.title ?? reportType, printTitle = catalogueEntry?.label ?? reportType, allowed = new Set(catalogueEntry?.filters ?? []), filters = [allowed.has('pen') && request.pen ? `Chuồng ${request.pen}` : '', allowed.has('breed') && request.breed ? `Giống ${request.breed}` : '', allowed.has('group') && request.herdGroup ? HERD_GROUP_LABEL[request.herdGroup] : '', allowed.has('stage') && request.lifeStage ? LIFE_STAGE_LABEL[request.lifeStage] : ''].filter(Boolean), scope = [`${from} – ${to}`, ...filters].join(' · ')
+  return { reportType, title, printTitle, from, to, generatedAt, timeZone, scope, filters, tiles: flattenSummary(summary), columns, rows, totalRow, chart, overdueFemales: mapOverdueFemales(summary), unavailableData, sections, charts }
 }
 
 export function mapDashboard(body: unknown, pens: PenOption[], context: FarmContext, filters: DashboardFilters, days: number): DashboardView {

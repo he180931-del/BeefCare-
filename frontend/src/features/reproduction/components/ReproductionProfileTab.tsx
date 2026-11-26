@@ -69,7 +69,7 @@ function StatusCard({ profile, canManage, onAction, className }: { profile: Repr
   return (
     <Panel tone="emphasis" className={`justify-between gap-4 ${className ?? ''}`}>
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 flex flex-wrap items-center gap-2 text-xs font-normal text-side-text">Trạng thái sinh sản{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</h2>
+        <h2 className="m-0 flex flex-wrap items-center gap-2 text-xs font-normal text-side-text">Trạng thái sinh sản{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn thụ thai</Badge>}</h2>
         <p className="m-0 text-[26px] font-bold leading-tight text-white">{title}</p>
         {profile.statusAt && <p className="m-0 text-xs text-side-text">Từ {formatDate(profile.statusAt)}</p>}
       </div>

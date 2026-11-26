@@ -18,6 +18,12 @@ const metaOf = (a: AnnouncementSummary, tab: Tab) => {
   return `v${a.versionNo} · ${a.publishedLabel} · ${a.recipientCount} người nhận`
 }
 
+const emptyMessageOf = (tab: Tab) => {
+  if (tab === 'received') return 'Chưa có thông báo đã nhận.'
+  if (tab === 'authored') return 'Chưa có thông báo bạn đã viết.'
+  return 'Chưa có bản nháp.'
+}
+
 export default function AnnouncementListPage() {
   const viewer = useViewer()
   const writer = canWrite(viewer.role)
@@ -31,7 +37,10 @@ export default function AnnouncementListPage() {
   const [refresh, setRefresh] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const marked = useRef(new Set<string>())
-  const { list, detail, markRead } = useAnnouncementUseCases({ viewer, loadList: true, detailId: selectedId, refreshKey: refresh })
+  const requestedValue = routeId !== undefined ? Number(routeId) : params.has('id') ? Number(params.get('id')) : null
+  const requested = typeof requestedValue === 'number' && Number.isInteger(requestedValue) && requestedValue > 0 ? requestedValue : null
+  const hasRequestedTarget = routeId !== undefined || params.has('id')
+  const { list, detail, markRead } = useAnnouncementUseCases({ viewer, loadList: true, detailId: requested ?? selectedId, refreshKey: refresh })
 
   const groups = useMemo(() => {
     const all = list.data ?? []
@@ -41,14 +50,12 @@ export default function AnnouncementListPage() {
       drafts: all.filter((a) => a.state === 'DRAFT' && a.isAuthor),
     }
   }, [list.data])
-  const requested = routeId !== undefined ? Number(routeId) : params.has('id') ? Number(params.get('id')) : null
   const requestedItem = list.data?.find((a) => a.id === requested)
   const activeTab: Tab = requestedItem
     ? requestedItem.state === 'DRAFT' ? 'drafts' : requestedItem.isReceived ? 'received' : 'authored'
     : tab
   const items = groups[activeTab]
-  const hasRequestedTarget = routeId !== undefined || params.has('id')
-  const computedSelectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
+  const computedSelectedId = requested ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
   const versionIdParam = params.get('versionId')
   const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
     ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
@@ -103,7 +110,7 @@ export default function AnnouncementListPage() {
         <Segmented options={tabs} value={activeTab} onChange={(v) => pickTab(v as Tab)} />
         <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)] @min-[1024px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[1024px]:gap-6">
           <Card variant="panel">
-            {items.length === 0 ? <EmptyBlock title="Chưa có thông báo" sub="Thông báo trong mục này sẽ hiện ở đây." /> : (
+            {items.length === 0 ? <EmptyBlock title={emptyMessageOf(activeTab)} /> : (
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {items.map((a) => (
                   <li key={a.id}>
@@ -124,13 +131,15 @@ export default function AnnouncementListPage() {
               </ul>
             )}
           </Card>
-          <div className="min-w-0">
-            {hasRequestedTarget && !requestedItem ? <ErrorBlock message="Không tìm thấy thông báo này hoặc bạn không có quyền xem." onRetry={list.refetch} />
+          {(items.length > 0 || hasRequestedTarget) && <div className="min-w-0">
+            {hasRequestedTarget && !requestedItem && !detail.data && !detail.error && detail.loading ? <LoadingBlock />
+              : hasRequestedTarget && !requestedItem && !detail.data && detail.error ? <ErrorBlock message={messageOf(detail.error, 'Không tìm thấy thông báo này hoặc bạn không có quyền xem.')} onRetry={detail.refetch} />
+                : hasRequestedTarget && !requestedItem && !detail.data ? <ErrorBlock message="Không tìm thấy thông báo này hoặc bạn không có quyền xem." onRetry={detail.refetch} />
               : detail.error ? <ErrorBlock message={messageOf(detail.error, 'Không tải được thông báo.')} onRetry={detail.refetch} />
                 : detail.data && versionIdParam !== null && !selectedVersion ? <ErrorBlock message="Không tìm thấy phiên bản thông báo này hoặc bạn không có quyền xem." onRetry={detail.refetch} />
               : detail.data ? <AnnouncementDetail a={detail.data} version={selectedVersion} onHistory={() => openModal('lich-su')} />
                 : !detail.loading && <EmptyBlock title="Chọn một thông báo" sub="Nội dung và tình trạng nhận sẽ hiện ở đây." action={<Icon name="speakerphone" size={20} />} />}
-          </div>
+          </div>}
         </div>
       </div>
       {m === 'lich-su' && detail.data && <HistoryModal a={detail.data} onClose={closeModal} />}

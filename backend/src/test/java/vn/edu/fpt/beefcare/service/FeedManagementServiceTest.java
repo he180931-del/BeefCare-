@@ -79,6 +79,19 @@ class FeedManagementServiceTest {
         verify(movements).save(any(FeedStockMovement.class));verify(outbox).enqueue(eq(12L),eq("FEED_RECEIPT_POSTED"),eq("FeedReceipt"),eq(77L),any());
     }
 
+    @Test void tc2306Posting100KgAt12000On100KgAt10000Sets200KgAt11000(){
+        feed.setOnHandKg(new BigDecimal("100.000"));feed.setAvgUnitCost(new BigDecimal("10000.00"));
+        line.setKgReceived(new BigDecimal("100.000"));line.setLineAmount(1_200_000L);line.setUnitPrice(12_000L);line.setUnitCostKg(new BigDecimal("12000.00"));
+        receipt.setTotalPayable(1_200_000L);when(clock.now()).thenReturn(Instant.parse("2026-10-28T00:00:00Z"));
+        when(receipts.lockByIdAndFarm(77L,12L)).thenReturn(Optional.of(receipt));when(lines.findByReceipt_IdOrderByIdAsc(77L)).thenReturn(List.of(line));
+        when(feeds.lockByIdAndFarm(99L,12L)).thenReturn(Optional.of(feed));when(receipts.saveAndFlush(receipt)).thenReturn(receipt);
+
+        var result=service.postReceipt(12L,77L,0);
+
+        assertThat(result.status()).isEqualTo("POSTED");assertThat(feed.getOnHandKg()).isEqualByComparingTo("200.000");
+        assertThat(feed.getAvgUnitCost()).isEqualByComparingTo("11000.00");
+    }
+
     @Test void postingMultipleLotsForOneFeedAggregatesAverageCostAndStockMovement(){
         when(clock.now()).thenReturn(Instant.parse("2026-10-28T00:00:00Z"));
         FeedReceiptLine second=new FeedReceiptLine();second.setReceipt(receipt);second.setFeedItem(feed);second.setFeedCodeSnapshot("TA-01");second.setFeedNameSnapshot("Hay");
@@ -118,6 +131,100 @@ class FeedManagementServiceTest {
         assertThatThrownBy(()->service.createReceipt(12L,request,true)).isInstanceOfSatisfying(DomainException.class,e->{
             assertThat(e.getCode()).isEqualTo(MessageCodes.FE23_03);assertThat(e.getParams()).containsEntry("field","expiryDate");});
         assertThat(feed.getOnHandKg()).isEqualByComparingTo("10.000");verify(movements,never()).save(any());
+    }
+
+    @Test void tc2307ConvertsTenBagsOfTwentyFiveKgTo250KgWithoutPostingStock(){
+        activeSupplierAndFeed();feed.setPurchaseUnit("bao");feed.setKgPerPurchaseUnit(new BigDecimal("25.000"));feed.setStockUnit("kg");
+        AtomicReference<FeedReceiptLine> saved=new AtomicReference<>();when(lines.save(any(FeedReceiptLine.class))).thenAnswer(invocation->{FeedReceiptLine value=invocation.getArgument(0);saved.set(value);return value;});
+        when(lines.findByReceipt_IdOrderByIdAsc(any())).thenAnswer(invocation->saved.get()==null?List.of():List.of(saved.get()));
+        var request=new CreateReceiptRequest(LocalDate.of(2026,10,28),88L,"INV-BAG","Alex","Shed 1",null,0L,
+            List.of(new ReceiptLineRequest(99L,"BAG-1",null,new BigDecimal("10"),"bao",12_000L)),false);
+
+        var result=service.createReceipt(12L,request,false);
+
+        assertThat(result.lines()).singleElement().satisfies(savedLine->{assertThat(savedLine.purchaseUnit()).isEqualTo("bao");assertThat(savedLine.kgReceived()).isEqualByComparingTo("250.000");});
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("10.000");verify(movements,never()).save(any());
+    }
+
+    @Test void tc2309RejectsInitialPaymentAboveCalculatedReceiptTotal(){
+        activeSupplierAndFeed();feed.setPurchaseUnit("kg");feed.setKgPerPurchaseUnit(BigDecimal.ONE);
+        var request=new CreateReceiptRequest(LocalDate.of(2026,10,28),88L,"INV-OVER","Alex","Shed 1",null,0L,6_000_000L,
+            vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod.CASH,LocalDate.of(2026,10,28),null,
+            List.of(new ReceiptLineRequest(99L,"LOT-OVER",null,new BigDecimal("10"),"kg",500_000L)),false);
+
+        assertThatThrownBy(()->service.createReceipt(12L,request,false)).isInstanceOfSatisfying(DomainException.class,error->assertThat(error.getCode()).isEqualTo(MessageCodes.FE06_13));
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("10.000");verify(movements,never()).save(any());
+    }
+
+    @Test void tc2320RejectsFiftyKgFeedingWhenOnlyFortyKgIsInStock(){
+        Pen pen=activePen(309L,"P-09");FeedRationVersion ration=feedingRation(pen,true);
+        context=new FarmContext(context.farm(),context.user(),FarmRole.MANAGER);context.farm().setTimeZone("UTC");
+        feed.setOnHandKg(new BigDecimal("40.000"));LocalDate date=LocalDate.of(2026,10,28);stubFeedingPen(pen,4);stubRation(ration,pen,new BigDecimal("2.500"));
+        when(access.require(12L,FarmAction.MANAGE_FEEDING)).thenReturn(context);
+        when(feedingRecords.findFirstByFarm_IdAndPen_IdAndFeedingDateAndSessionNoAndStatus(12L,309L,date,1,"VALID")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(()->service.recordFeeding(12L,new RecordFeedingRequest(309L,date,1,null,null,null,null,
+            List.of(new FeedingLineRequest(99L,new BigDecimal("50.000")))))).isInstanceOfSatisfying(DomainException.class,error->{
+                assertThat(error.getCode()).isEqualTo(MessageCodes.FE23_14);assertThat(error.getParams()).containsEntry("stock",new BigDecimal("40.000"));});
+
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("40.000");
+        verify(feedingRecords).saveAndFlush(any(FeedingRecord.class));
+        verify(feeds,never()).saveAndFlush(any(FeedItem.class));verify(movements,never()).save(any());
+    }
+
+    @Test void tc2321RejectsTomorrowFeedingDateWithTheProductionFarmClock(){
+        context=new FarmContext(context.farm(),context.user(),FarmRole.MANAGER);
+        ReflectionTestUtils.setField(service,"clock",new FarmClock(java.time.Clock.fixed(Instant.parse("2026-11-20T00:00:00Z"),java.time.ZoneOffset.UTC)));
+
+        assertThatThrownBy(()->service.recordFeeding(12L,new RecordFeedingRequest(310L,LocalDate.of(2026,11,21),1,null,null,null,null,
+            List.of(new FeedingLineRequest(99L,BigDecimal.ONE))))).isInstanceOfSatisfying(DomainException.class,error->
+                assertThat(error.getCode()).isEqualTo(MessageCodes.COM_07));
+
+        verifyNoInteractions(pens,assignments,feedingRecords,feedingLines,feeds,movements);
+    }
+
+    @Test void tc2314RejectsRationEffectiveTodayWithTheEarliestAllowedDate(){
+        LocalDate today=LocalDate.of(2026,11,21);
+        when(clock.today()).thenReturn(today);
+        var request=new vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.SaveRationRequest(
+            "KP-TODAY","Today ration","FATTENING","unit case",today,1,List.of("06:30"),List.of(309L),
+            List.of(new vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.RationComponentRequest(99L,BigDecimal.ONE,BigDecimal.ZERO,BigDecimal.ZERO)),null);
+
+        assertThatThrownBy(()->service.saveRation(12L,request)).isInstanceOfSatisfying(DomainException.class,error->{
+            assertThat(error.getCode()).isEqualTo(MessageCodes.FE23_10);
+            assertThat(error.getParams()).containsEntry("date",today.plusDays(1));
+        });
+
+        verifyNoInteractions(pens,rationVersions,rationPens,rationComponents,feeds,outbox);
+    }
+
+    @Test void tc2328ReportsSixtyKgAverageUseAndFiveDaysOfCoverForSevenDays(){
+        LocalDate today=LocalDate.of(2026,11,21);
+        when(clock.today()).thenReturn(today);
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+        when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of());
+        List<FeedingRecord> records=new java.util.ArrayList<>();
+        for(int offset=0;offset<7;offset++){
+            FeedingRecord record=new FeedingRecord();
+            ReflectionTestUtils.setField(record,"id",(long)offset+1);
+            record.setStatus("VALID");
+            record.setFeedingDate(today.minusDays(offset));
+            records.add(record);
+            FeedingRecordLine consumed=new FeedingRecordLine();
+            consumed.setFeedItem(feed);
+            consumed.setActualKg(new BigDecimal("60.000"));
+            when(feedingLines.findByFeedingRecord_Id((long)offset+1)).thenReturn(List.of(consumed));
+        }
+        when(feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(12L,today.minusDays(6),today)).thenReturn(records);
+        feed.setOnHandKg(new BigDecimal("300.000"));
+
+        var stock=service.stock(12L);
+
+        assertThat(stock).singleElement().satisfies(row->{
+            assertThat(row.averageDailyUseKg()).isEqualByComparingTo("60.000");
+            assertThat(row.daysOfCover()).isEqualByComparingTo("5.0");
+        });
     }
 
     @Test void inactiveFeedOnReceiptIsReportedAsNoLongerAvailable(){
@@ -200,6 +307,18 @@ class FeedManagementServiceTest {
         assertThat(feed.getOnHandKg()).isEqualByComparingTo("7.500");
         var movement=org.mockito.ArgumentCaptor.forClass(FeedStockMovement.class);verify(movements).save(movement.capture());
         assertThat(movement.getValue().getQuantityKg()).isEqualByComparingTo("-2.5");
+    }
+
+    @Test void tc2318PlansSixtyKgForFiveKgPerHeadAndTwelveHeadCount(){
+        Pen pen=activePen(318L,"P-12");FeedRationVersion ration=feedingRation(pen,true);LocalDate date=LocalDate.of(2026,10,28);
+        when(pens.findByIdAndFarmId(318L,12L)).thenReturn(Optional.of(pen));when(assignments.countAssignedAt(318L,date)).thenReturn(12L);
+        stubRation(ration,pen,new BigDecimal("5.000"));
+        when(access.require(12L,FarmAction.MANAGE_FEEDING)).thenReturn(context);
+        when(feedingRecords.findFirstByFarm_IdAndPen_IdAndFeedingDateAndSessionNoAndStatus(12L,318L,date,1,"VALID")).thenReturn(Optional.empty());
+
+        var plan=service.feedingPlan(12L,318L,date,1);
+
+        assertThat(plan.headCount()).isEqualTo(12);assertThat(plan.lines()).singleElement().satisfies(row->assertThat(row.plannedKg()).isEqualByComparingTo("60.000"));
     }
 
     @Test void inactivePlannedFeedCanBeRecordedAsZeroButCannotBeConsumed(){

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hasFollowUp, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, temperatureNeedsCheck, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
+import { withdrawalEnd } from '../../../src/features/health/domain/healthRules'
 
 // Quy tắc trường FE-10 (spec mục 6) dùng chung cho chế độ local và backend.
 const ctx = { now: '2026-11-05T12:00', entryDate: '2026-10-01' }
@@ -16,6 +17,9 @@ const treatment = {
 }
 
 describe('FE-10 – quy tắc trường dùng chung', () => {
+  it('TC-10-09: calculates the meat withdrawal end after the last treatment dose', () => {
+    expect(withdrawalEnd('2026-11-01T08:00', 3, 7)).toBe('2026-11-10')
+  })
   it('TC-10-01: thân nhiệt 34,9 / 35,0 / 43,0 / 43,1 và tối đa 1 chữ số thập phân', () => {
     // D61: chỉ chặn số gõ nhầm ngoài 30–45 °C; ngoài 35–43 °C thì hỏi xác nhận.
     expect(temperatureError(29.9)).not.toBeNull()

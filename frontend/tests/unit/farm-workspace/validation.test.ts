@@ -7,6 +7,19 @@ describe('farm workspace validation', () => {
     expect(validateOwnerProfile({ fullName: 'Nguyễn Văn An', phone: '+84912345678', termsAccepted: true })).toEqual({})
   })
 
+  it('TC-01-08: accepts only the specified Vietnamese Owner phone formats', () => {
+    const base = { fullName: 'Nguyễn Văn An', termsAccepted: true }
+    expect(validateOwnerProfile({ ...base, phone: '0912345678' })).not.toHaveProperty('phone')
+    expect(validateOwnerProfile({ ...base, phone: '+84912345678' })).not.toHaveProperty('phone')
+    for (const phone of ['912345678', '09123456789', '+8491234567']) {
+      expect(validateOwnerProfile({ ...base, phone }).phone).toBe('Nhập số điện thoại Việt Nam hợp lệ.')
+    }
+  })
+
+  it('TC-01-09: accepts an omitted optional Owner phone', () => {
+    expect(validateOwnerProfile({ fullName: 'Nguyễn Văn An', termsAccepted: true, phone: '' })).toEqual({})
+  })
+
   it('validates farm registration bounds, required location and expected herd size', () => {
     expect(validateFarmRegistration({ name: 'A', province: '', commune: '', expectedHerdSize: 'UNKNOWN', mainBreedCodes: [] })).toMatchObject({ name: expect.any(String), province: expect.any(String), commune: expect.any(String), expectedHerdSize: expect.any(String) })
     expect(validateFarmRegistration({ name: 'Trại bò A', province: 'Phú Thọ', commune: 'Xã Minh Đài', expectedHerdSize: '150_300', mainBreedCodes: ['VANG'] })).toEqual({})
@@ -78,6 +91,17 @@ describe('farm workspace validation', () => {
   it('requires valid member action and prevents future effective dates', () => {
     expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: '2026-11-12', reason: 'Thay đổi phân công' }, '2026-11-11')).toHaveProperty('effectiveDate')
     expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: '2026-11-11', reason: 'Kết thúc hợp đồng' }, '2026-11-11')).toEqual({})
+  })
+
+  it('TC-03-70: checks exact reason, date, role and action validation boundaries', () => {
+    const valid = { action: 'DEACTIVATE' as const, effectiveDate: '2026-11-05', reason: 'Hợp lệ' }
+    expect(validateMemberChange({ ...valid, reason: 'ABCD' }, '2026-11-05').reason).toBe('Lý do cần ít nhất 5 ký tự (không tính khoảng trắng) và tối đa 500 ký tự.')
+    expect(validateMemberChange({ ...valid, reason: 'x'.repeat(501) }, '2026-11-05').reason).toBe('Lý do cần ít nhất 5 ký tự (không tính khoảng trắng) và tối đa 500 ký tự.')
+    expect(validateMemberChange({ ...valid, reason: '   ' }, '2026-11-05').reason).toBe('Lý do là bắt buộc.')
+    expect(validateMemberChange({ ...valid, effectiveDate: '' }, '2026-11-05').effectiveDate).toBe('Ngày hiệu lực là bắt buộc.')
+    expect(validateMemberChange({ ...valid, effectiveDate: '2026-11-06' }, '2026-11-05').effectiveDate).toBe('Ngày hiệu lực không được ở tương lai.')
+    expect(validateMemberChange({ ...valid, action: 'CHANGE_ROLE', role: undefined }, '2026-11-05').role).toBe('Chọn vai trò mới.')
+    expect(validateMemberChange({ ...valid, action: undefined }, '2026-11-05').action).toBe('Chọn hành động.')
   })
 
   it('uses the Vietnam business date for reactivation around midnight, rather than the previous UTC date', () => {

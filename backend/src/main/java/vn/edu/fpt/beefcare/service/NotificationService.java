@@ -3,12 +3,14 @@ package vn.edu.fpt.beefcare.service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.InternalRequest;
 import vn.edu.fpt.beefcare.domain.Notification;
 import vn.edu.fpt.beefcare.repository.NotificationRepository;
+import vn.edu.fpt.beefcare.repository.PaymentRepository;
 
 /** Persisted, recipient-scoped notifications. The event key prevents duplicate notices on retried domain events. */
 @Service
@@ -17,7 +19,8 @@ public class NotificationService {
     private final FarmAccessService access;
     private final FarmClock clock;
     private final NotificationTargetAccessService targetAccess;
-    public NotificationService(NotificationRepository repository,FarmAccessService access,FarmClock clock,NotificationTargetAccessService targetAccess){this.repository=repository;this.access=access;this.clock=clock;this.targetAccess=targetAccess;}
+    private final PaymentRepository payments;
+    public NotificationService(NotificationRepository repository,FarmAccessService access,FarmClock clock,NotificationTargetAccessService targetAccess,PaymentRepository payments){this.repository=repository;this.access=access;this.clock=clock;this.targetAccess=targetAccess;this.payments=payments;}
 
     @Transactional
     public Notification notify(AppUser recipient,String category,String targetType,Long targetId,String title,String summary,String eventKey) {
@@ -31,7 +34,7 @@ public class NotificationService {
     }
 
     @Transactional(readOnly=true)
-    public List<NotificationView> mine(){AppUser user=access.currentActiveUser();return repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(user.getId()).stream().filter(n->targetAccess.canOpen(user,n)).map(NotificationView::from).toList();}
+    public List<NotificationView> mine(){AppUser user=access.currentActiveUser();return repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(user.getId()).stream().filter(n->targetAccess.canOpen(user,n)).map(this::view).toList();}
 
     @Transactional
     public int markAllAsRead() {
@@ -62,7 +65,7 @@ public class NotificationService {
         );
         requireCurrentTargetAccess(user, notification, lockedRequests);
         if (notification.getReadTime() == null) notification.setReadTime(clock.now());
-        return NotificationView.from(repository.save(notification));
+        return view(repository.save(notification));
     }
 
     private boolean canOpenCurrentTarget(AppUser user, Notification notification, Map<Long, InternalRequest> lockedRequests) {
@@ -97,8 +100,20 @@ public class NotificationService {
         return role != null && ("PM".equalsIgnoreCase(role.trim()) || "SA".equalsIgnoreCase(role.trim()));
     }
 
-    public record NotificationView(Long id,String category,String title,String summary,String targetType,Long targetId,Instant createdTime,Instant readTime){
-        static NotificationView from(Notification n){return new NotificationView(n.getId(),n.getCategory(),n.getTitle(),n.getSummary(),n.getTargetType(),n.getTargetId(),n.getCreatedTime(),n.getReadTime());}
+    private NotificationView view(Notification notification) {
+        Long farmId = "PAYMENT".equalsIgnoreCase(notification.getTargetType()) && notification.getTargetId() != null
+            ? payments.findRequestFarmById(notification.getTargetId()).map(PaymentRepository.RequestFarm::getFarmId).orElse(null)
+            : null;
+        return new NotificationView(notification.getId(), notification.getCategory(), notification.getTitle(), notification.getSummary(),
+            notification.getTargetType(), notification.getTargetId(), farmId, notification.getCreatedTime(), notification.getReadTime());
+    }
+
+    public record NotificationView(Long id,String category,String title,String summary,String targetType,Long targetId,
+        @Schema(description = "Farm owning a PAYMENT target; null for other target types", nullable = true) Long farmId,
+        Instant createdTime,Instant readTime){
+        public NotificationView(Long id,String category,String title,String summary,String targetType,Long targetId,Instant createdTime,Instant readTime){
+            this(id,category,title,summary,targetType,targetId,null,createdTime,readTime);
+        }
     }
     private static boolean blank(String s){return s==null||s.isBlank();}
 }

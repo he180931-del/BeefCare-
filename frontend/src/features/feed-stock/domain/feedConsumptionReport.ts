@@ -158,6 +158,7 @@ export function mapBackendConsumptionRows(report: FeedConsumptionBackendReport):
     totalCost: row.cost,
     averageCostPerHeadDay: row.costPerHeadDay,
     varianceRatio: row.variancePct,
+    ...(row.notes.length ? { notes: row.notes } : {}),
   }))
 }
 

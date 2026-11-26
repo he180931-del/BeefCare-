@@ -90,7 +90,7 @@ Ngày 18/11/2026: FE-16 Q2 được chốt kèm D41 (Owner có toàn bộ quyề
 | FE-14 | Q6 | Thanh dưới của Technician: Figma có Trang chủ, Đàn bò, Quét QR, Sinh sản, Thức ăn, Tài khoản; SRS bảng 5.1-1 có Announcements, không có Tài khoản. FE đang theo Figma, thông báo mở từ trang chủ | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TaiDX |  |
 | FE-15 | Q1 | Không có đặc tả UC ở Part II | Dùng Part III + GBR |  | TaiDX |  |
 | FE-15 | Q2 | Mã lỗi khi kỳ > 24 tháng | MSG-COM-10 với nội dung "tối đa 24 tháng" |  | TaiDX |  |
-| FE-15 | Q3 | Có xuất báo cáo (Excel / PDF) không? | SRS không yêu cầu – ngoài phạm vi |  | TaiDX |  |
+| FE-15 | Q3 | Có xuất báo cáo (Excel / PDF) không? | SRS không yêu cầu – ngoài phạm vi | D84: in báo cáo trên trình duyệt, có thể lưu PDF. Xuất Excel và API tải PDF ngoài phạm vi. | TaiDX | 26/11/2026 |
 | FE-15 | Q4 | Kỳ mặc định SCR-49 | 30 ngày như SCR-48 |  | TaiDX |  |
 | FE-15 | Q5 | Bộ lọc nào áp dụng cho từng RPT | RPT-03: bỏ giống / giai đoạn; RPT-07: chỉ chuồng; còn lại đủ 4 |  | TaiDX |  |
 | FE-15 | Q6 | Cache dashboard | Tính tại thời điểm xem; nếu cache phải hiện thời điểm tính thực |  | TaiDX |  |
@@ -136,7 +136,7 @@ Ngày 18/11/2026: FE-16 Q2 được chốt kèm D41 (Owner có toàn bộ quyề
 | FE-22 | Q4 | Nội dung lấy từ API hay đóng gói FE | Đóng gói FE (đổi bằng triển khai), giá gọi API |  | LamKD |  |
 | FE-23 | Q1 | Mã lỗi khi trùng mã TA-nn | Dùng nội dung như MSG-FE18-02 |  | TaiDX |  |
 | FE-23 | Q2 | Bỏ nháp phiếu nhập / điều chỉnh, hủy phiên bản khẩu phần, dừng khẩu phần chưa có route | Thêm A5, A10 |  | TaiDX |  |
-| FE-23 | Q3 | API kế hoạch khi mở popup ghi bữa | Thêm A12 |  | TaiDX |  |
+| FE-23 | Q3 | API kế hoạch khi mở popup ghi bữa | Thêm A12 | D85: A12 đã có. Khi chuồng chưa có khẩu phần, vẫn ghi lượng thực tế theo R-23-12. | TaiDX | 26/11/2026 |
 | FE-23 | Q4 | "Điền nhanh theo khẩu phần" cho nhiều bữa: lưu 1 lần hay từng bữa? | Mở lần lượt từng popup đã điền sẵn để Manager xác nhận |  | TaiDX |  |
 | FE-23 | Q5 | UC-FE23-01, 03, 04, 05, 07, 10, 11 không có đặc tả Part II | Theo Part III + GBR |  | TaiDX |  |
 | FE-23 | Q6 | Giá vốn khi tồn về 0 rồi nhập lại | Giá vốn BQ = đơn giá của lần nhập mới |  | TaiDX |  |

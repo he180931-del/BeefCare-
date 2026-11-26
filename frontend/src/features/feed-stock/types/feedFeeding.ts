@@ -13,6 +13,8 @@ export type FeedFeedingRevision = {
   action: 'CORRECTED' | 'VOIDED'
   reason: string
   changedAt: string
+  actorName?: string | null
+  /** Empty when the current API omits line snapshots; never infer before/after values. */
   lines: FeedFeedingLine[]
 }
 
@@ -38,6 +40,7 @@ export type FeedFeedingRecord = {
   recordedAt: string | null
   leftoverKg: number | null
   note: string | null
+  voidReason?: string | null
   plannedTotalKg: number
   actualTotalKg: number
   lines: FeedFeedingLine[]
