@@ -183,7 +183,7 @@ public class CattleStateService {
         }
         if(event!=null&&last.equals(eventAt)){
             String type=event.getType()==null?"":event.getType().toUpperCase();
-            if("ESTRUS".equals(type)&&!eventAt.isBefore(clock.now().minusSeconds(86400)))return "IN_ESTRUS";
+            if ("ESTRUS".equals(type) && eventAt.isAfter(clock.now().minusSeconds(86400))) return "IN_ESTRUS";
             if("BREEDING".equals(type))return "BRED";
             if("PREGNANCY_CHECK".equals(type)&&"INCONCLUSIVE".equalsIgnoreCase(event.getResult()))return "BRED";
         }

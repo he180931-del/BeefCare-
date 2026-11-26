@@ -45,6 +45,7 @@ class CattleStateWithdrawalUnitTest {
         TypedQuery<Long> countQuery = mock(TypedQuery.class);
         when(em.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
         when(countQuery.setParameter("id", cattleId)).thenReturn(countQuery);
+        when(countQuery.setParameter("today", LocalDate.of(2026, 11, 1))).thenReturn(countQuery);
         when(countQuery.getSingleResult()).thenReturn(0L);
 
         TypedQuery<LocalDate> dateQuery = mock(TypedQuery.class);

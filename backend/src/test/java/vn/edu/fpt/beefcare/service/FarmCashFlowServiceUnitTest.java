@@ -15,6 +15,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -39,7 +40,6 @@ class FarmCashFlowServiceUnitTest {
 
     private EntityManager em;
     private FarmAccessService access;
-    private FarmClock clock;
     private FarmCashFlowService service;
     private TypedQuery<Object[]> voucherRows;
     private TypedQuery<Object[]> subscriptionRows;
@@ -49,12 +49,9 @@ class FarmCashFlowServiceUnitTest {
     void setUp() {
         em = mock(EntityManager.class);
         access = mock(FarmAccessService.class);
-        clock = mock(FarmClock.class);
+        FarmClock clock = new FarmClock(Clock.fixed(NOW, ZoneOffset.UTC));
         voucherRows = mock(TypedQuery.class);
         subscriptionRows = mock(TypedQuery.class);
-        when(clock.today()).thenReturn(TODAY);
-        when(clock.now()).thenReturn(NOW);
-        when(clock.toFarmDate(any(Instant.class))).thenAnswer(call -> call.getArgument(0, Instant.class).atZone(ZoneOffset.ofHours(7)).toLocalDate());
         when(em.createQuery(contains("from VoucherPayment"), eq(Object[].class))).thenReturn(voucherRows);
         when(em.createQuery(contains("from Payment p, BankTransferEvidence e"), eq(Object[].class))).thenReturn(subscriptionRows);
         when(voucherRows.setParameter(anyString(), any())).thenReturn(voucherRows);

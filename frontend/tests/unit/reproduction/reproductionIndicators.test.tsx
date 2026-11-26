@@ -43,8 +43,7 @@ describe('reproduction indicators and estimated calving date', () => {
       </MemoryRouter>,
     )
 
-    const actualBadge = await screen.findByText('Quá hạn phối')
-    expect(actualBadge.textContent).toBe('Quá hạn thụ thai')
+    expect(await screen.findByText('Quá hạn thụ thai')).toBeInTheDocument()
   })
 
   it('TC-12-02 calculates an estimated calving date from a four-month pregnancy without a linked breeding', () => {

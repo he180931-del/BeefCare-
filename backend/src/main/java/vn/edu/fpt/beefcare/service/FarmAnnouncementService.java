@@ -466,7 +466,7 @@ public class FarmAnnouncementService {
 
         String title = visibleCurrent == null ? (isAuthor ? announcement.getDraftTitle() : null) : visibleCurrent.getTitle();
         String body = visibleCurrent == null ? (isAuthor ? announcement.getDraftBody() : null) : visibleCurrent.getBody();
-        List<DeliveryView> deliveryViews = isAuthor && visibleCurrent != null
+        List<DeliveryView> deliveryViews = isAuthor
             ? currentDeliveries.stream().map(delivery -> new DeliveryView(
                 delivery.getId(),
                 delivery.getMembership().getUser().getFullName(),

@@ -36,19 +36,19 @@ class FarmCashFlowServiceIntegrationTest extends DomainTestSupport {
         HerdExitVoucher exit = exitVoucher(farm, owner, buyer, 50_000L, 0L, ExitVoucherStatus.CONFIRMED);
 
         actAs(owner);
-        var voided = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), payment(TODAY.minusDays(1), 10_000L));
+        var voided = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), payment(TODAY.minusDays(1), 10_000L, entry.getVersion()));
         payments.voidPayment(farm.getId(), voided.payment().id(), new VoidPaymentRequest("Ghi nhầm", versionOf(vn.edu.fpt.beefcare.domain.VoucherPayment.class, voided.payment().id())));
-        var recordedEntry = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), payment(TODAY, 15_000L));
-        var recordedExit = payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), payment(TODAY.minusDays(2), 20_000L));
+        var recordedEntry = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), payment(TODAY, 15_000L, entry.getVersion()));
+        var recordedExit = payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), payment(TODAY.minusDays(2), 20_000L, exit.getVersion()));
         exit.setStatus(ExitVoucherStatus.VOIDED);
         em.flush();
 
         Farm otherFarm = farm();
         AppUser otherOwner = memberWithRole(otherFarm, FarmRole.OWNER);
         TradingPartner otherBuyer = partner(otherFarm, otherOwner, false, true);
-        HerdExitVoucher otherExit = exitVoucher(otherFarm, otherOwner, otherBuyer, 50_000L, 0L, ExitVoucherStatus.CONFIRMED);
+        HerdExitVoucher otherExit = exitVoucher(otherFarm, otherOwner, otherBuyer, 100_000L, 0L, ExitVoucherStatus.CONFIRMED);
         actAs(otherOwner);
-        payments.record(otherFarm.getId(), VoucherKind.EXIT, otherExit.getId(), payment(TODAY, 90_000L));
+        payments.record(otherFarm.getId(), VoucherKind.EXIT, otherExit.getId(), payment(TODAY, 90_000L, otherExit.getVersion()));
         actAs(owner);
 
         FarmCashFlowView firstPage = cashFlow.cashFlow(farm.getId(), TODAY.minusDays(5), TODAY, null, null, 0, 1);
@@ -72,7 +72,7 @@ class FarmCashFlowServiceIntegrationTest extends DomainTestSupport {
         });
     }
 
-    private RecordPaymentRequest payment(LocalDate date, long amount) {
-        return new RecordPaymentRequest(date, amount, PaymentMethod.CASH, null, null, null);
+    private RecordPaymentRequest payment(LocalDate date, long amount, Integer voucherVersion) {
+        return new RecordPaymentRequest(date, amount, PaymentMethod.CASH, null, null, voucherVersion);
     }
 }
