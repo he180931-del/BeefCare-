@@ -1178,3 +1178,14 @@ Lỗi: lần điều trị thuộc ca đã đóng (Khỏi / Chết / Mất tích
 3. Không đổi R-18-18: sửa số ngày ngưng trong danh mục thuốc vẫn không viết lại bản ghi đã ghi; muốn đổi bản ghi cũ thì sửa từng bản ghi như trên.
 
 Không đổi API, DTO hay migration.
+
+### D82 — FE-05 / FE-06 / FE-09 / FE-11: khai báo lúc nhập đàn đi tiếp vào hồ sơ bò (26/11/2026)
+
+Lỗi: khai báo tiêm / bệnh / sinh sản lúc nhập đàn chỉ được lưu, không đọc lại ở đâu – hồ sơ không có SCR-19 #11, tab Sinh sản luôn trả `declaredPregnancyMonths = null` nên bò khai mang thai vẫn hiện "Chờ phối", và mũi tiêm gõ tên tự do (FE-06 §3.3 cho phép) bị bỏ im lặng vì `vaccination.vaccine_id` bắt buộc.
+
+1. **Hồ sơ bò (SCR-19 #11):** `entry.declarations[]` trả mọi nhóm khai báo (VACCINATION / DISEASE / REPRODUCTION, KNOWN / NONE / UNKNOWN). Giao diện hiện mục "Khai báo khi nhập" sau "Xem thêm"; "Không rõ" giữ là "Không rõ" (GBR-30). Mọi vai trò xem được; sửa qua phiếu nhập. Bò sinh tại trại hoặc đã hủy nhập không có mục.
+2. **Mũi tên tự do:** thành bản ghi HISTORICAL chỉ có tên (`vaccine_name_snapshot`), `vaccine_id` để trống. Migration mới `20261126000100` bỏ NOT NULL và thêm ràng buộc `ck_vaccination_vaccine_or_name`: chỉ HISTORICAL có tên được thiếu vắc-xin; ON_FARM vẫn bắt buộc (entity cũng kiểm). Sửa dòng nhập khớp mũi tự do theo tên (không phân biệt hoa thường) để thay đúng bản ghi, không nhân đôi. Popup sửa bản ghi tiêm mặc định "Giữ: <tên>" thay vì tự đổi sang vắc-xin đầu danh mục. Mọi bản ghi HISTORICAL khai lúc nhập nay lưu tên snapshot.
+3. **Sinh sản (SCR-39 #3, SCR-38):** `declaredPregnancy {estMonths, entryDate}` có khi bò cái đang nuôi được khai "mang thai: Có" và chưa có khám thai (mọi kết quả) hoặc lần đẻ VALID từ ngày nhập, và trạng thái chưa là Đã phối / Mang thai. Tab hiện "Khai báo mang thai ~n tháng (chưa khám)", nút chính Ghi khám thai; Ghi phối giống / Ghi động dục hỏi cảnh báo trước (không chặn). Danh sách: huy hiệu, Việc cần làm "Khám thai", Thời hạn = hạn REM-03.
+4. Giữ nguyên: khai báo mang thai **không** mở giai đoạn mang thai, khai báo bệnh **không** tạo ca (FE-06 §3.3); REM-03 vẫn do đối soát nhắc việc đóng.
+
+API: thêm `Entry.declarations`, `Declaration`, `DeclaredVaccine`, `WorklistItem.declaredPregnancy`, `DeclaredPregnancy`; `declaredPregnancyMonths` của A2 đổi thành `declaredPregnancy`. Migration mới, không sửa migration đã áp dụng.

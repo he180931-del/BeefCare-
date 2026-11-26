@@ -617,11 +617,10 @@ public class HerdEntryCorrectionService {
             """, Vaccination.class).setParameter("c", cattle.getId()).setParameter("recorder", HerdEntryPostingService.PRE_ENTRY_VACCINATOR).getResultList());
         List<Vaccination> matched = new ArrayList<>();
         for (EntryLineRequest.VaccinationItem item : oldDeclaration.items()) {
-            if (item.vaccineId() == null) continue;
             LocalDate expectedDate = item.date() == null ? previousEntryDate : item.date();
             for (int index = 0; index < candidates.size(); index++) {
                 Vaccination candidate = candidates.get(index);
-                if (candidate.getVaccine() == null || !item.vaccineId().equals(candidate.getVaccine().getId())) continue;
+                if (!sameVaccine(item, candidate)) continue;
                 boolean dateMatches = item.date() != null ? Objects.equals(expectedDate, candidate.getVaccinationDate())
                     : candidate.getInformationSource() != null && candidate.getInformationSource().endsWith(HerdEntryPostingService.UNKNOWN_VACCINATION_DATE);
                 if (!dateMatches) continue;
@@ -631,6 +630,18 @@ public class HerdEntryCorrectionService {
             }
         }
         return matched;
+    }
+
+    /**
+     * Mũi khai báo khớp bản ghi "Nhập lịch sử": cùng vắc-xin danh mục, hoặc (D82) cùng tên với mũi gõ tự do không có
+     * vắc-xin danh mục – so tên không phân biệt hoa thường, bỏ khoảng trắng hai đầu.
+     */
+    static boolean sameVaccine(EntryLineRequest.VaccinationItem item, Vaccination candidate) {
+        if (candidate.getVaccine() != null) {
+            return candidate.getVaccine().getId().equals(item.vaccineId());
+        }
+        String name = item.vaccineName() == null ? null : item.vaccineName().trim();
+        return name != null && !name.isEmpty() && candidate.getVaccineNameSnapshot() != null && name.equalsIgnoreCase(candidate.getVaccineNameSnapshot().trim());
     }
 
     // ------------------------------------------------------------------ helpers

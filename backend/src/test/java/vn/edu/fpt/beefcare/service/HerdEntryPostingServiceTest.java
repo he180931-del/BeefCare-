@@ -292,12 +292,14 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         );
         EntryDtos.PostResult result = createAndPost(List.of(withVaccination(line("V1", penA, "300", 1), vacc)), 0L, 0L);
         List<vn.edu.fpt.beefcare.domain.Vaccination> records = em.createQuery("select v from Vaccination v where v.cattle.id = :c", vn.edu.fpt.beefcare.domain.Vaccination.class).setParameter("c", result.voucher().lines().get(0).cattleId()).getResultList();
-        assertThat(records).singleElement().satisfies(v -> {
+        // D82: mũi gõ tên tự do cũng thành bản ghi "Nhập lịch sử" (không gắn vắc-xin danh mục), không còn bị bỏ.
+        assertThat(records).hasSize(2).allSatisfy(v -> {
             assertThat(v.getSource()).isEqualTo("HISTORICAL");
             assertThat(v.getScheduledDose()).isNull();
-            assertThat(v.getVaccinationDate()).isEqualTo(TODAY.minusDays(40));
             assertThat(v.getWithdrawalEndDate()).isNull();
         });
+        assertThat(records).filteredOn(v -> v.getVaccine() != null).singleElement().satisfies(v -> assertThat(v.getVaccinationDate()).isEqualTo(TODAY.minusDays(40)));
+        assertThat(records).filteredOn(v -> v.getVaccine() == null).singleElement().satisfies(v -> assertThat(v.getVaccineNameSnapshot()).isEqualTo("Local free-text vaccine"));
         assertThat(em.createQuery("select count(d) from ScheduledDose d where d.cattle.id = :c", Long.class).setParameter("c", result.voucher().lines().get(0).cattleId()).getSingleResult()).isZero();
     }
 

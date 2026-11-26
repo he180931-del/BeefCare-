@@ -9,7 +9,7 @@ import {
 import { cx } from '../../../shared/ui/cx'
 import { reproductionError } from '../api/reproductionError'
 import { useSession } from '../../../app/session/sessionContext'
-import { NO_WEIGHING, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
+import { NO_WEIGHING, declaredPregnancyText, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionFemale, ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
 import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
@@ -130,7 +130,12 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
                         <div className="font-medium text-ink"><span className="whitespace-nowrap">{row.cattleCode}</span>{row.name !== '—' ? ` · ${row.name}` : ''}</div>
                         <div className="text-[11px] text-muted">{[`Số tai ${row.earTag}`, row.breed, `Chuồng ${row.penCode}`].join(' · ')}</div>
                       </Td>
-                      <Td><div className="font-medium">{row.status ? STATUS_LABEL[row.status] : '—'}</div><div className="text-[11px] text-muted">từ {formatShort(row.statusAt)}</div></Td>
+                      <Td>
+                        <div className="font-medium">{row.status ? STATUS_LABEL[row.status] : '—'}</div>
+                        <div className="text-[11px] text-muted">từ {formatShort(row.statusAt)}</div>
+                        {/* D82: khai mang thai lúc nhập, chưa khám – không đưa vào việc phối. */}
+                        {row.declaredPregnancy && <Badge tone="warn" className="mt-1">{declaredPregnancyText(row.declaredPregnancy)}</Badge>}
+                      </Td>
                       <Td>{row.eligibility && notMet(row.status) ? <Badge tone={row.eligibility.status === 'MET' ? 'ok' : eligibilityLabel(row.eligibility) === NO_WEIGHING ? 'warn' : 'err'} icon={row.eligibility.status === 'MET' ? 'circle-check' : undefined}>{row.eligibility.status === 'MET' ? 'Đạt' : eligibilityLabel(row.eligibility)}</Badge> : '—'}</Td>
                       <Td>{latest ? `${latest.summary.split(' · ')[0]} · ${formatDateTime(latest.occurredAt)}` : 'Chưa ghi nhận'}</Td>
                       <Td>{row.nextAction}</Td>
