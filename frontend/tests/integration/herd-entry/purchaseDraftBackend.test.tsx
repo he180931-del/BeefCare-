@@ -87,6 +87,9 @@ describe('purchase entry page in backend mode', () => {
     expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('cell', { name: 'Trống' })).toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'Đơn giá/kg' })).not.toBeInTheDocument()
+    // FE-06 field 4 starts empty: pick the seller from the searchable list.
+    await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+    await user.click(screen.getByRole('option', { name: /Trại giống Backend/ }))
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
     await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
@@ -110,7 +113,7 @@ describe('purchase entry page in backend mode', () => {
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')).toBe(true))
-    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
+    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', sellerId: 7, pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/attachments'))).toBe(true))
 
     first.unmount()
