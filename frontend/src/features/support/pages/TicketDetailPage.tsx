@@ -1,10 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { supportApi } from '../api/supportApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Button, ErrorBlock, LoadingBlock, Modal, Note, PageHeader } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { ConversationCard } from '../components/ConversationCard'
 import { ReopenDialog, ReopenedDialog, ResolutionVersionDialog } from '../components/ReopenDialogs'
 import { ReplyCard } from '../components/ReplyCard'
@@ -12,32 +10,34 @@ import { ResolutionCard } from '../components/ResolutionCard'
 import { ClosedDialog, ConfirmedDialog, ResultChangedDialog } from '../components/ResultDialogs'
 import { StatusHistoryCard, TicketInfoCard } from '../components/TicketSidebar'
 import { TicketStatusBadge } from '../components/TicketStatusBadge'
-import { useTicketActions } from '../components/useTicketActions'
+import { useTicketActions } from '../hooks/useTicketActions'
 import { formatDate } from '../domain/format'
 import { SupportError } from '../domain/supportError'
 import { categoryLabel, latestResolution } from '../domain/ticketRules'
+import { useSupportCommands, useSupportTicket } from '../hooks/useSupportUseCase'
 
-const TITLE = 'Chi tiết ticket'
+const TITLE = 'Chi tiết yêu cầu hỗ trợ'
 
 /**
  * SCR-66. Hộp thoại qua `?m=`: mo-lai, da-mo-lai, da-xac-nhan, da-dong, ket-qua-thay-doi, ket-qua-v<phiên bản>.
- * Trên điện thoại hai cột xếp dọc theo thứ tự: trao đổi, kết quả, phản hồi, thông tin, lịch sử.
+ * Trên điện thoại hai cột xếp dọc theo thứ tự: trao đổi, thông tin, lịch sử.
  */
 export default function TicketDetailPage() {
   const { id } = useParams()
   const ticketId = Number(id)
   const navigate = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
-  const { data: ticket, loading, error, refetch } = useQuery(() => supportApi.getTicket(ticketId), [ticketId])
+  const { data: ticket, loading, error, refetch } = useSupportTicket(ticketId)
+  const { getMessages } = useSupportCommands()
   const actions = useTicketActions(ticket, { refetch, openModal })
 
-  if (loading && !ticket) return <Layout title={TITLE}><LoadingBlock /></Layout>
+  if (loading && !ticket) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
   if (error || !ticket) {
     return (
       <Layout title={TITLE}>
         <div className="flex flex-col items-start gap-4">
-          <ErrorBlock message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được ticket.')} onRetry={refetch} />
-          <Button onClick={() => navigate('/ho-tro')}>Về danh sách ticket</Button>
+          <ErrorBlock variant="panel" message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được yêu cầu hỗ trợ.')} onRetry={refetch} />
+          <Button size="bento" onClick={() => navigate('/ho-tro')}>Về danh sách yêu cầu</Button>
         </div>
       </Layout>
     )
@@ -63,31 +63,23 @@ export default function TicketDetailPage() {
           <Note tone="err">
             {actions.notice}{' '}
             <Button variant="link" size="sm" onClick={reload}>
-              Tải lại ticket
+              Tải lại yêu cầu
             </Button>
           </Note>
         )}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <ConversationCard ticket={ticket} />
-            <ResolutionCard
-              ticket={ticket}
-              busy={actions.busy}
-              onConfirm={() => latest && actions.confirm(latest.version)}
-              onReopen={() => openModal('mo-lai')}
-              onViewVersion={(v) => openModal(`ket-qua-v${v}`)}
-            />
-            <ReplyCard ticket={ticket} onSend={actions.reply} />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
+          <div className="flex min-w-0 flex-col gap-4 xl:min-h-0">
+            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => getMessages(ticket.id, beforeId)} composer={<ReplyCard embedded ticket={ticket} onSend={actions.reply} />} />
           </div>
           <div className="flex min-w-0 flex-col gap-4">
-            <TicketInfoCard ticket={ticket} />
+            <TicketInfoCard ticket={ticket} onViewResults={() => openModal('ket-qua')} />
             <StatusHistoryCard ticket={ticket} />
           </div>
         </div>
-        <Foot>Xem trao đổi công khai, thông tin phiếu, lịch sử trạng thái và kết quả xử lý; phản hồi tối đa 3.000 ký tự, phiếu đã đóng không nhận phản hồi.</Foot>
       </div>
 
       {m === 'mo-lai' && latest && ticket.status === 'RESOLVED' && <ReopenDialog ticket={ticket} resolution={latest} onSubmit={actions.reopen} onClose={closeModal} />}
+      {m === 'ket-qua' && latest && <Modal title="Kết quả giải quyết" sub="Thông tin đầy đủ theo từng phiên" width={1100} onClose={closeModal}><div className="max-h-[65vh] overflow-y-auto pr-1"><ResolutionCard ticket={ticket} busy={actions.busy} onConfirm={() => actions.confirm(latest.version)} onReopen={() => openModal('mo-lai')} /></div></Modal>}
       {m === 'da-mo-lai' && <ReopenedDialog ticket={ticket} onViewPrevious={(v) => openModal(`ket-qua-v${v}`)} onClose={closeModal} />}
       {viewVersion && <ResolutionVersionDialog ticket={ticket} version={Number(viewVersion)} onClose={closeModal} />}
       {m === 'da-xac-nhan' && <ConfirmedDialog ticket={ticket} onReopen={() => openModal('mo-lai')} onBack={closeModal} onClose={closeModal} />}

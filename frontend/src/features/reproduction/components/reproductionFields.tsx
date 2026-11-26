@@ -1,23 +1,16 @@
 import { useRef, type ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Field, Radio, Select, inputCls } from '../../../components/ui'
-import { REPRODUCTION_EXTERNAL_PEOPLE, REPRODUCTION_MEMBERS } from '../data/reproductionMock'
-import type { DataSource } from '../types'
-import { reproductionNow } from '../domain/reproductionClock'
+import { Field, Icon, inputCls, Radio, Select } from '../../../shared/ui'
+import { reproductionApi } from '../api/reproductionApi'
+import { useReproductionOptions } from './reproductionOptions'
 
-export const SOURCE_OPTIONS: Array<[DataSource, string]> = [
-  ['DIRECT_OBSERVATION', 'Quan sát trực tiếp'], ['FARM_NOTEBOOK', 'Sổ trại'], ['EXTERNAL_REPORT', 'Báo cáo bên ngoài'],
-]
-export const SOURCE_LABEL: Record<DataSource, string> = Object.fromEntries(SOURCE_OPTIONS) as Record<DataSource, string>
-export const SOURCE_HINT = 'Mặc định quan sát trực tiếp · đổi khi ghi từ sổ / báo cáo ngoài'
 export const RESULT_OPTIONS: Array<[string, string]> = [['PREGNANT', 'Có thai'], ['NOT_PREGNANT', 'Không có thai'], ['INCONCLUSIVE', 'Chưa xác định']]
-export const CHECK_METHOD_OPTIONS: Array<[string, string]> = [['ULTRASOUND', 'Siêu âm'], ['RECTAL', 'Khám trực tràng'], ['OTHER', 'Khác']]
+export const CHECK_METHOD_OPTIONS: Array<[string, string]> = [['ULTRASOUND', 'Siêu âm'], ['RECTAL', 'Khám trực tràng'], ['OBSERVATION', 'Quan sát – không lên giống lại'], ['OTHER', 'Khác']]
 export const UPDATE_TYPE_OPTIONS: Array<[string, string]> = [['OBSERVATION', 'Theo dõi'], ['COMPLICATION', 'Biến chứng'], ['LOSS', 'Sẩy thai']]
 export const COURSE_OPTIONS: Array<[string, string]> = [['NORMAL', 'Bình thường'], ['ASSISTED', 'Can thiệp'], ['CAESAREAN', 'Mổ đẻ']]
 export const DAM_CONDITION_OPTIONS: Array<[string, string]> = [['GOOD', 'Tốt'], ['MONITORING', 'Cần theo dõi'], ['CRITICAL', 'Nguy kịch']]
 export const SIGNS = ['Đứng yên cho nhảy', 'Chảy dịch nhờn trong', 'Nhảy lên con khác', 'Kêu rống', 'Âm hộ sưng đỏ']
 
-export const nowLocal = reproductionNow
+export const nowLocal = (): string => reproductionApi.now()
 
 /** Label without the required marker, used as the control's accessible name. */
 export const plain = (label: string): string => label.replace(/ \*$/, '')
@@ -52,10 +45,29 @@ export function DateTimeInput({ label, value, onChange, max = nowLocal(), disabl
   )
 }
 
-export function DateTimeField({ label, value, onChange, hint, max }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string }) {
+/** Lỗi nhập liệu hiện ngay dưới ô (D51). */
+export const FieldMessage = ({ children }: { children?: ReactNode }) =>
+  children ? <span role="alert" className="text-[11px] text-err-fg">{children}</span> : null
+
+/** Ô số nguyên đọc nghiêm: trống → null, "5" → 5, gõ sai (chữ, số thập phân) → NaN để báo dưới ô (D51). */
+export const parseIntegerText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
+/** Ô số thập phân đọc nghiêm: "21", "21,5", "21.5" → số; gõ sai → NaN (không bị JSON đổi thành null âm thầm) (D51). */
+export const parseDecimalText = (text: string): number | null => {
+  const t = text.trim()
+  if (!t) return null
+  return /^\d+([.,]\d+)?$/.test(t) ? Number(t.replace(',', '.')) : Number.NaN
+}
+
+export function DateTimeField({ label, value, onChange, hint, max, error }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string; error?: string }) {
   return (
     <Field label={label} id={`dt-${plain(label)}`} hint={hint}>
       <DateTimeInput id={`dt-${plain(label)}`} label={plain(label)} value={value} onChange={onChange} max={max} />
+      <FieldMessage>{error}</FieldMessage>
     </Field>
   )
 }
@@ -83,24 +95,26 @@ export const memberLabel = (member: { name: string; role: string }) => `${member
 
 /** Dropdown of ACTIVE members (observer). */
 export function MemberSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const known = REPRODUCTION_MEMBERS.some((member) => member.name === value)
+  const { members } = useReproductionOptions()
+  const known = members.some((member) => member.name === value)
   return (
     <Select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">Chọn người</option>
       {!known && value && <option value={value}>{value}</option>}
-      {REPRODUCTION_MEMBERS.map((member) => <option key={member.name} value={member.name}>{memberLabel(member)}</option>)}
+      {members.map((member) => <option key={member.id} value={member.name}>{memberLabel(member)}</option>)}
     </Select>
   )
 }
 
-/** Member name or a typed outside person (performer, examiner, birth attendant). */
+/** Member name or a typed outside person (performer, examiner, birth attendant); a member name is sent as its id (P1). */
 export function PersonInput({ label, value, onChange, id }: { label: string; value: string; onChange: (value: string) => void; id: string }) {
   const listId = `${id}-people`
+  const { members, externalPeople } = useReproductionOptions()
   return (
     <>
       <input id={id} list={listId} aria-label={label} maxLength={100} className={inputCls} value={value} onChange={(event) => onChange(event.target.value)} placeholder="Chọn thành viên hoặc nhập tên" />
       <datalist id={listId}>
-        {[...REPRODUCTION_MEMBERS.map((member) => member.name), ...REPRODUCTION_EXTERNAL_PEOPLE].map((name) => <option key={name} value={name} />)}
+        {[...new Set([...members.map((member) => member.name), ...externalPeople])].map((name) => <option key={name} value={name} />)}
       </datalist>
     </>
   )

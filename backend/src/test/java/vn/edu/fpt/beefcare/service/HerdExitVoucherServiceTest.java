@@ -7,11 +7,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
@@ -178,6 +180,18 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(check1.openPregnancy()).isNotNull();
         assertThat(check1.draftCalfIds()).containsExactly(calf.getId());
         assertThat(check1.messages()).extracting(ExitVoucherDTO.Message::code).contains("MSG-FE13-07", "MSG-FE13-01");
+        LocaleContextHolder.setLocale(Locale.forLanguageTag("vi"));
+        try {
+            ExitVoucherDTO.CattleCheck localized = service.checks(farmId(), draft.id()).cattle().stream().filter(c -> c.cattleId().equals(c1.getId())).findFirst().orElseThrow();
+            assertThat(localized.messages())
+                .filteredOn(m -> m.code().equals("MSG-FE13-01"))
+                .singleElement()
+                .satisfies(m ->
+                    assertThat(m.text()).contains("1 mũi tiêm dự kiến và 1 nhắc việc sẽ bị hủy", "1 ca sức khỏe", "thai đang theo dõi", "1 bê nháp").doesNotContain("will be")
+                );
+        } finally {
+            LocaleContextHolder.resetLocaleContext();
+        }
         ExitVoucherDTO.CattleCheck check2 = checks.cattle().stream().filter(c -> c.cattleId().equals(c2.getId())).findFirst().orElseThrow();
         assertThat(check2.hasWarnings()).isFalse();
         assertThat(checks.occupancy()).singleElement().satisfies(o -> {
@@ -384,11 +398,13 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss(" ", null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
         expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("mistake", 99)), MessageCodes.COM_05, HttpStatus.CONFLICT);
         ExitVoucherDTO.DismissResult dismissed = dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("Found alive", null));
-        assertThat(dismissed.message().code()).isEqualTo("MSG-FE13-04");
+        // D62: bò không chết / mất nên ca nguồn mở lại cùng lúc bác phiếu.
+        assertThat(dismissed.message().code()).isEqualTo("MSG-FE13-10");
         assertThat(dismissed.voucher().status()).isEqualTo(ExitVoucherStatus.DISMISSED);
         assertThat(dismissed.voucher().closeReason()).isEqualTo("Found alive");
         assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
-        assertThat(hc.getOutcome()).isEqualTo("DIED");
+        assertThat(hc.getStatus()).isEqualTo("OPEN");
+        assertThat(hc.getOutcome()).isNull();
         assertThat(guard.isExitPending(c.getId())).isFalse();
         guard.assertWritable(c);
         assertThat(em.createQuery("select r from Reminder r where r.cattle.id = :c and r.ruleType = 'REM-12'", Reminder.class).setParameter("c", c.getId()).getSingleResult().getStatus())
@@ -852,6 +868,16 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         // an OTHER voucher may name a destination instead of a buyer
         ExitVoucherDTO.Detail other = service.create(farmId(), saveReq(ExitType.OTHER, TODAY, null, "Relative's farm", 0, 0, null, List.of()));
         assertThat(other.destination()).isEqualTo("Relative's farm");
+    }
+
+    @Test
+    void destinationCannotReplaceTheBuyerOfACullVoucher() {
+        actAs(owner);
+        Cattle c = placed(penA, "300");
+        var draft = service.create(farmId(), saveReq(ExitType.CULL, TODAY, null, "Nơi đến", 0, 0, null, List.of(line(c, "300", 1L))));
+
+        expect(() -> confirm(draft.id()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
     }
 
     @Test

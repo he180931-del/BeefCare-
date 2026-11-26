@@ -18,6 +18,7 @@ import vn.edu.fpt.beefcare.domain.Cattle;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.HerdExitVoucher;
 import vn.edu.fpt.beefcare.domain.ScheduledDose;
+import vn.edu.fpt.beefcare.domain.Treatment;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
 import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
@@ -35,6 +36,9 @@ class CareWorkflowIT extends DomainTestSupport {
 
     @Autowired
     CareReadService reads;
+
+    @Autowired
+    CattleTimelineService timeline;
 
     @Autowired
     VaccinationCommandService vaccination;
@@ -74,24 +78,32 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.CatalogueItem medicine = catalogue.saveMedicine(farm.getId(), null, key(),
             new CareDtos.MedicineCommand(null, "OXY" + next(), "Oxytetracycline", null, "1 ml/10 kg", "IM", 28, true));
         CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(3), null,
-            new BigDecimal("40.1"), "Fever, low appetite", "Suspected pneumonia", false, "moderate"));
+            new BigDecimal("40.1"), "Fever, low appetite", "Suspected pneumonia", false, "moderate", null));
         assertThat(opened.status()).isEqualTo("OPEN");
 
         CareDtos.HealthCaseResult followed = health.followUp(farm.getId(), opened.id(), key(),
-            new CareDtos.FollowUp(opened.version(), hoursAgo(2), new BigDecimal("39.5"), "improved", "Eating again"));
+            new CareDtos.FollowUp(opened.version(), hoursAgo(2), new BigDecimal("39.5"), "improved", "Eating again", null));
         CareDtos.TreatmentResult treated = health.recordTreatment(farm.getId(), opened.id(), key(),
-            new CareDtos.TreatmentCommand(medicine.id(), hoursAgo(1), "Oxytetracycline LA", "25 ml", "IM", 3, 28, "Manager", null));
+            new CareDtos.TreatmentCommand(followed.version(), medicine.id(), hoursAgo(1), "25 ml", "IM", 3, 28, null, "Manager", null));
         // GBR-46: first administration + course days - 1 + withdrawal days
         assertThat(treated.withdrawalEndDate()).isEqualTo(TODAY.plusDays(3 - 1 + 28));
 
+        assertThatThrownBy(() -> catalogue.saveMedicine(farm.getId(), medicine.id(), key(),
+            new CareDtos.MedicineCommand(medicine.version(), "OTHER-CODE", medicine.name(), null, "1 ml/10 kg", "IM", 28, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
+        CareDtos.CatalogueItem renamed = catalogue.saveMedicine(farm.getId(), medicine.id(), key(),
+            new CareDtos.MedicineCommand(medicine.version(), medicine.code(), "Tên thuốc mới", null, "1 ml/10 kg", "IM", 28, true));
+        assertThat(renamed.referencedCount()).isEqualTo(1);
+        assertThat(em.find(Treatment.class, treated.id()).getMedicineNameSnapshot()).isEqualTo(medicine.name());
+
         // FE-10 reads: open tab and the cattle profile with case card and chronology
-        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null)).extracting(CareDtos.HealthCaseRow::id).contains(opened.id());
+        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items()).extracting(CareDtos.HealthCaseRow::id).contains(opened.id());
         actAs(technician); // read-only access
         CareDtos.HealthProfile profile = reads.healthProfile(farm.getId(), cow.getId());
-        assertThat(profile.activeCases()).extracting(CareDtos.HealthCaseCard::id).containsExactly(opened.id());
+        assertThat(profile.openCases()).extracting(CareDtos.HealthCaseView::id).containsExactly(opened.id());
         assertThat(profile.withdrawalEndDate()).isEqualTo(TODAY.plusDays(3 - 1 + 28));
-        assertThat(profile.timeline()).hasSizeGreaterThanOrEqualTo(3);
-        assertThatThrownBy(() -> health.followUp(farm.getId(), opened.id(), key(), new CareDtos.FollowUp(followed.version(), hoursAgo(1), null, "unchanged", "x")))
+        assertThat(profile.openCases().get(0).timeline()).hasSizeGreaterThanOrEqualTo(3);
+        assertThatThrownBy(() -> health.followUp(farm.getId(), opened.id(), key(), new CareDtos.FollowUp(followed.version(), hoursAgo(1), null, "unchanged", "x", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
 
         // UC-FE10-05: a void keeps the row, needs the version and a reason, and recalculates the withdrawal
@@ -105,17 +117,20 @@ class CareWorkflowIT extends DomainTestSupport {
     }
 
     @Test
-    void ownerCannotRecordCareAndAnotherFarmSeesNothing() {
-        actAs(owner);
-        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD")))
+    void ownerRecordsCareTechnicianCannotAndAnotherFarmSeesNothing() {
+        actAs(technician);
+        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
-        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null)).isEmpty(); // Owner reads
+        actAs(owner); // D41: the Owner records like a Manager
+        CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null));
+        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items())
+            .extracting(CareDtos.HealthCaseRow::id).containsExactly(opened.id());
 
         Farm other = farm();
         AppUser otherManager = memberWithRole(other, FarmRole.MANAGER);
         actAs(otherManager);
         assertThatThrownBy(() -> reads.healthProfile(farm.getId(), cow.getId())).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> health.open(other.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD")))
+        assertThatThrownBy(() -> health.open(other.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getStatus().value()).isEqualTo(404));
     }
 
@@ -123,15 +138,29 @@ class CareWorkflowIT extends DomainTestSupport {
     void closingACaseAsDiedProposesAPendingDeathVoucherForTheOwner() {
         actAs(manager);
         CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(5), null,
-            null, "Bloat", null, false, "SEVERE"));
+            null, "Bloat", null, false, "SEVERE", null));
         CareDtos.HealthCaseResult closed = health.updateStatus(farm.getId(), opened.id(), key(),
-            new CareDtos.CaseStatus(opened.version(), "CLOSE", "DIED", TODAY, "Found dead"));
+            new CareDtos.CaseStatus(opened.version(), "CLOSE", "Found dead", "WORSENED", null, null, "DIED", null, null));
         assertThat(closed.status()).isEqualTo("CLOSED");
+        assertThat(reads.healthProfile(farm.getId(), cow.getId()).previousCases()).singleElement()
+            .satisfies(item -> assertThat(item.timeline()).isEmpty());
+        assertThat(reads.healthProfile(farm.getId(), cow.getId(), closed.id()).previousCases()).singleElement()
+            .satisfies(item -> assertThat(item.timeline()).anySatisfy(row -> {
+                assertThat(row.type()).isEqualTo("OPENING");
+                assertThat(row.description()).isEqualTo("Bloat");
+            }));
+        assertThat(timeline.timeline(farm.getId(), cow.getId(), "HEALTH", false))
+            .filteredOn(event -> "HEALTH_CASE_CLOSED".equals(event.type())).singleElement().satisfies(event -> {
+                assertThat(event.sourceId()).isEqualTo(closed.id());
+                assertThat(event.values()).containsEntry("outcome", "DIED").containsEntry("closedDate", TODAY);
+                assertThat(event.recorder()).isEqualTo(manager.getFullName());
+                assertThat(event.canCorrect()).isFalse();
+            });
         List<HerdExitVoucher> pending = em.createQuery("select v from HerdExitVoucher v where v.farm.id = :f", HerdExitVoucher.class)
             .setParameter("f", farm.getId()).getResultList();
         assertThat(pending).singleElement().satisfies(v -> assertThat(v.getStatus().name()).isEqualTo("PENDING"));
         // the animal accepts no new event while the death voucher is pending (GBR-26)
-        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "x", null, false, "MILD")))
+        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "x", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_17));
     }
 
@@ -145,12 +174,15 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.VaccinationScheduleResult schedule = vaccination.createSchedule(farm.getId(), key(),
             new CareDtos.CreateVaccinationSchedule("FMD round", vaccine.id(), TODAY, 2, 21, null, List.of(cow.getId())));
         assertThat(schedule.plannedDoseCount()).isEqualTo(2);
+        assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), vaccine.id(), key(),
+            new CareDtos.VaccineCommand(vaccine.version(), "OTHER-CODE", vaccine.name(), "Foot-and-mouth disease", "Navetco", "2 ml", "SC", 0, 6, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
         List<ScheduledDose> doses = doses(schedule.id());
         ScheduledDose first = doses.get(0);
 
         CareDtos.VaccinationBatchResult recorded = vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
             hoursAgo(1), "LOT-1", "2 ml", "SC", 0, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(cow.getId(), first.getId(), first.getVersion(), "VACCINATE", null, null))));
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), first.getId(), first.getVersion()))));
         assertThat(recorded.vaccinatedCount()).isEqualTo(1);
         em.flush();
         em.clear();
@@ -162,23 +194,22 @@ class CareWorkflowIT extends DomainTestSupport {
         vaccination.voidRecord(farm.getId(), vaccinationId, key(), new CareDtos.VoidRecord(vaccinationVersion, "Wrong animal"));
         em.flush();
         em.clear();
-        assertThat(em.find(ScheduledDose.class, first.getId()).getStatus()).isIn("PLANNED", "DEFERRED");
-
-        ScheduledDose second = em.find(ScheduledDose.class, doses.get(1).getId());
-        CareDtos.DoseResult deferred = vaccination.deferDose(farm.getId(), second.getId(), key(),
-            new CareDtos.DeferDose(second.getVersion(), "Animal unwell", TODAY.plusDays(30), null));
-        assertThat(deferred.status()).isEqualTo("DEFERRED");
+        // D46: hủy bản ghi thì mũi quay về chờ tiêm (không còn hoãn).
+        assertThat(em.find(ScheduledDose.class, first.getId()).getStatus()).isEqualTo("PLANNED");
 
         Integer scheduleVersion = versionOf(vn.edu.fpt.beefcare.domain.VaccinationSchedule.class, schedule.id());
-        assertThat(vaccination.stopSchedule(farm.getId(), schedule.id(), key(), scheduleVersion).status()).isEqualTo("STOPPED");
+        assertThat(vaccination.stopSchedule(farm.getId(), schedule.id(), key(), scheduleVersion, "Season over").status()).isEqualTo("STOPPED");
         em.flush();
         em.clear();
         assertThat(doses(schedule.id())).extracting(ScheduledDose::getStatus).containsOnly("CANCELLED");
 
-        actAs(owner);
+        actAs(technician);
         assertThatThrownBy(() -> vaccination.createSchedule(farm.getId(), key(),
             new CareDtos.CreateVaccinationSchedule("x", vaccine.id(), TODAY, 1, 21, null, List.of(cow.getId()))))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
+        actAs(owner); // D41: the Owner plans schedules like a Manager
+        assertThat(vaccination.createSchedule(farm.getId(), key(),
+            new CareDtos.CreateVaccinationSchedule("x", vaccine.id(), TODAY, 1, 21, null, List.of(cow.getId()))).id()).isNotNull();
     }
 
     // ------------------------------------------------------------------ FE-18 references
@@ -194,10 +225,18 @@ class CareWorkflowIT extends DomainTestSupport {
             new CareDtos.VaccineCommand(null, "HS" + next(), "HS vaccine", "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, true));
         actAs(manager);
         vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(used.id(), "ON_FARM", null, hoursAgo(1), "LOT-2", "2 ml", "IM", 0, "Manager",
-            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null))));
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null))));
         actAs(owner);
         Integer usedVersion = versionOf(vn.edu.fpt.beefcare.domain.Vaccine.class, used.id());
         assertThatThrownBy(() -> catalogue.deleteUnusedVaccine(farm.getId(), used.id(), key(), usedVersion)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), used.id(), key(),
+            new CareDtos.VaccineCommand(usedVersion, "OTHER-CODE", used.name(), "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
+        CareDtos.CatalogueItem renamed = catalogue.saveVaccine(farm.getId(), used.id(), key(),
+            new CareDtos.VaccineCommand(usedVersion, used.code(), "Tên vắc-xin mới", "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, false));
+        assertThat(renamed.available()).isFalse();
+        assertThat(reads.vaccinationHistory(farm.getId(), null, used.id(), null, null, null, cow.getId()))
+            .extracting(CareDtos.VaccinationHistoryRow::vaccineName).containsExactly(used.name());
 
         actAs(technician);
         assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), null, key(),

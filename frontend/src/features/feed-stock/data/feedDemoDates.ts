@@ -1,19 +1,10 @@
+import { addCalendarDays, businessDate, businessDateTime } from '../../../shared/lib/date/farmTime'
 // Demo seeds are anchored on today so "today", "not in the future" and expiry rules behave like live data.
-const pad = (value: number) => String(value).padStart(2, '0')
-export const isoDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-export function daysFromToday(offset: number) {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  date.setDate(date.getDate() + offset)
-  return isoDate(date)
-}
-export const today = () => daysFromToday(0)
+export const isoDate = businessDate
+export const daysFromToday = (offset: number) => addCalendarDays(businessDate(), offset)
+export const today = businessDate
 export function isoAt(offset: number, time: string) {
   return `${daysFromToday(offset)}T${time}:00`
 }
 
-/** Current local time as `yyyy-mm-ddThh:mm:ss`, the same shape as the seeded timestamps (no timezone suffix). */
-export function localNowIso() {
-  const now = new Date()
-  return `${isoDate(now)}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-}
+export const localNowIso = businessDateTime

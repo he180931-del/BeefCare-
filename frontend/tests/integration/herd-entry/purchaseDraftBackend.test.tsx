@@ -35,7 +35,7 @@ describe('purchase entry page in backend mode', () => {
     serverVoucher = null
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
     localStorage.setItem('beefcare:latency', '0')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url, 'http://backend.test')
@@ -74,6 +74,7 @@ describe('purchase entry page in backend mode', () => {
     cleanup()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('saves a purchase draft, reopens its header/line/document metadata, then posts through the real adapter', async () => {
@@ -82,40 +83,51 @@ describe('purchase entry page in backend mode', () => {
     const first = render(<MemoryRouter initialEntries={['/herd-entry/new']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
 
     await screen.findByDisplayValue('Mua ngoài')
+    // D76: a new voucher is priced per head, so the line table has no unit-price column; no line yet shows "Trống".
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('cell', { name: 'Trống' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Đơn giá/kg' })).not.toBeInTheDocument()
+    // FE-06 field 4 starts empty: pick the seller from the searchable list.
+    await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+    await user.click(screen.getByRole('option', { name: /Trại giống Backend/ }))
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
     await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
     const comboBoxes = within(dialog).getAllByRole('combobox')
     await user.type(within(dialog).getAllByRole('textbox')[0], 'BC-BACKEND-001')
     await user.selectOptions(comboBoxes[0], 'Brahman lai')
-    const numberInputs = within(dialog).getAllByRole('spinbutton')
+    const numberInputs = [within(dialog).getByLabelText('Cân nhập (kg)')]
     await user.clear(numberInputs[0])
     await user.type(numberInputs[0], '236')
+    // An entered weight needs a basis even when the voucher is priced per head (GBR-92).
     // Per head: the line amount field replaces the per-kg unit price.
-    const amount = dialog.querySelector('#entry-cow-total-amount') as HTMLInputElement
+    const amount = dialog.querySelector('#entry-cow-unit-price') as HTMLInputElement
     await user.clear(amount)
     await user.type(amount, '85000')
-    await user.selectOptions(comboBoxes[3], 'B1')
+    await user.selectOptions(dialog.querySelector('#entry-cow-barn') as HTMLSelectElement, 'B1')
     const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
     await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
-    await user.selectOptions(selectWith('Bò sinh sản · loại Sinh sản'), 'Bò sinh sản · loại Sinh sản')
-    await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+    await user.selectOptions(selectWith('Vỗ béo · Vỗ béo'), '31')
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm con' }))
     const file = new File(['pdf'], 'purchase.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')).toBe(true))
-    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', pricingBasis: 'PER_HEAD' })
+    expect(requests.find((request) => request.method === 'POST' && request.path === '/api/farms/9/entry-vouchers')?.body).toMatchObject({ entryType: 'PURCHASE', sellerId: 7, pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/attachments'))).toBe(true))
 
     first.unmount()
     render(<MemoryRouter initialEntries={['/herd-entry/new?id=PN-BACKEND-0041']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
     expect(await screen.findByDisplayValue('PN-BACKEND-0041')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByText('purchase.pdf')).toBeInTheDocument()
 
-    await user.type(screen.getByRole('textbox', { name: 'Người nhập' }), 'Anh A')
+    // Máy chủ tự ghi người tạo / ghi sổ theo phiên: ô Người nhập chỉ đọc và không chặn ghi sổ.
+    expect(screen.getByRole('textbox', { name: 'Người nhập' })).toHaveAttribute('readonly')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ 1 con/ }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/post'))).toBe(true))
+    expect(requests.find((request) => request.method === 'PUT' && request.path.endsWith('/entry-vouchers/41'))?.body).toMatchObject({ pricingBasis: 'PER_HEAD', lines: [{ entryWeightKg: 236, weightBasis: 'MEASURED', unitPrice: 85000 }] })
     expect(serverVoucher?.status).toBe('POSTED')
   }, 20000)
 })

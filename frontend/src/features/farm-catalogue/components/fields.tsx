@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Badge, Radio, inputCls } from '../../../components/ui'
+import { Badge, inputCls, Radio } from '../../../shared/ui'
 
 /** Lỗi thay chỗ gợi ý ngay dưới ô (MSG-COM-06, MSG-FE18-02, MSG-FE18-06). */
 export const fieldError = (error: string | undefined, hint?: ReactNode): ReactNode =>

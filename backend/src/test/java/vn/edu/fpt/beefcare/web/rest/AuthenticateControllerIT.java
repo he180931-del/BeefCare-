@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.web.rest;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -70,7 +71,8 @@ class AuthenticateControllerIT {
         AppUser appUser = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow();
         appUser.setAccountStatus("SUSPENDED");
         appUserRepository.saveAndFlush(appUser);
-        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isForbidden())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-03"));
         org.assertj.core.api.Assertions.assertThat(session.isInvalid()).isTrue();
     }
 
@@ -112,7 +114,7 @@ class AuthenticateControllerIT {
     void fiveConsecutivePasswordFailuresLockPasswordSignInForFifteenMinutes() throws Exception {
         User user = createIdentity("session-lockout");
         Csrf csrf = fetchCsrf();
-        for (int attempt = 0; attempt < 5; attempt++) {
+        for (int attempt = 0; attempt < 4; attempt++) {
             mockMvc.perform(post("/api/authenticate")
                 .cookie(csrf.cookie())
                 .header("X-XSRF-TOKEN", csrf.token())
@@ -124,8 +126,9 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content(om.writeValueAsBytes(login("session-lockout", "secret"))))
-            .andExpect(status().isLocked());
+            .content(om.writeValueAsBytes(login("session-lockout", "wrong-password"))))
+            .andExpect(status().isLocked())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-02"));
         User locked = userRepository.findById(user.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(locked.getFailedPasswordAttempts()).isEqualTo(5);
         org.assertj.core.api.Assertions.assertThat(locked.getPasswordLockedUntil()).isAfter(java.time.Instant.now())
@@ -150,6 +153,7 @@ class AuthenticateControllerIT {
             .content(om.writeValueAsBytes(login("session-google-only", "secret"))))
             .andExpect(status().isUnauthorized())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-01"));
+        org.assertj.core.api.Assertions.assertThat(userRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow().getFailedPasswordAttempts()).isZero();
     }
 
     @Test
@@ -163,7 +167,7 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900000000\",\"termsAccepted\":false}"))
+            .content("{\"fullName\":\"Farm Owner\",\"contactPhone\":\"0900000000\",\"termsAccepted\":false}"))
             .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/account/owner-registration")
@@ -171,13 +175,63 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900000000\",\"termsAccepted\":true}"))
+            .content("{\"fullName\":\"Farm Owner\",\"contactPhone\":\"0900 000.000\",\"termsAccepted\":true}"))
             .andExpect(status().isOk())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.fullName").value("Farm Owner"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.contactPhone").value("0900000000"))
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.passwordHash").doesNotExist());
         AppUser appUser = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(appUser.isOwnerRegistrationCompleted()).isTrue();
         org.assertj.core.api.Assertions.assertThat(appUser.getOwnerRegistrationCompletedAt()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(appUser.isTermsAccepted()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(appUser.getTermsAcceptedAt()).isNotNull();
+    }
+
+    @Test
+    @Transactional
+    void googleLinkedAccountMustAcceptTermsBeforeUsingAuthenticatedApis() throws Exception {
+        User identity = createIdentity("session-google-consent");
+        MockHttpSession session = loginWithCsrf("session-google-consent");
+        AppUser account = appUserRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow();
+        account.setGoogleSubject("google-consent-subject");
+        account.setTermsAccepted(false);
+        account.setTermsAcceptedAt(null);
+        appUserRepository.saveAndFlush(account);
+
+        mockMvc.perform(get("/api/account/profile").session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.googleSignInLinked").value(true))
+            .andExpect(jsonPath("$.termsAccepted").value(false));
+        mockMvc.perform(get("/api/account").session(session))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MSG-FE01-14"));
+        org.assertj.core.api.Assertions.assertThat(session.isInvalid()).isFalse();
+
+        Csrf csrf = fetchCsrf();
+        mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":false}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-FE01-14"));
+
+        MvcResult accepted = mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.termsAccepted").value(true))
+            .andReturn();
+        String acceptedAt = om.readTree(accepted.getResponse().getContentAsByteArray()).path("termsAcceptedAt").asText();
+
+        AppUser persisted = appUserRepository.findOneByEmailIgnoreCase(identity.getEmail()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(persisted.isOwnerRegistrationCompleted()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(persisted.getTermsAcceptedAt()).isNotNull();
+
+        mockMvc.perform(post("/api/account/terms-acceptance")
+            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"accepted\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.termsAcceptedAt").value(acceptedAt));
+        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isOk());
     }
 
     private User createIdentity(String login) {

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Production-only acceptance accounts requested for release testing.
+        The bcrypt value is for the agreed temporary test password and must be
+        rotated or the accounts removed after acceptance testing.
+    -->
+    <changeSet id="20261121000200-system-test-accounts" author="beefcare" dbms="postgresql">
+        <sql>
+            INSERT INTO jhi_user (
+                id, login, password_hash, first_name, last_name, email, activated, lang_key,
+                created_by, created_date, last_modified_by, last_modified_date, failed_password_attempts
+            )
+            VALUES
+                (nextval('sequence_generator'), 'owner@beefcare.test', '$2y$10$8UhpNiw0i3W6DB2XA5cgf.ifAAkrTX7m7QBJyZHxrzglz/gpKz0HS', 'Production', 'Test Owner', 'owner@beefcare.test', TRUE, 'vi', 'system-test-accounts', CURRENT_TIMESTAMP, 'system-test-accounts', CURRENT_TIMESTAMP, 0),
+                (nextval('sequence_generator'), 'cs@beefcare.test', '$2y$10$8UhpNiw0i3W6DB2XA5cgf.ifAAkrTX7m7QBJyZHxrzglz/gpKz0HS', 'Production', 'Test CS', 'cs@beefcare.test', TRUE, 'vi', 'system-test-accounts', CURRENT_TIMESTAMP, 'system-test-accounts', CURRENT_TIMESTAMP, 0),
+                (nextval('sequence_generator'), 'pm@beefcare.test', '$2y$10$8UhpNiw0i3W6DB2XA5cgf.ifAAkrTX7m7QBJyZHxrzglz/gpKz0HS', 'Production', 'Test PM', 'pm@beefcare.test', TRUE, 'vi', 'system-test-accounts', CURRENT_TIMESTAMP, 'system-test-accounts', CURRENT_TIMESTAMP, 0),
+                (nextval('sequence_generator'), 'sa@beefcare.test', '$2y$10$8UhpNiw0i3W6DB2XA5cgf.ifAAkrTX7m7QBJyZHxrzglz/gpKz0HS', 'Production', 'Test SA', 'sa@beefcare.test', TRUE, 'vi', 'system-test-accounts', CURRENT_TIMESTAMP, 'system-test-accounts', CURRENT_TIMESTAMP, 0)
+            ON CONFLICT (login) DO NOTHING;
+
+            INSERT INTO jhi_user_authority (user_id, authority_name)
+            SELECT u.id, authority_name
+            FROM jhi_user u
+            CROSS JOIN (VALUES
+                ('owner@beefcare.test', 'ROLE_USER'),
+                ('cs@beefcare.test', 'ROLE_USER'),
+                ('pm@beefcare.test', 'ROLE_USER'),
+                ('sa@beefcare.test', 'ROLE_USER'),
+                ('sa@beefcare.test', 'ROLE_ADMIN')
+            ) AS required_authority(login, authority_name)
+            WHERE u.login = required_authority.login
+            ON CONFLICT (user_id, authority_name) DO NOTHING;
+
+            INSERT INTO app_user (
+                id, email, full_name, account_status, password_hash, password_login_enabled,
+                owner_registration_completed, owner_registration_completed_at, terms_accepted,
+                terms_accepted_at, password_method_status, password_linked_at, created_at, version
+            )
+            SELECT
+                nextval('sequence_generator'),
+                u.email,
+                CASE u.login
+                    WHEN 'owner@beefcare.test' THEN 'Production Test Owner'
+                    WHEN 'cs@beefcare.test' THEN 'Production Test CS'
+                    WHEN 'pm@beefcare.test' THEN 'Production Test PM'
+                    WHEN 'sa@beefcare.test' THEN 'Production Test SA'
+                END,
+                'ACTIVE', u.password_hash, TRUE, TRUE, CURRENT_TIMESTAMP, TRUE, CURRENT_TIMESTAMP,
+                'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+            FROM jhi_user u
+            WHERE u.login IN ('owner@beefcare.test', 'cs@beefcare.test', 'pm@beefcare.test', 'sa@beefcare.test')
+              AND NOT EXISTS (SELECT 1 FROM app_user a WHERE LOWER(a.email) = LOWER(u.email));
+
+            INSERT INTO platform_staff_access (id, role, status, user_id, version)
+            SELECT nextval('sequence_generator'), required_role.role, 'ACTIVE', a.id, 0
+            FROM app_user a
+            JOIN (VALUES
+                ('cs@beefcare.test', 'CS'),
+                ('pm@beefcare.test', 'PM'),
+                ('sa@beefcare.test', 'SA')
+            ) AS required_role(email, role) ON LOWER(a.email) = required_role.email
+            WHERE NOT EXISTS (SELECT 1 FROM platform_staff_access p WHERE p.user_id = a.id);
+
+            INSERT INTO farm (
+                id, name, location, contact, service_status, time_zone, contact_person,
+                contact_phone, province, commune, version
+            )
+            SELECT nextval('sequence_generator'), 'BeefCare Production Test Farm', 'Hà Nội', '0900000000',
+                   'ACTIVE', 'Asia/Ho_Chi_Minh', 'Production Test Owner', '0900000000', 'Hà Nội', 'Demo', 0
+            WHERE NOT EXISTS (SELECT 1 FROM farm WHERE name = 'BeefCare Production Test Farm');
+
+            INSERT INTO farm_membership (
+                id, role, status, farm_id, user_id, effective_date, version, joined_at
+            )
+            SELECT nextval('sequence_generator'), 'OWNER', 'ACTIVE', f.id, a.id, CURRENT_DATE, 0, CURRENT_TIMESTAMP
+            FROM farm f
+            JOIN app_user a ON LOWER(a.email) = 'owner@beefcare.test'
+            WHERE f.name = 'BeefCare Production Test Farm'
+              AND NOT EXISTS (
+                  SELECT 1 FROM farm_membership m WHERE m.farm_id = f.id AND m.user_id = a.id
+              );
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -49,7 +49,7 @@ describe('CowProfile backend mode — exited cattle', () => {
     expect(screen.getByText(/Đã xuất · Bán · 20\/10\/2026/)).toBeInTheDocument()
     expect(screen.queryByText('ACTIVE')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cập nhật hồ sơ' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Cấp lại QR' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Cấp lại QR|Cấp QR|Cấp thẻ|Thay thẻ)$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chuyển chuồng' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dòng thời gian' })).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Lịch sử chuồng' }))
@@ -60,7 +60,7 @@ describe('CowProfile backend mode — exited cattle', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Thẻ QR' }))
     expect((await screen.findAllByText('QR-EXITED-REAL')).length).toBeGreaterThan(0)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Dòng thời gian' }))
-    expect(await screen.findByText('Herd exit')).toBeInTheDocument()
+    expect(await screen.findByText('Xuất đàn – Bán')).toBeInTheDocument()
   })
 
   it.each([{ canUpdate: true, actions: true }, { canUpdate: false, actions: false }])('exposes backend ACTIVE actions only when canUpdate=%s', async ({ canUpdate, actions }) => {
@@ -81,17 +81,17 @@ describe('CowProfile backend mode — exited cattle', () => {
     expect((await screen.findAllByText(/BC-BACKEND-ACTIVE-001/)).length).toBeGreaterThan(0)
     if (actions) {
       expect(screen.getByRole('button', { name: 'Cập nhật hồ sơ' })).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: 'Cấp lại QR' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('button', { name: /^(Cấp lại QR|Cấp QR|Cấp thẻ|Thay thẻ)$/ }).length).toBeGreaterThan(0)
     } else {
       expect(screen.queryByRole('button', { name: 'Cập nhật hồ sơ' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Cấp lại QR' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^(Cấp lại QR|Cấp QR|Cấp thẻ|Thay thẻ)$/ })).not.toBeInTheDocument()
     }
     await userEvent.setup().click(screen.getByRole('button', { name: 'Lịch sử chuồng' }))
     if (actions) expect(screen.getByRole('button', { name: 'Chuyển chuồng' })).toBeInTheDocument()
     else expect(screen.queryByRole('button', { name: 'Chuyển chuồng' })).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Thẻ QR' }))
-    if (actions) expect(screen.getAllByRole('button', { name: 'Cấp lại QR' }).length).toBeGreaterThan(0)
-    else expect(screen.queryByRole('button', { name: 'Cấp lại QR' })).not.toBeInTheDocument()
+    if (actions) expect(screen.getAllByRole('button', { name: /^(Cấp lại QR|Cấp QR|Cấp thẻ|Thay thẻ)$/ }).length).toBeGreaterThan(0)
+    else expect(screen.queryByRole('button', { name: /^(Cấp lại QR|Cấp QR|Cấp thẻ|Thay thẻ)$/ })).not.toBeInTheDocument()
     expect(writes).not.toHaveBeenCalled()
     writes.mockRestore()
   })

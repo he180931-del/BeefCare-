@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdEntry, Pen } from '../../../src/types'
+import type { EntryCow, HerdEntry } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const apiState = vi.hoisted(() => ({
   entries: [] as HerdEntry[],
@@ -10,8 +11,9 @@ const apiState = vi.hoisted(() => ({
   getCalls: [] as string[],
   pens: [] as Pen[],
   calves: [] as unknown[],
-  sellers: [] as Array<{ id: string; name: string; phone: string }>,
+  sellers: [] as Array<{ id: string; name: string; phone: string; area?: string; active?: boolean }>,
   saved: [] as unknown[],
+  savedSellers: [] as Array<{ input: unknown; key?: string }>,
 }))
 
 vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => {
@@ -34,6 +36,10 @@ vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => 
     },
     listPendingEntryCalves: async () => structuredClone(apiState.calves),
     listEntrySellers: async () => structuredClone(apiState.sellers),
+    saveEntrySeller: async (input: { name: string; phone: string; area: string }, options?: { key?: string }) => {
+      apiState.savedSellers.push({ input: structuredClone(input), key: options?.key })
+      return { id: 's99', ...input, active: true }
+    },
     saveHerdEntry: async (input: unknown) => {
       apiState.saved.push(structuredClone(input))
       return input
@@ -76,6 +82,11 @@ function renderPage(url = '/herd-entry/new') {
   )
 }
 
+async function pickSeller(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+  await user.click(screen.getByRole('option', { name: new RegExp(name) }))
+}
+
 async function waitForForm() {
   await screen.findByText('1. Thông tin phiếu')
 }
@@ -96,9 +107,36 @@ beforeEach(() => {
   apiState.calves = []
   apiState.sellers = structuredClone(sellers)
   apiState.saved = []
+  apiState.savedSellers = []
 })
 
 describe('Phiếu nhập mới — thông tin phiếu', () => {
+  it('giữ các trường của phiếu mua ngoài và các hành động lưu trong đúng vùng', async () => {
+    renderPage()
+    await waitForForm()
+
+    const fields = within(screen.getByRole('region', { name: 'Nội dung phiếu nhập mua ngoài' }))
+    const review = within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' }))
+    expect(fields.getByRole('textbox', { name: 'Biển số xe' })).toBeInTheDocument()
+    expect(fields.getByRole('button', { name: 'Nhập từ Excel' })).toBeInTheDocument()
+    expect(fields.getByRole('button', { name: 'Thanh toán' })).toBeInTheDocument()
+    expect(review.getByText('Kiểm tra trước khi lưu')).toBeInTheDocument()
+    expect(review.getByRole('button', { name: /Lưu & tạo hồ sơ/ })).toBeInTheDocument()
+    expect(review.getByRole('button', { name: 'Lưu nháp phiếu' })).toBeInTheDocument()
+  })
+
+  it('dùng cùng bố cục form và vùng lưu cho phiếu bê sinh tại trại', async () => {
+    renderPage('/herd-entry/new?kind=calf')
+    await waitForForm()
+
+    const fields = within(screen.getByRole('region', { name: 'Nội dung phiếu nhập bê sinh tại trại' }))
+    const review = within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' }))
+    expect(fields.getByText('1. Thông tin phiếu')).toBeInTheDocument()
+    expect(fields.getByText('3. Chứng từ đính kèm')).toBeInTheDocument()
+    expect(fields.queryByText('4. Thanh toán')).not.toBeInTheDocument()
+    expect(review.getByRole('button', { name: 'Lưu nháp phiếu' })).toBeInTheDocument()
+  })
+
   it('prices each line per kg by default and shows the voucher-level pricing basis', async () => {
     renderPage()
     await waitForForm()
@@ -108,6 +146,25 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     expect(screen.getByRole('button', { name: 'Theo kg' })).toBeInTheDocument()
     expect(screen.getByText('20.060.000')).toBeInTheDocument()
     expect(screen.getByText('24.225.000')).toBeInTheDocument()
+  })
+
+  it('TC-06-09: calculates 300 kg at 80,000 plus 500,000 freight in the production form', async () => {
+    const cow: EntryCow = {
+      tag: 'TC-06-09', name: '', breed: 'Lai Sind', sex: 'Cái', dob: '2025-04', dobAccuracy: 'Ước tính',
+      stage: 'Bò tơ', purpose: 'Bò sinh sản · loại Sinh sản', weight: 300, estimated: false, weightBasis: 'MEASURED',
+      barn: 'A1', unitPrice: 80_000, pricing: 'kg', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
+    }
+    apiState.entries = [{
+      id: 'PN-2026-0200', date: '2026-11-01', type: 'Mua ngoài', source: sellers[0].name, count: 1, status: 'Nháp',
+      draft: { type: 'Mua ngoài', date: '2026-11-01', sourceId: 's1', cows: [cow], freight: 500_000, paid: 0, method: '', due: '' },
+    }]
+
+    renderPage('/herd-entry/new?id=PN-2026-0200')
+    await waitForForm()
+
+    const line = screen.getByRole('row', { name: /TC-06-09/ })
+    expect(within(line).getByText('24.000.000')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' })).getByText('24.500.000 đ')).toBeInTheDocument()
   })
 
   it('tự sinh mã phiếu kế tiếp và không cho người dùng sửa mã', async () => {
@@ -124,7 +181,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
-    await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's2')
+    await pickSeller(user, sellers[1].name)
     await user.clear(screen.getByLabelText('Chọn ngày'))
     await user.type(screen.getByLabelText('Chọn ngày'), '2026-10-21')
     await user.clear(controlInField('Số giấy kiểm dịch'))
@@ -134,7 +191,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await user.clear(controlInField('Ghi chú khi nhận bò'))
     await user.type(controlInField('Ghi chú khi nhận bò'), 'Bò khỏe, nhận đủ số lượng')
 
-    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
+    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue(sellers[1].name)
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue('2026-10-21')
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-2026-00871')
     expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
@@ -192,6 +249,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
+    await pickSeller(user, sellers[0].name)
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ/ }))
 
@@ -239,7 +297,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     await waitForForm()
 
     expect(controlInField('Mã phiếu')).toHaveValue('PN-2026-0042')
-    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue('s2')
+    expect(controlInField('Nguồn / chủ bò cũ *')).toHaveValue(sellers[1].name)
     expect(controlInField('Số giấy kiểm dịch')).toHaveValue('KD-SL-42')
     expect(controlInField('Người nhập')).toHaveValue('Nguyễn Văn Hùng')
     expect(controlInField('Ghi chú khi nhận bò')).toHaveValue('Nháp cần hoàn thiện')
@@ -272,7 +330,7 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
     renderPage()
     await waitForForm()
 
-    await user.selectOptions(controlInField('Nguồn / chủ bò cũ *'), 's2')
+    await pickSeller(user, sellers[1].name)
     await user.clear(controlInField('Số giấy kiểm dịch'))
     await user.type(controlInField('Số giấy kiểm dịch'), 'KD-DRAFT-14')
     await user.type(screen.getByRole('textbox', { name: 'Biển số xe' }), '29C-999.99')
@@ -296,5 +354,39 @@ describe('Phiếu nhập mới — thông tin phiếu', () => {
       note: 'Lưu để bổ sung bò sau',
     })
     expect(persisted.cattleRows ?? []).toHaveLength(0)
+  })
+
+  it('"+ Thêm nguồn mới" mở form tên/SĐT/khu vực, lưu người bán và chọn ngay người bán mới (FE-06 trường 4)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitForForm()
+
+    // Spec default is empty: no seller is preselected on a new voucher.
+    expect(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' })).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: '+ Thêm nguồn mới' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.click(dialog.getByRole('button', { name: 'Lưu nguồn' }))
+    expect(dialog.getByText('Tên người bán là bắt buộc.')).toBeInTheDocument()
+    expect(apiState.savedSellers).toHaveLength(0)
+
+    await user.type(dialog.getByLabelText('Tên người bán / chủ bò cũ *'), '  Hộ bà Nguyễn Thị D  ')
+    await user.type(dialog.getByLabelText('Số điện thoại'), '0988 000 111')
+    await user.type(dialog.getByLabelText('Khu vực'), 'Ba Vì')
+    await user.click(dialog.getByRole('button', { name: 'Lưu nguồn' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(apiState.savedSellers).toEqual([{ input: { name: 'Hộ bà Nguyễn Thị D', phone: '0988 000 111', area: 'Ba Vì' }, key: expect.stringMatching(/^beefcare-entry-seller-/) }])
+    expect(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' })).toHaveValue('Hộ bà Nguyễn Thị D')
+    expect(screen.getByText(/0988 000 111 ·/)).toBeInTheDocument()
+  })
+
+  it('chỉ liệt kê người bán ACTIVE trong danh sách nguồn', async () => {
+    apiState.sellers = [...structuredClone(sellers), { id: 's3', name: 'Nguồn đã ngưng', phone: '', active: false }]
+    const user = userEvent.setup()
+    renderPage()
+    await waitForForm()
+    await user.click(screen.getByRole('combobox', { name: 'Nguồn / chủ bò cũ' }))
+    expect(screen.getByText(sellers[0].name)).toBeInTheDocument()
+    expect(screen.queryByText('Nguồn đã ngưng')).not.toBeInTheDocument()
   })
 })

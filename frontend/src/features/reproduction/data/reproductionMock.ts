@@ -65,6 +65,9 @@ export const REPRODUCTION_HEALTH_CASES: Record<string, Array<{ id: string; label
 /** Male ACTIVE cattle of the farm offered as farm sire. */
 export const REPRODUCTION_SIRES = [{ id: 'sire-1', label: 'Sắm · BC-000301 · VN-BV-0101' }, { id: 'sire-2', label: 'Đại Hùng · BC-000302 · VN-BV-0118' }]
 
+/** Bản mô phỏng đứng ở ngày mà frame và dữ liệu mẫu mô tả, để số ngày và cửa sổ phối không trôi. */
+export const REPRODUCTION_DEMO_NOW = '2026-10-20T15:00'
+
 export const REPRODUCTION_DEMO: ReproductionFemale[] = [
   {
     cattleId: 'cattle-142', cattleCode: 'BC-000142', name: '—', earTag: '0142', sex: 'FEMALE', breed: 'Zebu đỏ',
@@ -80,7 +83,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
       event('re-142-e1', 'ESTRUS', '2026-09-22T07:00', 'Động dục', 'Kêu rống, nhảy lên con khác', { observer: 'Lê Thị Mai' }),
     ],
     calvings: [], revisions: [], indicators: { ...noIndicators },
-    declaredPregnancyAtEntryMonths: null, version: 2,
+    declaredPregnancy: null, version: 2,
   },
   {
     cattleId: 'cattle-217', cattleCode: 'BC-000217', name: '—', earTag: '0217', sex: 'FEMALE', breed: 'Zebu đỏ',
@@ -92,7 +95,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     openHealthCase: false, openPregnancy: null,
     events: [event('re-217-e1', 'ESTRUS', '2026-10-20T05:50', 'Động dục', 'Đứng yên cho nhảy', { observer: 'Lê Thị Mai' })],
     calvings: [], revisions: [], indicators: { ...noIndicators },
-    declaredPregnancyAtEntryMonths: null, version: 1,
+    declaredPregnancy: null, version: 1,
   },
   {
     cattleId: 'cattle-188', cattleCode: 'BC-000188', name: '—', earTag: '0188', sex: 'FEMALE', breed: 'Zebu đỏ',
@@ -104,7 +107,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     openHealthCase: false, openPregnancy: null,
     events: [event('re-188-e1', 'ESTRUS', '2026-10-19T19:10', 'Động dục', 'Bồn chồn, kêu rống', { observer: 'Lê Thị Mai' })],
     calvings: [], revisions: [], indicators: { ...noIndicators },
-    declaredPregnancyAtEntryMonths: null, version: 1,
+    declaredPregnancy: null, version: 1,
   },
   {
     cattleId: 'cattle-061', cattleCode: 'BC-000061', name: 'Nâu', earTag: '0061', sex: 'FEMALE', breed: 'Lai Sind',
@@ -123,7 +126,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
         calves: [liveCalf('calf-061-3-1', 1, 'MALE', 25, 'BC-000198', 'B1', 'Lai Sind')] },
     ],
     revisions: [], indicators: { ageAtFirstCalvingMonths: 26, lastCalvingIntervalDays: 392, daysSinceLastCalving: 260, daysOpen: 230, conceptionSummary: '3 thai / 5 lần phối', overdueForConception: false },
-    declaredPregnancyAtEntryMonths: null, version: 1,
+    declaredPregnancy: null, version: 1,
   },
   {
     cattleId: 'cattle-087', cattleCode: 'BC-000087', name: 'Mận', earTag: '0087', sex: 'FEMALE', breed: 'Lai Sind',
@@ -146,7 +149,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
         calves: [liveCalf('calf-087-1-1', 1, 'MALE', 24, 'BC-000120', 'D', 'Lai Sind')] },
     ],
     revisions: [], indicators: { ageAtFirstCalvingMonths: 27, lastCalvingIntervalDays: 403, daysSinceLastCalving: null, daysOpen: 29, conceptionSummary: '3 thai / 4 lần phối', conceptionDetail: '3 lần đậu / 5 lần phối', overdueForConception: false },
-    declaredPregnancyAtEntryMonths: null, version: 3,
+    declaredPregnancy: null, version: 3,
   },
   {
     cattleId: 'cattle-125', cattleCode: 'BC-000125', name: 'Hoa Đỏ', earTag: '0125', sex: 'FEMALE', breed: 'Zebu đỏ',
@@ -161,7 +164,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
       event('re-125-b3', 'BREEDING', '2026-05-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-118 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ', semenCode: 'BRD-118', performer: 'Nguyễn Văn Tâm' }),
     ],
     calvings: [], revisions: [], indicators: { ageAtFirstCalvingMonths: 28, lastCalvingIntervalDays: null, daysSinceLastCalving: 141, daysOpen: null, conceptionSummary: '2 thai kỳ từ 3 lần phối', overdueForConception: false },
-    declaredPregnancyAtEntryMonths: null, version: 1,
+    declaredPregnancy: null, version: 1,
   },
   {
     cattleId: 'cattle-240', cattleCode: 'BC-000240', name: '—', earTag: '0240', sex: 'FEMALE', breed: 'Brahman đỏ',
@@ -171,6 +174,6 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     breedingWindow: null, nextAction: 'Theo dõi chu kỳ động dục', dueAt: null,
     eligibility: eligible(41, 352), openHealthCase: false, openPregnancy: null,
     events: [], calvings: [], revisions: [], indicators: { ...noIndicators },
-    declaredPregnancyAtEntryMonths: null, version: 1,
+    declaredPregnancy: null, version: 1,
   },
 ]

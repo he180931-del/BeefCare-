@@ -8,7 +8,7 @@
 | Nguồn duy nhất | SRS 28/10/2026: Part III §15 (Table III-4 M01 → M09, A01 → A04; Table III-5 RPT-01 → RPT-07; SCR-48, SCR-49), MSG-FE15, GBR-24, 39, 65, 66, 105, 106, 107 |
 | Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
 
-> Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
+> Quy tắc nghiệp vụ theo SRS 28/10 và các quyết định được dẫn trong từng mục. D84 bổ sung hành vi giao diện và in báo cáo.
 > FE-15 **không có đặc tả Part II**; luồng suy từ Part III + GBR (Q1).
 
 ---
@@ -18,9 +18,10 @@
 | UC | Tên | Tác nhân | Màn hình |
 |---|---|---|---|
 | UC-FE15-01 | Xem dashboard vận hành trại: chỉ số đàn, sức khỏe, tiêm, sinh sản, tăng trưởng, danh sách cần chú ý; drill-down | Owner, Manager | SCR-48 |
-| UC-FE15-02 | Xem báo cáo quản lý RPT-01 → RPT-07 theo kỳ và bộ lọc | Owner, Manager | SCR-49 |
+| UC-FE15-02 | Xem và in báo cáo quản lý RPT-01 → RPT-07 theo kỳ và bộ lọc | Owner, Manager | SCR-49 |
+| Báo cáo thu chi (D86) | Xem dòng tiền của trại theo kỳ, nguồn và chứng từ | Owner, Manager theo phạm vi nguồn | [Spec Báo cáo thu chi của trại](FE-15-bao-cao-thu-chi-trai.md) |
 
-**Không thuộc FE-15:** báo cáo thu chi platform (FE-21), báo cáo thức ăn riêng (FE-23), xuất file (SRS không yêu cầu – Q3).
+**Phạm vi in:** in kết quả qua trình duyệt và có thể chọn lưu PDF trong hộp thoại in (D84). Báo cáo thu chi platform thuộc FE-21, báo cáo tiêu thụ thức ăn thuộc FE-23. Xuất Excel và tải PDF qua API nằm ngoài phạm vi.
 
 ---
 
@@ -88,7 +89,7 @@ FE-15 **không có entity riêng**; mọi số liệu tính từ dữ liệu ngu
 | R-15-10 | Kỳ báo cáo: from ≤ to (MSG-COM-11), tối đa 24 tháng. | SCR-49 |
 | R-15-11 | Dữ liệu thiếu cho một phần → hiển thị riêng "Chưa đủ dữ liệu (n con)" (MSG-FE15-01). Tính lỗi → MSG-FE15-02 + Thử lại. | SCR-49, SCR-48 |
 | R-15-12 | Drill-down: chọn ô / dòng mở danh sách đã lọc tương ứng (bò, ca, mũi, cái), SCR-18 theo tab nhóm đàn, SCR-44, SCR-30, SCR-49. | SCR-48 |
-| R-15-13 | Panel "Bắt đầu" chỉ hiện cho trại mới đến khi xong mọi bước hoặc người dùng đóng. | SCR-48 |
+| R-15-13 | Panel “Bắt đầu” tự hiện theo trạng thái hướng dẫn của trại. Chủ trại, Quản lý có thể mở lại qua nút **Hướng dẫn** sau khi đã ẩn hoặc hoàn thành, nếu còn dữ liệu hướng dẫn. Đóng bản mở thủ công chỉ đóng khung đang xem. | SCR-48, D84 |
 
 ---
 
@@ -104,8 +105,9 @@ E1 tính lỗi → MSG-FE15-02 · E2 Technician → 403.
 
 ### UC-FE15-02 Xem báo cáo
 1. Mở SCR-49; chọn loại báo cáo *, kỳ *, bộ lọc phù hợp.
-2. **Xem báo cáo** → kiểm R-15-10 → tính → ô tóm tắt (kèm tử số, mẫu số, n), bảng kết quả + dòng tổng, biểu đồ, thời điểm tính, bộ lọc.
-3. Phần thiếu dữ liệu tách riêng (MSG-FE15-01).
+2. **Xem báo cáo** → kiểm R-15-10 → tính → ô tóm tắt, kỳ và bộ lọc đã áp dụng, thời điểm tính, bảng chi tiết và biểu đồ. Diễn giải cỡ mẫu bằng ngôn ngữ của chỉ số khi cần.
+3. Phân biệt kết quả bằng 0, không có bản ghi phù hợp và không đủ mẫu để tính. Với RPT-01 không có bò đủ điều kiện, giải thích phạm vi đàn cuối kỳ theo dữ liệu nhập đàn hợp lệ và trạng thái tại ngày chốt kỳ.
+4. **In / xuất** → in kết quả đã áp dụng của loại báo cáo hiện tại. Bản in chứa kỳ, bộ lọc, chỉ số, bảng và dữ liệu biểu đồ; chi tiết vẫn có trong bản in khi đang thu gọn trên màn hình (D84).
 
 E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi → MSG-FE15-02.
 
@@ -118,7 +120,7 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 | # | Trường | Loại | Nội dung / Ràng buộc |
 |---|---|---|---|
 | 1 | Header / Tiêu đề | Chỉ đọc | Tên trại · số bò đang nuôi · trạng thái dịch vụ và ngày hết hạn |
-| 2 | Getting started / Bắt đầu | Panel (O, M; trại mới) | Bước: Tạo chuồng (SCR-17); Xem giống và mục đích (SCR-52, SCR-55); Hoàn thiện mũi vắc-xin từ nhãn (SCR-53); Thêm thuốc tham chiếu (SCR-54); Kiểm tra tham số trại (SCR-56); Mời thành viên (SCR-13, chỉ Owner); Lập phiếu nhập đàn đầu tiên (SCR-24). Mỗi bước "Xong" hoặc link; nút đóng panel |
+| 2 | Getting started / Bắt đầu | Panel và nút Hướng dẫn (O, M) | Bước: Tạo chuồng (SCR-17); Xem giống và mục đích (SCR-52, SCR-55); Hoàn thiện mũi vắc-xin từ nhãn (SCR-53); Thêm thuốc tham chiếu (SCR-54); Kiểm tra tham số trại (SCR-56); Mời thành viên (SCR-13, chỉ Owner); Lập phiếu nhập đàn đầu tiên (SCR-24). Mỗi bước “Xong” hoặc link. **Ẩn hướng dẫn** dừng tự mở. Nút **Hướng dẫn** mở lại; **Đóng** khung mở thủ công giữ tiến độ. |
 | 3 | Period / Kỳ | Chip + khoảng ngày | 7, 30 (mặc định), 90 ngày, tùy chọn; áp dụng cho chỉ số theo kỳ (M06) |
 | 4 | Pen, Herd group, Life stage / Chuồng, Nhóm đàn, Giai đoạn | Dropdown | Áp dụng cho mọi chỉ số tương thích |
 | 5 | Ô M01 → M04 | Ô số | Giá trị + giá trị phụ; chọn → danh sách lọc tương ứng |
@@ -126,6 +128,7 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 | 7 | Herd structure / Cơ cấu đàn | Bảng | Nhóm đàn / Số con / Trong đó có thai (chỉ Cái sinh sản); chọn dòng → SCR-18 tab nhóm đàn |
 | 8 | More indicators / Chỉ số khác | Thẻ | M06, M07, M08, M09 có drill-down; M09 → SCR-49 với RPT-05 |
 | 9 | Generated at / Tính lúc | Chỉ đọc | Thời điểm tính; lỗi → MSG-FE15-02 |
+| 10 | Payment success / Thanh toán thành công | Hộp thoại (O) | Chỉ khi vừa được SCR-59 đưa vào sau `PAID` của đúng trại (FE-19 D54): MSG-FE19-06 (mã, kỳ dịch vụ), [Tiếp tục] đóng và ở lại SCR-48. Hiện một lần, cả khi số liệu đang tải hoặc lỗi; mở SCR-48 trực tiếp không hiện |
 
 ### SCR-49 Báo cáo quản lý
 
@@ -135,10 +138,12 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 | 2 | Period / Kỳ | Khoảng ngày | * | Theo múi giờ trại; from ≤ to; tối đa 24 tháng | 30 ngày gần nhất (Q4) | MSG-COM-11, MSG-COM-10 |
 | 3 | Pens, Breeds, Herd groups, Life stages / Chuồng, Giống, Nhóm đàn, Giai đoạn | Chọn nhiều | — | Chỉ hiện bộ lọc có nghĩa với báo cáo (Q5) | Tất cả | — |
 | 4 | View report / Xem báo cáo | Nút | — | — | — | MSG-FE15-02 |
-| 5 | Summary tiles / Ô tóm tắt | Ô số | — | Kèm tử số, mẫu số, n (ví dụ RPT-05: khoảng cách lứa, ngày trống, số lần phối / thụ thai, tỷ lệ thụ thai, tỷ lệ sẩy; RPT-07: ADG, TA / kg tăng, chi phí TA / kg tăng) | — | "Chưa đủ dữ liệu" khi n < 3 |
+| 5 | Summary tiles / Ô tóm tắt | Ô số | — | Hiện chỉ số chính theo loại báo cáo. Khi cỡ mẫu có ý nghĩa, dùng nhãn như “Số lần phối có kết quả” hoặc “Mẫu tính” | — | “Chưa đủ dữ liệu” khi chỉ số có ngưỡng tối thiểu và chưa đạt ngưỡng |
 | 6 | Result table / Bảng kết quả | Bảng | — | Dòng theo chuồng (hoặc lịch / thuốc tùy báo cáo), cột theo §3.2, dòng tổng | — | MSG-FE15-01 |
 | 7 | Chart / Biểu đồ | Biểu đồ | — | Theo báo cáo (ví dụ tỷ lệ thụ thai theo tháng) | — | — |
 | 8 | Generated at, Filters / Tính lúc, Bộ lọc | Chỉ đọc | — | Hiện trên kết quả | — | — |
+| 9 | Chi tiết | Khối thu gọn | — | Bảng, tổng và dữ liệu biểu đồ. Giữ kỳ và bộ lọc đã chạy trên phần kết quả | Mở | — |
+| 10 | In / xuất | Nút | — | RPT-01 đến RPT-07; in A4 dọc, mục tiêu lề 14 mm. In kết quả đã chạy và lặp đầu cột khi bảng qua trang | Bật khi đã có kết quả hợp lệ | — |
 
 ---
 
@@ -148,7 +153,7 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 |---|---|---|---|---|---|
 | A1 | Dashboard | `from, to, penId?, herdGroup?, lifeStage?` | `{header{farmName, activeCattle, serviceStatus, endDate}, gettingStarted{steps[{key, done, link}], dismissed}, tiles{M01…M04 {value, sub[], breakdown?}}, attention[{rule, cattleId, code, pen, issue, status, actionable}], herdStructure[{group, head, pregnant?}], more{M06, M07, M08[{pen, head, capacity}], M09{calvingInterval{v, n}, conceptionRate{v, n}, overdue}}, generatedAt, filters}` | COM-03, FE15-02 | `GET /api/farms/{farmId}/dashboard` |
 | A2 | Báo cáo | `ReportRequest {type, from, to, penIds[], breedIds[], herdGroups[], lifeStages[]}` | `ReportView {type, tiles[{key, value, numerator?, denominator?, n}], columns[], rows[], total, insufficient[{item, count}], chart{series[]}, generatedAt, filters}` | COM-11, COM-10, COM-03, FE15-02 | `POST /api/farms/{farmId}/dashboard/reports` |
-| A3 | Đóng panel Bắt đầu | `Idempotency-Key` | — | — | Chưa có – đề xuất `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` |
+| A3 | Hướng dẫn bắt đầu | `step` khi ghi hoàn thành; `Idempotency-Key` khi ghi | Trạng thái hướng dẫn và các bước | — | `GET …/dashboard/getting-started`; `POST …/dashboard/getting-started/dismiss`; `POST …/dashboard/getting-started/steps/{step}/done`. Mở lại / đóng thủ công là thao tác giao diện. |
 | A4 | Drill-down | Dùng route danh sách của FE nguồn với bộ lọc tương ứng (FE-05 danh sách bò, FE-09 mũi, FE-10 ca, FE-12 cái) | — | — | Route các FE nguồn |
 
 ---
@@ -188,6 +193,9 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 | TC-15-20 | Lỗi tính toán | Xem dashboard | MSG-FE15-02 + Thử lại | E | R-15-11 |
 | TC-15-21 | Chọn dòng Cái sinh sản ở Cơ cấu đàn | — | Mở SCR-18 tab Cái sinh sản | E | R-15-12 |
 | TC-15-22 | Mọi chỉ số | Xem | Có "Tính lúc" và bộ lọc | E | R-15-05 |
+| TC-15-23 | Chủ trại hoặc Quản lý đã ẩn hướng dẫn, hoặc trại đã hoàn thành các bước | Bấm Hướng dẫn rồi đóng | Khung mở lại đúng tiến độ; đóng thủ công không bật lại tự mở | U, E | D84, R-15-13 |
+| TC-15-24 | RPT-01 không có bò đủ điều kiện tại ngày chốt kỳ | Xem kết quả | Hiện phạm vi và lý do không có bò đủ điều kiện, giữ đúng số liệu trả về | U, E | D84, SCR-49 |
+| TC-15-25 | Từng loại RPT-01 → RPT-07 đã có kết quả; chi tiết đang thu gọn | In / xuất | A4 dọc có lề, kỳ và bộ lọc đã áp dụng, đầy đủ chi tiết; bảng dài lặp tiêu đề ở trang tiếp theo | E | D84, SCR-49 |
 
 ---
 
@@ -197,7 +205,7 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 |---|---|---|
 | Q1 | Không có đặc tả UC ở Part II | Dùng Part III + GBR |
 | Q2 | Mã lỗi khi kỳ > 24 tháng | MSG-COM-10 với nội dung "tối đa 24 tháng" |
-| Q3 | Có xuất báo cáo (Excel / PDF) không? | SRS không yêu cầu – ngoài phạm vi |
+| Q3 | Có xuất báo cáo (Excel / PDF) không? | D84: in qua trình duyệt, có thể lưu PDF. Xuất Excel và API tải PDF ngoài phạm vi. |
 | Q4 | Kỳ mặc định SCR-49 | 30 ngày như SCR-48 |
 | Q5 | Bộ lọc nào áp dụng cho từng RPT | RPT-03: bỏ giống / giai đoạn; RPT-07: chỉ chuồng; còn lại đủ 4 |
 | Q6 | Cache dashboard | Tính tại thời điểm xem; nếu cache phải hiện thời điểm tính thực |
@@ -210,3 +218,6 @@ E1 kỳ sai → MSG-COM-11 · E2 > 24 tháng → MSG-COM-10 (Q2) · E3 lỗi →
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TaiDX duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 23/11/2026 | 28/10/2026 | SCR-48 #10: hộp thoại Thanh toán thành công khi Owner vừa thanh toán xong (FE-19 D54) | DucNV (Claude soạn) |
+| 26/11/2026 | 28/10/2026 | D84: mở lại hướng dẫn, làm rõ kết quả rỗng và in bảy loại báo cáo quản lý | TaiDX |
+| 26/11/2026 | 28/10/2026 | D86: tách Báo cáo quản lý và Báo cáo thu chi trong Quản trị | TaiDX |

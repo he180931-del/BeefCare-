@@ -28,10 +28,63 @@ export type FeedConsumptionBackendRow = {
 export type FeedConsumptionBackendReport = {
   from: string
   to: string
-  rows: FeedConsumptionBackendRow[]
+  groupBy: FeedConsumptionGroupBy
+  tiles: FeedConsumptionReportTiles
+  rows: FeedConsumptionReportGroupedRow[]
+  total: FeedConsumptionReportTotal
+  costByFeed: FeedConsumptionReportCostByFeed[]
+  adjustmentLosses: { kg: number | null; value: number | null }
+  rawRows: FeedConsumptionBackendRow[]
   adjustmentLossKg: number | null
   adjustmentLossValue: number | null
   generatedAt: string | null
+}
+
+export type FeedConsumptionReportTiles = {
+  kg: number
+  cost: number
+  averageKgPerHeadDay: number
+  averageCostPerHeadDay: number
+  days: number
+  headDays: number
+  receivedKg: number
+  receiptCount: number
+  receivedAmount: number
+}
+
+export type FeedConsumptionReportGroupedRow = {
+  group: string
+  avgHead: number
+  kg: number
+  kgPerHeadDay: number
+  cost: number
+  costPerHeadDay: number
+  variancePct: number | null
+  notes: string[]
+}
+
+export type FeedConsumptionReportTotal = {
+  kg: number
+  cost: number
+  kgPerHeadDay: number
+  costPerHeadDay: number
+  days: number
+  headDays: number
+}
+export type FeedConsumptionReportCostByFeed = { feedCode: string; feedName: string; kg: number; cost: number }
+
+/** Display projection of the grouped server contract; no client-side re-aggregation. */
+export type FeedConsumptionServerRow = {
+  key: string
+  label: string
+  herdGroup: string | null
+  averageHead: number
+  actualKg: number
+  averageKgPerHeadDay: number
+  totalCost: number
+  averageCostPerHeadDay: number
+  varianceRatio: number | null
+  notes?: string[]
 }
 
 export type FeedConsumptionSupportingData = {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000400-app-user-status-change" author="beefcare">
+        <!-- D32 / UC-FE03-08 step 5, POST-3: every suspension and restoration keeps an append-only history row (action,
+             status before / after, reason, acting System Admin, time), saved with the account and its audit entry in one
+             transaction. The central audit keeps the before / after values only. Earlier changes have no rows to recover. -->
+        <createTable tableName="app_user_status_change">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="app_user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status_before" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status_after" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"><constraints nullable="false"/></column>
+            <column name="changed_by_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="app_user_status_change" baseColumnNames="app_user_id" constraintName="fk_app_user_status_change_account"
+                                 referencedTableName="app_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="app_user_status_change" baseColumnNames="changed_by_id" constraintName="fk_app_user_status_change_actor"
+                                 referencedTableName="app_user" referencedColumnNames="id"/>
+        <createIndex tableName="app_user_status_change" indexName="ix_app_user_status_change_account">
+            <column name="app_user_id"/><column name="changed_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

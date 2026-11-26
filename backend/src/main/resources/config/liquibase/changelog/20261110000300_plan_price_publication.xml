@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261110000300-1" author="DucNV">
+        <modifyDataType tableName="plan_version" columnName="terms" newDataType="varchar(500)"/>
+        <addColumn tableName="plan_version">
+            <column name="revision" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="published_by_id" type="bigint"/>
+            <column name="published_at" type="${datetimeType}"/>
+            <column name="withdrawn_by_id" type="bigint"/>
+            <column name="withdrawn_at" type="${datetimeType}"/>
+            <column name="withdraw_reason" type="varchar(1000)"/>
+        </addColumn>
+        <!-- Historical publication metadata comes only from real audit evidence. -->
+        <sql>
+            UPDATE plan_version p SET published_at=(SELECT a.logged_at FROM audit_log a
+                WHERE a.target_type='PlanVersion' AND a.target_id=p.id AND a.action='PLAN_PRICE_PUBLISH' ORDER BY a.logged_at,a.id FETCH FIRST 1 ROW ONLY),
+                published_by_id=(SELECT a.actor_id FROM audit_log a
+                WHERE a.target_type='PlanVersion' AND a.target_id=p.id AND a.action='PLAN_PRICE_PUBLISH' ORDER BY a.logged_at,a.id FETCH FIRST 1 ROW ONLY)
+        </sql>
+        <addForeignKeyConstraint baseTableName="plan_version" baseColumnNames="published_by_id" constraintName="fk_plan_published_by" referencedTableName="app_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="plan_version" baseColumnNames="withdrawn_by_id" constraintName="fk_plan_withdrawn_by" referencedTableName="app_user" referencedColumnNames="id"/>
+        <createIndex tableName="plan_version" indexName="ix_plan_effective_withdrawn"><column name="withdrawn_at"/><column name="effective_at"/></createIndex>
+        <createTable tableName="plan_price_lock"><column name="id" type="integer"><constraints primaryKey="true" nullable="false"/></column></createTable>
+        <insert tableName="plan_price_lock"><column name="id" valueNumeric="1"/></insert>
+    </changeSet>
+</databaseChangeLog>

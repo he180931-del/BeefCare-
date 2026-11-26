@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +134,24 @@ class PenMoveServiceTest extends DomainTestSupport {
         assertThat(history.get(1).getSource()).isEqualTo(AssignmentSource.MOVE);
         assertThat(history.get(1).getReason()).isEqualTo("better feed");
         assertThat(history.get(1).getMovedBy().getId()).isEqualTo(owner.getId());
+    }
+
+    @Test
+    void moveUsesUtcPlusSevenAfterMidnightEvenWithLegacyFarmZone() {
+        farm.setTimeZone("Asia/Tokyo");
+        clock.set(TODAY.atTime(17, 0).toInstant(ZoneOffset.UTC));
+        Pen from = pen(farm, "FROM", 10);
+        Pen to = pen(farm, "TO", 10);
+        Cattle cow = cowIn(from, TODAY);
+        LocalDate farmDate = TODAY.plusDays(1);
+        Long id = cow.getId();
+
+        PenMoveCheckDTO checked = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(id), to.getId(), farmDate));
+        assertThat(checked.cattle()).singleElement().satisfies(row -> assertThat(row.error()).isNull());
+        move(new PenMoveRequest(List.of(id), to.getId(), null, "Chuyển chuồng", null, null, null));
+        assertThat(assignmentRepository.findAllByCattleIdOrderByFromDateAscIdAsc(id))
+            .satisfiesExactly(old -> assertThat(old.getToDate()).isEqualTo(farmDate),
+                current -> assertThat(current.getFromDate()).isEqualTo(farmDate));
     }
 
     @Test
@@ -426,6 +445,21 @@ class PenMoveServiceTest extends DomainTestSupport {
         assertThat(check.criteriaVersionNo()).isEqualTo(1);
         assertThat(check.blocked()).isFalse();
         assertThat(check.cattle().get(0).currentPenCode()).isEqualTo("A");
+    }
+
+    @Test
+    void checkDoesNotCountCattleThatCannotMoveAgainstFreePlaces() {
+        Pen a = pen(farm, "A", 10);
+        Pen b = pen(farm, "B", 1);
+        Cattle ok = cowIn(a, TODAY.minusDays(10));
+        Cattle exited = cowIn(a, TODAY.minusDays(10));
+        exited.setHerdStatus(HerdStatus.EXITED);
+        exited.setExitDate(TODAY.minusDays(1));
+        em.flush();
+        PenMoveCheckDTO check = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(ok.getId(), exited.getId()), b.getId(), TODAY));
+        assertThat(check.movingCount()).isEqualTo(1);
+        assertThat(check.blocked()).isFalse();
+        assertThat(check.cattle()).filteredOn(r -> r.cattleId().equals(exited.getId())).singleElement().satisfies(r -> assertThat(r.error().code()).isEqualTo(MessageCodes.COM_13));
     }
 
     @Test

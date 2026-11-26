@@ -1,34 +1,15 @@
-import { useRef, useState, type ChangeEvent } from 'react'
-import readXlsxFile from 'read-excel-file'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
-import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../data/entryExcel'
-import { kg } from '../../../data/format'
-import type { EntryCow } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
+import { useEntryExcelImport, type EntryBackendImportResult } from '../hooks/useEntryExcelImport'
+export type { EntryBackendImportResult } from '../hooks/useEntryExcelImport'
+import { Badge, Button, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
+import { kg } from '../../../shared/lib/format'
+import type { EntryCow } from '../types'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
-export type EntryBackendImportResult = {
-  total?: number
-  valid?: number
-  warnings?: number
-  errors?: number
-  summary?: { message?: string }
-  rows?: Array<{
-    row?: number
-    earTag?: string
-    breed?: string
-    sex?: string
-    weight?: string | number
-    pen?: string
-    result?: string
-    issues?: Array<{ message?: string; field?: string; severity?: string }>
-  }>
-}
-
 type ExcelModalProps = {
+  commandError?: unknown
+  onReload?: () => Promise<unknown>
   recordId: string
   onAdd: (cows: EntryCow[]) => void
   onClose: () => void
@@ -37,126 +18,13 @@ type ExcelModalProps = {
   onBackendCommit?: (file: File) => Promise<EntryCow[]>
 }
 
-const backendRows = (result: EntryBackendImportResult): EntryExcelPreviewRow[] => (result.rows ?? []).map((row, index) => {
-  const resultCode = String(row.result ?? '').toUpperCase()
-  const tone = resultCode === 'ERROR' ? 'err' : resultCode === 'WARNING' ? 'warn' : 'ok'
-  const issues = (row.issues ?? []).map((issue) => {
-    const message = String(issue.message ?? '').trim()
-    if (message) return message
-    const field = String(issue.field ?? '').trim()
-    const labels: Record<string, string> = {
-      earTagNumber: 'Số thẻ tai',
-      breed: 'Giống',
-      sex: 'Giới tính',
-      birthDate: 'Ngày sinh',
-      birthDateAccuracy: 'Độ chính xác ngày sinh',
-      lifeStage: 'Giai đoạn sinh trưởng',
-      purposeId: 'Mục đích nuôi',
-      entryWeightKg: 'Cân nhập (kg)',
-      weightBasis: 'Cơ sở cân',
-      penId: 'Chuồng nhận',
-      unitPrice: 'Đơn giá',
-      quarantineUntil: 'Ngày kết thúc cách ly',
-    }
-    return field ? `Vui lòng kiểm tra trường ${labels[field] ?? field}.` : ''
-  }).filter(Boolean)
-  const text = issues.length ? `${tone === 'err' ? 'Lỗi' : 'Cảnh báo'} · ${issues.join('; ')}` : tone === 'err' ? 'Lỗi' : tone === 'warn' ? 'Cảnh báo' : 'Hợp lệ'
-  const sex = row.sex === 'MALE' ? 'Đực' : row.sex === 'FEMALE' ? 'Cái' : String(row.sex ?? '')
-  const kg = Number(row.weight) || 0
-  return { line: row.row ?? index + 2, tag: String(row.earTag ?? ''), breed: String(row.breed ?? ''), sex, kg, barn: String(row.pen ?? ''), result: { tone, text }, cow: null }
-})
-
 /** Nhập nhiều con từ tệp Excel. Chỉ các dòng ok/warn được thêm; onAdd(cows[]) nhận danh sách con. */
-export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplate, onBackendPreview, onBackendCommit }: ExcelModalProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<EntryExcelPreviewRow[]>([])
-  const [fileName, setFileName] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingLabel, setLoadingLabel] = useState('')
-  const [previewComplete, setPreviewComplete] = useState(false)
-  const valid = rows.filter((r) => onBackendPreview ? r.result.tone !== 'err' : r.cow !== null)
-  const bad = rows.length - valid.length
-  const warn = rows.filter((r) => r.result.tone === 'warn').length
-
-  const add = async () => {
-    if (onBackendCommit) {
-      if (!selectedFile) return
-      setLoading(true)
-      setLoadingLabel('Đang thêm dữ liệu vào phiếu…')
-      setError('')
-      try {
-        onAdd(await onBackendCommit(selectedFile))
-      } catch (nextError) {
-        setError(userFacingError(nextError, 'Không thể nhập file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
-      } finally {
-        setLoading(false)
-        setLoadingLabel('')
-      }
-      return
-    }
-    onAdd(valid.map((row) => row.cow).filter((cow): cow is EntryCow => cow !== null))
-  }
-
-  const downloadTemplate = async () => {
-    if (!onDownloadTemplate) return
-    if (loading) return
-    setLoading(true)
-    setLoadingLabel('Đang tải file mẫu…')
-    setError('')
-    try {
-      const blob = await onDownloadTemplate()
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = 'beefcare-entry-template.xlsx'
-      document.body.append(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
-    } catch (nextError) {
-      setError(userFacingError(nextError, 'Không thể tải file mẫu Excel. Vui lòng thử lại.'))
-    } finally {
-      setLoading(false)
-      setLoadingLabel('')
-    }
-  }
-
-  const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    setLoading(true)
-    setLoadingLabel('Đang kiểm tra file…')
-    setError('')
-    setRows([])
-    setPreviewComplete(false)
-    setFileName(file.name)
-    setSelectedFile(file)
-    try {
-      if (!file.name.toLowerCase().endsWith('.xlsx')) throw new Error('Chỉ chấp nhận file có định dạng .xlsx.')
-      if (file.size > 5 * 1024 * 1024) throw new Error('File Excel không được lớn hơn 5 MB.')
-      if (onBackendPreview) {
-        const preview = await onBackendPreview(file)
-        setRows(backendRows(preview))
-      } else {
-        const sheet = await readXlsxFile(file, { sheet: 'Danh sách bò' })
-        const parsed = parseEntryExcelRows(sheet)
-        if (!parsed.length) throw new Error('File Excel chưa có dòng dữ liệu bò.')
-        setRows(parsed)
-      }
-      setPreviewComplete(true)
-    } catch (nextError) {
-      setError(userFacingError(nextError, 'Không thể đọc file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
-    } finally {
-      setLoading(false)
-      setLoadingLabel('')
-      event.target.value = ''
-    }
-  }
+export default function ExcelModal({ commandError, onReload, recordId, onAdd, onClose, onDownloadTemplate, onBackendPreview, onBackendCommit }: ExcelModalProps) {
+  const { inputRef, rows, fileName, error, loading, loadingLabel, previewComplete, valid, bad, warn, add, downloadTemplate, chooseFile } = useEntryExcelImport({ recordId, onAdd, onDownloadTemplate, onBackendPreview, onBackendCommit })
 
   return (
     <Modal top={24} width={760} maxHeight="calc(100vh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
+      {onReload && <VoucherCommandError error={commandError} onReload={onReload} />}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-[13px] font-semibold">1. Tải file mẫu</h3>
@@ -165,7 +33,9 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
             download
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-xs font-semibold text-[#212121]"
           ><Icon name="download" />Tải mẫu .xlsx</a>}
-          <span className="max-w-[380px] text-[11px] text-muted">Cột: Số thẻ tai · Giống · Giới tính · Ngày sinh · Độ chính xác · Cân · Cơ sở cân · Chuồng · Mục đích · Đơn giá</span>
+          <span className="max-w-[380px] text-[11px] text-muted">{onDownloadTemplate
+            ? 'Cột: Số tai · Giống · Giới tính · Ngày sinh hoặc Tuổi (tháng) · Độ chính xác · Màu lông · Cân · Cơ sở cân · Chuồng · Mục đích · Đơn giá · Cách ly đến. Trang "Hướng dẫn" trong file giải thích từng cột.'
+            : 'Cột: Số thẻ tai · Giống · Giới tính · Tháng sinh · Độ chính xác · Giai đoạn · Mục đích · Cân · Cơ sở cân · Chuồng · Đơn giá'}</span>
         </div>
       </div>
 
@@ -178,7 +48,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
           </span>
           {loading && <ProcessingIndicator label={loadingLabel} />}
           <span className="flex-1" />
-          <Button small disabled={loading} onClick={() => inputRef.current?.click()}>{fileName ? 'Đổi tệp' : 'Chọn tệp'}</Button>
+          <Button variant="link" small className="min-h-11 px-2!" disabled={loading} onClick={() => inputRef.current?.click()}>{fileName ? 'Đổi tệp' : 'Chọn tệp'}</Button>
           <input
             ref={inputRef}
             type="file"
@@ -193,8 +63,8 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
 
       {rows.length > 0 && <div className="flex flex-col gap-2">
         <h3 className="m-0 text-[13px] font-semibold">3. Kết quả kiểm tra</h3>
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-edge">
-        <Table stack={false}>
+        <div className="max-h-64 overflow-y-auto rounded-2xl border border-field">
+        <Table bordered={false} stack={false}>
           <thead>
             <tr>
               <Th className={`${TH} w-[40px]`}>Dòng</Th>
@@ -212,7 +82,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
                 <Td className={TH}>{r.tag}</Td>
                 <Td className={TH}>{`${r.breed} · ${r.sex}`}</Td>
                 <Td className={`${TH} whitespace-nowrap`}>{kg(r.kg)}</Td>
-                <Td className={`${TH} whitespace-nowrap`}>{IMPORT_BARN_NAME[r.barn]}</Td>
+                <Td className={`${TH} whitespace-nowrap`}>{r.barn}</Td>
                 <Td className={TH}><Badge tone={r.result.tone} icon={r.result.tone === 'ok' ? 'circle-check' : undefined}>{r.result.text}</Badge></Td>
               </tr>
             ))}
@@ -246,4 +116,3 @@ function ProcessingIndicator({ label }: { label: string }) {
   )
 }
 
-const IMPORT_BARN_NAME: Record<string, string> = { A1: 'A1 – Bò cái', A2: 'A2 – Bò cái', B1: 'B1 – Vỗ béo' }

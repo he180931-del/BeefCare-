@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import RowEditModal, { purposesForSex, stagesForSex } from '../../../src/features/herd-entry/components/RowEditModal'
-import type { EntryCow, Pen } from '../../../src/types'
+import type { EntryCow } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const eligiblePen: Pen = {
   code: 'B1',
@@ -58,6 +59,32 @@ it('chặn lưu ngay trong popup khi cân nhập theo kg không hợp lệ', asy
   expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument()
 })
 
+it.each([
+  ['tuổi 0 tháng', { dob: '2026-10' }],
+  ['tuổi 241 tháng', { dob: '2006-09' }],
+  ['cân 1.501 kg', { weight: 1501 }],
+  ['số tai 31 ký tự', { tag: 'T'.repeat(31) }],
+] as const)('TC-06-18: blocks saving the specified invalid %s value', async (_label, patch) => {
+  const user = userEvent.setup()
+  const onSave = renderModal({ ...completeCow, ...patch })
+
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+
+  expect(onSave).not.toHaveBeenCalled()
+})
+
+it.each([
+  ['1 tháng', '2026-09'],
+  ['240 tháng', '2006-10'],
+])('TC-06-18: allows saving at the valid age limit of %s', async (_label, dob) => {
+  const user = userEvent.setup()
+  const onSave = renderModal({ ...completeCow, dob })
+
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ dob }))
+})
+
 it('chặn lưu ngay trong popup khi chưa chọn chuồng nhận', async () => {
   const user = userEvent.setup()
   const onSave = renderModal({ ...completeCow, barn: '' })
@@ -68,21 +95,21 @@ it('chặn lưu ngay trong popup khi chưa chọn chuồng nhận', async () => 
   expect(screen.getByText('Vui lòng chọn chuồng nhận.')).toBeInTheDocument()
 })
 
-it('cho chỉnh ngày sinh bằng lịch ngày tháng năm và giữ giá trị ngày đã chọn', () => {
-  const onSave = renderModal(completeCow)
-  const date = screen.getByLabelText('Ngày sinh') as HTMLInputElement
+it('edits birth month as an estimated first-of-month date with separate year and month pickers', () => {
+ const save=renderModal(completeCow);const year=screen.getByLabelText('Năm sinh');const month=screen.getByLabelText('Tháng sinh');
+ expect(year).toHaveValue('2025');expect(month).toHaveValue('04');
+ // Years run from the entry year back 20 years; months after the entry month are disabled in the entry year.
+ expect(within(year).getByRole('option',{name:'2026'})).toBeInTheDocument();expect(within(year).getByRole('option',{name:'2006'})).toBeInTheDocument();
+ fireEvent.change(year,{target:{value:'2026'}});expect(within(month).getByRole('option',{name:'Tháng 11'})).toBeDisabled();expect(within(month).getByRole('option',{name:'Tháng 10'})).toBeEnabled();
+ fireEvent.change(year,{target:{value:'2025'}});fireEvent.change(month,{target:{value:'05'}});fireEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(save).toHaveBeenCalledWith(expect.objectContaining({dob:'2025-05-01',dobAccuracy:'ESTIMATED'}))
+})
 
-  expect(date).toHaveAttribute('type', 'date')
-  // Drafts created with month-only precision remain editable in the native
-  // calendar by using the first day as the input representation.
-  expect(date).toHaveValue('2025-04-01')
-  expect(date).toHaveAttribute('max', '2026-10-29')
-
-  fireEvent.change(date, { target: { value: '2025-04-17' } })
-  expect(date).toHaveValue('2025-04-17')
-
-  fireEvent.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ dob: '2025-04-17' }))
+it('blocks a year without a month and clears the birth date when both are emptied', () => {
+ const save=renderModal(completeCow);fireEvent.change(screen.getByLabelText('Tháng sinh'),{target:{value:''}});
+ fireEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(save).not.toHaveBeenCalled();
+ expect(screen.getByText('Chọn đủ tháng và năm sinh, hoặc để trống cả hai.')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Năm sinh'),{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));
+ expect(save).toHaveBeenCalledWith(expect.objectContaining({dob:'',dobAccuracy:'UNKNOWN'}))
 })
 
 it('hiển thị lỗi tại popup và không lưu khi chưa chọn giống', async () => {
@@ -119,36 +146,31 @@ it('hiển thị cảnh báo tiêu chí ngay khi chọn chuồng và không ch�
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ warningReason: 'Không phù hợp tiêu chí chuồng' }))
 })
 
-it('ẩn xóa con với dòng nháp mới và chỉ hiện với dòng đã có mã hồ sơ', () => {
-  renderModal(completeCow)
-  expect(screen.queryByRole('button', { name: 'Xóa con khỏi phiếu' })).not.toBeInTheDocument()
-  cleanup()
-
-  renderModal({ ...completeCow, code: 'BC-000248' })
-  expect(screen.getByRole('button', { name: 'Xóa con khỏi phiếu' })).toBeInTheDocument()
+it('draft row without a cattle code can be removed after confirmation', async () => {
+ renderModal(completeCow);await userEvent.click(screen.getByRole('button',{name:'Xóa con khỏi phiếu'}));expect(screen.getByRole('dialog',{name:'Xóa con #1 khỏi phiếu?'})).toBeInTheDocument()
 })
 
 it('cho nhập chi tiết lịch sử theo từng khai báo', async () => {
   const user = userEvent.setup()
   renderModal(completeCow)
 
-  const vaccineDetail = screen.getByLabelText('Chi tiết tiêm phòng')
-  const diseaseDetail = screen.getByLabelText('Chi tiết bệnh đã biết')
-  const reproductionDetail = screen.getByLabelText('Chi tiết sinh sản')
-  expect(vaccineDetail).toBeDisabled()
-  expect(diseaseDetail).toBeDisabled()
-  expect(reproductionDetail).toBeDisabled()
+  expect(screen.queryByLabelText('Chi tiết tiêm phòng')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Chi tiết bệnh đã biết')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Chi tiết sinh sản')).not.toBeInTheDocument()
 
   const yesRadios = screen.getAllByRole('radio', { name: 'Có' })
   await user.click(yesRadios[0])
   await user.click(yesRadios[1])
   await user.click(yesRadios[2])
+  const vaccineDetail=screen.getByLabelText('Chi tiết tiêm phòng')
+  const diseaseDetail=screen.getByLabelText('Chi tiết bệnh đã biết')
+  const reproductionDetail=screen.getByLabelText('Chi tiết sinh sản')
   expect(vaccineDetail).toBeEnabled()
   expect(diseaseDetail).toBeEnabled()
   expect(reproductionDetail).toBeEnabled()
 
   await user.click(vaccineDetail)
-  await user.type(screen.getByLabelText('Tên vaccine tự do'), 'LMLM 03/2026')
+  await user.type(screen.getByLabelText('Tên vaccine'), 'LMLM 03/2026')
   await user.click(screen.getByRole('button', { name: 'Lưu chi tiết' }))
   expect(vaccineDetail).toHaveTextContent('Chi tiết (đã nhập)')
 
@@ -172,7 +194,7 @@ it('chỉ hiện số tháng mang thai khi đang mang thai và xóa giá trị k
   expect(screen.getByLabelText('Số tháng mang thai')).toBeDisabled()
 
   await user.selectOptions(screen.getByLabelText('Đang mang thai'), 'YES')
-  expect(screen.getByLabelText('Số tháng mang thai')).toHaveValue(4)
+  expect(screen.getByLabelText('Số tháng mang thai')).toHaveValue('4')
   expect(screen.getByLabelText('Số tháng mang thai')).toBeEnabled()
   await user.selectOptions(screen.getByLabelText('Đang mang thai'), 'NO')
   expect(screen.getByLabelText('Số tháng mang thai')).toBeDisabled()
@@ -181,16 +203,35 @@ it('chỉ hiện số tháng mang thai khi đang mang thai và xóa giá trị k
 
 })
 
+it('keeps reproduction detail open for an out-of-range parity', async () => {
+  const user = userEvent.setup()
+  renderModal({ ...completeCow, hist: { ...completeCow.hist, repro: 'Có' } })
+  await user.click(screen.getByRole('button', { name: 'Chi tiết sinh sản' }))
+  const parity = screen.getByLabelText('Số lứa đã đẻ trước nhập đàn')
+  await user.type(parity, '16')
+  await user.click(screen.getByRole('button', { name: 'Lưu chi tiết' }))
+  expect(screen.getAllByText('Số lứa đã đẻ phải từ 0 đến 15.').length).toBeGreaterThan(0)
+  await user.clear(parity)
+  await user.type(parity, '15')
+  await user.click(screen.getByRole('button', { name: 'Lưu chi tiết' }))
+  expect(screen.queryByLabelText('Số lứa đã đẻ trước nhập đàn')).not.toBeInTheDocument()
+})
+
 it('hiển thị catalogue vaccine và giữ vaccineId khi chọn', async () => {
   const user = userEvent.setup()
-  renderModal({ ...completeCow, hist: { ...completeCow.hist, vaccine: 'Có' } }, vi.fn(), [{ id: 55, code: 'LMLM', name: 'Lở mồm long móng', available: true }])
+  const onSave = vi.fn()
+  renderModal({ ...completeCow, hist: { ...completeCow.hist, vaccine: 'Có' } }, onSave, [{ id: 55, code: 'LMLM', name: 'Lở mồm long móng', available: true }])
   await user.click(screen.getByRole('button', { name: 'Chi tiết tiêm phòng' }))
-  const catalogue = screen.getByLabelText('Chọn vaccine trong danh mục 1')
-  expect(catalogue).toBeInTheDocument()
-  expect(screen.getByRole('option', { name: 'LMLM · Lở mồm long móng' })).toBeInTheDocument()
-  await user.selectOptions(catalogue, 'id:55')
+  // One name field: the catalogue only suggests names (no vaccine code) and a matching name keeps its ID.
+  expect(screen.queryByLabelText('Chọn vaccine trong danh mục 1')).not.toBeInTheDocument()
+  const name = screen.getByLabelText('Tên vaccine')
+  expect(name).toHaveAttribute('list', 'entry-history-vaccine-options')
+  expect(document.querySelector('#entry-history-vaccine-options option')).toHaveAttribute('value', 'Lở mồm long móng')
+  await user.type(name, 'lở mồm long móng')
   await user.click(screen.getByRole('button', { name: 'Lưu chi tiết' }))
   expect(screen.getByRole('button', { name: 'Chi tiết tiêm phòng' })).toHaveTextContent('Chi tiết (đã nhập)')
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ hist: expect.objectContaining({ vaccineItems: [expect.objectContaining({ vaccineId: 55, vaccineName: 'lở mồm long móng' })] }) }))
 })
 
 it('cho thêm và xóa từng dòng vaccine, nhưng bệnh chỉ có một mô tả', async () => {
@@ -198,9 +239,9 @@ it('cho thêm và xóa từng dòng vaccine, nhưng bệnh chỉ có một mô t
   renderModal({ ...completeCow, hist: { ...completeCow.hist, vaccine: 'Có', disease: 'Có' } }, vi.fn(), [{ id: 55, code: 'LMLM', name: 'Lở mồm long móng', available: true }])
   await user.click(screen.getByRole('button', { name: 'Chi tiết tiêm phòng' }))
   await user.click(screen.getByRole('button', { name: '+ Thêm vaccine' }))
-  expect(screen.getByLabelText('Tên vaccine tự do 2')).toBeInTheDocument()
+  expect(screen.getByLabelText('Tên vaccine 2')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Xóa vaccine 2' }))
-  expect(screen.queryByLabelText('Tên vaccine tự do 2')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Tên vaccine 2')).not.toBeInTheDocument()
   await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
   await user.click(screen.getByRole('button', { name: 'Chi tiết bệnh đã biết' }))
   expect(screen.getByLabelText('Mô tả bệnh')).toBeInTheDocument()
@@ -228,13 +269,12 @@ it('chỉ mở và lọc giai đoạn, mục đích sau khi chọn giới tính'
   expect(stagesForSex('Cái').some((stage) => stage.value === 'Đực giống')).toBe(false)
   expect(stagesForSex('Cái').some((stage) => stage.value === 'Bò cái')).toBe(true)
   expect(purposesForSex('Đực').some((purpose) => /sinh sản/i.test(purpose))).toBe(false)
-  expect(purposesForSex('Cái').some((purpose) => /vỗ béo|đực giống/i.test(purpose))).toBe(false)
+  expect(purposesForSex('Cái').some((purpose) => /đực giống|giữ giống/i.test(purpose))).toBe(false)
 
   cleanup()
   renderModal({ ...completeCow, sex: '', stage: '', purpose: '' })
-  const comboboxes = screen.getAllByRole('combobox')
-  expect(comboboxes[1]).toBeDisabled()
-  expect(comboboxes[2]).toBeDisabled()
+  expect(document.querySelector('#entry-cow-stage')).toBeDisabled()
+  expect(document.querySelector('#entry-cow-purpose')).toBeDisabled()
   expect(screen.getByText('Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.')).toBeInTheDocument()
 
   cleanup()
@@ -245,7 +285,6 @@ it('chỉ mở và lọc giai đoạn, mục đích sau khi chọn giới tính'
 
   await user.click(screen.getByRole('radio', { name: 'Cái' }))
   expect(screen.getByText('Giai đoạn sinh trưởng hiện tại không phù hợp với giới tính đã chọn. Vui lòng chọn lại.')).toBeInTheDocument()
-  const changedSexComboboxes = screen.getAllByRole('combobox')
-  expect(changedSexComboboxes[1]).toHaveValue('')
-  expect(changedSexComboboxes[2]).toHaveValue('')
+  expect(document.querySelector('#entry-cow-stage')).toHaveValue('')
+  expect(document.querySelector('#entry-cow-purpose')).toHaveValue('')
 })

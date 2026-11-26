@@ -14,4 +14,15 @@ public interface AnnouncementRecipientRepository extends JpaRepository<Announcem
     java.util.Optional<AnnouncementRecipient> findByIdAndMembership_Id(Long id,Long membershipId);
     boolean existsByVersion_IdAndMembership_Id(Long versionId,Long membershipId);
     java.util.List<AnnouncementRecipient> findByVersion_Id(Long versionId);
+
+    /**
+     * JOB-07 reads the immutable recipient snapshot and rechecks each membership before creating a notice.
+     * Load the current access fields in one query so delivery does not depend on N+1 lazy reads.
+     */
+    @EntityGraph(attributePaths = {
+        "version", "version.announcement", "version.announcement.farm"
+    })
+    java.util.List<AnnouncementRecipient> findSnapshotByVersion_Id(Long versionId);
+
+    boolean existsByVersion_Announcement_IdAndMembership_Id(Long announcementId, Long membershipId);
 }

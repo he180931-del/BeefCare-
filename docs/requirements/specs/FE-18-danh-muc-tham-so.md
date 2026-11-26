@@ -6,9 +6,9 @@
 | Use case | UC-FE18-01 → UC-FE18-17 |
 | Người phụ trách | AnNT (BE + FE + test) · Review BE: TuanPQ · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Breed, Vaccine, Medicine, Production Purpose, Farm Parameter Version), BR-D12, BR-D32, Part II §14.1 (UC-FE18-17), Part III §18 (Table III-6, SCR-52 → SCR-56), MSG-FE18-01 → 09, GBR-25, 55, 63, 67, 68, 109 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT theo SRS 28/10 (D12), quyền xem D37 / D41; chính sách vòng đời danh mục được AnNT xác nhận ngày 22/11/2026 (D42) |
 
-> Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
+> Nguồn yêu cầu là SRS và các quyết định được dẫn chiếu. D42 làm rõ chính sách vòng đời, không mở rộng quyền xóa sang giống, thuốc hoặc mục đích. Route ở mục 7 dùng để nối API.
 > Danh mục thức ăn (Feed item) thuộc FE-23; FE-18 chỉ tạo sẵn mặt hàng mẫu khi tạo trại (GBR-109).
 
 ---
@@ -23,7 +23,7 @@
 | Mục đích nuôi | UC-FE18-13 → 16 | Xem, tạo, sửa, ngưng / dùng lại | SCR-55 |
 | Tham số | UC-FE18-17 | Lưu phiên bản tham số trạng thái và nhắc việc | SCR-56 |
 
-Tất cả nằm trên **một trang** "Danh mục & tham số" với 5 tab, mặc định mở tab Giống. Mỗi danh mục có danh sách, ô tìm, lọc trạng thái (Tất cả / ACTIVE / INACTIVE) và panel chỉnh sửa.
+Tất cả nằm trên **một trang** "Danh mục & tham số" với 5 tab, mặc định mở tab Giống. Mỗi danh mục có danh sách, ô tìm, lọc trạng thái (Tất cả / ACTIVE / INACTIVE) và panel chỉnh sửa. Mặc định lọc ACTIVE; chọn INACTIVE hoặc Tất cả để xem và dùng lại mục đã ngưng (D42).
 
 ---
 
@@ -32,7 +32,7 @@ Tất cả nằm trên **một trang** "Danh mục & tham số" với 5 tab, m�
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem giống, vắc-xin, thuốc | Có | Có | Có |
-| Xem mục đích nuôi, tham số | Có | Có | — (Q1) |
+| Xem mục đích nuôi, tham số hiện hành và lịch sử phiên bản | Có | Có | Có, chỉ đọc (D37) |
 | Tạo, sửa, ngưng / dùng lại, xóa vắc-xin chưa dùng | Có | Có | — |
 | Lưu phiên bản tham số | Có | Có | — |
 
@@ -50,7 +50,7 @@ Trại ACTIVE (PRE-1).
 | Tên giống | Chuỗi | Có | ≤ 100 | SCR-52 |
 | Nhóm | Chuỗi | Không | ≤ 50 (Zebu, Lai, Địa phương…) | SCR-52 |
 | Mô tả | Chuỗi dài | Không | ≤ 500 | SCR-52 |
-| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; đã tham chiếu → không xóa | §3.2 |
+| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; không có thao tác xóa, kể cả chưa dùng | §3.2, D42 |
 | Số bò đang nuôi | Suy ra | — | Bò ACTIVE thuộc giống | SCR-52 |
 
 ### 3.2 Vắc-xin (Vaccine)
@@ -75,11 +75,11 @@ Trại ACTIVE (PRE-1).
 |---|---|---|---|
 | Mã | Chuỗi | Có | Như giống |
 | Tên thuốc | Chuỗi | Có | ≤ 150 (Q2) |
-| Liều tham chiếu | Chuỗi | Không | ≤ 100 (ví dụ "1 ml/10 kg thể trọng") |
+| Liều tham chiếu | Chuỗi | Không | ≤ 50, số + đơn vị, ví dụ "30 ml"; liều theo thể trọng ghi ở Ghi chú (D65) |
 | Đường dùng | Enum | Không | Tiêm bắp / Tiêm dưới da / Tiêm tĩnh mạch / Uống / Bôi ngoài da / Khác |
 | Ngưng thịt (ngày) | Số nguyên | **Có** | 0–365 |
 | Ghi chú | Chuỗi dài | Không | ≤ 500 |
-| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; đã tham chiếu không xóa |
+| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; không có thao tác xóa, kể cả chưa dùng (D42) |
 
 Chỉ tham chiếu: không tồn kho, không mua, không kê đơn.
 
@@ -91,7 +91,7 @@ Chỉ tham chiếu: không tồn kho, không mua, không kê đơn.
 | Tên mục đích | Chuỗi | Có | ≤ 100 |
 | Loại mục đích | Enum | Có | `BREEDING` Sinh sản / `FATTENING` Vỗ béo / `SIRE` Đực giống / `UNDECIDED` Chưa xác định; **cố định khi đã tham chiếu** bởi bò hoặc phiên bản tiêu chí chuồng (BR-D32) |
 | Mô tả | Chuỗi dài | Không | ≤ 500 (Q3) |
-| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; ngưng chỉ chặn chọn mới |
+| Trạng thái | Enum | — | `ACTIVE` ⇄ `INACTIVE`; ngưng chỉ chặn chọn mới; không có thao tác xóa, kể cả chưa dùng (D42) |
 | Số bò đang nuôi, Chuồng tiếp nhận | Suy ra | — | Chuồng có tiêu chí chấp nhận loại mục đích |
 
 Nhiều mục đích có thể cùng 1 loại.
@@ -169,6 +169,21 @@ Ràng buộc chéo: tuổi cai sữa < tuổi bò tơ < tuổi trưởng thành;
 | R-18-13 | Gợi ý không bao giờ tự tạo sự kiện hay đổi trạng thái (ghi chú trên SCR-56). | OR-06, GBR-25 |
 | R-18-14 | Tạo trại → tạo danh mục mẫu + tham số mặc định; mục mẫu là mục thường của trại, sửa không ảnh hưởng trại khác. | GBR-109 |
 | R-18-15 | Lưu dùng Idempotency-Key; sửa / lưu phiên bản dùng version → đổi ở phiên khác MSG-COM-05. | GBR-88, GBR-89 |
+| R-18-16 | Giống, thuốc, mục đích không được xóa ở UI hoặc API, kể cả chưa dùng. Nhập nhầm → sửa khi còn được phép hoặc ngưng; dùng lại giữ nguyên ID. Chỉ vắc-xin có quyền xóa theo R-18-03. | D42, Q4 |
+| R-18-17 | Đã tham chiếu = bất kỳ liên kết nghiệp vụ còn lưu nào, gồm dữ liệu nháp, lịch, bản ghi đã hủy / bò đã xuất và phiên bản tiêu chí chuồng cũ khi áp dụng. Không suy ra từ số bò ACTIVE. Đếm tham chiếu để khóa mã / loại và xác nhận ngưng; mọi danh mục INACTIVE vẫn được giữ và tra cứu. | D42, R-18-01 → 06 |
+| R-18-18 | Ngưng không tự thay giống / mục đích của bò, hủy lịch hoặc thay nội dung chứng từ. Dropdown chọn mới chỉ nhận ACTIVE; phiếu nháp được giữ nhưng phải kiểm lại danh mục khi ghi sổ. Sửa danh mục không viết lại snapshot đã chốt, gồm tên và thông số ngưng thịt. | D42, R-18-04 / 05 |
+| R-18-19 | Xóa vắc-xin phải kiểm lại quyền, version và mọi tham chiếu trong giao dịch; thao tác tạo tham chiếu phải phối hợp khóa để không thể đồng thời xóa và gắn mới. Phiên sửa giữ version đã đọc ban đầu, không tự lấy version mới trước khi lưu. | D42, GBR-88 / 89 |
+
+### 4.1 Ma trận vòng đời danh mục (D42)
+
+| Danh mục | Chưa từng tham chiếu | Đã từng tham chiếu |
+|---|---|---|
+| Giống | Sửa, ngưng / dùng lại; không xóa | Khóa mã; sửa tên / mô tả / nhóm, ngưng / dùng lại |
+| Thuốc | Sửa, ngưng / dùng lại; không xóa | Khóa mã; sửa thông tin tham chiếu cho lần dùng mới, ngưng / dùng lại |
+| Mục đích | Sửa, ngưng / dùng lại; không xóa | Khóa mã và loại; sửa tên / mô tả, ngưng / dùng lại |
+| Vắc-xin | Sửa, ngưng / dùng lại, xóa sau xác nhận | Khóa mã; sửa thông tin tham chiếu, ngưng / dùng lại; chặn xóa |
+
+Tham số vẫn theo R-18-08 → 15: lưu phiên bản mới có nguồn và ngày hiệu lực UTC+07:00 (D39); nhận diện riêng bản CURRENT và SCHEDULED; lịch sử chỉ đọc. Không sửa đè phiên bản hay sự kiện cũ, không thêm thao tác xóa / hủy phiên bản trong gói này.
 
 ---
 
@@ -185,6 +200,8 @@ Chọn dòng → panel với giá trị hiện tại (mã chỉ đọc nếu đ�
 
 ### UC-FE18-04 / 08 / 12 / 16 Ngưng / dùng lại / xóa
 Đổi trạng thái → nếu đã tham chiếu: MSG-FE18-03 → xác nhận → lưu. Vắc-xin: **Xóa** → chưa dùng: MSG-FE18-07 → xóa; đã dùng: MSG-FE18-04.
+
+Giống, thuốc và mục đích không hiện nút Xóa. Các đường DELETE giống / thuốc / mục đích triển khai trước D42 bị loại khỏi hợp đồng; gọi trực tiếp trả HTTP 405, không thay dữ liệu và không ghi audit xóa. Sau khi ngưng, danh sách ACTIVE không hiện mục; lọc INACTIVE / Tất cả để mở và Dùng lại.
 
 ### UC-FE18-17 Lưu phiên bản tham số
 1. SCR-56 hiện phiên bản hiện tại, nguồn, lịch sử.
@@ -206,7 +223,7 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Mặc định | Lỗi |
 |---|---|---|---|---|---|---|
 | 1 | Add breed / Thêm giống | Nút (O, M) | — | — | — | — |
-| 2 | Search, Status filter / Tìm, Trạng thái | Ô chữ, chip | — | Tất cả / ACTIVE / INACTIVE | Tất cả | — |
+| 2 | Search, Status filter / Tìm, Trạng thái | Ô chữ, chip | — | Tất cả / ACTIVE / INACTIVE | ACTIVE (D42) | — |
 | 3 | Code / Mã | Cột | — | — | — | — |
 | 4 | Breed name / Tên giống | Cột | — | Kèm mô tả | — | — |
 | 5 | Group, Cattle in herd, Status / Nhóm, Bò đang nuôi, Trạng thái | Cột | — | Bò đang nuôi = số bò ACTIVE | — | — |
@@ -243,8 +260,8 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 | 1 | Add medicine / Thêm thuốc | Nút (O, M) | — | — | — | — |
 | 2 | Cột danh sách | Cột | — | Mã, Tên thuốc, Liều tham chiếu, Đường dùng, Ngưng thịt (ngày), Trạng thái | — | — |
 | 3 | Code / Mã | Ô chữ | * | Như giống | — | MSG-FE18-02 |
-| 4 | Medicine name / Tên thuốc | Ô chữ | * | ≤ 150 (Q2) | — | MSG-COM-06 |
-| 5 | Reference dose / Liều tham chiếu | Ô chữ | — | ≤ 100 | — | MSG-COM-10 |
+| 4 | Medicine name / Tên thuốc | Ô chữ | * | ≤ 150 (Q2); gợi ý: thuốc nhiều dạng (tiêm / uống) tạo mỗi dạng một mục vì liều và ngưng thịt khác nhau (D65) | — | MSG-COM-06 |
+| 5 | Reference dose / Liều tham chiếu | Số + đơn vị | — | Số > 0; đơn vị ml / lít / mg / g / viên / gói / liều; liều theo thể trọng ghi ở Ghi chú. Liều cũ không theo chuẩn hiện nguyên văn, giữ nguyên nếu không nhập lại (D65) | — | MSG-COM-10 |
 | 6 | Route / Đường dùng | Dropdown | — | Tiêm bắp / Dưới da / Tĩnh mạch / Uống / Bôi / Khác | — | — |
 | 7 | Meat withdrawal (days) / Ngưng thịt (ngày) | Số nguyên | * | 0–365 | — | MSG-COM-06, MSG-COM-10 |
 | 8 | Notes / Ghi chú | Ô chữ dài | — | ≤ 500 | — | MSG-COM-10 |
@@ -292,6 +309,8 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 | A8 | Tham số hiệu lực | `date?` | `{version, effectiveFrom, sourceNote, author, values{…}}` | — | `GET /api/farms/{farmId}/parameters/effective` |
 | A9 | Lịch sử phiên bản | — | `[ParameterVersionResult {version, effectiveFrom, sourceNote, author, createdAt, changes[{key, from, to}], scheduled}]` | — | `GET /api/farms/{farmId}/parameters/versions` |
 | A10 | Lưu phiên bản mới | `ParameterVersionCommand {values{…17}, sourceNote, effectiveFrom, baseVersion}` + `Idempotency-Key` | `ParameterVersionResult` | FE18-06, COM-06, COM-05, COM-02 | `POST /api/farms/{farmId}/parameters/versions` |
+
+Không hỗ trợ DELETE `/catalogues/breeds/{id}`, `/catalogues/production-purposes/{id}` hoặc `/medicines/{id}` (HTTP 405). Xóa vắc-xin A4 là thao tác xóa danh mục duy nhất. API danh sách vẫn cho phép đọc cả hai trạng thái; mặc định ACTIVE là bộ lọc của màn quản trị, không che dữ liệu lịch sử khỏi API.
 
 ---
 
@@ -344,6 +363,11 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 | TC-18-27 | Tạo trại mới, chọn giống chính LAISIND | Đăng ký trại | 4 mục đích ACTIVE, LAISIND ACTIVE, giống khác INACTIVE, 3 vắc-xin ACTIVE + Nhiệt thán INACTIVE, không có thuốc, tham số v1 mặc định | I | R-18-14 |
 | TC-18-28 | Sửa mục mẫu ở trại A | — | Trại B không đổi | I | R-18-14 |
 | TC-18-29 | Xem phiên bản cũ | Mở lịch sử | Chỉ đọc | E | UC-17 AF2 |
+| TC-18-30 | Giống / thuốc / mục đích chưa dùng hoặc đã dùng | Mở panel, gọi DELETE trực tiếp với phiên hợp lệ | Không có nút Xóa; HTTP 405, dữ liệu và audit xóa không đổi | H, E | R-18-16 |
+| TC-18-31 | Mục ACTIVE có tham chiếu lịch sử nhưng 0 bò đang nuôi | Ngưng | Xác nhận bằng số tham chiếu; khóa mã / loại vẫn giữ; liên kết cũ không đổi | I, E | R-18-17 / 18 |
+| TC-18-32 | Mục đã ngưng | Mở danh sách, lọc INACTIVE rồi Dùng lại | Mặc định ACTIVE ẩn mục; dùng lại cùng ID, version mới, chọn mới được | I, E | R-18-16 / 18 |
+| TC-18-33 | Vắc-xin chỉ còn lịch đã hủy / bản ghi VOIDED | Xóa | MSG-FE18-04; dữ liệu lịch sử còn nguyên | I | R-18-17 |
+| TC-18-34 | Hai giao dịch xóa vắc-xin và tạo tham chiếu cùng lúc | Commit | Không có tham chiếu mồ côi; chỉ một thứ tự hợp lệ, bên còn lại bị từ chối khi điều kiện không còn đúng | I PostgreSQL | R-18-19 |
 
 ---
 
@@ -351,10 +375,10 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
-| Q1 | Technician có xem SCR-55, SCR-56 không? (SRS nói SCR-55 "Owner or a Manager"; SCR-52 → 54 "farm members") | Technician chỉ xem giống, vắc-xin, thuốc |
+| Q1 | Technician có xem SCR-55, SCR-56 không? | Có, chỉ đọc cả năm tab và lịch sử phiên bản (D37). |
 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |
 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |
-| Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng |
+| Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Đã chốt D42 (AnNT, 22/11/2026): Không; chỉ sửa hoặc ngưng / dùng lại. Chỉ vắc-xin chưa từng tham chiếu được xóa. |
 | Q5 | Tham số "Chuẩn bị đẻ trước" (30) dùng cho REM-05; "Khám thai sau phối" (28) cho REM-03 – xác nhận REM dùng tham số thay hằng số | Có – Table III-3 ghi giá trị mặc định |
 
 ---
@@ -365,3 +389,5 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 22/11/2026 | 28/10/2026 + D42 | AnNT xác nhận chính sách vòng đời: chỉ xóa vắc-xin chưa dùng; làm rõ tham chiếu lịch sử, ngưng / dùng lại, mặc định ACTIVE, version / khóa và ca nghiệm thu trước khi sửa code | AnNT / Codex |
+| 24/11/2026 | 28/10/2026 + D65 | Chủ FE-18 đồng ý: liều tham chiếu của thuốc nhập số + đơn vị, ≤ 50; liều theo thể trọng ghi ở Ghi chú như ô Liều khi ghi điều trị; gợi ý tạo mỗi dạng thuốc một mục | Tuấn |

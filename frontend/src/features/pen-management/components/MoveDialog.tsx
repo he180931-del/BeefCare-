@@ -1,0 +1,213 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useSession } from '../../../app/session/sessionContext'
+import { Button, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { penError } from '../api/penError'
+import { BackendError } from '../../../shared/api/backendClient'
+import { penApi, type MoveCattle, type PenMember, type PenMoveCheckResult } from '../api/penApi'
+import { CRITERION_LABELS, dmy, PEN_STATUS_LABELS, SEX_LABELS, STAGE_LABELS, todayIso, type CriterionType } from '../domain/penRules'
+import { cx, TH } from './parts'
+import type { Pen } from '../types'
+import { usePenMove } from '../hooks/usePenMove'
+
+const OUTCOME_TEXT = { MET: 'Đạt', NOT_MET: 'Không đạt', NOT_APPLICABLE: 'Không áp dụng' } as const
+const OUTCOME_TONE = { MET: 'text-brand', NOT_MET: 'text-err-fg', NOT_APPLICABLE: 'text-muted' } as const
+
+/** Per-cattle blocking errors of the reception check (R-04-08, R-04-10, R-04-12). */
+function cattleErrorText(error: { code?: string; params?: Record<string, unknown> }, code: string): string {
+  switch (error.code) {
+    case 'MSG-COM-13': return `${code} đã xuất đàn hoặc bị hủy, chỉ được xem.`
+    case 'MSG-COM-17': return `${code} đang trên phiếu xuất (chết / mất tích) chờ duyệt nên không chuyển được.`
+    case 'MSG-FE04-09': return `Ngày chuyển của ${code} phải từ ${dmy(String(error.params?.start_date ?? ''))} đến hôm nay.`
+    case 'MSG-COM-05': return `Thông tin của ${code} đã thay đổi. Vui lòng tải lại rồi thử lại.`
+    default: return `${code} không chuyển được (${error.code ?? 'lỗi'}).`
+  }
+}
+
+/**
+ * Move Pen popup (UC-FE04-05) opened from SCR-17 for the selected cattle. The reception check (A6) is re-run on every
+ * destination / date change; the backend checks everything again on confirm (R-04-12) and moves all or nothing.
+ */
+export default function MoveDialog({ from, cattle, pens, onClose, onReload = onClose, onMoved, today: fixedDate }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onReload?: () => void; onMoved: (message: string) => void; today?: string }) {
+  const session = useSession()
+  const today = fixedDate ?? todayIso()
+  const destinations = pens.filter((p) => p.status === 'ACTIVE' && p.code !== from.code)
+  const [toCode, setToCode] = useState('')
+  const [enteredDate, setDate] = useState<string>()
+  const date = enteredDate ?? today
+  const [reason, setReason] = useState('')
+  const [warnings, setWarnings] = useState<Record<string, string>>({})
+  const [check, setCheck] = useState<PenMoveCheckResult | null>(null)
+  const [checkRun, setCheckRun] = useState(0)
+  const [needsReload, setNeedsReload] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [checkError, setCheckError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [tried, setTried] = useState(false)
+  const [members, setMembers] = useState<PenMember[]>([])
+  const [performerId, setPerformerId] = useState('')
+  const [membersError, setMembersError] = useState('')
+  const { checkMove, move } = usePenMove()
+  const to = destinations.find((p) => p.code === toCode)
+
+  useEffect(() => {
+    let active = true
+    penApi.listPenMembers().then((rows) => {
+      if (!active) return
+      setMembers(rows)
+      // FE-04: người thực hiện mặc định là mình; không có trong danh sách thì để trống (máy chủ ghi theo phiên đăng nhập).
+      const current = session?.id != null ? rows.find((row) => row.userId === session.id) : undefined
+      setPerformerId(current ? String(current.userId) : '')
+    }).catch(() => {
+      if (active) {
+        setMembersError('Không tải được danh sách thành viên; vẫn có thể chuyển với người đang đăng nhập.')
+        setPerformerId(session?.id == null ? '' : String(session.id))
+      }
+    })
+    return () => { active = false }
+  }, [session?.id])
+
+  useEffect(() => {
+    if (!to || !date) { setCheck(null); setChecking(false); return }
+    let active = true
+    setChecking(true)
+    setCheckError('')
+    checkMove({ cattle, from, to, moveDate: date })
+      .then((result) => { if (active) setCheck(result) })
+      .catch((e: unknown) => { if (active) { setCheck(null); setCheckError(penError(e, 'Không kiểm tra được điều kiện nhận bò.')) } })
+      .finally(() => { if (active) setChecking(false) })
+    return () => { active = false }
+  }, [to, date, cattle, from, checkRun])
+
+  const rows = check?.cattle ?? []
+  const moving = rows.filter((r) => !r.alreadyInDestination)
+  const rowErrors = moving.filter((r) => r.error)
+  const needWarning = moving.filter((r) => !r.error && r.warningReasonRequired)
+  const latestStart = rows.map((r) => r.currentFromDate).filter((d): d is string => !!d).sort().at(-1)
+  const dateError = !date ? 'Vui lòng nhập Ngày chuyển.' : date > today || (latestStart != null && date < latestStart)
+    ? `Ngày chuyển phải từ ${latestStart ? dmy(latestStart) : '…'} đến hôm nay.`
+    : ''
+  const reasonError = !reason.trim() ? 'Vui lòng nhập Lý do.' : reason.trim().length > 500 ? 'Lý do tối đa 500 ký tự.' : ''
+  const missingWarnings = needWarning.filter((r) => !(warnings[r.cattleCode] ?? '').trim())
+  /** Copies the first filled warning reason into every still-empty warning reason (UX helper, never overwrites). */
+  const applySharedWarning = () => {
+    const shared = needWarning.map((r) => (warnings[r.cattleCode] ?? '').trim()).find(Boolean)
+    if (!shared) return
+    setWarnings((current) => ({
+      ...current,
+      ...Object.fromEntries(needWarning.filter((r) => !(current[r.cattleCode] ?? '').trim()).map((r) => [r.cattleCode, shared])),
+    }))
+  }
+  const blockText = check?.blocked
+    ? `${to?.code ?? ''} không nhận được ${check.movingCount} con: chuồng đã ngưng hoặc chỉ còn ${check.destinationActive ? check.freePlaces : 0} chỗ trống.`
+    : ''
+  const canConfirm = !!to && !!check && !checking && !saving && !needsReload && !check.blocked && rowErrors.length === 0 && moving.length > 0
+    && !dateError && !reasonError && missingWarnings.length === 0
+
+  const criteriaRows = useMemo(() => {
+    const types = new Set<string>()
+    rows.forEach((r) => r.results.forEach((res) => types.add(res.criterion)))
+    return [...types]
+  }, [rows])
+
+  const confirm = async () => {
+    setTried(true)
+    if (!canConfirm || !to) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const result = await move({ cattle, from, to, moveDate: date, reason: reason.trim(), warningReasons: warnings, ...(performerId ? { performedBy: Number(performerId) } : {}) })
+      onMoved(`Đã chuyển ${result.moved} con sang ${to.code}.`)
+    } catch (e) {
+      setSaveError(penError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
+      if (e instanceof BackendError) {
+        if (e.code === 'MSG-COM-05') setNeedsReload(true)
+        if (e.code === 'MSG-FE04-05') {
+          setCheck(null)
+          setCheckRun((run) => run + 1)
+        }
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title={`Chuyển chuồng – ${cattle.length} con`} topTitle="Chuyển chuồng" sub={cattle.map((c) => c.code).join(', ')} width={760} onClose={onClose}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <KV k="Chuồng hiện tại">{from.code} – {from.name} · {from.count}/{from.capacity}</KV>
+        <Field label="Chuồng đích *">
+          <Select value={toCode} onChange={(e) => setToCode(e.target.value)} aria-label="Chuồng đích">
+            <option value="">Chọn chuồng đích</option>
+            {destinations.map((p) => <option key={p.code} value={p.code}>{`${p.code} – ${p.name} · ${p.count}/${p.capacity}`}</option>)}
+          </Select>
+          {tried && !to && <span className="text-[11px] text-err-fg">Vui lòng chọn Chuồng đích.</span>}
+        </Field>
+        <Field label="Ngày chuyển *">
+          <DateInput value={date} readOnly={!today} onChange={setDate} />
+          {dateError && (tried || date > today || !!latestStart) && <span className="text-[11px] text-err-fg">{dateError}</span>}
+        </Field>
+        <Field label="Người thực hiện *">
+          <Select value={performerId} onChange={(e) => setPerformerId(e.target.value)} aria-label="Người thực hiện">
+            {!performerId && <option value="">Người đang đăng nhập</option>}
+            {members.map((member) => <option key={member.userId} value={member.userId}>{member.fullName || member.email} · {member.role}</option>)}
+          </Select>
+          {membersError && <span className="text-[11px] text-muted">{membersError}</span>}
+        </Field>
+        <div className="sm:col-span-2">
+          <Field label="Lý do *">
+            <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder='Nhập "Correction" khi chuyển ngược để sửa nhầm' />
+            <Button small variant="link" onClick={() => setReason('Correction')}>Sửa nhầm (chuyển ngược)</Button>
+            {tried && reasonError && <span className="text-[11px] text-err-fg">{reasonError}</span>}
+          </Field>
+        </div>
+      </div>
+
+      <p className="m-0 text-[14px] font-semibold text-[#212121]">Bò được chọn</p>
+      <Table stack={false}>
+        <thead><tr><Th className={TH}>Mã</Th><Th className={TH}>Thẻ tai</Th><Th className={TH}>Giới tính</Th><Th className={TH}>Giai đoạn</Th><Th className={TH}>Ở chuồng từ</Th><Th className={TH}>Cân gần nhất</Th></tr></thead>
+        <tbody>{cattle.map((cow) => <tr key={cow.code}>
+          <Td className={cx(TH, 'font-medium')}>{cow.code}</Td>
+          <Td className={TH}>{cow.earTag ?? '—'}</Td>
+          <Td className={TH}>{cow.sex ? (SEX_LABELS[cow.sex as keyof typeof SEX_LABELS] ?? cow.sex) : '—'}</Td>
+          <Td className={TH}>{cow.lifeStage ? (STAGE_LABELS[cow.lifeStage as keyof typeof STAGE_LABELS] ?? cow.lifeStage) : '—'}</Td>
+          <Td className={TH}>{cow.sinceDate ? dmy(cow.sinceDate) : '—'}</Td>
+          <Td className={TH}>{cow.latestWeightKg == null ? '—' : `${cow.latestWeightKg} kg`}</Td>
+        </tr>)}</tbody>
+      </Table>
+
+      <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò{to && ` · ${to.code} ${PEN_STATUS_LABELS.ACTIVE} và còn ${check?.freePlaces ?? Math.max(0, to.capacity - to.count)} chỗ`}</p>
+      {checking && <Note>Đang kiểm tra…</Note>}
+      {checkError && <Note tone="err">{checkError}</Note>}
+      {blockText && <Note tone="err">{blockText}</Note>}
+      {rowErrors.map((r) => <Note key={r.cattleCode} tone="err">{cattleErrorText(r.error!, r.cattleCode)}</Note>)}
+      {rows.filter((r) => r.alreadyInDestination).map((r) => <Note key={r.cattleCode} tone="warn">{`${r.cattleCode} đã ở ${to?.code ?? ''} và sẽ được bỏ qua.`}</Note>)}
+
+      {check && to && <>
+        <Table stack={false}>
+          <thead><tr><Th className={TH}>Bò</Th><Th className={TH}>Chuồng đích</Th>{criteriaRows.map((criterion) => <Th key={criterion} className={TH}>{CRITERION_LABELS[criterion as CriterionType] ?? criterion}</Th>)}<Th className={TH}>Lý do cảnh báo</Th></tr></thead>
+          <tbody>{moving.map((r) => {
+            const failed = Boolean(r.error) || check.blocked || r.results.some((res) => res.outcome === 'NOT_MET')
+            return <tr key={r.cattleCode} className={failed ? 'bg-[#fff0f0]' : undefined}>
+              <Td className={cx(TH, 'font-medium')}>{r.cattleCode}</Td>
+              <Td className={cx(TH, failed ? OUTCOME_TONE.NOT_MET : OUTCOME_TONE.MET)}>{failed ? 'Không đạt' : 'Đạt'}</Td>
+              {criteriaRows.map((criterion) => { const res = r.results.find((x) => x.criterion === criterion); const outcome = res?.outcome ?? 'NOT_APPLICABLE'; return <Td key={criterion} className={cx(TH, OUTCOME_TONE[outcome])} title={res?.expected ? `Yêu cầu ${res.expected}${res.actual ? ` · thực tế ${res.actual}` : ''}` : undefined}>{OUTCOME_TEXT[outcome]}</Td> })}
+              <Td className={TH}>{r.warningReasonRequired && <Textarea rows={2} maxLength={500} aria-label={`Lý do cảnh báo ${r.cattleCode}`} value={warnings[r.cattleCode] ?? ''} onChange={(e) => setWarnings((current) => ({ ...current, [r.cattleCode]: e.target.value }))} />}{tried && r.warningReasonRequired && !(warnings[r.cattleCode] ?? '').trim() && <span className="text-[11px] text-err-fg">Vui lòng nhập Lý do cảnh báo.</span>}</Td>
+            </tr>
+          })}</tbody>
+        </Table>
+        {needWarning.length >= 2 && <Button small variant="link" onClick={applySharedWarning}>Dùng chung lý do cho các con không đạt</Button>}
+      </>}
+
+      <ModalFooter>
+        <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
+          {saveError && <span className="text-sm text-err-fg">{saveError}</span>}
+        </div>
+        <ModalButton onClick={onClose} disabled={saving}>Hủy</ModalButton>
+        {needsReload
+          ? <ModalButton variant="primary" onClick={onReload}>Tải lại danh sách bò</ModalButton>
+          : <ModalButton variant="primary" disabled={!canConfirm} onClick={confirm}>{saving ? 'Đang chuyển…' : 'Xác nhận chuyển'}</ModalButton>}
+      </ModalFooter>
+    </Modal>
+  )
+}

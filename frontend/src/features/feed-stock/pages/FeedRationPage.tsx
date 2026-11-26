@@ -1,14 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, DateInput, Foot, Metric, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../data/feedRationMock'
-import { rationGroupLabel } from '../data/feedRationForm'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, DateInput, EmptyBlock, Icon, inputCls, Metric, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useFeedRationList } from '../hooks/useFeedRationList'
+import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../domain/feedRationList'
+import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatDate, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
 import type { FeedRation } from '../types/feedRation'
 import FeedManagementTabs from '../components/FeedManagementTabs'
@@ -18,10 +15,12 @@ const STATUS_BADGES: Record<string, { label: string; tone: 'ok' | 'info' | 'outl
   EFFECTIVE: { label: 'Đang áp dụng', tone: 'ok' },
   SCHEDULED: { label: 'Sắp áp dụng', tone: 'info' },
   ENDED: { label: 'Ngừng', tone: 'outline' },
+  CANCELLED: { label: 'Đã hủy', tone: 'outline' },
 }
 const STATUS_FILTERS: Array<{ value: FeedRationStatusFilter; label: string }> = [
   { value: 'CURRENT', label: 'Đang & sắp áp dụng' },
   { value: 'ENDED', label: 'Đã kết thúc' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
   { value: 'ALL', label: 'Tất cả' },
 ]
 
@@ -40,10 +39,7 @@ export default function FeedRationPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
-  const query = useQuery(async () => {
-    const [rows, pens] = await Promise.all([listFeedRations(), listFeedRationPens()])
-    return { rows, pens }
-  }, [])
+  const query = useFeedRationList()
   const [status, setStatus] = useState<FeedRationStatusFilter>('CURRENT')
   const [queryText, setQueryText] = useState('')
   const [herdGroup, setHerdGroup] = useState('ALL')
@@ -59,6 +55,7 @@ export default function FeedRationPage() {
   const visibleRows = useMemo(() => filterFeedRations(rows, { query: queryText, status, herdGroup, from, to }), [rows, queryText, status, herdGroup, from, to])
   const versionCount = (code: string) => rows.filter((row) => row.rationCode === code).length
   const error = query.error ? userFacingError(query.error, 'Không thể tải danh sách khẩu phần. Vui lòng thử lại.') : null
+  const isLoadedEmpty = Boolean(query.data) && !query.loading && !error && rows.length === 0
   const dialogRow = rows.find((row) => String(row.id) === params.get('id'))
   const dialog = params.get('m')
   const open = (name: string, row: FeedRation) => setParams((current) => { const next = new URLSearchParams(current); next.set('m', name); next.set('id', String(row.id)); return next })
@@ -71,21 +68,23 @@ export default function FeedRationPage() {
   return (
     <Layout title="Thức ăn › Khẩu phần" user="manager">
       <PageHeader title="Khẩu phần" sub="Lượng từng thức ăn / con / cữ, áp dụng cho chuồng theo nhóm đàn">
-        <Button variant="primary" onClick={() => navigate('/thuc-an/khau-phan/moi')}>
+        {!isLoadedEmpty && <Button variant="primary" onClick={() => navigate('/thuc-an/khau-phan/moi')}>
           <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Tạo khẩu phần</span>
-        </Button>
+        </Button>}
       </PageHeader>
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
-      {backendMode === 'backend' && <Note tone="warn">Lưu phiên bản mới, hủy phiên bản và ngừng khẩu phần hiện chỉ hoạt động trong bản demo.</Note>}
 
-      <section role="tabpanel" aria-label="Danh sách khẩu phần" className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric compact label="Khẩu phần đang áp dụng" value={query.data ? summary.effectiveRations : '—'} sub={query.data ? `cho ${summary.pensCovered} chuồng · ${summary.headCovered} con` : 'Chưa tải dữ liệu'} />
-          <Metric compact label="Lượng kế hoạch / ngày" value={query.data ? `${formatNumber(summary.plannedDailyKg, 0)} kg` : '—'} sub={summary.plannedKgPerHead === null ? 'bình quân — kg/con/ngày' : `bình quân ${formatNumber(summary.plannedKgPerHead)} kg/con/ngày`} />
-          <Metric compact label="Chi phí kế hoạch / ngày" value={summary.plannedDailyCost === null ? '—' : formatVnd(summary.plannedDailyCost)} sub={summary.plannedCostPerHead === null ? 'bình quân — đ/con/ngày' : `bình quân ${formatNumber(summary.plannedCostPerHead, 0)} đ/con/ngày`} />
+      <section role="tabpanel" aria-label="Danh sách khẩu phần" className="@container flex flex-col gap-4">
+        {/* Bento (Figma Tab 21 ②b): khối nổi bật là số khẩu phần đang áp dụng; chuồng chưa có khẩu phần tô vàng khi có. */}
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric surface="panel" tone="emphasis" label="Khẩu phần đang áp dụng" value={query.data ? summary.effectiveRations : '—'} sub={query.data ? `cho ${summary.pensCovered} chuồng · ${summary.headCovered} con` : 'Chưa tải dữ liệu'} />
+          <Metric compact surface="panel" label="Lượng kế hoạch / ngày" value={query.data ? `${formatNumber(summary.plannedDailyKg, 0)} kg` : '—'} sub={summary.plannedKgPerHead === null ? 'bình quân — kg/con/ngày' : `bình quân ${formatNumber(summary.plannedKgPerHead)} kg/con/ngày`} />
+          <Metric compact surface="panel" label="Chi phí kế hoạch / ngày" value={summary.plannedDailyCost === null ? '—' : formatVnd(summary.plannedDailyCost)} sub={summary.plannedCostPerHead === null ? 'bình quân — đ/con/ngày' : `bình quân ${formatNumber(summary.plannedCostPerHead, 0)} đ/con/ngày`} />
           <Metric
             compact
+            surface="panel"
+            tone={summary.pensWithoutRation > 0 ? 'warn' : 'default'}
             label="Chuồng chưa có khẩu phần"
             warn={summary.pensWithoutRation > 0}
             value={query.data ? summary.pensWithoutRation : '—'}
@@ -113,17 +112,37 @@ export default function FeedRationPage() {
           </div>
         </div>
 
-        {query.loading && !query.data && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tải khẩu phần…</div>}
+        <details className="rounded-2xl border border-field bg-white px-4 py-3 text-xs text-muted">
+          <summary className="cursor-pointer font-semibold text-ink">Quy tắc phiên bản và cách tính</summary>
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            <p className="m-0"><strong className="text-ink">Hiệu lực:</strong> mỗi chuồng chỉ có một phiên bản mỗi ngày; phiên bản mới bắt đầu từ ngày chọn và kết thúc phiên bản cũ vào ngày trước đó.</p>
+            <p className="m-0"><strong className="text-ink">Cách tính:</strong> kg/con/ngày là tổng các cữ trong ngày. Lượng kế hoạch/ngày = kg/con/ngày × số con; chi phí ước tính dùng giá vốn bình quân hiện tại.</p>
+          </div>
+        </details>
+
+        {query.loading && !query.data && <div role="status" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">Đang tải khẩu phần…</div>}
         {error && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
             <span>{error}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải lại…' : 'Thử tải lại'}</Button>
           </div>
         )}
-        {!query.loading && !error && rows.length === 0 && <Note tone="info">Chưa có khẩu phần. Tạo khẩu phần để lên kế hoạch cho chuồng.</Note>}
-        {!query.loading && !error && rows.length > 0 && visibleRows.length === 0 && <Note tone="info">Không tìm thấy khẩu phần phù hợp với bộ lọc.</Note>}
+        {!query.loading && !error && rows.length === 0 && (
+          <EmptyBlock
+            variant="panel"
+            title="Chưa có khẩu phần cho trại này."
+            action={<Button variant="primary" onClick={() => navigate('/thuc-an/khau-phan/moi')}>Tạo khẩu phần</Button>}
+          />
+        )}
+        {!query.loading && !error && rows.length > 0 && visibleRows.length === 0 && (
+          <EmptyBlock
+            variant="panel"
+            title="Không có khẩu phần khớp bộ lọc."
+            action={<Button onClick={() => { setStatus('ALL'); setQueryText(''); setHerdGroup('ALL'); setFrom(''); setTo('') }}>Bỏ lọc</Button>}
+          />
+        )}
         {!query.loading && !error && visibleRows.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-md border border-edge bg-white p-px">
-            <Table scroll stack={false}>
+          <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-field bg-white">
+            <Table scroll stack={false} bordered={false}>
               <thead><tr>
                 <Th>Khẩu phần</Th><Th>Áp dụng cho</Th><Th>Số con</Th><Th>Thành phần (kg/con/ngày)</Th><Th>kg/con/ngày</Th><Th>đ/con/ngày</Th><Th>Hiệu lực</Th><Th>Trạng thái</Th><Th aria-label="Thao tác" />
               </tr></thead>
@@ -132,7 +151,7 @@ export default function FeedRationPage() {
                   const cost = rationDailyCost(row)
                   const badge = STATUS_BADGES[row.status]
                   return (
-                    <tr key={row.id} className={`${row.status === 'SCHEDULED' ? 'bg-[#eef4ef]' : ''} ${row.status === 'ENDED' ? 'opacity-60' : ''}`}>
+                    <tr key={row.id} className={`${row.status === 'SCHEDULED' ? 'bg-[#eef4ef]' : ''} ${row.status === 'ENDED' || row.status === 'CANCELLED' ? 'opacity-60' : ''}`}>
                       <Td>
                         <Link to={`/thuc-an/khau-phan/${row.id}`} className="whitespace-nowrap font-semibold text-brand no-underline hover:underline">
                           {row.rationCode} · {row.name}{versionCount(row.rationCode) > 1 ? ` (v${row.versionNo})` : ''}
@@ -140,7 +159,7 @@ export default function FeedRationPage() {
                         <div className="text-[11px] text-muted">{rationGroupLabel(row.herdGroup)}</div>
                       </Td>
                       <Td className="min-w-[100px]">{penCodes(row).length ? `Chuồng ${penCodes(row).join(', ')}` : '—'}</Td>
-                      <Td className="whitespace-nowrap">{row.status === 'ENDED' || !row.penIds.length ? '—' : headOf(row)}</Td>
+                      <Td className="whitespace-nowrap">{row.status === 'ENDED' || row.status === 'CANCELLED' || !row.penIds.length ? '—' : headOf(row)}</Td>
                       <Td className="min-w-[200px]">{row.components.map((component) => `${component.feedName} ${formatNumber(component.dailyKg, 3)}`).join(' · ')}</Td>
                       <Td className="whitespace-nowrap">{formatNumber(rationDailyKg(row), 2)}</Td>
                       <Td className="whitespace-nowrap">{cost === null ? '—' : formatNumber(cost, 0)}</Td>
@@ -149,8 +168,9 @@ export default function FeedRationPage() {
                       <Td>
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <Button variant="link" size="sm" aria-label={`Sửa ${row.rationCode} v${row.versionNo}`} onClick={() => navigate(`/thuc-an/khau-phan/${row.id}`)}>Sửa</Button>
-                          {row.status === 'SCHEDULED' && <Button variant="link" size="sm" disabled={backendMode === 'backend'} aria-label={`Hủy phiên bản ${row.rationCode} v${row.versionNo}`} onClick={() => open('huy', row)}>Hủy phiên bản</Button>}
-                          {row.status === 'EFFECTIVE' && !row.effectiveTo && <Button variant="link" size="sm" disabled={backendMode === 'backend'} aria-label={`Ngừng ${row.rationCode} v${row.versionNo}`} onClick={() => open('ngung', row)}>Ngừng</Button>}
+                          <Link to={`/thuc-an/khau-phan/${row.id}/in`} aria-label={`In ${row.rationCode} v${row.versionNo}`} className="text-xs font-semibold text-brand no-underline hover:underline">In</Link>
+                          {row.status === 'SCHEDULED' && <Button variant="link" size="sm" aria-label={`Hủy phiên bản ${row.rationCode} v${row.versionNo}`} onClick={() => open('huy', row)}>Hủy phiên bản</Button>}
+                          {row.status === 'EFFECTIVE' && <Button variant="link" size="sm" aria-label={`${row.effectiveTo ? 'Đổi ngày ngừng' : 'Ngừng'} ${row.rationCode} v${row.versionNo}`} onClick={() => open('ngung', row)}>{row.effectiveTo ? 'Đổi ngày ngừng' : 'Ngừng'}</Button>}
                         </div>
                       </Td>
                     </tr>
@@ -158,18 +178,16 @@ export default function FeedRationPage() {
                 })}
               </tbody>
             </Table>
-            <p className="m-0 px-3 pb-2 text-xs text-muted">
+            <p className="m-0 border-t border-rule px-4 py-3 text-xs text-muted">
               {visibleRows.length} khẩu phần
               {multiVersion ? ` · ${[...new Set(rows.filter((row) => versionCount(row.rationCode) > 1).map((row) => row.rationCode))].map((code) => `${versionCount(code)} phiên bản của ${code}`).join(', ')}` : ''}
             </p>
           </div>
         )}
-        <Note tone="info">Mỗi chuồng chỉ có 1 khẩu phần hiệu lực tại một ngày. Phiên bản mới có hiệu lực từ ngày chọn và tự kết thúc phiên bản cũ vào ngày trước đó.</Note>
-        {query.data && summary.plannedDailyCost === null && <Note tone="warn">Chưa đủ dữ liệu giá bình quân để tính chi phí cho một số khẩu phần.</Note>}
+        {rows.length > 0 && query.data && summary.plannedDailyCost === null && <Note tone="warn">Chưa đủ dữ liệu giá bình quân để tính chi phí cho một số khẩu phần.</Note>}
       </section>
-      <Foot>Danh sách khẩu phần theo chuồng (Chủ trại, Quản lý). Lượng kế hoạch của một cữ = khẩu phần × số con đang có trong chuồng; chi phí ước tính theo giá nhập bình quân. Dòng nền xanh là phiên bản sắp áp dụng; khẩu phần ngừng hiển thị mờ.</Foot>
-      {dialog === 'huy' && dialogRow?.status === 'SCHEDULED' && <FeedRationCancelDialog row={dialogRow} onClose={close} onDone={done} />}
-      {dialog === 'ngung' && dialogRow?.status === 'EFFECTIVE' && <FeedRationStopDialog row={dialogRow} onClose={close} onDone={done} />}
+      {dialog === 'huy' && dialogRow?.status === 'SCHEDULED' && <FeedRationCancelDialog row={dialogRow} onClose={close} onDone={done} cancelVersion={query.cancel} />}
+      {dialog === 'ngung' && dialogRow?.status === 'EFFECTIVE' && <FeedRationStopDialog row={dialogRow} onClose={close} onDone={done} stopVersion={query.stop} />}
     </Layout>
   )
 }

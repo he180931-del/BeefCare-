@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createGrowthApi } from '../../../src/features/growth/api/growthApi'
 import { createGrowthDemoStore } from '../../../src/features/growth/data/growthDemoStore'
 import { GrowthLargeChangeError, GrowthValidationError, basisOf, tapeWeightKg } from '../../../src/features/growth/domain/growthRules'
+import { createGrowthBackend } from '../../../src/features/growth/api/growthBackend'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const make = () => {
@@ -11,8 +12,9 @@ const make = () => {
 const base = { measuredAt: '2026-10-20T07:30', measuredBy: 1, measuredByName: 'Trần Quốc Long' }
 
 describe('quy tắc tính toán', () => {
-  it('công thức thước dây 88,4 × VN² × DTC và cơ sở số liệu theo phương pháp', () => {
+  it('TC-08-05: công thức thước dây 88,4 × VN² × DTC và cơ sở ESTIMATED', () => {
     expect(tapeWeightKg(158, 132)).toBe(291.3)
+    expect(tapeWeightKg(180, 150)).toBe(429.6)
     expect(basisOf('SCALE')).toBe('MEASURED')
     expect(basisOf('TAPE')).toBe('ESTIMATED')
     expect(basisOf('ESTIMATE')).toBe('ESTIMATED')
@@ -26,7 +28,7 @@ describe('ghi nhận cân & BCS', () => {
     expect(rec).toMatchObject({ basis: 'MEASURED', status: 'VALID', weightKg: 322 })
     const profile = await api.getProfile('BC-000203')
     expect(profile.latest).toMatchObject({ kg: 322, basis: 'MEASURED' })
-    expect(profile.count).toBe(10)
+    expect(profile.count).toBe(9) // 10 bản ghi, trừ 1 lần đo đã xóa (D43: không đếm)
   })
 
   it('tự tính cân nặng từ thước dây khi không nhập cân', async () => {
@@ -87,11 +89,13 @@ describe('sửa hoặc loại trừ bản ghi', () => {
     expect(profile.records.find((r) => r.id === target.id)?.status).toBe('EXCLUDED')
   })
 
-  it('bắt buộc có lý do và phát hiện bản ghi đã bị đổi', async () => {
+  it('D43: ghi chú không bắt buộc nhưng tối đa 500 ký tự; phát hiện bản ghi đã bị đổi', async () => {
     const { api } = make()
     const target = await findByDate(api, '2026-08-15')
-    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: ' ', expectedVersion: target.version })).rejects.toBeInstanceOf(GrowthValidationError)
-    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: 'x', expectedVersion: target.version + 5 })).rejects.toThrow(/đã thay đổi/)
+    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: 'x'.repeat(501), expectedVersion: target.version })).rejects.toBeInstanceOf(GrowthValidationError)
+    await expect(api.correct('BC-000203', target.id, { action: 'EXCLUDE', expectedVersion: target.version + 5 })).rejects.toThrow(/đã thay đổi/)
+    const deleted = await api.correct('BC-000203', target.id, { action: 'EXCLUDE', reason: '  ', expectedVersion: target.version })
+    expect(deleted.status).toBe('EXCLUDED')
   })
 })
 
@@ -108,16 +112,53 @@ describe('danh sách đàn', () => {
     expect((await api.listHerd({ q: 'bão' })).rows.map((r) => r.code)).toEqual(['BC-000203'])
     expect((await api.listHerd({ penCode: 'B1', size: 50 })).rows.every((r) => r.penCode === 'B1')).toBe(true)
   })
+
+  it('D74: lọc theo cờ tình trạng, số đếm giữ nguyên', async () => {
+    const { api } = make()
+    const all = await api.listHerd({ size: 50 })
+    const lowBcs = await api.listHerd({ size: 50, flag: 'LOW_BCS' })
+    expect(lowBcs.rows.length).toBe(all.tiles.lowBcs)
+    expect(lowBcs.rows.map((r) => r.code)).toContain('BC-000087')
+    expect(lowBcs.rows.every((r) => r.flags.includes('LOW_BCS'))).toBe(true)
+    expect(lowBcs.tiles).toEqual(all.tiles)
+    expect((await api.listHerd({ size: 50, flag: 'WEIGHING_OVERDUE' })).total).toBe(all.tiles.overdue)
+  })
 })
 
 describe('chế độ backend', () => {
+  it('TC-08-06: derives basis from measurement method and never serializes a client-supplied basis', async () => {
+    const t = transport()
+    t.farmPath.mockImplementation((id: number, suffix = '') => `/api/farms/${id}${suffix}`)
+    t.get.mockResolvedValue({
+      cattleId: 203,
+      cattle: { displayCode: 'BC-000203', breedName: 'Lai Sind', sex: 'FEMALE', lifeStage: 'ADULT', herdStatus: 'ACTIVE', entry: { entryDate: '2025-01-01' } },
+    })
+    t.command.mockResolvedValue({
+      id: 88, measuredAt: '2026-11-01T01:00:00Z', recordedAt: '2026-11-01T02:00:00Z', measuredBy: 7,
+      method: 'SCALE', weightKg: 300, basis: 'MEASURED', status: 'VALID', version: 1, revisions: [],
+    })
+    const api = createGrowthBackend({ farmId: 1, transport: t as never, clock: () => new Date('2026-11-01T02:00:00Z') })
+    const command = { ...base, measuredAt: '2026-11-01T08:00', method: 'SCALE' as const, weightKg: 300, basis: 'ESTIMATED' } as never
+
+    await api.record('BC-000203', command)
+
+    expect(t.command).toHaveBeenCalledTimes(1)
+    const payload = t.command.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toMatchObject({ method: 'SCALE', weightKg: 300 })
+    expect(Object.hasOwn(payload, 'basis')).toBe(false)
+  })
+
   it('không đọc hay ghi mock', async () => {
     const store = createGrowthDemoStore()
     const spies = [vi.spyOn(store, 'listHerd'), vi.spyOn(store, 'record'), vi.spyOn(store, 'getProfile')]
-    const api = createGrowthApi({ mode: 'backend', farmId: 1, transport: transport() as never, store })
-    await expect(api.listHerd()).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.record('BC-000203', { ...base, bcs: 3 })).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.getProfile('BC-000203')).rejects.toThrow(/Chưa tích hợp/)
+    const t = transport()
+    t.farmPath.mockImplementation((id: number, suffix = '') => `/api/farms/${id}${suffix}`)
+    t.get.mockRejectedValue(new Error('backend down'))
+    const api = createGrowthApi({ mode: 'backend', farmId: 1, transport: t as never, store })
+    await expect(api.listHerd()).rejects.toThrow(/backend down/)
+    await expect(api.record('BC-000203', { ...base, bcs: 3 })).rejects.toThrow(/backend down/)
+    await expect(api.getProfile('BC-000203')).rejects.toThrow(/backend down/)
     spies.forEach((s) => expect(s).not.toHaveBeenCalled())
+    expect(t.get).toHaveBeenCalledWith('/api/farms/1/growth?windowDays=90&page=0&size=7')
   })
 })

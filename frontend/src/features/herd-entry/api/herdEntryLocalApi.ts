@@ -1,9 +1,11 @@
-import { createCollection, type NewCollectionInput } from '../../../api/client'
-import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api/herdDomainApi'
+import { createCollection, type NewCollectionInput } from '../../../demo/api/client'
+import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../demo/api/herdDomainApi'
 import { initialImports } from '../data/importsData'
-import { errorMessage } from '../../../api/herdDomainApi'
-import { herdEntrySchema } from '../../../api/collectionSchemas'
-import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
+import { errorMessage } from '../../../demo/api/herdDomainApi'
+import { herdEntrySchema } from '../../../demo/api/collectionSchemas'
+import { entryToday } from '../validation/entryValidation'
+import type { CattleInput } from '../../cattle'
+import type { EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../types'
 
 const nextEntryId = (rows: HerdEntry[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
@@ -85,7 +87,7 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: stri
   return current ? herdEntries.update(voucherId, nextRecord) : herdEntries.create(nextRecord)
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = entryToday
 
 async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
   if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')

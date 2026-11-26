@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFinanceApi } from '../../../src/features/platform-finance/api/financeApi'
 import { createFinanceDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
-import { formatVnd, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
+import { formatVnd } from '../../../src/features/platform-finance/domain/financeRules'
+import { validateCriteria, validateRecordFields } from '../../../src/features/platform-finance/validation/financeValidation'
 import type { RecordFields } from '../../../src/features/platform-finance/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
@@ -10,21 +11,43 @@ const make = () => {
   return { store, api: createFinanceApi({ mode: 'local', farmId: 1, transport: transport(), store }) }
 }
 const fields = (over: Partial<RecordFields> = {}): RecordFields => ({
-  type: 'EXPENSE', category: 'Hạ tầng máy chủ', amountVnd: 500000, occurredOn: '2026-10-17', scope: 'GENERAL', farmId: null,
+  type: 'EXPENSE', category: 'SERVER_STORAGE', amountVnd: 500000, occurredOn: '2026-10-17', scope: 'GENERAL', farmId: null,
   documentNumber: 'HD-1', description: 'Thử', sourceType: 'MANUAL', sourceEvidenceId: null, ...over,
 })
+const TODAY = '2026-10-19'
+const CATS = { INCOME: ['IMPLEMENTATION_SUPPORT', 'USER_TRAINING', 'COST_REIMBURSEMENT', 'OTHER_INCOME'], EXPENSE: ['SERVER_STORAGE', 'DOMAIN_SOFTWARE', 'EMAIL_NOTIFICATIONS', 'OTHER_EXPENSE'] }
+const validate = (f: RecordFields) => validateRecordFields(f, TODAY, CATS)
 const ALL = { dateFrom: '2026-10-01', dateTo: '2026-10-18', farmId: null, sourceFilter: 'BOTH' as const }
 
 describe('quy tắc nhập khoản (SRS 21.3)', () => {
-  it('số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
-    expect(validateRecordFields(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
-    expect(validateRecordFields(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
-    expect(validateRecordFields(fields())).toEqual({})
+  it('cho phép kỳ báo cáo đúng 24 tháng', () => {
+    expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
+    expect(validateCriteria({ dateFrom: '2024-10-18', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBe('Kỳ báo cáo tối đa 24 tháng.')
+  })
+  it('TC-21-03: số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
+    expect(validate(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
+    expect(validate(fields({ amountVnd: -5 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
+    expect(validate(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
+    expect(validate(fields())).toEqual({})
   })
   it('danh mục phải hợp với loại (MSG-FE21-10) và trại bắt buộc khi gắn với trại', () => {
-    expect(validateRecordFields(fields({ type: 'INCOME' })).category).toContain('không dùng được cho')
-    expect(validateRecordFields(fields({ scope: 'FARM' })).farmId).toBeTruthy()
-    expect(validateRecordFields(fields({ occurredOn: '2026-12-01' })).occurredOn).toBeTruthy()
+    expect(validate(fields({ type: 'INCOME' })).category).toContain('không dùng được cho')
+    expect(validate(fields({ scope: 'FARM' })).farmId).toBeTruthy()
+    expect(validate(fields({ occurredOn: '2026-12-01' })).occurredOn).toBeTruthy()
+  })
+  it('nguồn ngân hàng: số tiền và ngày lấy từ giao dịch nên không kiểm ở form', () => {
+    expect(validate(fields({ sourceType: 'BANK', sourceEvidenceId: null, amountVnd: 0, occurredOn: '' }))).toEqual({ sourceEvidenceId: 'Hãy chọn chứng từ ngân hàng.' })
+  })
+
+  it('TC-21-04: rejects the next calendar day against a fixed business date', () => {
+    expect(validateRecordFields(fields({ occurredOn: '2026-11-21' }), '2026-11-20', CATS).occurredOn)
+      .toBe('Ngày phát sinh không được ở tương lai.')
+  })
+
+  it('TC-21-22: rejects a period of 25 months and accepts the 24-month boundary', () => {
+    expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
+    expect(validateCriteria({ dateFrom: '2024-09-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' }))
+      .toBe('Kỳ báo cáo tối đa 24 tháng.')
   })
   it('định dạng tiền kiểu Việt Nam', () => expect(formatVnd(1200000)).toBe('1.200.000'))
 })
@@ -75,7 +98,7 @@ describe('khoản thu chi: nháp, ghi sổ, hủy bỏ', () => {
     const choices = await ctx.api.listBankTransactions()
     const claimed = choices.find((c) => c.claimedBy)!
     expect(claimed.claimedBy).toContain('BCF7K2Q9')
-    const bad = fields({ type: 'INCOME', category: 'Đào tạo tại trại', amountVnd: 1200000, sourceType: 'BANK', sourceEvidenceId: claimed.transactionId })
+    const bad = fields({ type: 'INCOME', category: 'IMPLEMENTATION_SUPPORT', amountVnd: 1200000, sourceType: 'BANK', sourceEvidenceId: claimed.transactionId })
     await expect(ctx.api.createDraft(bad)).rejects.toThrow('đã được ghi nhận là')
     const free = choices.find((c) => !c.claimedBy)!
     const ok = await ctx.api.createDraft({ ...bad, amountVnd: free.amount, sourceEvidenceId: free.transactionId })
@@ -83,7 +106,7 @@ describe('khoản thu chi: nháp, ghi sổ, hủy bỏ', () => {
   })
   it('hủy bỏ khoản ghi sổ giải phóng nguồn ngân hàng', async () => {
     const free = (await ctx.api.listBankTransactions()).find((c) => !c.claimedBy)!
-    const f = fields({ type: 'INCOME', category: 'Đào tạo tại trại', amountVnd: free.amount, sourceType: 'BANK', sourceEvidenceId: free.transactionId })
+    const f = fields({ type: 'INCOME', category: 'IMPLEMENTATION_SUPPORT', amountVnd: free.amount, sourceType: 'BANK', sourceEvidenceId: free.transactionId })
     const d = await ctx.api.createDraft(f)
     const p = await ctx.api.post(d.recordCode, d.version)
     expect((await ctx.api.listBankTransactions()).find((c) => c.transactionId === free.transactionId)?.claimedBy).toContain(p.recordCode)
@@ -156,11 +179,24 @@ describe('biên nhận và thông báo', () => {
     expect((await api.listNotices('RECON')).filter((n) => !n.readTime)).toHaveLength(0)
     expect((await api.listNotices('SUPPORT')).filter((n) => !n.readTime)).toHaveLength(2)
   })
-  it('chế độ backend từ chối và không đụng store', async () => {
+  it('chế độ backend gọi API thật và không đụng store', async () => {
     const store = createFinanceDemoStore()
     const spy = vi.spyOn(store, 'listRecords')
-    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listRecords({})).rejects.toThrow()
+    const http = transport()
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listRecords({})).resolves.toMatchObject({ rows: [], total: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
+  })
+
+  it('thông báo nền tảng dùng notification API thật và lọc theo nhóm', async () => {
+    const store = createFinanceDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => path === '/api/notifications/mine' ? [{ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: null }] : {})
+    http.command.mockResolvedValue({ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: '2026-11-01T10:01:00Z' })
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listNotices('SUPPORT')).resolves.toMatchObject([{ href: '/nen-tang/yeu-cau/77', kind: 'SUPPORT' }])
+    await api.markNoticeRead(5)
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/5/read', undefined, { method: 'PUT' })
   })
 })

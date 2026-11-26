@@ -1,49 +1,38 @@
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, Foot, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
-import { listFeedReceipts } from '../api/feedReceiptApi'
-import { listFeedRationFeeds, listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { effectiveRationForPen } from '../data/feedTodayRations'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
+import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
-import { FeedCorrectDialog, FeedQuickFillDialog, FeedRecordDialog, type FeedingData } from '../components/FeedSessionDialogs'
+import { FeedCorrectDialog, FeedQuickFillDialog, FeedRecordDialog } from '../components/FeedSessionDialogs'
+import { feedFeedingServerBacked, useFeedFeedingScreen } from '../hooks/useFeedFeeding'
 import type { FeedFeedingRecord } from '../types/feedFeeding'
 import type { FeedRation, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
 
 type PeriodView = 'DAY' | 'WEEK'
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-const pad = (value: number) => String(value).padStart(2, '0')
-const formatIso = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-const today = () => formatIso(new Date())
+const today = businessDate
 const isCalendarDate = (value: string | null): value is string => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(date.getTime()) && formatIso(date) === value
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
-const shiftDate = (iso: string, days: number) => {
-  const date = new Date(`${iso}T00:00:00`)
-  date.setDate(date.getDate() + days)
-  return formatIso(date)
-}
-const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00`).getDay()]}, ${formatDate(iso)}`
+const shiftDate = addCalendarDays
+const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]}, ${formatDate(iso)}`
 
 function periodRange(selectedDate: string, view: PeriodView) {
   if (view === 'DAY') return { from: selectedDate, to: selectedDate }
-  const date = new Date(`${selectedDate}T00:00:00`)
-  date.setDate(date.getDate() - (date.getDay() || 7) + 1)
-  const from = formatIso(date)
-  date.setDate(date.getDate() + 6)
-  return { from, to: formatIso(date) }
+  const date = new Date(`${selectedDate}T00:00:00Z`)
+  const from = addCalendarDays(selectedDate, 1 - (date.getUTCDay() || 7))
+  return { from, to: addCalendarDays(from, 6) }
 }
 
 function daysBetween(from: string, to: string, until: string) {
@@ -75,8 +64,10 @@ export default function FeedFeedingPage() {
   const [searchParams] = useSearchParams()
   const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
-  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && session.role !== 'MANAGER')
-  const canRecord = !readOnlyView && backendMode === 'local'
+  // GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy cữ cho ăn; Kỹ thuật viên chỉ xem.
+  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && !canRecordCare(session.role))
+  const canRecord = !readOnlyView && (feedFeedingServerBacked ? canRecordCare(session?.role) : !session || canRecordCare(session.role))
+  const canViewStock = session?.role !== 'TECHNICIAN'
   const initialDate = searchParams.get('date')
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedingMessage' in location.state
     ? String((location.state as { feedingMessage?: unknown }).feedingMessage ?? '')
@@ -89,12 +80,7 @@ export default function FeedFeedingPage() {
   const [editing, setEditing] = useState<{ record: FeedFeedingRecord; action: 'correct' | 'void' } | null>(null)
   const [message, setMessage] = useState(routeMessage)
   const range = useMemo(() => periodRange(selectedDate, view), [selectedDate, view])
-  const query = useQuery(async (): Promise<FeedingData & { receipts: Awaited<ReturnType<typeof listFeedReceipts>> }> => {
-    const [records, rations, pens, feeds, receipts] = await Promise.all([
-      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(), listFeedRationFeeds(), listFeedReceipts().catch(() => []),
-    ])
-    return { records, rations, pens, feeds, receipts }
-  }, [range.from, range.to])
+  const query = useFeedFeedingScreen(range, canViewStock)
 
   const data = query.data
   const pens = data?.pens ?? []
@@ -155,18 +141,19 @@ export default function FeedFeedingPage() {
     <Layout title="Thức ăn › Nhật ký cho ăn" user="manager">
       <PageHeader title="Nhật ký cho ăn" sub="Ghi theo chuồng và cữ · kế hoạch = khẩu phần × số con · lưu là trừ kho">
         {canRecord && <Button onClick={() => openModal('nhanh')}>Ghi nhanh theo khẩu phần</Button>}
+        {data && records.length > 0 && selectedDate <= today() && <Link to={`/thuc-an/nhat-ky/in?date=${encodeURIComponent(selectedDate)}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-field bg-white px-3 text-xs font-semibold text-ink no-underline hover:bg-page">In nhật ký ngày</Link>}
         {!readOnlyView && (
-          <Button variant="primary" disabled={backendMode === 'backend'} title={backendMode === 'backend' ? 'Ghi cữ chưa sẵn sàng ở chế độ kết nối.' : undefined} onClick={() => startRecord()}>
+          <Button variant="primary" onClick={() => startRecord()}>
             <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Ghi cữ cho ăn</span>
           </Button>
         )}
       </PageHeader>
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
-      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
-      {!readOnlyView && backendMode === 'backend' && <Note tone="warn">Xem nhật ký đã kết nối. Ghi, sửa và hủy cữ chưa sẵn sàng ở chế độ kết nối.</Note>}
+      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Chủ trại và Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
+      {canRecord && feedFeedingServerBacked && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
-      <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
+      <section role="tabpanel" aria-label="Nhật ký cho ăn" className="@container flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex h-11 items-center gap-1 rounded-xl border border-field bg-white px-2 text-sm">
             <button type="button" aria-label="Ngày trước" onClick={() => setSelectedDate(shiftDate(selectedDate, view === 'WEEK' ? -7 : -1))} className="grid size-7 cursor-pointer place-items-center rounded text-muted hover:bg-page"><Icon name="chevron-left" size={16} /></button>
@@ -190,15 +177,16 @@ export default function FeedFeedingPage() {
           <Segmented value={view} onChange={(value) => setView(value as PeriodView)} options={[{ value: 'DAY', label: 'Theo ngày' }, { value: 'WEEK', label: 'Theo tuần' }]} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric compact label={`Thực tế ${periodWord}`} value={formatKg(actualKg)} sub={`Kế hoạch ${view === 'WEEK' ? 'cả tuần' : 'cả ngày'} ${formatKg(expected.plannedKg, 0)}`} />
-          <Metric compact warn={expected.missing.length > 0} label="Cữ đã ghi" value={`${validRecords.length} / ${expected.sessions}`} sub={missingText.length ? missingText.map(({ sessionNo, codes }) => `${codes.join(', ')} chưa ghi cữ ${SESSION_NAMES[sessionNo]}`).join(' · ') : 'Đã ghi đủ các cữ'} />
-          <Metric compact label="Chênh lệch các cữ đã ghi" value={variance === null ? '—' : `${variance > 0 ? '+' : variance < 0 ? '−' : ''}${formatNumber(Math.abs(variance))}%`} sub={`${formatNumber(actualKg)} / ${formatNumber(recordedPlanned)} kg kế hoạch`} />
-          <Metric compact label={`Đã trừ kho ${periodWord}`} value={formatKg(actualKg)} sub={costKnown ? `≈ ${formatNumber(deductedValue / 1_000_000)} triệu đ theo giá bình quân` : 'Chưa đủ giá để tính giá trị'} />
+        {/* Bento (Figma Tab 21 ③b): khối nổi bật là lượng thực tế đã cho ăn; màu cảnh báo chỉ khi còn cữ chưa ghi. */}
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric surface="panel" tone="emphasis" label={`Thực tế ${periodWord}`} value={formatKg(actualKg)} sub={`Kế hoạch ${view === 'WEEK' ? 'cả tuần' : 'cả ngày'} ${formatKg(expected.plannedKg, 0)}`} />
+          <Metric compact surface="panel" tone={expected.missing.length > 0 ? 'warn' : 'default'} warn={expected.missing.length > 0} label="Cữ đã ghi" value={`${validRecords.length} / ${expected.sessions}`} sub={missingText.length ? missingText.map(({ sessionNo, codes }) => `${codes.join(', ')} chưa ghi cữ ${SESSION_NAMES[sessionNo]}`).join(' · ') : 'Đã ghi đủ các cữ'} />
+          <Metric compact surface="panel" label="Chênh lệch các cữ đã ghi" value={variance === null ? '—' : `${variance > 0 ? '+' : variance < 0 ? '−' : ''}${formatNumber(Math.abs(variance))}%`} sub={`${formatNumber(actualKg)} / ${formatNumber(recordedPlanned)} kg kế hoạch`} />
+          <Metric compact surface="panel" tone={actualKg > 0 ? 'ok' : 'default'} label={`Đã trừ kho ${periodWord}`} value={formatKg(actualKg)} sub={costKnown ? `≈ ${formatNumber(deductedValue / 1_000_000)} triệu đ theo giá bình quân` : 'Chưa đủ giá để tính giá trị'} />
         </div>
 
-        {query.loading && !data && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tải nhật ký…</div>}
-        {backendError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{backendError}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>Thử tải lại</Button></div>}
+        {query.loading && !data && <div role="status" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">Đang tải nhật ký…</div>}
+        {backendError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{backendError}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>Thử tải lại</Button></div>}
 
         {data && !backendError && view === 'DAY' && (
           <DailyTable
@@ -223,8 +211,8 @@ export default function FeedFeedingPage() {
         )}
 
         {data && !backendError && (
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,660px)_minmax(0,1fr)]">
-            <Card title={`Tiêu thụ theo thức ăn ${periodWord}`} sub="Đã trừ kho theo các cữ đã ghi">
+          <div className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @min-[1024px]:gap-6">
+            <Card variant="panel" title={`Tiêu thụ theo thức ăn ${periodWord}`} sub="Đã trừ kho theo các cữ đã ghi">
               {!usageByFeed.length ? <p className="m-0 text-xs text-muted">Chưa có lượng tiêu thụ trong khoảng này.</p> : (
                 <Table scroll stack={false}>
                   <thead><tr><Th>Thức ăn</Th><Th>Thực tế</Th><Th>Tồn còn lại</Th><Th aria-label="Cảnh báo" /></tr></thead>
@@ -249,17 +237,16 @@ export default function FeedFeedingPage() {
                 </Note>
               )}
               {lowFeeds.length > 0 && (
-                <Link to={draftReceipt ? `/thuc-an/phieu-nhap/${draftReceipt.id}` : '/thuc-an/phieu-nhap/moi'} className="rounded border border-edge bg-white px-4 py-[9px] text-center text-xs font-semibold text-ink no-underline hover:bg-page">
+                <Link to={draftReceipt ? `/thuc-an/phieu-nhap/${draftReceipt.id}` : '/thuc-an/phieu-nhap/moi'} className="rounded-lg border border-edge bg-white px-4 py-3 text-center text-xs font-semibold text-ink no-underline hover:bg-page focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                   {draftReceipt ? `Mở phiếu nhập kho ${draftReceipt.code}` : 'Tạo phiếu nhập kho'}
                 </Link>
               )}
-              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Chủ trại và Kỹ thuật viên chỉ xem nhật ký; Quản lý ghi, sửa và hủy.</Note>
+              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Kỹ thuật viên chỉ xem nhật ký; Chủ trại và Quản lý ghi, sửa và hủy.</Note>
             </div>
           </div>
         )}
         <Note tone="info">Chỉ cữ hợp lệ làm giảm tồn kho. Hủy cữ sẽ hoàn lại lượng đã ghi; mọi lần sửa hoặc hủy đều lưu lý do trong lịch sử.</Note>
       </section>
-      <Foot>Nhật ký cho ăn theo ngày. Mỗi ô cữ hiển thị kế hoạch → thực tế, giờ và người cho ăn; ô “Chưa ghi” mở nhanh hộp thoại ghi cữ. Nút ⋯ ở mỗi dòng để sửa hoặc hủy bản ghi. Tổng thực tế đã trừ kho; chênh lệch tính trên các cữ đã ghi.</Foot>
 
       {data && modal === 'ghi' && canRecord && <FeedRecordDialog key={`${pending?.penId ?? 'new'}-${pending?.sessionNo ?? 1}`} data={data} date={selectedDate} penId={pending?.penId} sessionNo={pending?.sessionNo} onClose={() => { setPending(null); closeModal() }} onSaved={finish} />}
       {data && modal === 'sua' && canRecord && editing && <FeedCorrectDialog key={`${editing.record.id}-${editing.action}`} data={data} record={editing.record} initialAction={editing.action} onClose={() => { setEditing(null); closeModal() }} onSaved={finish} />}
@@ -328,17 +315,18 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
               <Td className="whitespace-nowrap">{kgCell(dayActual)} / {kgCell(dayPlan)} kg</Td>
               <Td className="whitespace-nowrap">{penRecords.length ? shortPersonName(penRecords[0].recordedBy ?? penRecords[0].fedBy) : '—'}</Td>
               <Td>
-                {canRecord && penRecords.length > 0 && (
-                  <details className="relative">
-                    <summary aria-label={`Thao tác ${pen.code}`} className="grid size-7 cursor-pointer list-none place-items-center rounded text-muted hover:bg-page [&::-webkit-details-marker]:hidden">⋯</summary>
-                    <div role="menu" className="absolute right-0 top-8 z-20 flex min-w-[150px] flex-col rounded-md border border-edge bg-white py-1 text-xs shadow-md">
+                {penRecords.length > 0 && <div className="flex flex-wrap items-center gap-2 whitespace-nowrap">
+                  {penRecords.map((record) => <Link key={`p${record.id}`} to={`/thuc-an/nhat-ky/in?recordId=${record.id}&date=${encodeURIComponent(record.feedingDate)}`} className="text-xs font-semibold text-brand no-underline hover:underline">In {SESSION_NAMES[record.sessionNo]}</Link>)}
+                  {canRecord && <details className="relative">
+                    <summary aria-label={`Thao tác ${pen.code}`} className="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-muted hover:bg-page focus-visible:outline-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">⋯</summary>
+                    <div role="menu" className="absolute right-0 top-10 z-20 flex min-w-[150px] flex-col rounded-xl border border-field bg-white py-1 text-xs shadow-md">
                       {penRecords.flatMap((record) => [
                         <button key={`c${record.id}`} type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onEdit(record, 'correct') }} className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-1.5 text-left hover:bg-page">Sửa cữ {SESSION_NAMES[record.sessionNo]}</button>,
                         <button key={`v${record.id}`} type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onEdit(record, 'void') }} className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-1.5 text-left text-err-fg hover:bg-page">Hủy cữ {SESSION_NAMES[record.sessionNo]}</button>,
                       ])}
                     </div>
-                  </details>
-                )}
+                  </details>}
+                </div>}
               </Td>
             </tr>
           ))}
@@ -374,12 +362,15 @@ function WeeklyTable({ records, feeds, canEdit, onEdit }: {
               <Td>{record.lines.map((line) => `${feeds.find((feed) => feed.feedItemId === line.feedItemId)?.name ?? line.feedCode} ${formatNumber(line.actualKg)} kg`).join(' · ') || '—'}</Td>
               <Td className="whitespace-nowrap">{record.time ?? '—'} · {record.fedBy ?? '—'}</Td>
               <Td><Badge tone={record.status === 'VALID' ? 'ok' : record.status === 'VOIDED' ? 'err' : 'warn'}>{record.status === 'VALID' ? 'Hợp lệ' : record.status === 'VOIDED' ? 'Đã hủy' : record.status}</Badge></Td>
-              <Td>{canEdit && record.status === 'VALID' && (
-                <div className="flex gap-2 whitespace-nowrap">
+              <Td><div className="flex gap-2 whitespace-nowrap">
+                <Link to={`/thuc-an/nhat-ky/in?recordId=${record.id}&date=${encodeURIComponent(record.feedingDate)}`} className="text-xs font-semibold text-brand no-underline hover:underline">In</Link>
+                {canEdit && record.status === 'VALID' && (
+                  <>
                   <Button variant="link" size="sm" onClick={() => onEdit(record, 'correct')}>Sửa</Button>
                   <Button variant="link" size="sm" onClick={() => onEdit(record, 'void')}>Hủy</Button>
-                </div>
-              )}</Td>
+                  </>
+                )}
+              </div></Td>
             </tr>
           ))}
         </tbody>
@@ -387,4 +378,3 @@ function WeeklyTable({ records, feeds, canEdit, onEdit }: {
     </div>
   )
 }
-

@@ -34,9 +34,11 @@ public class FarmParameterCommandService {
     private final AuditService audit;
     private final FarmClock clock;
     private final ObjectMapper json;
+    private final ReminderReconciliationService reminders;
 
-    public FarmParameterCommandService(FarmAccessService access, IdempotencyCommandService idempotency, AuditService audit, FarmClock clock, ObjectMapper json) {
-        this.access = access; this.idempotency = idempotency; this.audit = audit; this.clock = clock; this.json = json;
+    public FarmParameterCommandService(FarmAccessService access, IdempotencyCommandService idempotency, AuditService audit, FarmClock clock, ObjectMapper json,
+                                       ReminderReconciliationService reminders) {
+        this.access = access; this.idempotency = idempotency; this.audit = audit; this.clock = clock; this.json = json; this.reminders = reminders;
     }
 
     public CareDtos.ParameterVersionResult create(Long farmId, String key, CareDtos.ParameterVersionCommand request) {
@@ -53,10 +55,17 @@ public class FarmParameterCommandService {
         if (farm == null) throw DomainException.notFound(MessageCodes.COM_08, "farmId", farmId);
         var versions = em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm order by p.versionNo desc", FarmParameterVersion.class)
             .setParameter("farm", farmId).setMaxResults(1).getResultList();
-        int versionNo = versions.isEmpty() ? 1 : versions.get(0).getVersionNo() + 1;
+        int latest = versions.isEmpty() ? 0 : versions.get(0).getVersionNo();
+        // R-18-15: someone saved another version after this form was loaded.
+        if (req.baseVersion() != null && req.baseVersion() != latest) throw DomainException.conflict(MessageCodes.COM_05, "versionNo", latest);
+        int versionNo = latest + 1;
+        LocalDate effectiveFrom = req.effectiveFrom() == null ? clock.today() : req.effectiveFrom();
+        if (effectiveFrom.isBefore(clock.today())) throw DomainException.invalid("effectiveFrom");
+        var baseline = em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc", FarmParameterVersion.class)
+            .setParameter("farm", farmId).setParameter("date", effectiveFrom).setMaxResults(1).getResultList();
         Map<String, Object> values = new LinkedHashMap<>();
-        if (!versions.isEmpty()) {
-            try { values.putAll(json.readValue(versions.get(0).getParameterValues(), new TypeReference<>() {})); }
+        if (!baseline.isEmpty()) {
+            try { values.putAll(json.readValue(baseline.get(0).getParameterValues(), new TypeReference<>() {})); }
             catch (Exception e) { throw new IllegalStateException("Stored farm parameter JSON is invalid", e); }
         }
         if (req.parameters() != null) {
@@ -74,8 +83,6 @@ public class FarmParameterCommandService {
         int gestation = req.gestationLengthDays() == null ? intValue(values.getOrDefault("GESTATION_LENGTH_DAYS", 283)) : req.gestationLengthDays();
         validateRange("GESTATION_LENGTH_DAYS", gestation);
         values.put("GESTATION_LENGTH_DAYS", gestation);
-        LocalDate effectiveFrom = req.effectiveFrom() == null ? clock.today() : req.effectiveFrom();
-        if (effectiveFrom.isBefore(clock.today())) throw DomainException.invalid("effectiveFrom");
         FarmParameterVersion snapshot = new FarmParameterVersion(); snapshot.setFarm(farm); snapshot.setVersionNo(versionNo);
         snapshot.setGestationLengthDays(gestation); snapshot.setParameterValues(JsonSupport.toJson(values)); snapshot.setEffectiveFrom(effectiveFrom);
         snapshot.setSourceNote(req.sourceNote().trim()); snapshot.setChangedBy(ctx.user()); snapshot.setCreatedAt(clock.now()); em.persist(snapshot);
@@ -87,7 +94,9 @@ public class FarmParameterCommandService {
         }
         em.flush();
         audit.log(ctx, "FARM_PARAMETER_VERSION", "FarmParameterVersion", snapshot.getId(), Map.of("versionNo", versionNo, "effectiveFrom", effectiveFrom, "sourceNote", req.sourceNote().trim()));
-        return new CareDtos.ParameterVersionResult(snapshot.getId(), versionNo, gestation, effectiveFrom, Map.copyOf(values));
+        // R-18-11: effective now -> JOB-01 recomputes future reminders at once; a later date is applied by the daily job.
+        if (!effectiveFrom.isAfter(clock.today())) reminders.reconcileFarm(farmId);
+        return result(snapshot, values);
     }
 
     @Transactional(readOnly = true)
@@ -107,34 +116,47 @@ public class FarmParameterCommandService {
             .setParameter("farm", farmId).getResultList().stream().map(p -> {
                 try {
                     Map<String, Object> values = json.readValue(p.getParameterValues(), new TypeReference<>() {});
-                    return new CareDtos.ParameterVersionResult(p.getId(), p.getVersionNo(), p.getGestationLengthDays(), p.getEffectiveFrom(), Map.copyOf(values));
+                    return result(p, values);
                 } catch (Exception e) { throw new IllegalStateException("Stored farm parameter JSON is invalid", e); }
             }).toList();
+    }
+
+    private CareDtos.ParameterVersionResult result(FarmParameterVersion p, Map<String, Object> values) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        values.forEach((k, v) -> { if (v != null) copy.put(k, v); });
+        return new CareDtos.ParameterVersionResult(p.getId(), p.getVersionNo(), p.getGestationLengthDays(), p.getEffectiveFrom(), Map.copyOf(copy),
+            p.getSourceNote(), p.getChangedBy() == null ? null : p.getChangedBy().getFullName(), p.getCreatedAt(), p.getEffectiveFrom().isAfter(clock.today()));
+    }
+
+    /** MSG-FE18-06: "{parameter} phải từ {min} đến {max}" (R-18-10). */
+    private static DomainException outOfRange(String name, int min, int max) {
+        return DomainException.unprocessable(MessageCodes.FE18_06, "parameter", name, "min", min, "max", max);
     }
 
     private void validateRange(String name, Object raw) {
         int[] range = RANGES.get(name);
         if (range == null) throw DomainException.invalid("parameters." + name);
-        if ("MIN_BREEDING_WEIGHT_KG".equals(name)) {
-            java.math.BigDecimal value=decimalValue(raw);
+        if ("MIN_BREEDING_WEIGHT_KG".equals(name) || "TARGET_FINISHING_WEIGHT_KG".equals(name)) {
+            java.math.BigDecimal value=decimalValue(name, raw);
             if(value.compareTo(java.math.BigDecimal.valueOf(range[0]))<0||value.compareTo(java.math.BigDecimal.valueOf(range[1]))>0)
-                throw DomainException.invalid("parameters."+name);
+                throw outOfRange(name, range[0], range[1]);
             return;
         }
         int value = intValue(raw);
-        if (value < range[0] || value > range[1]) throw DomainException.invalid("parameters." + name);
+        if (value < range[0] || value > range[1]) throw outOfRange(name, range[0], range[1]);
     }
-    private java.math.BigDecimal decimalValue(Object value){
-        try{return new java.math.BigDecimal(String.valueOf(value));}catch(Exception e){throw DomainException.invalid("parameters");}
+    private java.math.BigDecimal decimalValue(String name, Object value){
+        try{return new java.math.BigDecimal(String.valueOf(value));}catch(NumberFormatException e){throw DomainException.invalid("parameters." + name);}
     }
     private void validateRelationships(Map<String,Object> values){
         if(values.get("BCS_SCALE")!=null&&!java.util.Set.of("1-5:0.5","1-9:1").contains(String.valueOf(values.get("BCS_SCALE"))))
             throw DomainException.invalid("parameters.BCS_SCALE");
         Integer wean=optionalInt(values.get("WEANING_AGE_MONTHS")),young=optionalInt(values.get("YOUNG_STOCK_AGE_MONTHS")),adult=optionalInt(values.get("ADULT_AGE_MONTHS"));
-        if(wean!=null&&young!=null&&wean>=young)throw DomainException.invalid("parameters.YOUNG_STOCK_AGE_MONTHS");
-        if(young!=null&&adult!=null&&young>=adult)throw DomainException.invalid("parameters.ADULT_AGE_MONTHS");
+        // Stage ages strictly increase (R-18-10, TC-18-19): the later stage must start after the earlier one.
+        if(wean!=null&&young!=null&&wean>=young)throw outOfRange("YOUNG_STOCK_AGE_MONTHS",wean+1,RANGES.get("YOUNG_STOCK_AGE_MONTHS")[1]);
+        if(young!=null&&adult!=null&&young>=adult)throw outOfRange("ADULT_AGE_MONTHS",young+1,RANGES.get("ADULT_AGE_MONTHS")[1]);
         Integer start=optionalInt(values.get("BREEDING_WINDOW_START_HOURS")),end=optionalInt(values.get("BREEDING_WINDOW_END_HOURS"));
-        if(start!=null&&end!=null&&end<=start)throw DomainException.invalid("parameters.BREEDING_WINDOW_END_HOURS");
+        if(start!=null&&end!=null&&end<=start)throw outOfRange("BREEDING_WINDOW_END_HOURS",start+1,RANGES.get("BREEDING_WINDOW_END_HOURS")[1]);
     }
     private Integer optionalInt(Object value){return value==null?null:intValue(value);}
     private int intValue(Object value) {

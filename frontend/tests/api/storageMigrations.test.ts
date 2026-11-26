@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { migrateHerdStorage } from '../../src/api/storageMigrations'
-import { MemoryStorage } from '../../src/api/testUtils'
+import { migrateHerdStorage } from '../../src/demo/api/storageMigrations'
+import { MemoryStorage } from '../support/memoryStorage'
 
 const memoryStorage = (initial: Record<string, string> = {}) => new MemoryStorage(initial)
 

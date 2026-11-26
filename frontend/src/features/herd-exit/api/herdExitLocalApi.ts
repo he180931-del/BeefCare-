@@ -1,9 +1,10 @@
-import { createCollection, type NewCollectionInput } from '../../../api/client'
-import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
+import { createCollection, type NewCollectionInput } from '../../../demo/api/client'
+import { cancelCattleExit, confirmCattleExit } from '../../../demo/api/herdDomainApi'
 import { initialExports } from '../data/exportsData'
-import { errorMessage } from '../../../api/herdDomainApi'
-import { herdExitSchema } from '../../../api/collectionSchemas'
-import type { CattleInput, ExitDraft, ExitStatus, ExitType, HerdExit } from '../../../types'
+import { errorMessage } from '../../../demo/api/herdDomainApi'
+import { herdExitSchema } from '../../../demo/api/collectionSchemas'
+import type { CattleInput } from '../../cattle'
+import type { ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
 
 const nextExitId = (rows: HerdExit[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
@@ -36,10 +37,6 @@ export const herdExitApi = {
   reset: () => herdExits.reset(),
 }
 
-export const getExitDraftState = (rows: HerdExit[], id?: string): ExitDraft & { row?: HerdExit } => {
-  const row = id ? rows.find((item) => item.id === id) : rows.find((item) => item.status === 'Nháp')
-  return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Bán', row }
-}
 
 type ExitSaveRecord = Partial<HerdExit> & { status?: ExitStatus; type?: ExitType }
 export async function saveHerdExit({ id, record, cattleRows = [] }: { id?: string; record: ExitSaveRecord; cattleRows?: CattleInput[] }): Promise<HerdExit> {

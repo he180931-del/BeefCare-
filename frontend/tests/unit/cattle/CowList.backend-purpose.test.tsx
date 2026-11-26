@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -50,6 +50,7 @@ describe('CowList backend mode — SCR-18 Purpose filter', () => {
     render(<MemoryRouter><CowList /></MemoryRouter>)
 
     expect(await screen.findByText('BC-BACKEND-PURPOSE-001')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
     const purpose = screen.getByRole('combobox', { name: /Mục đích/i }) as HTMLSelectElement
     const exclude = [...purpose.options].find((option) => option.textContent?.includes('Bò sinh sản'))
     const include = [...purpose.options].find((option) => option.textContent?.includes('Vỗ béo'))
@@ -61,5 +62,27 @@ describe('CowList backend mode — SCR-18 Purpose filter', () => {
     await user.selectOptions(purpose, include.value)
     expect(await screen.findByText('BC-BACKEND-PURPOSE-001')).toBeInTheDocument()
     expect(requestedCattleUrls.some((url) => new URL(url).searchParams.get('purposeId') === '31')).toBe(true)
+  })
+
+  it('toggles code sorting from the column and sends the weight filter with attribute sorting', async () => {
+    const user = userEvent.setup()
+    vi.resetModules()
+    const { default: CowList } = await import('../../../src/features/cattle/pages/CowList')
+    render(<MemoryRouter><CowList /></MemoryRouter>)
+    await screen.findByText('BC-BACKEND-PURPOSE-001')
+
+    await user.click(screen.getByRole('button', { name: 'Bò' }))
+    expect(screen.getByRole('columnheader', { name: 'Bò' })).toHaveAttribute('aria-sort', 'descending')
+    await waitFor(() => expect(new URL(requestedCattleUrls.at(-1)!).searchParams.get('sort')).toBe('-displayCode'))
+
+    await user.click(screen.getByRole('button', { name: /^Bộ lọc khác/ })) // D75: bộ lọc ít dùng nằm sau nút này
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sắp xếp' }), 'name')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Dữ liệu cân' }), 'no')
+    await waitFor(() => {
+      const params = new URL(requestedCattleUrls.at(-1)!).searchParams
+      expect(params.get('sort')).toBe('name')
+      expect(params.get('hasWeight')).toBe('false')
+      expect(params.get('page')).toBe('0')
+    })
   })
 })

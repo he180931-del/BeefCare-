@@ -38,6 +38,7 @@ export type FeedStockAdjustmentDraftLineInput = {
 
 export type FeedStockAdjustmentDraftInput = {
   id?: number
+  expectedVersion?: number
   countDate: string
   adjustmentType: FeedStockAdjustmentType
   countedBy: string

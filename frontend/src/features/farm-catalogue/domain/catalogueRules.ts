@@ -1,6 +1,5 @@
-import type {
-  AvailabilityFilter, BreedCommand, CatalogueFilters, MedicineCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
-} from '../types'
+import { businessDate } from '../../../shared/lib/date/farmTime'
+import type { AvailabilityFilter, Breed, CatalogueFilters, Purpose, PurposeType, Route, Vaccine } from '../types'
 
 export type FieldErrorMap = Record<string, string>
 
@@ -54,9 +53,6 @@ export function parseNumber(text: string): number | null {
 }
 export const numberToText = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 
-const compact = (errors: Record<string, string | undefined>): FieldErrorMap =>
-  Object.fromEntries(Object.entries(errors).filter((e): e is [string, string] => Boolean(e[1])))
-
 // ---- Nhãn ----
 export const ROUTE_LABELS: Record<Route, string> = {
   INTRAMUSCULAR: 'Tiêm bắp', SUBCUTANEOUS: 'Tiêm dưới da', INTRAVENOUS: 'Tiêm tĩnh mạch', ORAL: 'Uống',
@@ -74,17 +70,19 @@ export const PURPOSE_TYPE_LABELS: Record<PurposeType, string> = {
 }
 
 // ---- Dùng / tham chiếu ----
-export const vaccineUsage = (v: Pick<Vaccine, 'scheduleCount' | 'recordCount'>) => v.scheduleCount + v.recordCount
-export function vaccineUsageLabel(v: Pick<Vaccine, 'scheduleCount' | 'recordCount'>): string {
-  const parts = [v.scheduleCount > 0 && `${v.scheduleCount} lịch`, v.recordCount > 0 && `${v.recordCount} mũi`].filter(Boolean)
+export const vaccineUsage = (v: Pick<Vaccine, 'scheduleCount' | 'recordCount' | 'referencedCount'>) => Math.max(v.referencedCount ?? 0, v.scheduleCount + v.recordCount)
+export function vaccineUsageLabel(v: Pick<Vaccine, 'scheduleCount' | 'recordCount' | 'referencedCount'>): string {
+  const other = vaccineUsage(v) - v.scheduleCount - v.recordCount
+  const parts = [v.scheduleCount > 0 && `${v.scheduleCount} lịch`, v.recordCount > 0 && `${v.recordCount} mũi`, other > 0 && `${other} tham chiếu khác`].filter(Boolean)
   return parts.length ? parts.join(' · ') : 'Chưa dùng'
 }
 export function vaccineDoseRoute(v: Pick<Vaccine, 'dose' | 'route'>): { text: string; needsLabel: boolean } {
   if (!v.dose && !v.route) return { text: 'Bổ sung theo nhãn', needsLabel: true }
   return { text: [v.dose || '—', v.route ? ROUTE_SHORT[v.route] : '—'].join(' · '), needsLabel: false }
 }
-/** Số bò hoặc tiêu chí chuồng đang tham chiếu mục đích (MSG-FE18-09). */
-export const purposeUsage = (p: Pick<Purpose, 'activeCattle' | 'receivingPens'>) => p.activeCattle + p.receivingPens.length
+/** The server counts historical references; older demo fixtures only carry the reference flag. */
+export const breedUsage = (b: Pick<Breed, 'activeCattle' | 'referenced' | 'referencedCount'>) => b.referencedCount ?? Math.max(b.activeCattle, b.referenced ? 1 : 0)
+export const purposeUsage = (p: Pick<Purpose, 'activeCattle' | 'receivingPens' | 'referenced' | 'referencedCount'>) => p.referencedCount ?? Math.max(p.activeCattle + p.receivingPens.length, p.referenced ? 1 : 0)
 
 // ---- Lọc ----
 const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D').toLowerCase()
@@ -97,47 +95,8 @@ export function matchesFilters(row: { available: boolean }, filters: CatalogueFi
 }
 
 // ---- Ngày ----
-export function todayIso(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
+export const todayIso = businessDate
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-')
   return y && m && d ? `${d}/${m}/${y}` : iso
 }
-
-// ---- Kiểm tra từng danh mục ----
-export const validateBreed = (c: BreedCommand): FieldErrorMap => compact({
-  code: checkCode(c.code, 'Mã giống'),
-  name: checkText(c.name, 'Tên giống', 100, true),
-  group: checkText(c.group, 'Nhóm', 50),
-  description: checkText(c.description, 'Mô tả', 500),
-})
-
-export const validatePurpose = (c: PurposeCommand): FieldErrorMap => compact({
-  code: checkCode(c.code, 'Mã'),
-  name: checkText(c.name, 'Tên mục đích', 100, true),
-  purposeType: PURPOSE_TYPES.includes(c.purposeType) ? undefined : required('Loại mục đích'),
-  description: checkText(c.description, 'Mô tả', 500),
-})
-
-export const validateVaccine = (c: VaccineCommand): FieldErrorMap => compact({
-  code: checkCode(c.code, 'Mã'),
-  name: checkText(c.name, 'Tên vắc-xin', 150, true),
-  diseasePrevented: checkText(c.diseasePrevented, 'Phòng bệnh', 150, true),
-  manufacturer: checkText(c.manufacturer, 'Nhà sản xuất', 100),
-  dose: checkText(c.dose, 'Liều tham chiếu', 50),
-  route: !c.route || VACCINE_ROUTES.includes(c.route) ? undefined : 'Đường tiêm không hợp lệ.',
-  boosterInterval: checkNumber(c.boosterInterval, 'Nhắc lại sau', 0, 730, { optional: true }),
-  withdrawalDays: checkNumber(c.withdrawalDays, 'Ngưng sử dụng thịt', 0, 365),
-})
-
-export const validateMedicine = (c: MedicineCommand): FieldErrorMap => compact({
-  code: checkCode(c.code, 'Mã'),
-  name: checkText(c.name, 'Tên thuốc', 150, true),
-  dose: checkText(c.dose, 'Liều tham chiếu', 100),
-  route: !c.route || MEDICINE_ROUTES.includes(c.route) ? undefined : 'Đường dùng không hợp lệ.',
-  withdrawalDays: checkNumber(c.withdrawalDays, 'Ngưng sử dụng thịt', 0, 365),
-  description: checkText(c.description, 'Ghi chú', 500),
-})

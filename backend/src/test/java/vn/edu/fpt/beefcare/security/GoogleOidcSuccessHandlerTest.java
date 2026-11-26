@@ -1,0 +1,117 @@
+package vn.edu.fpt.beefcare.security;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+
+import java.util.List;
+import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.context.SecurityContextHolder;
+import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.GoogleIdentityService;
+import vn.edu.fpt.beefcare.service.MessageCodes;
+import vn.edu.fpt.beefcare.domain.User;
+
+class GoogleOidcSuccessHandlerTest {
+
+    @Test
+    void successRotatesSessionStoresProofAndUsesServerReturnPath() throws Exception {
+        GoogleIdentityService identities = mock(GoogleIdentityService.class);
+        UserDetailsService userDetails = mock(UserDetailsService.class);
+        SessionRegistry sessions = mock(SessionRegistry.class);
+        GoogleOidcSuccessHandler handler = new GoogleOidcSuccessHandler(identities, userDetails, sessions, "https://app.beefcare.test/");
+        OidcUser google = mock(OidcUser.class);
+        User identity = new User();
+        identity.setEmail("owner@example.test");
+        when(identities.provisionOrLink(google)).thenReturn(new GoogleIdentityService.Result(identity, true, true));
+        when(userDetails.loadUserByUsername(identity.getEmail())).thenReturn(
+            org.springframework.security.core.userdetails.User.withUsername(identity.getEmail()).password("unused").authorities("ROLE_USER").build()
+        );
+        OAuth2AuthenticationToken source = new OAuth2AuthenticationToken(google, List.of(new SimpleGrantedAuthority("ROLE_USER")), "google");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        HttpSession previous = request.getSession(true);
+        String previousId = previous.getId();
+        previous.setAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH, "/tai-khoan");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try {
+            handler.onAuthenticationSuccess(request, response, source);
+
+            HttpSession current = request.getSession(false);
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(response.getRedirectedUrl()).isEqualTo("https://app.beefcare.test/tai-khoan?m=doi-mat-khau&googleReauthenticated=true");
+            assertThat(current).isNotNull();
+            assertThat(current.getId()).isNotEqualTo(previousId);
+            assertThat(current.getAttribute(GoogleReauthentication.AUTHENTICATED_AT)).isInstanceOf(java.time.Instant.class);
+            assertThat(current.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isNull();
+            assertThat(SecurityContextHolder.getContext().getAuthentication().getName()).isEqualTo(identity.getEmail());
+            verify(sessions).registerNewSession(current.getId(), identity.getEmail());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void redirectsAnUnconsentedGoogleAccountToTermsBeforeOwnerRegistration() throws Exception {
+        GoogleIdentityService identities = mock(GoogleIdentityService.class);
+        UserDetailsService userDetails = mock(UserDetailsService.class);
+        SessionRegistry sessions = mock(SessionRegistry.class);
+        GoogleOidcSuccessHandler handler = new GoogleOidcSuccessHandler(identities, userDetails, sessions, "https://app.beefcare.test/");
+        OidcUser google = mock(OidcUser.class);
+        User identity = new User();
+        identity.setEmail("new-google@example.test");
+        when(identities.provisionOrLink(google)).thenReturn(new GoogleIdentityService.Result(identity, false, false));
+        when(userDetails.loadUserByUsername(identity.getEmail())).thenReturn(
+            org.springframework.security.core.userdetails.User.withUsername(identity.getEmail()).password("unused").authorities("ROLE_USER").build()
+        );
+        OAuth2AuthenticationToken source = new OAuth2AuthenticationToken(google, List.of(new SimpleGrantedAuthority("ROLE_USER")), "google");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, source);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("https://app.beefcare.test/chap-nhan-dieu-khoan");
+    }
+
+    @Test
+    void redirectsASuspendedGoogleAccountToTheSuspendedState() throws Exception {
+        GoogleIdentityService identities = mock(GoogleIdentityService.class);
+        UserDetailsService userDetails = mock(UserDetailsService.class);
+        SessionRegistry sessions = mock(SessionRegistry.class);
+        GoogleOidcSuccessHandler handler = new GoogleOidcSuccessHandler(identities, userDetails, sessions, "https://app.beefcare.test/");
+        OidcUser google = mock(OidcUser.class);
+        when(identities.provisionOrLink(google)).thenThrow(DomainException.forbidden(MessageCodes.FE01_03, "email", "suspended@example.test"));
+        OAuth2AuthenticationToken source = new OAuth2AuthenticationToken(google, List.of(new SimpleGrantedAuthority("ROLE_USER")), "google");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, source);
+
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("https://app.beefcare.test/tai-khoan-tam-ngung?email=suspended%40example.test");
+    }
+
+    @Test
+    void doesNotHaveALockoutSpecificGoogleFailurePath() throws Exception {
+        GoogleIdentityService identities = mock(GoogleIdentityService.class);
+        UserDetailsService userDetails = mock(UserDetailsService.class);
+        SessionRegistry sessions = mock(SessionRegistry.class);
+        GoogleOidcSuccessHandler handler = new GoogleOidcSuccessHandler(identities, userDetails, sessions, "https://app.beefcare.test/");
+        OidcUser google = mock(OidcUser.class);
+        when(identities.provisionOrLink(google)).thenThrow(DomainException.forbidden("MSG-FE01-12"));
+        OAuth2AuthenticationToken source = new OAuth2AuthenticationToken(google, List.of(new SimpleGrantedAuthority("ROLE_USER")), "google");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, source);
+
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("https://app.beefcare.test/sign-in?error=google-sign-in");
+    }
+}

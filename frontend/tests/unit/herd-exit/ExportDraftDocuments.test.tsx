@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdExit } from '../../../src/types'
+import type { HerdExit } from '../../../src/features/herd-exit/types'
 import { todayIso } from '../../../src/features/herd-exit/data/exportsData'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const apiState = vi.hoisted(() => ({
   exports: [] as HerdExit[],
@@ -13,11 +14,13 @@ const apiState = vi.hoisted(() => ({
   saved: [] as unknown[],
   confirmed: [] as unknown[],
   saveError: null as Error | null,
+  savedVersion: 3,
   saveGate: null as Promise<void> | null,
   checkGate: null as Promise<void> | null,
 }))
 
-vi.mock('../../../src/features/herd-exit/api/index', () => ({
+vi.mock('../../../src/features/herd-exit/api/index', async (importOriginal) => ({
+  ...(({ newExitVoucherId, exitPenShift }) => ({ newExitVoucherId, exitPenShift }))(await importOriginal<typeof import('../../../src/features/herd-exit/api/index')>()),
   herdExitApi: {
     list: async () => structuredClone(apiState.exports),
     get: async (id: string) => { apiState.fetched.push(id); return structuredClone(apiState.hydrated) },
@@ -27,7 +30,7 @@ vi.mock('../../../src/features/herd-exit/api/index', () => ({
     const row = id ? rows.find((item) => item.id === id) : undefined
     return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Bán', row }
   },
-  saveHerdExit: async (input: unknown) => { apiState.saved.push(input); if (apiState.saveGate) await apiState.saveGate; if (apiState.saveError) throw apiState.saveError; return input },
+  saveHerdExit: async (input: { id?: string; record: Partial<HerdExit> }) => { apiState.saved.push(input); if (apiState.saveGate) await apiState.saveGate; if (apiState.saveError) throw apiState.saveError; return { ...input.record, id: input.id ?? 'PX-2026-0061', backendId: 61, version: ++apiState.savedVersion } },
   confirmHerdExit: async (id: string, version: number) => { apiState.confirmed.push({ id, version }); return { ...structuredClone(apiState.hydrated), id, status: 'Đã xuất' } },
   listSelectableExitCattle: async () => [{ backendId: 301, code: 'BC-000301', tag: 'VN301', breed: 'Brahman', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 410, weightNote: 'cân 29/10', estimated: false, unitPrice: 80000 }],
   listExitBuyers: async () => [{ id: 'b1', name: 'Lò mổ Hà Đông', phone: '0243 555 018' }],
@@ -55,7 +58,7 @@ function LocationObserver() {
 }
 
 const existingDraft: HerdExit = {
-  id: 'PX-2026-0061', date: '2026-10-29', type: 'Bán', who: 'Lò mổ Hà Đông', count: 1, status: 'Nháp',
+  id: 'PX-2026-0061', backendId: 61, version: 3, date: '2026-10-29', type: 'Bán', who: 'Lò mổ Hà Đông', count: 1, status: 'Nháp',
   draft: { type: 'Bán', date: '2026-10-29', buyerId: 'b1', pricing: 'con', cows: [{ code: 'BC-000301', weight: 410, unitPrice: 80000, estimated: false }], docs: [] },
 }
 
@@ -67,11 +70,56 @@ beforeEach(() => {
   apiState.saved = []
   apiState.confirmed = []
   apiState.saveError = null
+  apiState.savedVersion = 3
   apiState.saveGate = null
   apiState.checkGate = null
 })
 
 describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () => {
+  it('retains edited fields/files after 409 and Stay, then reloads only on request', async () => {
+    const user = userEvent.setup()
+    apiState.exports = [structuredClone(existingDraft)]
+    apiState.hydrated = { ...structuredClone(existingDraft), draft: { ...existingDraft.draft, plate: 'BIEN-CU' } }
+    apiState.saveError = new BackendError(409, { code: 'MSG-COM-05' })
+    renderPage('/herd-exit/new?id=PX-2026-0061')
+    const plate = await screen.findByDisplayValue('BIEN-CU')
+    await user.clear(plate); await user.type(plate, 'BIEN-DANG-SUA')
+    const file = new File(['pdf'], 'chua-luu.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
+    apiState.hydrated = { ...apiState.hydrated, version: 9, draft: { ...apiState.hydrated.draft, plate: 'BIEN-MOI-NHAT' } }
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await screen.findByRole('button', { name: 'Tải bản mới nhất' })
+    expect(apiState.saved[0]).toMatchObject({ expectedVersion: 3, record: { backendId: 61 }, documents: [file] })
+    expect(apiState.fetched).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Ở lại' }))
+    expect(screen.getByDisplayValue('BIEN-DANG-SUA')).toBeInTheDocument()
+    expect(screen.getByText('chua-luu.pdf')).toBeInTheDocument()
+    apiState.saveError = new BackendError(409, { code: 'MSG-COM-05' })
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await user.click(await screen.findByRole('button', { name: 'Tải bản mới nhất' }))
+    expect(await screen.findByDisplayValue('BIEN-MOI-NHAT')).toBeInTheDocument()
+    expect(screen.queryByText('chua-luu.pdf')).not.toBeInTheDocument()
+    expect(apiState.fetched).toHaveLength(2)
+    expect(apiState.saved).toHaveLength(2)
+  })
+
+  it('uses the saved version for a second review save, independently of the checks version', async () => {
+    const user = userEvent.setup()
+    apiState.exports = [structuredClone(existingDraft)]
+    apiState.hydrated = structuredClone(existingDraft)
+    apiState.checks = { voucherId: 61, code: existingDraft.id, version: 99, cattle: [], occupancy: [] }
+    renderPage('/herd-exit/new?id=PX-2026-0061')
+    const review = await screen.findByRole('button', { name: /Lưu và kiểm tra/ })
+    await user.click(review)
+    await waitFor(() => expect(apiState.saved).toHaveLength(1))
+    await waitFor(() => expect(screen.getByLabelText(/Tôi đã xem các mục trên/)).not.toBeDisabled())
+    fireEvent.change(screen.getAllByLabelText('Chọn ngày')[0], { target: { value: '2026-10-30' } })
+    await user.click(await screen.findByRole('button', { name: /Lưu và kiểm tra/ }))
+    await waitFor(() => expect(apiState.saved).toHaveLength(2))
+    expect(apiState.saved[0]).toMatchObject({ expectedVersion: 3 })
+    expect(apiState.saved[1]).toMatchObject({ expectedVersion: 4, record: { backendId: 61 } })
+  })
+
   it('formats the injectable local date used by a new voucher', () => {
     expect(todayIso(new Date(2026, 9, 30))).toBe('2026-10-30')
   })
@@ -106,7 +154,7 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
 
     expect(apiState.fetched).toEqual(['PX-2026-0061'])
     expect(screen.getByRole('button', { name: 'Chết / mất' })).toBeDisabled()
-    expect(screen.getByDisplayValue('Bán')).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByDisplayValue('80.000')).toBeInTheDocument()
   })
 
@@ -159,6 +207,26 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     expect(screen.getAllByText('80.000')).toHaveLength(2)
   })
 
+  it('TC-13-15: calculates 450 kg at 70,000, then applies deduction and deposit', async () => {
+    apiState.exports = [{ id: existingDraft.id, date: existingDraft.date, type: existingDraft.type, status: 'Nháp' }]
+    apiState.hydrated = { ...structuredClone(existingDraft), draft: { ...structuredClone(existingDraft.draft), pricing: 'kg' } }
+    const user = userEvent.setup()
+    renderPage('/herd-exit/new?id=PX-2026-0061')
+    await screen.findByText('1. Thông tin phiếu')
+
+    const cowRow = screen.getByText('BC-000301').closest('tr')!
+    fireEvent.change(within(cowRow).getByLabelText('Cân xuất BC-000301'), { target: { value: '450' } })
+    fireEvent.change(cowRow.querySelectorAll('input')[1], { target: { value: '70.000' } })
+    const deductionField = screen.getByText('Khấu trừ (hao hụt, môi giới)').parentElement!.querySelector('input')!
+    const depositField = screen.getByText('Đã thu (đặt cọc)').parentElement!.querySelector('input')!
+    fireEvent.change(deductionField, { target: { value: '500.000' } })
+    fireEvent.change(depositField, { target: { value: '10.000.000' } })
+
+    expect(within(cowRow).getByText('31.500.000')).toBeInTheDocument()
+    expect(screen.getAllByText('Tổng phải thu').some((label) => label.parentElement?.textContent?.includes('31.000.000'))).toBe(true)
+    expect(screen.getByText('Còn phải thu').parentElement).toHaveTextContent('21.000.000')
+  })
+
   it('keeps the hydrated draft visible when document upload fails', async () => {
     apiState.exports = [{ id: existingDraft.id, date: existingDraft.date, type: existingDraft.type, status: 'Nháp' }]
     apiState.hydrated = structuredClone(existingDraft)
@@ -167,14 +235,14 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     renderPageWithLocation('/herd-exit/new?id=PX-2026-0061')
 
     expect((await screen.findAllByText('BC-000301'))[0]).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Bán')).toHaveValue('Bán')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     const pdf = new File(['%PDF-1.4'], 'fail.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), pdf)
     await user.click(screen.getByRole('button', { name: /Lưu và kiểm tra/ }))
 
     expect(await screen.findByText('Tải chứng từ thất bại')).toBeInTheDocument()
     expect(screen.getByText('Phiếu xuất mới')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Bán')).toHaveValue('Bán')
+    expect(screen.getByRole('button', { name: 'Bán' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByText('BC-000301')[0]).toBeInTheDocument()
     expect(screen.getByText('fail.pdf')).toBeInTheDocument()
     expect(screen.getByLabelText('current location')).toHaveTextContent('/herd-exit/new?id=PX-2026-0061')

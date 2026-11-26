@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createReproductionApi } from '../../../src/features/reproduction/api/reproductionApi'
 import { createReproductionDemoStore } from '../../../src/features/reproduction/data/reproductionDemoStore'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const transport: BackendTransport = {
   get: vi.fn(),
@@ -69,7 +69,7 @@ describe('reproduction mock API boundary', () => {
     expect(voided.calvings[0]?.voidReason).toBe('Ghi nhầm sự kiện')
   })
 
-  it('requires a correction reason and blocks voiding a breeding used by a later check', async () => {
+  it('D69: a note is optional; voiding a breeding used by a later check is still blocked', async () => {
     const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const cow = await api.getProfile('BC-000061')
@@ -80,9 +80,8 @@ describe('reproduction mock API boundary', () => {
       method: 'ULTRASOUND', linkedBreedingId: breeding.id, examiner: 'BS. Minh',
     }, 'MANAGER')
 
+    // D69: ghi chú không bắt buộc – xóa không ghi chú vẫn bị chặn vì có khám thai phụ thuộc.
     await expect(api.voidEvent('BC-000061', breeding.id, '', 'MANAGER'))
-      .rejects.toThrow('Nhập lý do sửa hoặc hủy.')
-    await expect(api.voidEvent('BC-000061', breeding.id, 'Ghi nhầm', 'MANAGER'))
       .rejects.toThrow('Không thể hủy vì đã có khám thai liên quan.')
   })
 
@@ -124,10 +123,8 @@ describe('reproduction mock API boundary', () => {
     const cow = await api.getProfile('BC-000142')
     const estrus = cow.events.find((event) => event.type === 'ESTRUS')!
 
-    await expect(api.correctEvent('BC-000142', estrus.id, { details: 'Sửa dấu hiệu' }, '', 'MANAGER'))
-      .rejects.toThrow('Nhập lý do sửa hoặc hủy.')
     await expect(api.voidEvent('BC-000142', estrus.id, 'Không chính xác', 'TECHNICIAN'))
-      .rejects.toThrow('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
+      .rejects.toThrow('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 
     const corrected = await api.correctEvent('BC-000142', estrus.id, { details: 'Đứng yên, dịch nhầy trong' }, 'Bổ sung dấu hiệu', 'MANAGER')
     expect(corrected.events.find((event) => event.id === estrus.id)?.corrected).toBe(true)
@@ -137,16 +134,24 @@ describe('reproduction mock API boundary', () => {
 
   it('never falls back to synthetic reproduction data in backend mode', async () => {
     const store = {
+      now: vi.fn(() => '2026-10-20T15:00'),
       list: vi.fn(async () => REPRODUCTION_DEMO),
       get: vi.fn(async () => REPRODUCTION_DEMO[0]),
       recordEvent: vi.fn(), recordCalving: vi.fn(), correctEvent: vi.fn(), voidEvent: vi.fn(),
       correctCalving: vi.fn(), voidCalving: vi.fn(), voidCalf: vi.fn(), reset: vi.fn(),
     }
-    const api = createReproductionApi({ mode: 'backend', farmId: 1, transport, store })
+    const backend: BackendTransport = {
+      get: vi.fn(async (path: string) => (path.endsWith('/context') ? { timeZone: 'Asia/Ho_Chi_Minh' } : { tiles: {}, counts: {}, items: [] })),
+      command: vi.fn(),
+      farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`),
+    }
+    const api = createReproductionApi({ mode: 'backend', farmId: 1, transport: backend, store })
 
-    await expect(api.listWorklist()).rejects.toThrow('Chưa tích hợp dữ liệu sinh sản với backend.')
+    expect(await api.listWorklist()).toEqual([])
+    expect(backend.get).toHaveBeenCalledWith('/api/farms/1/reproduction-worklist?tab=ALL')
     expect(store.list).not.toHaveBeenCalled()
-    expect(transport.get).not.toHaveBeenCalled()
-    expect(transport.command).not.toHaveBeenCalled()
+    expect(store.now).not.toHaveBeenCalled()
+    await expect(api.resetDemo()).rejects.toThrow('Chế độ backend không có dữ liệu minh họa')
+    expect(store.reset).not.toHaveBeenCalled()
   })
 })

@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "harness": "tai_local_performance.py",
+  "harness_version": "1.0",
+  "started_at_utc": "2026-11-16T10:31:28.718722+00:00",
+  "target": {
+    "base_url": "http://127.0.0.1:8080",
+    "farm_id": 1153,
+    "farm_name": "BeefCare Local Farm C",
+    "explicit_qa_local_acknowledgement": true,
+    "database_guard": "QA identity is asserted by the operator; this client cannot inspect the selected database name."
+  },
+  "synthetic_identity": {
+    "pattern": "owner-2@beefcare.local",
+    "user_count": 1,
+    "password_source_env": "BEEFCARE_PERF_PASSWORD",
+    "password_or_session_tokens_recorded": false,
+    "verified_roles": [
+      "OWNER"
+    ]
+  },
+  "scope": {
+    "business_data_mutations": false,
+    "browser_ui": false,
+    "network_profile": "localhost loopback only",
+    "test_identity_data": "synthetic local identities only",
+    "auth_session_activity": "Synthetic login/logout only; authentication bookkeeping may run."
+  },
+  "status": "MEASUREMENTS_WRITTEN_NOT_FORMALLY_EVALUATED",
+  "limits": [
+    "Direct localhost API measurements do not measure time-to-usable browser content, QR scanning, camera, or network outside loopback.",
+    "P95/P90 are descriptive summaries; the SRS does not define a required percentile.",
+    "P07 source-event propagation is not measured without a controlled source mutation; this harness performs none.",
+    "A numeric comparison with an SRS threshold is not a formal Pass result."
+  ],
+  "date_range": {
+    "from": "2024-11-16",
+    "to": "2026-11-16",
+    "months": 24
+  },
+  "session_preparation": {
+    "distinct_authenticated_accounts": 1,
+    "login_concurrency_cap": 1,
+    "all_identities_and_memberships_verified": true
+  },
+  "observed_dataset": {
+    "active_cattle": 300,
+    "matches_exact_300_target": true,
+    "report_range": {
+      "from": "2024-11-16",
+      "to": "2026-11-16",
+      "month_span": 24
+    }
+  },
+  "cases": {
+    "P01": {
+      "status": "MEASURED_LOCAL_API_ONLY_NOT_SRS_EVALUATION",
+      "measurement_scope": "Dashboard API surrogate only; not time-to-usable browser page.",
+      "sample_count": 3,
+      "error_count": 0,
+      "threshold_ms": 3000,
+      "numeric_threshold_comparisons": {
+        "min_within": true,
+        "median_within": true,
+        "max_within": true,
+        "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+      },
+      "elapsed_ms": {
+        "min": 181.691,
+        "median": 196.409,
+        "mean": 207.855,
+        "p90_descriptive": 235.655,
+        "p95_descriptive": 240.56,
+        "max": 245.466
+      },
+      "samples": [
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 196.409,
+          "response_bytes": 1340,
+          "tag": "P01_dashboard_api",
+          "iteration": 1
+        },
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 181.691,
+          "response_bytes": 1340,
+          "tag": "P01_dashboard_api",
+          "iteration": 2
+        },
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 245.466,
+          "response_bytes": 1340,
+          "tag": "P01_dashboard_api",
+          "iteration": 3
+        }
+      ]
+    },
+    "P02": {
+      "status": "MEASURED_LOCAL_API_ONLY_NOT_SRS_EVALUATION",
+      "measurement_scope": "Cattle detail API surrogate only; excludes QR/camera scan and browser rendering.",
+      "sample_count": 3,
+      "error_count": 0,
+      "threshold_ms": 2000,
+      "numeric_threshold_comparisons": {
+        "min_within": true,
+        "median_within": true,
+        "max_within": true,
+        "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+      },
+      "elapsed_ms": {
+        "min": 106.603,
+        "median": 148.252,
+        "mean": 134.728,
+        "p90_descriptive": 149.113,
+        "p95_descriptive": 149.22,
+        "max": 149.328
+      },
+      "samples": [
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 106.603,
+          "response_bytes": 1147,
+          "tag": "P02_cattle_profile_api",
+          "iteration": 1
+        },
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 149.328,
+          "response_bytes": 1147,
+          "tag": "P02_cattle_profile_api",
+          "iteration": 2
+        },
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 148.252,
+          "response_bytes": 1147,
+          "tag": "P02_cattle_profile_api",
+          "iteration": 3
+        }
+      ]
+    },
+    "P03": {
+      "status": "MEASURED_LOCAL_READ_ONLY_REPORT_FORM_NOT_SRS_EVALUATION",
+      "valid_form_success": {
+        "measurement_scope": "Successful report-form POST to read-only service; no domain write.",
+        "sample_count": 3,
+        "error_count": 0,
+        "threshold_ms": 2000,
+        "numeric_threshold_comparisons": {
+          "min_within": false,
+          "median_within": false,
+          "max_within": false,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 2498.821,
+          "median": 2513.384,
+          "mean": 2759.295,
+          "p90_descriptive": 3115.22,
+          "p95_descriptive": 3190.45,
+          "max": 3265.679
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3265.679,
+            "response_bytes": 2446,
+            "tag": "P03_report_form_success",
+            "safe_observations": {},
+            "iteration": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2498.821,
+            "response_bytes": 2446,
+            "tag": "P03_report_form_success",
+            "safe_observations": {},
+            "iteration": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2513.384,
+            "response_bytes": 2446,
+            "tag": "P03_report_form_success",
+            "safe_observations": {},
+            "iteration": 3
+          }
+        ]
+      },
+      "validation_error": {
+        "measurement_scope": "Reversed report-period error from read-only service; validation occurs before source queries.",
+        "sample_count": 3,
+        "error_count": 0,
+        "threshold_ms": 2000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": true,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 38.571,
+          "median": 89.411,
+          "mean": 73.024,
+          "p90_descriptive": 90.755,
+          "p95_descriptive": 90.923,
+          "max": 91.091
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 400,
+            "elapsed_ms": 89.411,
+            "response_bytes": 308,
+            "tag": "P03_report_form_validation_error",
+            "iteration": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 400,
+            "elapsed_ms": 38.571,
+            "response_bytes": 308,
+            "tag": "P03_report_form_validation_error",
+            "iteration": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 400,
+            "elapsed_ms": 91.091,
+            "response_bytes": 308,
+            "tag": "P03_report_form_validation_error",
+            "iteration": 3
+          }
+        ]
+      },
+      "mutating_form_success": "NOT_RUN: this harness never sends a successful business mutation."
+    },
+    "P04": {
+      "status": "LOCAL_API_TIMINGS_DATASET_SIZE_AND_RANGE_MATCH_HISTORY_COVERAGE_UNVERIFIED",
+      "expected_active_cattle": 300,
+      "expected_history_months": 24,
+      "filtered_report": {
+        "measurement_scope": "Filtered report API only; UI timing is not measured.",
+        "sample_count": 3,
+        "error_count": 0,
+        "threshold_ms": 5000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": true,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 173.692,
+          "median": 207.203,
+          "mean": 206.289,
+          "p90_descriptive": 231.818,
+          "p95_descriptive": 234.895,
+          "max": 237.972
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 237.972,
+            "response_bytes": 1957,
+            "tag": "P04_filtered_report_24_months",
+            "safe_observations": {
+              "validWeighings": 1250,
+              "recordsWithoutWeight": 0
+            },
+            "iteration": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 173.692,
+            "response_bytes": 1957,
+            "tag": "P04_filtered_report_24_months",
+            "safe_observations": {
+              "validWeighings": 1250,
+              "recordsWithoutWeight": 0
+            },
+            "iteration": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 207.203,
+            "response_bytes": 1957,
+            "tag": "P04_filtered_report_24_months",
+            "safe_observations": {
+              "validWeighings": 1250,
+              "recordsWithoutWeight": 0
+            },
+            "iteration": 3
+          }
+        ]
+      },
+      "dataset_note": "The target cattle count is checked from dashboard. Requested 24-month range and safe aggregate counts are recorded; date-by-date historical coverage is not proven by this client."
+    },
+    "P07": {
+      "status": "NOT_MEASURED_NO_CONTROLLED_SOURCE_EVENT",
+      "read_only_probe": "No read-only endpoint exposes time since a source mutation; measuring propagation requires a controlled source event.",
+      "required_manual_follow_up": "On a dedicated disposable synthetic record, time source save to event-driven reminder update and separately measure scheduled reconciliation; do not mutate this fixture as part of this harness."
+    }
+  },
+  "P06": {
+    "status": "NOT_RUN_EXPLICIT_LOAD_MODE_REQUIRED",
+    "required_command_flag": "--load-test --users 100 --login-prefix qa-tai-load-"
+  },
+  "session_cleanup": {
+    "attempted": 1,
+    "logged_out": 1,
+    "failed": 0
+  },
+  "ended_at_utc": "2026-11-16T10:31:43.853568+00:00"
+}

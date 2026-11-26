@@ -1,69 +1,18 @@
 import { addDays, dateOf, daysBetween, fmtDate, fmtDateTime } from './healthFormat'
 import type { HealthState } from '../types'
 
-export const TEMP_MIN = 35
-export const TEMP_MAX = 43
-
-/** Lỗi kiểm tra theo từng trường: dialog hiện thông báo dưới ô tương ứng. */
-export class HealthValidationError extends Error {
-  readonly errors: Record<string, string>
-  constructor(errors: Record<string, string>) {
-    super(Object.values(errors)[0] ?? 'Dữ liệu không hợp lệ.')
-    this.name = 'HealthValidationError'
-    this.errors = errors
-  }
-}
-
 export const MSG = {
   required: (field: string) => `${field} là bắt buộc.`,
   future: 'Thời điểm không được ở tương lai.',
   beforeEntry: (date: string) => `Thời điểm không được trước ngày nhập đàn (${fmtDate(date)}).`,
   beforeCase: (at: string, what: string) => `Thời điểm không được trước ${fmtDateTime(at)}, ${what}.`,
-  temperature: 'Thân nhiệt phải trong khoảng 35,0 – 43,0 °C.',
+  temperature: 'Thân nhiệt phải trong khoảng 30,0 – 45,0 °C.',
+  temperatureCheck: 'Số đo nằm ngoài khoảng 35–43 °C. Hãy kiểm tra lại số đo và đơn vị trước khi xác nhận.',
   changed: 'Bản ghi đã được thay đổi hoặc không còn ở trạng thái cho phép thao tác. Vui lòng tải lại và kiểm tra trước khi thử lại.',
   exited: (code: string, date: string, type: string) => `${code} đã rời đàn ngày ${fmtDate(date)} (${type}). Hồ sơ chỉ được xem.`,
   pendingExit: 'Bò đang chờ xác nhận chết / mất nên chưa nhận thêm sự kiện chăm sóc mới.',
   inactiveMedicine: (name: string) => `${name} đã ngưng sử dụng, không thể chọn cho bản ghi mới.`,
-  voidOpening: 'Lần ghi mở ca không thể hủy. Hãy sửa lại, hoặc đóng ca kèm lý do.',
-  chronicNotice: 'Ca đang theo dõi mạn tính. Lưu điều trị sẽ chuyển ca về OPEN.',
-}
-
-/** '39,6' -> 39.6; rỗng -> null; không phải số -> NaN. */
-export function parseTemperature(text: string): number | null {
-  const t = text.trim().replace(',', '.')
-  if (t === '') return null
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : Number.NaN
-}
-
-export function temperatureError(value: number | null | undefined): string | null {
-  if (value === null || value === undefined) return null
-  const ok = Number.isFinite(value) && value >= TEMP_MIN && value <= TEMP_MAX && Math.round(value * 10) / 10 === value
-  return ok ? null : MSG.temperature
-}
-
-export function textError(label: string, value: string | undefined, { required = false, max }: { required?: boolean; max: number }): string | null {
-  const v = (value ?? '').trim()
-  if (required && !v) return MSG.required(label)
-  if (v.length > max) return `${label} tối đa ${max.toLocaleString('vi-VN')} ký tự.`
-  return null
-}
-
-export function intError(label: string, value: number | null | undefined, min: number, max: number): string | null {
-  if (value === null || value === undefined) return MSG.required(label)
-  return Number.isInteger(value) && value >= min && value <= max ? null : `${label} phải là số nguyên từ ${min} đến ${max}.`
-}
-
-/** Thời điểm sự kiện: bắt buộc, không ở tương lai, không trước ngày nhập đàn, không trước mốc `min` của ca. */
-export function timeError(
-  label: string,
-  value: string | undefined,
-  { now, entryDate, min, minWhat }: { now: string; entryDate?: string; min?: string; minWhat?: string },
-): string | null {
-  if (!value) return MSG.required(label)
-  if (value > now) return MSG.future
-  if (entryDate && dateOf(value) < entryDate) return MSG.beforeEntry(entryDate)
-  if (min && value < min) return MSG.beforeCase(min, minWhat ?? 'lần ghi gần nhất của ca này')
-  return null
+  voidOpening: 'Lần ghi mở ca không thể xóa. Hãy sửa lại, hoặc đóng ca kèm lý do.',
 }
 
 /** Ngày của lần dùng cuối = ngày dùng đầu + (số ngày liệu trình − 1). */
@@ -100,3 +49,24 @@ export function computeHealthState(
 export const caseDay = (openedAt: string, now: string) => daysBetween(openedAt, now) + 1
 
 export const isWithdrawalActive = (end: string | null | undefined, now: string): end is string => !!end && end >= dateOf(now)
+
+/** SCR-37 (D79): lịch sử bệnh của một con bò từ trước đến nay – trả lời "con này bệnh nhiều không". */
+export interface HealthHistorySummary {
+  /** Mọi ca: đang mở, mạn tính và đã đóng. */
+  cases: number
+  /** Tổng lần điều trị hợp lệ của mọi ca. */
+  treatments: number
+  /** Ngày mở của ca gần nhất (yyyy-mm-dd), không có ca thì bỏ trống. */
+  lastOpened?: string
+}
+
+export function healthHistorySummary(
+  cases: ReadonlyArray<{ treatmentCount: number; openedDate: string }>,
+): HealthHistorySummary {
+  const opened = cases.map((c) => c.openedDate).filter(Boolean).sort()
+  return {
+    cases: cases.length,
+    treatments: cases.reduce((sum, c) => sum + (c.treatmentCount || 0), 0),
+    lastOpened: opened.length ? opened[opened.length - 1] : undefined,
+  }
+}

@@ -1,20 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
-import SetupLayout from '../../farm-workspace/components/SetupLayout'
-import { Stepper } from '../../farm-workspace/components/WorkspaceUi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, ErrorBlock, Icon, LoadingBlock, Note } from '../../../shared/ui'
+import { InactiveFarmBanner, SetupLayout, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
+import { Facts, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
-import { TERMS, fmtDate, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
+import { useFarmScope } from '../hooks/useFarmScope'
+import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
+import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import type { Term } from '../types'
-import { useOverview } from './useOverview'
-
-const ONBOARDING_FARM_ID = 2 // Trại Tản Lĩnh: trại vừa đăng ký ở bước 2
+import { useOverview } from '../hooks/useOverview'
 
 function OnboardingShell({ children }: { children: ReactNode }) {
   return (
@@ -25,7 +22,8 @@ function OnboardingShell({ children }: { children: ReactNode }) {
 }
 
 export default function FirstSubscriptionPage() {
-  const { farmId, to } = useFarmScope(ONBOARDING_FARM_ID)
+  const { farmId, to } = useFarmScope()
+  const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preset = Number(params.get('term')) as Term
@@ -39,14 +37,16 @@ export default function FirstSubscriptionPage() {
   if (error || !data) return <OnboardingShell><ErrorBlock message={userFacingError(error, 'Không tải được thông tin gói dịch vụ.')} onRetry={refetch} /></OnboardingShell>
 
   const price = data.currentPrices
+  const estimate = term ? estimatePeriod(subscriptionApi.now(), data.latestEnd, term) : null
 
   async function submit() {
     if (!term || !price) return
     setSaving(true)
     setSaveError('')
     try {
-      const p = await subscriptionApi.createPayment(farmId, { durationYears: term, expectedPriceVersionId: price.id })
-      navigate(to(`/goi-dich-vu/chuyen-khoan/${p.quoteRef}`, { from: 'onboarding' }))
+      const p = await createPayment(term, price.id)
+      if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'onboarding' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)
@@ -59,28 +59,33 @@ export default function FirstSubscriptionPage() {
   return (
     <OnboardingShell>
       <Stepper current={3} />
-      <Card title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
+      {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
+      <Card variant="panel" title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
         <div className="flex flex-col gap-4">
-          <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? 'Đang có kỳ' : 'Chưa có']]} />
+          <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có']]} />
           <TermCards prices={price} selected={term} onSelect={setTerm} />
-          <Card title="Xem lại trước khi tạo">
+          <Card variant="panel" headingAs="h3" title="Điều khoản gói"><Facts items={[
+            ['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'],
+            ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ'],
+          ]} /></Card>
+          <Card variant="panel" headingAs="h3" title="Xem lại trước khi tạo">
             <Facts items={[
               ['Trang trại', data.farmName],
               ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],
               ['Số tiền', term && price ? fmtVnd(priceFor(price, term)) : '—'],
+              ['Kỳ dịch vụ (ước tính)', estimate ? fmtPeriod(estimate.start, estimate.end) : '—'],
               ['Bảng giá', price ? `${versionLabel(price.id)} · hiệu lực ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
             ]} />
           </Card>
           {saveError && <Note tone="err">{saveError}</Note>}
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3 [&>button]:h-auto! [&>button]:min-h-11 [&>button]:max-w-full [&>button]:whitespace-normal! [&>button]:py-2">
             <Button size="lg" onClick={() => navigate('/chon-trai')}>Để sau</Button>
-            <Button size="lg" variant="primary" className={ICON_BTN} disabled={!term || !price || saving} onClick={submit}>
+            <Button size="lg" variant="primary" disabled={!term || !price || saving} onClick={submit}>
               <Icon name="circle-plus" size={16} /> {saving ? 'Đang tạo yêu cầu…' : 'Tạo yêu cầu thanh toán'}
             </Button>
           </div>
         </div>
       </Card>
-      <Foot>Chọn một thời hạn cho trại này; yêu cầu chuyển khoản có hiệu lực 24 giờ và không tự gia hạn.</Foot>
       {dialog.element}
     </OnboardingShell>
   )

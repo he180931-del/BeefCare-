@@ -26,13 +26,36 @@ describe('periods and prices', () => {
 })
 
 describe('farm service', () => {
-  it('lists totals from platform counts and filters', async () => {
+  it('counts every farm in the tiles, while the search and status filter only narrow the list', async () => {
     const { api } = setup()
     const all = await api.listFarms()
-    expect(all.total).toBe(128)
-    expect(all.tiles).toMatchObject({ active: 104, pending: 11, expired: 9, suspended: 4 })
-    expect((await api.listFarms({ status: 'SUSPENDED' })).items.map((f) => f.farmName)).toEqual(['Trại Suối Hai'])
+    expect(all.total).toBe(6)
+    expect(all.tiles).toMatchObject({ total: 128, active: 104, activePercent: 81, pending: 11, expired: 9, suspended: 4 })
+    const suspended = await api.listFarms({ status: 'SUSPENDED' })
+    expect(suspended.items.map((f) => f.farmName)).toEqual(['Trại Suối Hai'])
+    expect(suspended.tiles.total).toBe(128)
     expect((await api.listFarms({ q: 'lvbinh' })).items).toHaveLength(1)
+  })
+  it('sorts by farm name (default), status or coverage end; farms without an end come last', async () => {
+    const { api } = setup()
+    expect((await api.listFarms()).items.map((f) => f.farmName)).toEqual(['Trại bò Yên Bài – Ba Vì', 'Trại Mai Pha', 'Trại Suối Hai', 'Trại Tản Lĩnh', 'Trại Tòng Bạt', 'Trại Vân Hòa'])
+    expect((await api.listFarms({ sort: 'coverageEnd' })).items.map((f) => f.farmId)).toEqual([6, 4, 1, 3, 5, 2])
+    expect((await api.listFarms({ sort: '-coverageEnd' })).items.map((f) => f.farmId)).toEqual([5, 3, 1, 4, 6, 2])
+  })
+  it('pages the list like the backend (Table III-1: 20 rows a page), keeping the total of matching farms', async () => {
+    const { api } = setup()
+    const second = await api.listFarms({ page: 1, size: 4 })
+    expect(second.items.map((f) => f.farmName)).toEqual(['Trại Tòng Bạt', 'Trại Vân Hòa'])
+    expect(second.total).toBe(6)
+  })
+  it('previews the restore popup: when, by whom and why, the purchased period and the status after restore', async () => {
+    const { api } = setup()
+    expect(await api.getFarmService(3)).toMatchObject({
+      farmName: 'Trại Suối Hai', herdSize: 61, serviceStatus: 'SUSPENDED', suspendedSince: '2026-09-28', suspendedBy: 'Đỗ Minh Quân',
+      suspendReason: 'Nghi vấn chia sẻ tài khoản cho trại khác', periodStart: '2026-03-03', periodEnd: '2027-03-02', coverageEnd: '2027-03-02', statusAfterRestore: 'ACTIVE',
+    })
+    expect((await api.getFarmService(2)).statusAfterRestore).toBe('PENDING_PAYMENT')
+    expect((await api.getFarmService(6)).statusAfterRestore).toBe('EXPIRED')
   })
   it('requires a reason, rejects repeats and stale versions, and restore keeps periods', async () => {
     const { api } = setup()
@@ -92,33 +115,72 @@ describe('reconciliation', () => {
 
 describe('plan prices', () => {
   const cmd = { price1y: 1100000, price2y: 2000000, price3y: 2900000, mode: 'SCHEDULE' as const, effectiveAt: '2027-01-01T00:00', terms: 'Cùng chức năng' }
+  // The legacy demo price store behind planPriceApi's explicit local adapter (D23: no saved draft).
   it('publishes a scheduled v4, rejects bad input and withdraws only scheduled versions', async () => {
-    const { api } = setup()
-    await expect(api.publishPrice({ ...cmd, price1y: 0 })).rejects.toThrow('1.000')
-    await expect(api.publishPrice({ ...cmd, effectiveAt: '2026-10-01T00:00' })).rejects.toThrow('quá khứ')
-    const v4 = await api.publishPrice(cmd)
+    const { store } = setup()
+    await expect(store.publishPrice({ ...cmd, price1y: 0 })).rejects.toThrow('1.000')
+    await expect(store.publishPrice({ ...cmd, effectiveAt: '2026-10-01T00:00' })).rejects.toThrow('quá khứ')
+    const v4 = await store.publishPrice(cmd)
     expect([v4.version, v4.status]).toEqual([4, 'SCHEDULED'])
-    await expect(api.publishPrice(cmd)).rejects.toThrow('v4')
-    const list = await api.listPriceVersions()
+    await expect(store.publishPrice(cmd)).rejects.toThrow('v4')
+    const list = await store.listPriceVersions()
     expect(list.find((v) => v.version === 3)?.status).toBe('EFFECTIVE')
-    await expect(api.withdrawPrice(3, 'x')).rejects.toThrow('đã lên lịch')
-    await api.withdrawPrice(4, 'Nhập sai')
-    expect((await api.listPriceVersions())[0]?.status).toBe('WITHDRAWN')
+    await expect(store.withdrawPrice(3, 'x')).rejects.toThrow('đã lên lịch')
+    await store.withdrawPrice(4, 'Nhập sai')
+    expect((await store.listPriceVersions())[0]?.status).toBe('WITHDRAWN')
   })
   it('apply now supersedes the old version', async () => {
-    const { api } = setup()
-    const v4 = await api.publishPrice({ ...cmd, mode: 'NOW' })
+    const { store } = setup()
+    const v4 = await store.publishPrice({ ...cmd, mode: 'NOW' })
     expect(v4.status).toBe('EFFECTIVE')
-    expect((await api.listPriceVersions()).find((v) => v.version === 3)?.status).toBe('SUPERSEDED')
+    expect((await store.listPriceVersions()).find((v) => v.version === 3)?.status).toBe('SUPERSEDED')
   })
 })
 
 describe('backend mode', () => {
-  it('rejects and never touches the store', async () => {
+  it('UC-FE02-04 reads the overview from the backend and shows the last day of the coverage', async () => {
     const { store, transport } = setup()
     const spy = vi.spyOn(store, 'listFarms')
+    transport.get.mockResolvedValueOnce({
+      tiles: { total: 10, active: 6, activePercent: 60, pendingPayment: 1, expired: 2, suspended: 1 }, total: 1,
+      items: [{ farmId: 7, farmName: 'Trại A', ownerId: 3, ownerName: 'Hùng', ownerEmail: 'h@x.vn', serviceStatus: 'SUSPENDED', coverageEnd: '2027-01-14T17:00:00Z', suspended: true, suspendedAt: '2026-11-01T03:00:00Z', activeCattle: 12, version: 4 }],
+    })
     const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listFarms()).rejects.toThrow()
+    const result = await api.listFarms({ q: 'Trại A', status: 'SUSPENDED', sort: '-coverageEnd' })
+    // 20 rows a page (Table III-1, UI review E6) instead of one capped list of 100.
+    expect(transport.get).toHaveBeenCalledWith(`/api/platform/farms?${new URLSearchParams({ q: 'Trại A', status: 'SUSPENDED', sort: '-coverageEnd', page: '0', size: '20' })}`)
+    expect(result.tiles).toEqual({ total: 10, active: 6, activePercent: 60, pending: 1, expired: 2, suspended: 1 })
+    expect(result.total).toBe(1)
+    // The period ends at 15/01/2027 00:00 in Viet Nam (exclusive), so its last day is 14/01/2027.
+    expect(result.items[0]).toMatchObject({ farmId: 7, coverageEnd: '2027-01-14', suspended: true, suspendedSince: '2026-11-01', herdSize: 12, version: 4 })
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('UC-FE02-05 reads the popup preview and sends the change with the dialog request key', async () => {
+    const { store, transport } = setup()
+    const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
+    transport.get.mockResolvedValueOnce({
+      farmId: 7, farmName: 'Trại A', ownerName: 'Hùng', ownerEmail: 'h@x.vn', activeCattle: 12, serviceStatus: 'SUSPENDED', suspendedAt: '2026-11-01T03:00:00Z',
+      suspendedBy: 'Quân', previousReason: 'Vi phạm', periodStart: '2026-01-15T03:00:00Z', periodEnd: '2027-01-14T17:00:00Z', coverageEnd: '2027-01-14T17:00:00Z',
+      statusAfterRestore: 'ACTIVE', version: 5,
+    })
+    expect(await api.getFarmService(7)).toMatchObject({
+      farmName: 'Trại A', herdSize: 12, suspendedSince: '2026-11-01', suspendedBy: 'Quân', suspendReason: 'Vi phạm',
+      periodStart: '2026-01-15', periodEnd: '2027-01-14', coverageEnd: '2027-01-14', statusAfterRestore: 'ACTIVE', version: 5,
+    })
+    expect(transport.get).toHaveBeenCalledWith('/api/platform/farms/7')
+    transport.command.mockResolvedValueOnce({ farmId: 7, farmName: 'Trại A', ownerName: 'Hùng', ownerEmail: 'h@x.vn', serviceStatus: 'ACTIVE', coverageEnd: '2027-01-14T17:00:00Z', suspended: false, suspendedAt: null, activeCattle: 12, version: 6 })
+    const restored = await api.restoreFarm(7, { reason: 'Đã xác minh', version: 5 }, { idempotencyKey: 'key-7' })
+    expect(transport.command).toHaveBeenCalledWith('/api/platform/farms/7/restore', { reason: 'Đã xác minh', version: 5 }, { method: 'POST', key: 'key-7' })
+    expect(restored).toMatchObject({ serviceStatus: 'ACTIVE', suspended: false, version: 6 })
+  })
+
+  it('keeps legacy reconciliation unavailable in backend mode, never touches the store and has no legacy price/draft methods', async () => {
+    const { store, transport } = setup()
+    const spy = vi.spyOn(store, 'listEvidence')
+    const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
+    await expect(api.listEvidence()).rejects.toThrow('Chưa tích hợp')
+    for (const legacy of ['listPriceVersions', 'getPriceDraft', 'savePriceDraft', 'publishPrice', 'withdrawPrice']) expect(legacy in api).toBe(false)
     expect(spy).not.toHaveBeenCalled()
   })
 })

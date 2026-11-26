@@ -1,86 +1,133 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { platformAdminApi } from '../api/platformAdminApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import { useAccounts } from '../hooks/useAccounts'
 import AccountDetailPanel from '../components/AccountDetailPanel'
-import { AccountStatusBadge, PersonCell, SaPage, Toast, restPathId, searchWithoutModal } from '../components/common'
-import { farmsJoinedText } from '../domain/platformRules'
-import type { AccountFilters, AccountSummary } from '../types'
+import { AccountStatusBadge, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
+import { farmsJoinedText, platformRoleText, revokedRoleNote } from '../domain/platformRules'
+import type { AccountFilters, AccountListItem, SortDir } from '../types'
 
-const PAGE_SIZE = 8
 const TITLE = 'Tài khoản người dùng'
+const PAGE_SIZE = 20
 
+type Filters = { q: string; status: NonNullable<AccountFilters['status']>; role: '' | 'NONE' | 'CS' | 'PM' | 'SA'; dir: SortDir }
+const DEFAULTS: Filters = { q: '', status: '', role: '', dir: 'asc' }
+
+/** Bộ lọc và chiều sắp xếp được giữ theo tài khoản SA trong phiên (Table III-1, D31). */
+function readFilters(key: string): Filters {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(key) ?? '{}')
+    return {
+      q: typeof saved?.q === 'string' ? saved.q : '',
+      status: saved?.status === 'ACTIVE' || saved?.status === 'SUSPENDED' ? saved.status : '',
+      role: ['NONE', 'CS', 'PM', 'SA'].includes(saved?.role) ? saved.role : '',
+      dir: saved?.dir === 'desc' ? 'desc' : 'asc',
+    }
+  } catch { return DEFAULTS }
+}
+
+const displayName = (a: AccountListItem) => a.fullName.trim() || 'Chưa có tên'
+
+/**
+ * SCR-16 / UC-FE03-07 (D31): SA tìm, lọc theo trạng thái và vai trò nền tảng đang ACTIVE, sắp xếp theo tên; mỗi trang
+ * 20 dòng từ A9. Khung phải đọc chi tiết bằng A10 theo id trên URL (mở link thẳng hoặc tải lại vẫn đúng tài khoản).
+ */
 function AccountsContent() {
-  const demo = useDemoState()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
+  const session = useSession()
+  const [params, setParams] = useSearchParams()
   const selectedId = restPathId(useParams()['*'])
-  // Ô tìm kiếm trên thanh trên gửi ?q= tới trang này: dùng làm nội dung tìm kiếm ban đầu.
-  const qParam = params.get('q') ?? ''
-  const [q, setQ] = useState(qParam)
-  useEffect(() => { setQ(qParam) }, [qParam])
-  const [status, setStatus] = useState<NonNullable<AccountFilters['status']>>('')
-  const [role, setRole] = useState<NonNullable<AccountFilters['platformRole']>>('')
+  const storageKey = `beefcare:platform-accounts:${session?.email ?? ''}`
+  // Ô tìm kiếm trên thanh trên gửi ?q= tới trang này: dùng làm nội dung tìm kiếm, thay cho bộ lọc đã nhớ.
+  const qParam = params.get('q')
+  const [filters, setFilters] = useState<Filters>(() => ({ ...readFilters(storageKey), ...(qParam != null ? { q: qParam } : {}) }))
+  useEffect(() => { if (qParam != null) setFilters((current) => ({ ...current, q: qParam })) }, [qParam])
   const [page, setPage] = useState(1)
   const [toast, setToast] = useState<string | null>(null)
 
-  const { data, loading, error, refetch } = useQuery(
-    () => (demo === 'load-error'
-      ? Promise.reject(new Error('Không tải được danh sách tài khoản.'))
-      : platformAdminApi.listAccounts({ q, status, platformRole: role, page, size: PAGE_SIZE })),
-    [q, status, role, page, demo],
-  )
+  useEffect(() => {
+    try { sessionStorage.setItem(storageKey, JSON.stringify(filters)) } catch { /* Bộ lọc chỉ là tiện ích khi trình duyệt không cho lưu. */ }
+  }, [storageKey, filters])
 
-  const select = (a: AccountSummary) =>
-    navigate({ pathname: `/nen-tang/tai-khoan/${a.id}`, search: searchWithoutModal(params) })
-  const selected = data ? (data.content.find((a) => a.id === selectedId) ?? data.content[0]) : undefined
-  const filterChange = (apply: () => void) => { apply(); setPage(1) }
+  // Query orchestration belongs to the feature hook; this page only owns URL/filter presentation state.
+  const { list, rows, detail, detailId, refresh } = useAccounts({ filters: { q: filters.q, status: filters.status, platformRole: filters.role, dir: filters.dir }, page, selectedId })
+  // Không bao giờ hiện chi tiết của tài khoản khác trong lúc tài khoản mới đang tải.
+  const account = detail.data && detail.data.id === detailId ? detail.data : null
+  // Dưới xl khung chi tiết nằm dưới danh sách: khi SA chọn một dòng và tài khoản đã tải xong thì cuộn tới (như SCR-51).
+  const detailBox = useRef<HTMLDivElement>(null)
+  const revealed = useRef<number | null>(null)
+  useEffect(() => {
+    if (selectedId == null || account?.id !== selectedId || revealed.current === selectedId) return
+    revealed.current = selectedId
+    if (!wideScreen()) detailBox.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }, [selectedId, account?.id])
+
+  const choose = (next: Partial<Filters>) => { setFilters((current) => ({ ...current, ...next })); setPage(1) }
+  const clearFilters = () => {
+    choose(DEFAULTS)
+    if (params.has('q')) { const next = new URLSearchParams(params); next.delete('q'); setParams(next, { replace: true }) }
+  }
+  const select = (a: AccountListItem) => navigate({ pathname: `/nen-tang/tai-khoan/${a.id}`, search: searchWithoutModal(params) })
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHeader title={TITLE} sub="Tài khoản toàn cục đăng nhập bằng Google. Tạm khóa tài khoản tách biệt với trạng thái dịch vụ trại." />
+      <PageHeader title={TITLE} sub="Tài khoản toàn cục của người dùng BeefCare (Google hoặc email và mật khẩu). Tạm ngưng tài khoản tách biệt với trạng thái dịch vụ của trại.">
+        <Button onClick={refresh} disabled={list.loading}>Làm mới</Button>
+      </PageHeader>
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-[300px] max-w-full">
-          <SearchInput value={q} placeholder="Tên, Gmail…" aria-label="Tìm tài khoản theo tên hoặc Gmail" onChange={(e) => filterChange(() => setQ(e.target.value))} />
+          <SearchInput value={filters.q} maxLength={100} placeholder="Tên, email…" aria-label="Tìm tài khoản theo tên hoặc email" onChange={(e) => choose({ q: e.target.value })} />
         </div>
-        <FilterSelect className="w-[210px] max-w-full" aria-label="Lọc theo trạng thái" value={status} onChange={(e) => filterChange(() => setStatus(e.target.value as typeof status))}>
+        <FilterSelect size="lg" className="w-[210px] max-w-full" aria-label="Lọc theo trạng thái" value={filters.status} onChange={(e) => choose({ status: e.target.value as Filters['status'] })}>
           <option value="">Trạng thái: Tất cả</option>
           <option value="ACTIVE">Trạng thái: Đang hoạt động</option>
-          <option value="SUSPENDED">Trạng thái: Tạm khóa</option>
+          <option value="SUSPENDED">Trạng thái: Tạm ngưng</option>
         </FilterSelect>
-        <FilterSelect className="w-[230px] max-w-full" aria-label="Lọc theo vai trò nền tảng" value={role} onChange={(e) => filterChange(() => setRole(e.target.value as typeof role))}>
+        <FilterSelect size="lg" className="w-[230px] max-w-full" aria-label="Lọc theo vai trò nền tảng" value={filters.role} onChange={(e) => choose({ role: e.target.value as Filters['role'] })}>
           <option value="">Vai trò nền tảng: Tất cả</option>
-          <option value="NONE">Vai trò nền tảng: Chưa có</option>
-          <option value="CS">Vai trò nền tảng: CS</option>
-          <option value="PM">Vai trò nền tảng: PM</option>
-          <option value="SA">Vai trò nền tảng: SA</option>
+          <option value="NONE">Vai trò nền tảng: Không có</option>
+          <option value="CS">Vai trò nền tảng: Nhân viên hỗ trợ (CS)</option>
+          <option value="PM">Vai trò nền tảng: Quản lý nền tảng (PM)</option>
+          <option value="SA">Vai trò nền tảng: Quản trị hệ thống (SA)</option>
         </FilterSelect>
       </div>
 
-      {loading && !data && <LoadingBlock />}
-      {error != null && <ErrorBlock message={userFacingError(error, 'Không tải được danh sách tài khoản.')} onRetry={refetch} />}
-      {data && !error && data.content.length === 0 && <EmptyBlock title="Không có tài khoản phù hợp" sub="Thử đổi từ khóa hoặc bỏ bớt bộ lọc." />}
-      {data && !error && selected && (
+      {list.loading && !list.data && <LoadingBlock />}
+      {list.error != null && <ErrorBlock message={userFacingError(list.error, 'Không tải được danh sách tài khoản.')} onRetry={list.refetch} />}
+      {list.data && list.error == null && rows.length === 0 && (
+        <EmptyBlock title="Không có bản ghi phù hợp với bộ lọc." action={<Button onClick={clearFilters}>Xóa bộ lọc</Button>} />
+      )}
+      {list.data && list.error == null && rows.length > 0 && (
         <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_396px]">
           <Card>
             <Table>
               <thead>
-                <tr><Th>Người dùng</Th><Th>Vai trò nền tảng</Th><Th>Trại tham gia</Th><Th>Trạng thái</Th></tr>
+                <tr>
+                  <Th aria-sort={filters.dir === 'asc' ? 'ascending' : 'descending'}>
+                    <button type="button" className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={() => choose({ dir: filters.dir === 'asc' ? 'desc' : 'asc' })}>
+                      Người dùng <span aria-hidden="true">{filters.dir === 'asc' ? '↑' : '↓'}</span>
+                    </button>
+                  </Th>
+                  <Th>Vai trò nền tảng</Th><Th>Trại tham gia</Th><Th>Trạng thái</Th>
+                </tr>
               </thead>
               <tbody>
-                {data.content.map((a) => {
-                  const active = a.id === selected.id
+                {rows.map((a) => {
+                  const active = a.id === detailId
+                  const revoked = revokedRoleNote(a)
                   return (
                     <tr key={a.id} onClick={() => select(a)} className={`cursor-pointer ${active ? 'bg-[#eef4ef]' : ''}`}>
                       <Td>
                         <button type="button" aria-current={active ? 'true' : undefined} onClick={(e) => { e.stopPropagation(); select(a) }} className="min-w-0 max-w-full text-left">
-                          <PersonCell name={a.fullName} sub={a.email} />
+                          <PersonCell name={displayName(a)} sub={a.email} />
                         </button>
                       </Td>
-                      <Td>{a.platformRole ? `${a.platformRole}${a.platformAccessStatus === 'REVOKED' ? ' (đã thu hồi)' : ''}` : '—'}</Td>
+                      <Td>
+                        {platformRoleText(a)}
+                        {revoked && <span className="block text-[11px] text-muted">{revoked}</span>}
+                      </Td>
                       <Td>{farmsJoinedText(a)}</Td>
                       <Td><AccountStatusBadge status={a.accountStatus} /></Td>
                     </tr>
@@ -88,17 +135,22 @@ function AccountsContent() {
                 })}
               </tbody>
             </Table>
-            <Pagination page={page} pageCount={data.totalPages} onChange={setPage} summary={`Hiển thị ${data.content.length} / ${data.totalElements} tài khoản`} />
+            <Pagination page={page} pageCount={list.data.totalPages} onChange={setPage} summary={`Hiển thị ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} trong ${list.data.totalElements} tài khoản`} />
           </Card>
-          <AccountDetailPanel
-            key={selected.id}
-            account={selected}
-            onReload={refetch}
-            onChanged={(message) => { setToast(message); refetch() }}
-          />
+          <div ref={detailBox} className="min-w-0 scroll-mt-4">
+            {account ? (
+              <AccountDetailPanel
+                key={account.id}
+                account={account}
+                onReload={refresh}
+                onChanged={(message) => { setToast(message); refresh() }}
+              />
+            ) : detail.error != null ? (
+              <ErrorBlock message={userFacingError(detail.error, 'Không tải được tài khoản.')} onRetry={detail.refetch} />
+            ) : <LoadingBlock />}
+          </div>
         </div>
       )}
-      <Foot>Tài khoản người dùng (SA). Chọn một dòng để xem chi tiết ở khung phải; tạm khóa hoặc mở khóa bắt buộc nhập lý do và được ghi audit. Tạm khóa tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

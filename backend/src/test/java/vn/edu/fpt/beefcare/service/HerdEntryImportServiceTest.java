@@ -51,6 +51,24 @@ class HerdEntryImportServiceTest extends HerdEntryTestBase {
     }
 
     @Test
+    void blankEarTagCanBeImportedAndPostedForTaggingLater() {
+        EntryDtos.Voucher draft = emptyDraft();
+        byte[] file = workbook(List.of(
+            row(null, breed.getName(), "Male", 18, "Estimated", null, 300, "Measured", penA.getCode(), fattening.getCode(), 50000, null)
+        ));
+
+        EntryDtos.ImportResult imported = imports.importLines(farm.getId(), draft.id(), file, true);
+        assertThat(imported.added()).isEqualTo(1);
+        assertThat(imported.voucher().lines().get(0).data().earTagNumber()).isNull();
+
+        EntryDtos.PostResult posted = postDraft(farm.getId(), draft.id());
+        Cattle cattle = em.find(Cattle.class, posted.voucher().lines().get(0).cattleId());
+        assertThat(cattle.getEarTagNumber()).isNull();
+        assertThat(cattle.getDisplayCode()).isNotBlank();
+        assertThat(count("CattleQrTag")).isEqualTo(1);
+    }
+
+    @Test
     void validWarningAndErrorRows() {
         EntryDtos.Voucher draft = emptyDraft();
         byte[] file = workbook(
@@ -66,19 +84,19 @@ class HerdEntryImportServiceTest extends HerdEntryTestBase {
         EntryDtos.ImportResult result = imports.importLines(farm.getId(), draft.id(), file, true);
 
         assertThat(result.total()).isEqualTo(6);
-        assertThat(result.valid()).isEqualTo(3);
+        assertThat(result.valid()).isEqualTo(2);
         assertThat(result.warnings()).isEqualTo(1);
-        assertThat(result.errors()).isEqualTo(3);
-        assertThat(result.added()).isEqualTo(3);
+        assertThat(result.errors()).isEqualTo(4);
+        assertThat(result.added()).isEqualTo(2);
         assertThat(result.summary().code()).isEqualTo("MSG-FE06-18");
-        assertThat(result.summary().params()).containsEntry("total", 6).containsEntry("valid", 3).containsEntry("warnings", 1).containsEntry("errors", 3);
+        assertThat(result.summary().params()).containsEntry("total", 6).containsEntry("valid", 2).containsEntry("warnings", 1).containsEntry("errors", 4);
         assertThat(result.addedNotice().code()).isEqualTo("MSG-FE06-19");
-        assertThat(result.rows()).extracting(EntryDtos.ImportRow::result).containsExactly("VALID", "WARNING", "ERROR", "ERROR", "VALID", "ERROR");
-        assertThat(result.rows()).extracting(EntryDtos.ImportRow::added).containsExactly(true, true, false, false, true, false);
+        assertThat(result.rows()).extracting(EntryDtos.ImportRow::result).containsExactly("VALID", "WARNING", "ERROR", "ERROR", "ERROR", "ERROR");
+        assertThat(result.rows()).extracting(EntryDtos.ImportRow::added).containsExactly(true, true, false, false, false, false);
         assertThat(result.rows().get(1).issues()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.CHK_BIRTH_UNKNOWN, HerdEntryCodes.CHK_WEIGHT_BASIS_DEFAULTED);
         assertThat(result.rows().get(2).issues()).extracting(EntryDtos.Issue::code).contains(MessageCodes.COM_08);
         assertThat(result.rows().get(3).issues()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.FE05_02);
-        assertThat(result.rows().get(4).issues()).isEmpty();
+        assertThat(result.rows().get(4).issues()).extracting(EntryDtos.Issue::code).contains("MSG-FE05-12");
 
         EntryDtos.Voucher saved = vouchers.get(farm.getId(), draft.id());
         assertThat(saved.status()).isEqualTo(EntryVoucherStatus.DRAFT);
@@ -194,10 +212,58 @@ class HerdEntryImportServiceTest extends HerdEntryTestBase {
 
     @Test
     void templateHasTheDocumentedColumns() {
-        List<List<XlsxSupport.Cell>> sheet = XlsxSupport.read(imports.template(farm.getId()));
+        byte[] template = imports.template(farm.getId());
+        List<List<XlsxSupport.Cell>> sheet = XlsxSupport.read(template);
         assertThat(sheet).hasSize(1);
         assertThat(sheet.get(0).stream().map(XlsxSupport.Cell::value).toList())
-            .containsExactly("Ear tag", "Breed", "Sex", "Birth date or Age (months)", "Accuracy", "Colour and markings", "Weight", "Weight basis", "Pen", "Purpose", "Unit price", "Quarantine until");
+            .containsExactly("Số tai", "Giống", "Giới tính", "Ngày sinh hoặc Tuổi (tháng)", "Độ chính xác", "Màu lông", "Cân", "Cơ sở cân", "Chuồng", "Mục đích", "Đơn giá", "Cách ly đến");
+        assertThat(HerdEntryImportService.headerMatches(sheet.get(0))).isTrue();
+
+        String workbook = zipEntry(template, "xl/workbook.xml");
+        assertThat(workbook).contains("name=\"Danh sách bò\"", "name=\"Hướng dẫn\"", "name=\"Danh mục\"");
+        String data = zipEntry(template, "xl/worksheets/sheet1.xml");
+        assertThat(data).contains("sqref=\"C2:C201\"", "&quot;Đực,Cái&quot;", "'Danh mục'!$B$2:$B$");
+        String catalog = zipEntry(template, "xl/worksheets/sheet3.xml");
+        assertThat(catalog).contains(breed.getName(), penA.getCode(), fattening.getName());
+    }
+
+    @Test
+    void theDownloadedTemplateFilledInVietnameseIsImported() {
+        EntryDtos.Voucher draft = emptyDraft();
+        List<List<Object>> rows = new ArrayList<>();
+        rows.add(new ArrayList<>(HerdEntryImportService.COLUMNS_VI));
+        rows.add(row("VN-1", breed.getName(), "Cái", "15/03/2024", "Chính xác", "Vàng", 245, "Cân thực tế", penA.getCode(), fattening.getName(), "85.000", null));
+        rows.add(row(null, breed.getName(), "Đực", 18, null, null, 300, "Ước tính", penA.getCode(), fattening.getName(), 85000, null));
+        rows.add(row("VN-3", breed.getName(), "Đực", 18, "Không chắc", null, 300, "Cân thực tế", penA.getCode(), fattening.getName(), 85000, null));
+
+        EntryDtos.ImportResult result = imports.importLines(farm.getId(), draft.id(), XlsxSupport.write(rows), true);
+
+        assertThat(result.valid()).isEqualTo(2);
+        assertThat(result.errors()).isEqualTo(1);
+        assertThat(result.rows().get(2).result()).isEqualTo("ERROR");
+        var first = result.voucher().lines().get(0);
+        assertThat(first.data().birthDate()).isEqualTo(java.time.LocalDate.of(2024, 3, 15));
+        assertThat(first.data().birthDateAccuracy()).isEqualTo(BirthDateAccuracy.EXACT);
+        assertThat(first.data().weightBasis()).isEqualTo(vn.edu.fpt.beefcare.domain.enumeration.WeightBasis.MEASURED);
+        assertThat(first.unitPrice()).isEqualTo(85_000L);
+        var second = result.voucher().lines().get(1);
+        assertThat(second.data().earTagNumber()).isNull();
+        assertThat(second.data().birthDateAccuracy()).isEqualTo(BirthDateAccuracy.ESTIMATED);
+        assertThat(second.data().ageMonths()).isEqualTo(18);
+        assertThat(second.estimatedWeight()).isTrue();
+    }
+
+    private static String zipEntry(byte[] zip, String name) {
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip), java.nio.charset.StandardCharsets.UTF_8)) {
+            for (var e = in.getNextEntry(); e != null; e = in.getNextEntry()) {
+                if (e.getName().equals(name)) {
+                    return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        throw new AssertionError("missing " + name);
     }
 
     @Test

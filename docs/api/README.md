@@ -4,7 +4,19 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **216 paths, 265 operations, 284 schemas** (file last regenerated 1 November 2026, commit `127859b`; the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
+## Current local export — 22 November 2026
+
+FE-18 D42 on `codex/fe18-catalogue-policy`, base `34a1e0da` plus uncommitted changes: **235 paths, 286 operations, 359 schemas**. DELETE for breeds, production purposes and medicines is retired (HTTP 405); DELETE for an unused vaccine remains. `OpenApiContractTest` passed with a command-only 60-second allowance for document generation (Springdoc's first generation took 22.5 seconds here); the shared 15-second JUnit configuration was not changed. `docs/api-handoff.html` was regenerated, preserving its review state. See [FE-18 evidence](../reviews/FE18_CATALOGUE_LIFECYCLE_REVIEW.md).
+
+The complete fresh export also reflects the existing FE-23 `ConsumptionReportRequest.groupBy` annotations (`@NotBlank` and `HERD_GROUP|PEN|FEED` pattern) and the plain-string response field. No FE-23 Java code or runtime rule changed in this package. JSON property ordering can differ between exports.
+
+## Earlier exports
+
+Integration refresh on 16 November 2026: **235 paths, 289 operations, 354 schemas**, generated from the combined local FE-07/14/15/23 changes and current `dev` after `OpenApiContractTest` passed on H2. All operations from both parent contracts are present. The export alone does not certify endpoint behavior, production readiness, or PostgreSQL upgrade compatibility.
+
+Local validation on 16 November 2026 (`dev` at `bd7d598` with local feature changes): **234 paths, 288 operations, 347 schemas**. Report results include `sections` and `charts`. The announcement response includes each visible `VersionView.id`, which the frontend uses for exact-version links. The feeding plan and ration cancel/stop operations are exported. See [the Tài acceptance scenarios](../testing/TAI_ACCEPTANCE.md) and the linked evidence before marking a flow ready on a shared branch.
+
+Current contract: **229 paths, 283 operations, 329 schemas**, regenerated 15 November 2026 on `dev` after merging `feat/fe17-audit-nen-tang` (FE-03 UC1–UC9 and FE-17 UC1) into `dev` (FE-08, FE-09, FE-10), when `OpenApiContractTest` passed; `dev` had removed `POST /api/farms/{farmId}/health-cases/{caseId}/closure-correction`. On the branch before the merge: 230 paths, 284 operations, 319 schemas, updated 15 November 2026 on `feat/fe17-audit-nen-tang` after the D34 / FE-17 UC1 tests passed (new `GET /api/platform/audit/actions`; `GET /api/platform/audit` and `/{id}` return the new `AuditPage`, `AuditRow`, `AuditActor`, `AuditDetail`, `AuditFarm`, `AuditActionOption`; `AuditEntry` and `PageAuditEntry` removed). Before that: 229 paths, 283 operations, 315 schemas, updated 14 November 2026 on `feat/fe03-thanh-vien-quyen` after the D33 / FE-03 UC9 tests passed (platform access requires `Idempotency-Key`; history returns the new `AccessHistoryItem`, `AuditItem` removed; `AccountDetail.accessActions` and `PlatformAccessRequest` descriptions changed). Before that: the same counts after D32 / UC8 (suspend / restore now require `Idempotency-Key`; `AccountChange`, `AccountDetail.actions` and `InternalView.needsReassignment` changed; no path or schema added). Earlier: the same counts after D31 / UC7 (only the six `/api/platform/accounts` operations changed: new `AccountPage`, `AccountListItem`, `AccountDetail`, removed `AccountSummary`, `PageAccountSummary`). Previous: 314 schemas after D29 / UC5 on the same day (member list and its two new schemas); 312 schemas after D28 / UC4 on the same day; 311 schemas, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -13,11 +25,161 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
 
+UC2 / D26 contract change (13 November 2026): **breaking invitation list contract**.
+`GET /api/farms/{farmId}/invitations` now returns
+`{items,total,page,size,counts,asOf}` instead of an array. Query parameters are
+optional status, zero-based page, size (default 20), sort=lastSentAt, dir and
+an exact invitationId lookup for UC1. Counts cover all four effective states
+of the farm before filtering or paging; expired PENDING rows read as EXPIRED
+without GET writes. Only the Owner reads, including during inactive service;
+sending/resending still require ACTIVE service. Frontend callers in this working
+copy were updated together. See `FE03_UC02_EXAMPLES.md` and
+`docs/reviews/FE03_UC02_REVIEW.md` for tested behavior and deployment limits.
+
+UC3 / D27 (14 November 2026): **no contract change**. Resend and cancel keep
+their routes and the required `{expectedVersion}` body with `Idempotency-Key`.
+Errors are checked in the order COM-01 → FE03-04 (resend only) → COM-08 →
+FE03-08 with `params.status` (also for an outdated version) → COM-05. Resend
+replaces the e-mail link and has no count limit; cancel works in every service
+status. See `FE03_UC03_EXAMPLES.md` and `docs/reviews/FE03_UC03_REVIEW.md`.
+
+UC4 / D28 (14 November 2026): **breaking change of the invitation link API**.
+`GET /api/invitations/accept?token=` returns `{status, farmId, farmName, timeZone,
+email, role, invitedBy, sentAt, expiresAt, membershipId?}`; `invitedAt` is gone and
+`sentAt` is the last send. ACCEPTED is returned only for the caller's own ACTIVE
+membership (AF2). `POST /api/invitations/accept` returns `AcceptedInvitation`
+`{membershipId, farmId, farmName, role, status}` instead of `MemberView` and takes no
+Idempotency-Key. MSG-FE03-08 carries `params.status` and `params.expiresAt`; cancelled
+and expired links keep naming their status until JOB-08. Contract now 229 paths,
+283 operations, 312 schemas. See `FE03_UC04_EXAMPLES.md` and
+`docs/reviews/FE03_UC04_REVIEW.md`.
+
+UC5 / D29 (14 November 2026): **breaking change of the member list**.
+`GET /api/farms/{farmId}/members` returns `{farmName, timeZone, serviceStatus,
+counts{all, managers, technicians, inactive?}, items}` instead of an array. Rows add
+`joinedAt` and `actions[]` and drop `effectiveDate`/`reason`; `PUT .../members/{id}`
+returns the same row shape. The Owner reads in every service status, a Manager only
+while ACTIVE (MSG-COM-12) without inactive rows, a Technician gets MSG-COM-01. New
+column `farm_membership.joined_at` (Liquibase `20261114000100`, filled for existing
+rows). Contract now 229 paths, 283 operations, 314 schemas. See
+`FE03_UC05_EXAMPLES.md` and `docs/reviews/FE03_UC05_REVIEW.md`.
+
+UC6 / D30 (14 November 2026): **same route and shapes, new rules**.
+`PUT /api/farms/{farmId}/members/{membershipId}` now locks the row and checks COM-01 →
+COM-08 → COM-01 (Owner target) → input (reason 5–500 with at least 5 non-space
+characters, COM-10; `role` required for CHANGE_ROLE, COM-06; CHANGE_ROLE on an INACTIVE
+member, COM-10 `field=action`) → FE03-04 → FE03-20 (also with an outdated version) →
+COM-05. Every change writes one `farm_membership_change` row (Liquibase
+`20261114000200`) and a before/after audit entry. See `FE03_UC06_EXAMPLES.md` and
+`docs/reviews/FE03_UC06_REVIEW.md`.
+
+FE-03 UC7 / D31 (14 November 2026): **breaking change of the SA account list and detail**.
+`GET /api/platform/accounts` returns `{items, total, page, size}` (page from 0, 20 rows by
+default) instead of a Spring `Page`, adds `platformRole` (NONE|CS|PM|SA on the ACTIVE role),
+`sort=name` and `dir`, orders by Vietnamese name (PostgreSQL `vi-x-icu`), searches name or
+email only, and rejects invalid query values with 400 MSG-COM-10 `params.field`. Rows are
+`{id, fullName, email, accountStatus, platformRole, platformAccessStatus, emailVerified,
+farmCount, farmRoles[]}` (ACTIVE memberships only). `GET /{id}` and the suspend, restore and
+platform-access commands return `AccountDetail` (adds `signInMethods`, `createdAt`,
+`lastSignInAt`, `ownerRegistrationCompletedAt`, `ownedFarms`, `farmCount`, `farmRoles`);
+`phone` is no longer returned. New column `app_user.created_at` (Liquibase
+`20261114000300`, filled for existing rows). See `FE03_UC07_EXAMPLES.md` and
+`docs/reviews/FE03_UC07_REVIEW.md`.
+
+FE-03 UC8 / D32 (14 November 2026): **breaking change of the account status commands**.
+`POST /api/platform/accounts/{id}/suspend` and `/restore` now require `Idempotency-Key` (missing →
+400 MSG-COM-06 `field=Idempotency-Key`; same key + body replays, other body → MSG-COM-19). The
+reason is trimmed, 5–500 characters with at least 5 non-space ones (MSG-COM-06 / MSG-COM-10
+`field=reason`). Order: COM-01 → COM-08 → data → FE03-17 (own account) → FE03-20 `{target, value}`
+(also with an outdated version) → COM-05 → FE03-17 (last SA); FE03-17 is 409. `AccountDetail`
+adds `actions[]` (`SUSPEND` / `RESTORE` for the calling SA). Suspension does not revoke the
+platform role or memberships, returns the account's non-CLOSED tickets to the queue in the same
+transaction and expires its registered sessions (next request 401, sign-in MSG-FE01-03). New
+append-only table `app_user_status_change` (Liquibase `20261114000400`); the audit keeps
+before / after only. FE-20 `InternalView` adds `needsReassignment` (OPEN request whose recipient is
+no longer available). See `FE03_UC08_EXAMPLES.md` and `docs/reviews/FE03_UC08_REVIEW.md`.
+
+FE-03 UC9 / D33 (14 November 2026): **breaking change of platform access and its history**.
+`POST /api/platform/accounts/{id}/platform-access` now requires `Idempotency-Key` (missing → 400 MSG-COM-06;
+same key + body replays, other body → MSG-COM-19) and takes `{operation: GRANT|CHANGE|REVOKE|RESTORE, role?
+(GRANT / CHANGE), reason (trimmed, 5–500, at least 5 non-space), version (platformAccessVersion, null when the
+account has no access)}`. Order: COM-01 → COM-08 → data → own access (COM-01) → SUSPENDED account except a
+revoke (new **MSG-FE03-22** `{email}`) → unverified email except a revoke (FE03-18) → state (FE03-20 `{target,
+value: role|status}` when already in place, COM-05 when the access changed) → version (COM-05) → acting SA still
+ACTIVE (COM-01) → last SA (FE03-17). `GET …/{id}/history` returns `AccessHistoryItem[]` `{id, action, roleBefore,
+statusBefore, roleAfter, statusAfter, reason, byName, byEmail, at}` (newest first, at most 100) instead of
+`AuditItem`. `AccountDetail` adds `accessActions[]`. A CS who loses CS access hands non-CLOSED tickets back to
+the queue in the same transaction. New append-only table `platform_access_change` (Liquibase
+`20261114000500`, earlier `PLATFORM_ACCESS_*` audit entries copied on PostgreSQL); the audit keeps before /
+after only. The SA "Quyền nhân sự nền tảng" page is gone; the popup opens on SCR-16. See
+`FE03_UC09_EXAMPLES.md` and `docs/reviews/FE03_UC09_REVIEW.md`.
+
+FE-17 UC1 / D34 (15 November 2026): **breaking change of the SA platform audit** (no client used it before:
+the screen ran on mock data in backend mode). `GET /api/platform/audit` now requires `from` and `to` as calendar
+days `yyyy-MM-dd` (Asia/Ho_Chi_Minh, both included; missing → 400 MSG-COM-06, `from` after `to` → MSG-COM-11,
+more than 12 months → MSG-COM-10 `field=dateRange`), takes `actor` (part of the name or email) or `system=true`,
+`action` (public code of A3), `targetType` (ACCOUNT, PLATFORM_ACCESS, MEMBERSHIP, FARM, PAYMENT, FINANCE_RECORD,
+TICKET, INTERNAL_REQUEST), `dir=desc|asc`, `page` (from 0), `size` (20, at most 100), and returns `{items[{id, time,
+actor{id, name, initials, role}|null, action, targetType, targetLabel}], total, page, size}` instead of a Spring
+`Page` of `AuditEntry`. `GET /api/platform/audit/{id}` returns `{id, time, actor, farm{id, name}|null, action,
+targetType, targetId, targetLabel, before{}, after{}, correlationId}`: allowlisted before / after values only, no
+reason; an entry outside the central catalogue (farm data) is 404 MSG-COM-08. New `GET /api/platform/audit/actions`
+→ `[{code, targetType}]`. SA only (403 MSG-COM-01); no route changes or deletes an entry (405). Every response
+carries `X-Request-Id` (correlation ID; a client value of 8–64 `[A-Za-z0-9._-]` is kept). New columns
+`audit_log.actor_role`, `audit_log.correlation_id` (Liquibase `20261114000600`); the CS ticket process audit code is
+now `SUPPORT_<action>`. See `FE17_UC01_EXAMPLES.md` and `docs/reviews/FE17_UC01_REVIEW.md`.
+
+UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
+`GET /api/platform/plan-prices?page=0&size=20` returns
+`{items,total,page,size,asOf,current,nextEffectiveAt}` instead of an array.
+Current and next boundary are independent of the requested history page;
+history is publishedAt descending (unknown last), then id descending.
+POST requires `Idempotency-Key` and `{price1y,price2y,price3y,applyNow,
+effectiveAt?,terms?}`; all prices and applyNow are required. Apply now uses the
+server clock; otherwise effectiveAt is a required ISO instant (VN UI timezone).
+Whole VND limits are 1,000…1,000,000,000; optional trimmed terms max 500.
+`POST /api/platform/plan-prices/{version}/withdraw` requires the same header
+and `{reason,expectedVersion}`; version is the existing numeric PlanVersion ID,
+expectedVersion is its observed revision. Withdrawal reason is trimmed,
+5 non-space characters minimum, 1,000 maximum. Both commands return
+PlatformPlanPriceVersion with prices, effective status, real publication and
+withdrawal metadata; absent legacy metadata remains explicit null.
+Immediate publication retains future schedules; withdrawn schedules release
+their timestamp. Price/term/publication fields cannot be edited. Public
+`/api/public/prices` keeps its previous minimal schema and exposes no PM
+identity. Issued payment snapshots and purchased periods remain unchanged.
+
+UC5 / D18 contract change (10 November 2026): `GET /api/platform/payments`
+and `GET .../evidence` return `{items,total,page,size}` with a default size of
+20 (evidence previously returned an array; payments previously returned a
+Spring Page with default size 25). Evidence defaults to ALL and returns only
+`maskedTransactionId`; full provider transaction ID and committed handling
+history are in the new PM-only `GET .../evidence/{evidenceId}`. Payment detail
+preserves UC4 fields and adds exact `evidenceId`, stored bank/first-received/
+confirmation clocks and source, with explicit nulls. GETs never settle or
+change stored status; expired PENDING requests are read as EXPIRED. API-03
+lookup and all UC6 mutation behavior remain outside this read handoff.
+After the UC5 review (same day, counts unchanged): `reviewStatus`,
+`matchResult` and history `source` declare enums (undeclared stored review
+states read as `PROCESSING`); history `action` is a PM decision or a documented
+event code (`EVIDENCE_RECEIVED`, `EVIDENCE_AUTO_ACCEPTED`, ...), never a raw
+audit action; account checks and candidates use the ingestion/ACCEPT rule.
+
+UC6 / D19 contract change (10 November 2026): the four reconciliation commands
+(`POST .../evidence/{evidenceId}/review`, `lock-return`, `record-return`,
+`unlock-return`) require `Idempotency-Key` and the evidence `version`. `Review`
+has one `reason` field (max 1,000, no `references`); `ReturnResult` adds the
+required `returnDate`. Blocked acceptance is 409 `MSG-FE19-11` with
+`params.reason`; stale version or state is 409 `MSG-COM-05`. New read-only
+`GET .../lookup?from&to` lists SePay transactions for at most 31 days and 200
+rows. Evidence detail adds `returnReference`, `returnDate`, `returnResult`;
+history adds `returnDate` and the decisions LOCK / UNLOCK / RETURN_VERIFIED. D20: an unresolved outgoing transfer reads as `NO_ACTION` and is not counted or filtered as TO_REVIEW.
+
 ## Browser authentication
 
 Use `credentials: 'include'` on calls. First GET `/api/csrf` and retain the response's `token` and `headerName`. POST JSON `{ "username": "account email", "password": "password", "rememberMe": false }` to `/api/authenticate` with that CSRF header. Success is HTTP 204 and a session cookie. Fetch a fresh CSRF token after login and after logout. Do not put credentials or bearer tokens in localStorage. POST `/api/logout` ends the server session and the frontend clears its selected farm.
 
-Registration is `POST /api/register` with `{ fullName, email, password, confirmPassword, termsAccepted }` (201, no body; the account stays unverified until the e-mailed link is opened, see `GET /api/activate?token=`, which answers 303 to the front end with a session). Forgotten password is `POST /api/account/reset-password/init` and `POST /api/account/verification/resend` with the JSON object `{ "email": "..." }` (always 200, same answer for every address), `GET /api/account/reset-password/validate?token=` (`{valid}`) and `POST /api/account/reset-password/finish` with `{ key, newPassword, confirmPassword }` where `key` is the token from the link. Change password is `POST /api/account/change-password` with `{ currentPassword, newPassword, confirmPassword }`.
+Registration is `POST /api/register` with `{ fullName, email, password, confirmPassword, termsAccepted }` (201 `{email}`; the account stays unverified until the e-mailed link is opened, see `GET /api/activate?token=`, which answers 303 to the front end with a session). Forgotten password is `POST /api/account/reset-password/init` and `POST /api/account/verification/resend` with the JSON object `{ "email": "..." }` (always 200, same answer for every address), `GET /api/account/reset-password/validate?token=` (`{valid,email}` only while the link is valid) and `POST /api/account/reset-password/finish` with `{ key, newPassword, confirmPassword }` where `key` is the token from the `/resetpassword` email link. Change password is `POST /api/account/change-password` with `{ currentPassword, newPassword, confirmPassword }`.
 
 Sign-in and account failures carry the SRS code in the body (`{code, params, message, status}`), so the form can map them: `MSG-FE01-01` wrong or unknown e-mail/password (401, identical for both), `MSG-FE01-11` e-mail not verified (401), `MSG-FE01-02` password sign-in locked for 15 minutes after 5 failures (423, `params.time` = ISO instant), `MSG-FE01-03` suspended account (403, `params.email`), `MSG-FE01-06` link expired or used (400), `MSG-FE01-08` / `-09` password rules / confirmation (400, `params.field`), `MSG-FE01-10` e-mail already registered (409), `MSG-FE01-14` terms not accepted (400), `MSG-FE01-16` wrong current password (400). A request without the CSRF header is a bare 403 and an expired or ended session a bare 401 (no body).
 
@@ -57,11 +219,11 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 | Health cases (FE-10) | `/api/farms/{farmId}/health-cases` (+ `/cattle/{cattleId}`, `/{caseId}/observations`, `/{caseId}/treatments`, `/{caseId}/status`, `/{caseId}/closure-correction`), `/health-observations/{id}/correction` and `/void`, `/treatments/{id}/correction` and `/void` |
 | Reproduction (FE-11/12) | `/api/farms/{farmId}/cattle/{cattleId}/estrus-events`, `/breeding-events`, `/pregnancy-checks`, `/reproduction-history`; `/reproduction-worklist`; `/reproduction-events/{id}/correction` and `/void`; `/pregnancy-episodes/{id}/updates`, `/pregnancy-updates/{id}/correction` and `/void`; `/calvings` (+ `/{id}/correction`, `/void`), `/calf-outcomes/{calfId}/correction` and `/void`, `/pending-calves` (+ `/{calfId}/died-before-registration`) |
 | Catalogues and parameters (FE-18) | `/api/farms/{farmId}/catalogues/breeds`, `/catalogues/production-purposes`, `/vaccines`, `/medicines`; SCR-56 `/parameters/effective`, `/parameters/versions` |
-| Owner support | `/api/support/tickets` and ticket replies/acknowledgments/reopen |
-| CS support | `/api/platform/support/tickets` and explicit processing/resolution/closure commands |
+| Owner support | `/api/support/tickets`, `/{id}/messages?beforeId=&size=` and ticket replies/acknowledgments/reopen |
+| CS support | `/api/platform/support/tickets`, `/{id}/messages?beforeId=&size=` and explicit processing/resolution/closure commands |
 | PM/SA internal requests | `/api/platform/internal-requests`; recipient sees request context only |
 | Feed stock (SCR-77) | `/api/farms/{farmId}/feed/stock`, `/stock/{feedId}/movements`, `/feed/reminders` |
-| Feed receipts (SCR-78/79) | `/api/farms/{farmId}/feed/receipts`, `/{receiptId}/draft`, `/post`, `/void`, `/payments`; files: `/{receiptId}/attachments` (GET list, POST upload) and `/{receiptId}/attachments/{attachmentId}` (GET download, DELETE remove) |
+| Feed receipts (SCR-78/79) | `/api/farms/{farmId}/feed/receipts` (GET/POST), `/{receiptId}` (GET/DELETE draft), `/{receiptId}/draft` (PUT), `/{receiptId}/post`, `/{receiptId}/void`, `/payments`; receipt documents: `/{receiptId}/attachments`; payment evidence: `/{receiptId}/payments/{paymentId}/attachments` (GET list, POST upload) and `.../{attachmentId}` (GET download) |
 | Stock adjustment (SCR-80) | `/api/farms/{farmId}/feed/adjustments`, `/{adjustmentId}`, `/{adjustmentId}/draft`, `/{adjustmentId}/post`; files: `/{adjustmentId}/attachments` (GET list, POST upload) and `/{adjustmentId}/attachments/{attachmentId}` (GET download, DELETE remove) |
 | Rations and feeding (SCR-81–84) | `/api/farms/{farmId}/feed/rations`, `/feed/feeding-records`, `/{recordId}/correct`, `/{recordId}/void` |
 | Feed catalogue and report | `/api/farms/{farmId}/feed/catalogue`, `/feed/reports/consumption` |
@@ -77,6 +239,10 @@ SCR-79 (invoice, delivery note) and SCR-80 (count record, photos). Owner and Man
 
 Only PDF and JPEG, at most 10 MiB (10 485 760 bytes) per file, judged from the file content: `MSG-COM-10` with `params.field=file` and `params.reason` = `too_large` (HTTP 413), `unsupported_type` or `content_type_mismatch` (415); an empty file or missing part is `MSG-COM-06` (400). The `Content-Type` of the part must match the file (`application/pdf` or `image/jpeg`). The returned `originalFilename` is sanitized and always carries the right extension; display it, do not trust the name you sent. A Technician, another farm, or an id from another farm is `MSG-COM-01` (403) or `MSG-COM-08` (404).
 
+Feed receipt payment evidence is separate from the invoice / delivery-note files above. For payment `RECORDED`, `GET/POST /api/farms/{farmId}/feed/receipts/{receiptId}/payments/{paymentId}/attachments` lists or uploads evidence; `GET .../attachments/{attachmentId}` downloads it. Upload uses `multipart/form-data` part `file` plus `Idempotency-Key`, and accepts the same PDF/JPEG 10 MiB limit. There is no delete route; existing evidence remains listable and downloadable after the payment is `VOIDED`. Recording a payment and uploading its evidence are two transactions: if upload fails, show the payment as recorded and retry only the attachment upload with its idempotency key.
+
+Receipt `POST` and draft `PUT` accept `amountPaid`, `method` (`CASH` / `BANK_TRANSFER`), optional `paymentDate` and `paymentDueDate`. An initial payment is written to the payment ledger in the same transaction as posting; when `paymentDate` is omitted, it defaults to the receipt date. `GET /receipts/{receiptId}` reads back the header, lines, paid / outstanding totals, payment state and posting / void metadata. `DELETE /receipts/{receiptId}` discards only a DRAFT (body `{expectedVersion}`, `Idempotency-Key`, HTTP 204) and retires its receipt-document attachments.
+
 ### Feed stock adjustment flow
 
 `POST /feed/adjustments` with `{countDate, adjustmentType, countedBy, lines:[{feedItemId, countedKg, reason}], postNow}` creates a document coded `ĐCK-YYYY-nnnn`. `adjustmentType` is one of `PERIODIC_COUNT`, `LOSS`, `SPOILAGE`, `OTHER`; `countDate` cannot be in the future; each feed appears at most once. With `postNow: false` the result is a `DRAFT` that changes no stock; edit it with `PUT /{id}/draft` (`expectedVersion` + same fields) and post it with `POST /{id}/post` (`{expectedVersion}`). `postNow: true` saves and posts in one command.
@@ -89,6 +255,7 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 
 | Date | Change | Frontend impact |
 |---|---|---|
+| 2026-11-09 | FE20 ticket detail returns the latest 20 messages plus `messagesBeforeId` / `messagesHasMore`. Owner and CS can load older messages with `GET /api/support/tickets/{id}/messages` and `GET /api/platform/support/tickets/{id}/messages` (`beforeId`, `size` 1–100). Owner pages contain PUBLIC messages only; CS pages include PUBLIC and CS_ONLY. | Render a bounded conversation viewport and prepend `MessagePage.items` when “Xem trao đổi trước” is selected; keep the returned cursor for the next request. |
 | 2026-10-29 | Sign-in of a Google-only account with a password now answers **401** `MSG-FE01-01`, exactly like a wrong password (was 403). `POST /api/account/reset-password/init` for a Google-only address now mails advice to use Google (UC-FE01-05 AF1, same 5-per-hour limit, no link, no password). | Map 401 `MSG-FE01-01` as today; nothing else changes on the form. |
 | 2026-10-29 | UC-FE01-06 AF1/AF2: `POST /api/account/google-reauthentication` (204) then send the browser to `/oauth2/authorization/google`; Google returns to `/profile?googleReauthenticated=true`. For 5 minutes `POST /api/account/change-password` accepts `{newPassword, confirmPassword}` without `currentPassword` (first password for a Google-only account, or a forgotten one). Without a recent Google sign-in a Google-only account gets 403 `MSG-COM-01` with `params.reason=google_reauthentication_required`. | New dialog branch; `passwordSignInEnabled` / `googleSignInLinked` in the profile decide which fields to show. |
 | 2026-10-29 | `GET /api/account/profile`: each `farms[]` item adds `permissions` (FarmAction codes of the fixed role policy, GBR-06) for the SCR-08 permission table. | Additive. |
@@ -98,6 +265,7 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 | 2026-10-29 | New notifications: PM reconciliation notice per bank evidence that needs review (`targetType` `BANK_TRANSFER_EVIDENCE`, UC-FE14-04); Owner subscription notices from JOB-05 (`targetType` `SUBSCRIPTION`: renewal opening, 30/7/1 days before the end, expired) with an email each; a reminder to the named PM/SA of an internal request OPEN for 4 hours (`INTERNAL_REQUEST`). | Appear in `/api/notifications/mine`. |
 | 2026-10-28 (late) | `GET /api/farms/{farmId}/reminders` returns `ReminderView {id, ruleType, sourceRecord, cattleId, dueTime, windowEnd, lifecycleStatus, urgency, highlighted, basisLabel, parameterVersion}`. `urgency` is the SCR-44 group `OVERDUE` / `TODAY` / `UPCOMING` (`TODAY` is new; REM-13 no longer answers `DUE`). `UPCOMING` covers the next 7 days, or the open lead window of REM-05/06 when longer; later reminders are not listed. REM-05 and REM-06 `dueTime` is the expected calving date / planned dose date (the lead parameter only opens the window). New fields: `windowEnd` (REM-02 heat window end), `basisLabel` (`TENTATIVE` / `CONFIRMED` for REM-05), `parameterVersion` (farm parameter version the due date came from). Only `ACTIVE` reminders are listed; REM-10 is no longer shown to Technicians. | Group the screen by `urgency`, show `windowEnd` / `basisLabel` when present; treat `id: null` as a live suggestion that has no stored reminder yet. |
 | 2026-10-28 (late) | New feed document routes: `GET/POST /api/farms/{farmId}/feed/receipts/{receiptId}/attachments`, `GET/DELETE .../receipts/{receiptId}/attachments/{attachmentId}` and the same four under `.../adjustments/{adjustmentId}/attachments` (PDF/JPEG, 10 MiB, DRAFT only for changes). Upload/remove require `Idempotency-Key`. Multipart limits are now 10 MB per file / 11 MB per request. | Additive. Build the SCR-79/80 attachment lists on these routes; do not use `/api/farms/{farmId}/attachments/{id}` for them (it serves only cattle and entry photos). |
+| 2026-11-10 | Feed receipt readback/discard and initial-payment fields are complete; payment evidence uses `.../feed/receipts/{receiptId}/payments/{paymentId}/attachments` (GET/POST, plus nested GET download). Payment evidence upload is permitted only while `RECORDED`, remains readable after void, and is a separate transaction from recording payment. | Additive. Retry a failed evidence upload without replaying the payment command. |
 | 2026-10-28 (late) | Invitation and membership commands (`POST .../invitations`, `.../invitations/{id}/resend`, `.../cancel`, `PUT .../members/{id}`) require the `Idempotency-Key` header and replay on a retry. Invitation errors use `MSG-FE03-02/03/04/08/09/20` with params (`email`, `status`, `target`, `value`). | **Breaking** for callers without the header (generic 400). No screen calls these yet. |
 | 2026-10-28 (late) | `POST /api/register` takes `{fullName, email, password, confirmPassword, termsAccepted}` (the old `ManagedUserVM` schema also demanded a `login` name, so the SRS form could not register). `POST /api/account/reset-password/init` and `/api/account/verification/resend` take the JSON object `{email}` (a bare JSON string arrived with its quotes and never matched an account). `ProfileResponse` adds `platformRole` and `farms[{farmId,farmName,role}]`. Sign-in, registration and password failures return `MSG-FE01-xx` codes (see Browser authentication). A SUSPENDED account can now request and finish a password reset. | **Breaking** for the two JSON-string bodies and the register body; additive for the profile fields and error codes. |
 | 2026-10-28 (evening) | `POST /api/farms/{farmId}/feed/adjustments` now creates an adjustment document and returns `AdjustmentView`. It previously posted directly and returned `StockAdjustmentResult`, which is removed. The request adds `postNow` (default `false` = draft). New `GET /adjustments`, `GET/PUT /adjustments/{id}[/draft]`, `POST /adjustments/{id}/post`. | **Breaking.** Send `postNow: true` for the old one-step behaviour and read `AdjustmentView`. No current screen called the old route. |
@@ -105,3 +273,46 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 | 2026-10-28 (evening) | Feed receipt codes are `PNK-YYYY-nnnn` from a yearly sequence (previously `PNK-YYYY-` + 6-digit database id). Feed errors use `MSG-FE23-03`, `MSG-FE23-05` and `MSG-COM-08` instead of generic codes. | Treat codes as opaque display text; map the new message codes. Existing receipts keep their old codes. |
 
 The frontend submits one domain command, then reloads the returned aggregate or invalidates related queries. It must not compose raw entity writes to emulate transactions, grant its own service status after displaying a QR, infer ticket confirmation from reply text, or treat a reminder suggestion as a recorded event.
+
+### UC-FE19-08 (D24, 10/11/2026)
+
+`POST /api/webhooks/sepay` and its SRS alias `POST /api/v1/payments/sepay/webhook`
+authenticate the exact raw JSON with HMAC headers and ±300 seconds. They have no
+browser session, CSRF or Idempotency-Key requirement; the bank transaction identity
+is the key. OpenAPI declares both required headers, the typed SePayPayload and
+400/401/409/413/500 responses.
+
+**Webhook response change:** HTTP200 is exactly `{"success":true}` after evidence
+and one JOB-06 row commit. It acknowledges receipt, not PAID; settlement fields
+are read from existing Owner/PM APIs. API-03/simulator keep WebhookResult and
+immediate successful confirmation. Technical failures after storage are retried
+from the durable job; no second period/receipt is granted. The source transfer
+window and snapshot account, manual-income exclusion and suspension rules remain.
+
+JOB-06 uses a recoverable lease and retries1/5/15 minutes, then hourly until24h
+after the first failure; it then retains a manual-review error and alerts PM once
+(no outgoing reconciliation notice, D20). PM decisions/locks are never overwritten.
+Contradictory references do not auto-allocate. Full content/description/provider
+code and known delivery counts persist; historical unknown counts stay null.
+
+PAID atomically queues one payment email intent in the existing durable mail
+queue. The dispatcher resolves the current Owner, renders the Vietnamese receipt
+message and retries independently≤24h. It does not enable other outbox consumers.
+SCR-59 keeps D15 polling; SCR-62 reads PROCESSING or the completed result.
+
+Evidence and limits: `docs/reviews/FE19_UC08_REVIEW.md`. Local BE_REVIEWED only:
+99 Surefire tests +49 Failsafe cases (47 PostgreSQL16.15,2 H2 email), frontend158,
+typecheck/build, signed real HTTP/DB/Mailpit and manual runtime captures. No
+approved integrated checkpoint/READY_FOR_FE or SePay LIVE claim.
+
+Review fixes (10/11/2026): an authenticated transfer is stored in full (provider
+text columns widened to the 65,536-byte body bound, no 400/502 for length); a
+redelivery is counted without changing the evidence `version`; API-03/simulator
+jobs are leased to the request at storage; a rejected call still answers 401 when
+its metadata cannot be stored, and JOB-08 purges that metadata after 30 days.
+
+FE-19 integrated tree (feature branch with `main` merged, `4d83ab1`): Surefire
+138/138, Failsafe 128/128 (120 PostgreSQL 16.15, 8 H2), frontend 158/158, typecheck,
+build and a real-HTTP runtime on PostgreSQL covering all 23 operations (28/28
+checks; signed webhook to PAID in 0.77 s). Examples: `FE19_EXAMPLES.md`. Status
+stays BE_REVIEWED until the branch is merged into `main`.

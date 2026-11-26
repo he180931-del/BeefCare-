@@ -15,7 +15,14 @@ import org.springframework.data.repository.query.Param;
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
     Optional<Subscription> findFirstByFarm_Id(Long farmId);
 
+    /**
+     * Lock before read: lockByFarmId returns an already loaded Subscription unchanged (it has no @Version to detect a
+     * newer row), so callers take the farm and subscription locks before loading it and use this id-only read first.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Subscription s where s.farm.id = :farmId")
     Optional<Subscription> lockByFarmId(@Param("farmId") Long farmId);
+
+    @Query("select s.farm.id from Subscription s where s.id = :id")
+    Optional<Long> findFarmIdById(@Param("id") Long id);
 }

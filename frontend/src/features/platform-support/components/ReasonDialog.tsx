@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon, type IconName } from '../../../components/Icon'
-import { Field, Note, Textarea, inputCls } from '../../../components/ui'
+import { Field, Icon, type IconName, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { FieldError, useSubmit } from './common'
 
 /** Hộp thoại một ô văn bản bắt buộc (lý do, câu hỏi công khai, ghi chú...). */
 export function ReasonDialog({
-  title, label, placeholder, max = 1000, submitLabel, submitIcon, note, noteTone = 'info', warn, readOnly, secondary, blocked, onSubmit, onClose,
+  title, label, placeholder, max = 1000, submitLabel, submitIcon, note, noteTone = 'info', warn, readOnly, secondary, showBack = true, blocked, onSubmit, onClose,
 }: {
   title: string
   label: string
@@ -19,6 +17,7 @@ export function ReasonDialog({
   warn?: ReactNode
   readOnly?: { label: string; value: string }
   secondary?: { label: string; onClick: () => void }
+  showBack?: boolean
   /** Khóa nút gửi (ví dụ còn yêu cầu nội bộ đang mở). */
   blocked?: boolean
   onSubmit: (text: string) => Promise<void>
@@ -45,8 +44,8 @@ export function ReasonDialog({
       {warn && <Note tone="warn">{warn}</Note>}
       {note && <Note tone={noteTone}>{note}</Note>}
       {error && <Note tone="err">{error}</Note>}
-      <ModalFooter className="!px-0 !pb-0">
-        <ModalButton onClick={onClose}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
+      <ModalFooter>
+        {showBack && <ModalButton onClick={onClose}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>}
         {secondary && <ModalButton onClick={secondary.onClick}>{secondary.label}</ModalButton>}
         <ModalButton variant="primary" onClick={submit} disabled={busy || blocked}>{submitIcon && <Icon name={submitIcon} size={16} />} {submitLabel}</ModalButton>
       </ModalFooter>

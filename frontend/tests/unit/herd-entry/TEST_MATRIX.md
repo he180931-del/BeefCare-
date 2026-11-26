@@ -32,6 +32,13 @@ tối đa 10 MiB mỗi file.
 | EN-U10 | Preview hiển thị valid/warning/error; nút chỉ đếm dòng không lỗi | Component | `ExcelModal.test.tsx` |
 | EN-U11 | Preview và commit dùng đúng cùng một đối tượng `File` | Component | `ExcelModal.test.tsx` |
 | EN-U12 | Parser cục bộ giới hạn 200 dòng, phát hiện header/dữ liệu sai | Helper | `ExcelModal.test.tsx` |
+| EN-U13 | Nháp và phiếu mới có tiêu đề riêng. Hủy thêm con giữ nguyên số dòng | Component | `ImportNew.files.test.tsx` |
+| EN-U14 | Thẻ tai tùy chọn. Lỗi trường bắt buộc focus đúng ô. Chọn mục đích bằng ID và loại theo giới tính | Component | `RowEditModal.cleanup.test.tsx`, `RowEditModal.required-fields.test.tsx` |
+| EN-U15 | Một ô tháng sinh, một ô cân, một giá theo con. Giữ ngày EXACT và cân ESTIMATED khi không chỉnh | Component | `RowEditModal.cleanup.test.tsx`, `RowEditModal.weight.test.tsx` |
+| EN-U16 | Ô số bỏ số 0 đầu, nhận phần thập phân, cho xóa trống và định dạng giá tiền | Component | `NumericInput.test.tsx` |
+| EN-U17 | Cách ly nhập đàn không trước ngày nhập. Hai nút nhanh cộng 14 hoặc 21 ngày từ ngày nhập | Component | `RowEditModal.cleanup.test.tsx` |
+| EN-U18 | Hủy popup thanh toán không lưu phí vận chuyển. Có thể lưu phí vào nháp khi chưa thanh toán | Component | `ImportNew.files.test.tsx` |
+| EN-U19 | Số lứa đẻ ngoài 0–15 không thể xác nhận trong khai báo sinh sản | Component | `RowEditModal.required-fields.test.tsx` |
 
 ## Integration tests — màn hình, adapter và HTTP
 
@@ -45,6 +52,9 @@ tối đa 10 MiB mỗi file.
 | EN-I06 | Upload chứng từ thất bại thì không được gọi post; DRAFT còn để tiếp tục | Adapter → transport | `herdEntryBackendApi.test.ts` |
 | EN-I07 | Template, preview `commit=false`, commit `commit=true` dùng multipart và cùng file | Adapter → transport | `herdEntryBackendApi.test.ts` |
 | EN-I08 | HTTP client giữ cookie/CSRF/idempotency, parse JSON và blob đúng contract | Adapter → HTTP client | `tests/integration/herd-entry/entryFilesHttp.test.ts` |
+| EN-I09 | Xóa con giữa sau xác nhận. Mở lại đúng con sau khi đổi số thứ tự. PUT giữ đúng hai thẻ còn lại | Page → adapter | `ImportNew.files.test.tsx`, `draftFieldsRoundtrip.test.ts` |
+| EN-I10 | Mở lại và lưu không mất ngày cách ly, màu lông, lý do cảnh báo, tên giống hoặc ID mục đích | Adapter → DTO | `draftFieldsRoundtrip.test.ts` |
+| EN-I11 | Hồ sơ chỉ hiện cách ly nhập đàn của bò mua ngoài đến hết hạn | Profile mapping → overview | `tests/unit/cattle/OverviewEntryLink.test.tsx` |
 
 ## Backend integration tests — nguồn sự thật nghiệp vụ
 

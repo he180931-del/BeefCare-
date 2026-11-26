@@ -41,7 +41,9 @@ class ReportsAndAuditIT extends HerdEntryTestBase {
         weight(first, TODAY.minusDays(1), "310");
 
         ReportView herd = run("RPT-01");
-        assertThat(herd.summary()).containsEntry("headAtEnd", 3L).containsEntry("entriesInPeriod", 3L).containsEntry("exitsInPeriod", 0L);
+        assertThat(((Number) herd.summary().get("headAtEnd")).longValue()).isEqualTo(3L);
+        assertThat(((Number) herd.summary().get("entriesInPeriod")).longValue()).isEqualTo(3L);
+        assertThat(((Number) herd.summary().get("exitsInPeriod")).longValue()).isZero();
         assertThat(herd.rows()).filteredOn(r -> "pen".equals(r.get("dimension"))).isNotEmpty();
 
         ReportView growth = run("RPT-02");
@@ -75,25 +77,29 @@ class ReportsAndAuditIT extends HerdEntryTestBase {
     void systemAdminSearchesAuditWithAllowlistedDetailsOnly() {
         AppUser sa = platformStaff("SA");
         AuditLog entry = new AuditLog();
-        entry.setAction("ACCOUNT_SUSPENDED");
+        entry.setAction("ACCOUNT_SUSPEND");
         entry.setTargetType("AppUser");
         entry.setTargetId(owner.getId());
         entry.setActor(sa);
         entry.setLoggedAt(Instant.now());
-        entry.setDetails("{\"reason\":\"Fraud report\",\"password\":\"secret\",\"token\":\"abc\"}");
+        entry.setDetails("{\"statusBefore\":\"ACTIVE\",\"statusAfter\":\"SUSPENDED\",\"reason\":\"Fraud report\",\"password\":\"secret\",\"token\":\"abc\"}");
         save(entry);
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
         actAs(sa);
-        var page = audit.search(null, null, "account_suspended", "AppUser", null, 0, 25);
-        assertThat(page.getContent()).extracting(PlatformAuditQueryService.AuditEntry::id).contains(entry.getId());
-        PlatformAuditQueryService.AuditEntry detail = audit.get(entry.getId());
-        assertThat(detail.details()).containsEntry("reason", "Fraud report").doesNotContainKeys("password", "token");
-        assertThatThrownBy(() -> audit.search(Instant.now(), Instant.now().minusSeconds(60), null, null, null, 0, 25)).isInstanceOf(DomainException.class);
+        var page = audit.search(today.minusDays(1), today.plusDays(1), null, false, "account_suspended", "account", 0, 20, null);
+        assertThat(page.items()).extracting(PlatformAuditQueryService.AuditRow::id).contains(entry.getId());
+        PlatformAuditQueryService.AuditDetail detail = audit.get(entry.getId());
+        // D34 (GBR-86): before / after only – no reason, no secret
+        assertThat(detail.before()).containsExactly(java.util.Map.entry("status", "ACTIVE"));
+        assertThat(detail.after()).containsExactly(java.util.Map.entry("status", "SUSPENDED"));
+        assertThat(detail.toString()).doesNotContain("Fraud report", "secret", "password", "token");
+        assertThatThrownBy(() -> audit.search(today, today.minusDays(1), null, false, null, null, 0, 20, null)).isInstanceOf(DomainException.class);
 
         actAs(platformStaff("PM"));
         assertThatThrownBy(() -> audit.get(entry.getId())).isInstanceOf(DomainException.class);
         actAs(owner);
-        assertThatThrownBy(() -> audit.search(null, null, null, null, null, 0, 25)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> audit.search(today, today, null, false, null, null, 0, 20, null)).isInstanceOf(DomainException.class);
     }
 
     private AppUser platformStaff(String role) {

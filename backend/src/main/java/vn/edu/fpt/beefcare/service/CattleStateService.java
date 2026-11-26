@@ -43,7 +43,7 @@ public class CattleStateService {
         Long treatedCases = em.createQuery("select count(distinct h.id) from HealthCase h join Treatment t on t.healthCase.id=h.id where h.cattle.id=:id and upper(h.status)='OPEN' and (t.status is null or upper(t.status)='VALID')", Long.class)
             .setParameter("id", cattleId).getSingleResult();
         result.put("healthState", treatedCases > 0 ? "UNDER_TREATMENT" : validCases > 0 ? "MONITORING" : "HEALTHY");
-        ZoneId farmZone = farmZone(cattle);
+        ZoneId farmZone = clock.zone();
         LocalDate today = clock.now().atZone(farmZone).toLocalDate();
         LocalDate withdrawal = em.createQuery("select max(t.withdrawalEndDate) from Treatment t where t.healthCase.cattle.id=:id and (t.status is null or upper(t.status)='VALID')", LocalDate.class)
             .setParameter("id", cattleId).getSingleResult();
@@ -54,6 +54,7 @@ public class CattleStateService {
         Long contagious = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status) in ('OPEN','CHRONIC') and h.isSuspectedContagious=true", Long.class)
             .setParameter("id", cattleId).getSingleResult();
         result.put("suspectedContagious", contagious > 0);
+        result.put("vaccinationOverdue", overdueDoses(cattleId, today));
 
         List<?> pregnancy = em.createQuery("select p from PregnancyEpisode p where p.cattle.id=:id and upper(p.status)='OPEN' order by p.id desc", vn.edu.fpt.beefcare.domain.PregnancyEpisode.class)
             .setParameter("id", cattleId).setMaxResults(1).getResultList();
@@ -90,22 +91,73 @@ public class CattleStateService {
         List<String> failures = new ArrayList<>();
         boolean applicable = reproductiveStatus != null && !"NOT_APPLICABLE".equals(reproductiveStatus);
         if (applicable && List.of("AWAITING_BREEDING", "IN_ESTRUS", "POST_CALVING").contains(reproductiveStatus)) {
-            Map<String, Object> params = effectiveParameters(farmId, today);
-            Integer minAge = integer(params, "MIN_BREEDING_AGE_MONTHS", "minimumBreedingAgeMonths", "minimum_breeding_age_months", "breedingMinimumAgeMonths");
-            BigDecimal minWeight = decimal(params, "MIN_BREEDING_WEIGHT_KG", "minimumBreedingWeightKg", "minimum_breeding_weight_kg", "breedingMinimumWeightKg");
-            if (minAge != null) {
-                if (cattle.getBirthDate() == null || cattle.getBirthDate().plusMonths(minAge).isAfter(today)) failures.add("MINIMUM_AGE");
-            }
-            BigDecimal weight = em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", BigDecimal.class)
-                .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
-            if (minWeight != null && (weight == null || weight.compareTo(minWeight) < 0)) failures.add("MINIMUM_WEIGHT");
-            if (validCases > 0 && em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult() > 0) failures.add("OPEN_HEALTH_CASE");
+            for (BreedingCriterion c : breedingCriteria(cattle, today)) if (!c.met()) failures.add(c.name());
             result.put("breedingEligible", failures.isEmpty());
         } else {
             result.put("breedingEligible", null);
         }
         result.put("failedBreedingConditions", failures);
         return result;
+    }
+
+    /**
+     * SCR-19 #21: số mũi tiêm quá hạn của một con bò – mũi còn chờ tiêm (PLANNED) của lịch đang chạy (ACTIVE)
+     * và đã qua ngày dự kiến. Mũi đã tiêm hoặc đã hủy không tính; không còn trạng thái hoãn (D46).
+     */
+    private int overdueDoses(Long cattleId, LocalDate today) {
+        Long count = em
+            .createQuery(
+                "select count(d) from ScheduledDose d where d.cattle.id=:id and upper(d.status)='PLANNED' " +
+                "and upper(d.schedule.status)='ACTIVE' and d.dueDate<:today",
+                Long.class
+            )
+            .setParameter("id", cattleId)
+            .setParameter("today", today)
+            .getSingleResult();
+        return count.intValue();
+    }
+
+    /** Value of the MINIMUM_WEIGHT criterion when the cattle has no VALID weighing yet. */
+    public static final String NO_WEIGHING = "Chưa có lần cân";
+
+    /** One GBR-55 criterion: {@code required} is null when the farm parameter is not configured. */
+    public record BreedingCriterion(String name, String required, String value, boolean met) {}
+
+    /** GBR-55 breeding eligibility criteria (recommendation only): minimum age, minimum weight (latest VALID weight), no OPEN case. */
+    @Transactional(readOnly = true)
+    public List<BreedingCriterion> breedingCriteria(Cattle cattle, LocalDate today) {
+        Long cattleId = cattle.getId();
+        Map<String, Object> params = effectiveParameters(cattle.getFarm().getId(), today);
+        Integer minAge = integer(params, "MIN_BREEDING_AGE_MONTHS", "minimumBreedingAgeMonths", "minimum_breeding_age_months", "breedingMinimumAgeMonths");
+        BigDecimal minWeight = decimal(params, "MIN_BREEDING_WEIGHT_KG", "minimumBreedingWeightKg", "minimum_breeding_weight_kg", "breedingMinimumWeightKg");
+        List<BreedingCriterion> criteria = new ArrayList<>();
+        Long ageMonths = cattle.getBirthDate() == null ? null : java.time.temporal.ChronoUnit.MONTHS.between(cattle.getBirthDate(), today);
+        boolean ageMet = minAge == null || (cattle.getBirthDate() != null && !cattle.getBirthDate().plusMonths(minAge).isAfter(today));
+        criteria.add(new BreedingCriterion("MINIMUM_AGE", minAge == null ? null : String.valueOf(minAge), ageMonths == null ? null : String.valueOf(ageMonths), ageMet));
+        BigDecimal weight = em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", BigDecimal.class)
+            .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        // Chốt 15/11/2026 (TuanPQ): chỉ bản ghi cân VALID (GBR-39) tính là lần cân; cân lúc nhập đàn không tính.
+        // Chưa có lần cân → tiêu chí không đạt với giá trị "Chưa có lần cân".
+        boolean weightMet = weight != null && (minWeight == null || weight.compareTo(minWeight) >= 0);
+        criteria.add(new BreedingCriterion("MINIMUM_WEIGHT", minWeight == null ? null : minWeight.stripTrailingZeros().toPlainString(),
+            weight == null ? NO_WEIGHING : weight.stripTrailingZeros().toPlainString(), weightMet));
+        Long openCases = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult();
+        criteria.add(new BreedingCriterion("OPEN_HEALTH_CASE", "0", String.valueOf(openCases), openCases == 0)); // met = no OPEN case
+        // D67: bò đã từng đẻ – cảnh báo khi chưa đủ số ngày hồi phục sau đẻ (tham số "Sau sinh", mặc định 45 ngày).
+        Instant lastCalving = em.createQuery("select max(c.birthTime) from CalvingEvent c where c.dam.id=:id and upper(c.status)='VALID'", Instant.class)
+            .setParameter("id", cattleId).getSingleResult();
+        if (lastCalving != null) {
+            int minDays = effectiveInt(cattle.getFarm().getId(), today, 45, "POST_CALVING_DAYS", "postpartumIntervalDays", "postpartum_interval_days");
+            long days = java.time.temporal.ChronoUnit.DAYS.between(clock.toFarmDate(lastCalving), today);
+            criteria.add(new BreedingCriterion("POSTPARTUM_INTERVAL", String.valueOf(minDays), String.valueOf(days), days >= minDays));
+        }
+        return criteria;
+    }
+
+    /** The farm parameter values effective on {@code date} (empty when the farm has no parameter version). */
+    @Transactional(readOnly = true)
+    public Map<String, Object> parameters(Long farmId, LocalDate date) {
+        return effectiveParameters(farmId, date);
     }
 
     private String reproductiveStatus(Cattle cattle, vn.edu.fpt.beefcare.domain.PregnancyEpisode open, LocalDate today) {
@@ -127,11 +179,11 @@ public class CattleStateService {
         if(lastLossAt!=null&&last.equals(lastLossAt))return "AWAITING_BREEDING";
         if(calvingAt!=null&&last.equals(calvingAt)){
             int days=effectiveInt(cattle.getFarm().getId(),today,45,"POST_CALVING_DAYS","postpartumIntervalDays","postpartum_interval_days");
-            return !calvingAt.isBefore(today.minusDays(days).atStartOfDay(farmZone(cattle)).toInstant())?"POST_CALVING":"AWAITING_BREEDING";
+            return !calvingAt.isBefore(today.minusDays(days).atStartOfDay(clock.zone()).toInstant())?"POST_CALVING":"AWAITING_BREEDING";
         }
         if(event!=null&&last.equals(eventAt)){
             String type=event.getType()==null?"":event.getType().toUpperCase();
-            if("ESTRUS".equals(type)&&!eventAt.isBefore(clock.now().minusSeconds(86400)))return "IN_ESTRUS";
+            if ("ESTRUS".equals(type) && eventAt.isAfter(clock.now().minusSeconds(86400))) return "IN_ESTRUS";
             if("BREEDING".equals(type))return "BRED";
             if("PREGNANCY_CHECK".equals(type)&&"INCONCLUSIVE".equalsIgnoreCase(event.getResult()))return "BRED";
         }
@@ -163,9 +215,5 @@ public class CattleStateService {
     private BigDecimal decimal(Map<String, Object> values, String... keys) {
         for (String key : keys) { Object value=values.get(key); if (value instanceof Number n) return new BigDecimal(n.toString()); }
         return null;
-    }
-    private ZoneId farmZone(Cattle cattle) {
-        try { return ZoneId.of(cattle.getFarm().getTimeZone()); }
-        catch (Exception ignored) { return clock.zone(); }
     }
 }

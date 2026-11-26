@@ -1,80 +1,62 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
+import { DEFAULTS, PAGE_SIZE, useMembersPage, type MemberTab } from '../hooks/useMembersPage'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'
 import { MemberTable } from '../components/MemberTable'
-import { PermissionChecklist } from '../components/PermissionChecklist'
-import { useFarmId } from '../components/useFarmId'
-import type { ChangeMemberInput } from '../types'
+import { PermissionTable } from '../components/PermissionChecklist'
+import type { MemberAction } from '../types'
 
-type Filter = 'ALL' | 'MANAGER' | 'TECHNICIAN' | 'INACTIVE'
+const TITLE = 'Thành viên & vai trò'
 
-/** SCR-13: Chủ trại quản lý thành viên; Quản lý chỉ xem danh sách (không thao tác, lời mời, tab ngừng hoạt động). */
+/**
+ * SCR-13 / UC-FE03-05 (D29): the Owner sees every member and the actions available now, in every service status; a
+ * Manager sees the ACTIVE members read-only. Rows, counts and actions come from A1; the page only filters, orders by
+ * name and splits into pages of 20.
+ */
 export default function MembersPage() {
-  const navigate = useNavigate()
-  const session = useSession()
-  const farmId = useFarmId()
-  const [search, setSearch] = useSearchParams()
-  const [m, openModal, closeModal] = useModalParam()
-  const query = useQuery(async () => {
-    const [farm, members] = await Promise.all([farmWorkspaceApi.getFarm(farmId), farmWorkspaceApi.listMembers(farmId)])
-    return { farm, members }
-  }, [farmId])
-  const [filter, setFilter] = useState<Filter>('ALL')
-  const [permissionRole, setPermissionRole] = useState<'MANAGER' | 'TECHNICIAN'>('MANAGER')
-  const [notice, setNotice] = useState<string | null>(null)
-  const farm = query.data?.farm
-  const owner = (session?.role ?? farm?.role) === 'OWNER'
-  const farmActive = farm?.serviceStatus === 'ACTIVE'
-  const members = useMemo(() => (query.data?.members ?? []).filter((member) => owner || member.status === 'ACTIVE'), [query.data, owner])
-  const counts = useMemo(() => ({
-    ALL: members.length, MANAGER: members.filter((member) => member.role === 'MANAGER').length,
-    TECHNICIAN: members.filter((member) => member.role === 'TECHNICIAN').length, INACTIVE: members.filter((member) => member.status === 'INACTIVE').length,
-  }), [members])
-  const visible = members.filter((member) => filter === 'ALL' ? true : filter === 'INACTIVE' ? member.status === 'INACTIVE' : member.role === filter)
+  const { navigate, farmId, m, openModal, closeModal, owner, query, list, current, choose, pageRows, rows, shownPage, pageCount, setPage, search, selected, openChange, closeChange, refresh, done, stale, notice, failure, setNotice } = useMembersPage()
 
-  const selected = m === 'doi-vai-tro' ? members.find((member) => member.id === Number(search.get('id'))) : undefined
-  const openChange = (id: number, action: ChangeMemberInput['action']) => { const next = new URLSearchParams(search); next.set('m', 'doi-vai-tro'); next.set('id', String(id)); next.set('a', action); setSearch(next) }
-  const closeChange = () => { const next = new URLSearchParams(search); ['m', 'id', 'a'].forEach((key) => next.delete(key)); setSearch(next) }
-  const done = (message: string) => { setNotice(message); closeChange(); void query.refetch() }
-
-  if (query.loading && !query.data) return <Layout title="Thành viên & quyền"><LoadingBlock /></Layout>
-  if (query.error || !query.data) return <Layout title="Thành viên & quyền"><ErrorBlock message={userFacingError(query.error, 'Không tải được thành viên hoặc bạn không có quyền xem trang này.')} onRetry={query.refetch} /></Layout>
+  if (query.error) return <Layout title={TITLE}><ErrorBlock variant="panel" message={userFacingError(query.error, 'Không tải được danh sách thành viên. Vui lòng thử lại.')} onRetry={query.refetch} /></Layout>
+  if (!list) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
+  const farmActive = list.serviceStatus === 'ACTIVE'
+  const tabs = [
+    { value: 'ALL', label: `Tất cả (${list.counts.all})` },
+    { value: 'MANAGER', label: `Quản lý (${list.counts.managers})` },
+    { value: 'TECHNICIAN', label: `Kỹ thuật viên (${list.counts.technicians})` },
+    ...(owner ? [{ value: 'INACTIVE', label: `Đã ngưng (${list.counts.inactive ?? 0})` }] : []),
+  ]
 
   return (
-    <Layout title="Thành viên & quyền">
-      <PageHeader title="Thành viên & vai trò">
+    <Layout title={TITLE}>
+      <PageHeader title={TITLE}>
+        <Button size="bento" onClick={refresh} disabled={query.loading}>Làm mới</Button>
         {owner && <>
-          <Button onClick={() => navigate(`/loi-moi?farmId=${farmId}`)}>Lời mời</Button>
-          <Button variant="primary" onClick={() => openModal('invite')} disabled={!farmActive}><Icon name="user-plus" size={16} className="mr-1.5" />Mời thành viên</Button>
+          <Button size="bento" onClick={() => navigate(`/loi-moi?farmId=${farmId}`)}>Lời mời</Button>
+          <Button variant="primary" size="bento" onClick={() => openModal('invite')} disabled={!farmActive}><Icon name="user-plus" size={16} className="mr-1.5" />Mời thành viên</Button>
         </>}
       </PageHeader>
+      {failure && <Note tone="err">{failure}</Note>}
       {notice && <Note tone="ok">{notice}</Note>}
+      {owner && !farmActive && <Note>Dịch vụ trại hiện không hoạt động. Bạn vẫn có thể xem và ngưng thành viên; mời, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>}
       {!owner && <Note>Chế độ xem chỉ đọc. Chỉ Chủ trại được gửi lời mời hoặc thay đổi vai trò, trạng thái thành viên.</Note>}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_376px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div><Segmented value={filter} onChange={(value) => setFilter(value as Filter)} options={[
-            { value: 'ALL', label: `Tất cả (${counts.ALL})` }, { value: 'MANAGER', label: `Quản lý (${counts.MANAGER})` },
-            { value: 'TECHNICIAN', label: `Kỹ thuật viên (${counts.TECHNICIAN})` }, ...(owner ? [{ value: 'INACTIVE', label: `Ngừng hoạt động (${counts.INACTIVE})` }] : []),
-          ]} /></div>
-          <MemberTable members={visible} owner={owner} farmActive={farmActive} onChange={(member, action) => openChange(member.id, action)} />
+      <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
+        <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4">
+          <Segmented className="w-full [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:px-2" value={current.tab} onChange={(value) => choose({ tab: value as MemberTab })} options={tabs} />
+          <MemberTable
+            members={pageRows} owner={owner} timeZone={list.timeZone} dir={current.dir}
+            onSort={() => choose({ dir: current.dir === 'asc' ? 'desc' : 'asc' })}
+            onChange={(member, action) => openChange(member.id, action)}
+            empty={<EmptyBlock variant="panel" title="Không có bản ghi phù hợp với bộ lọc." action={<Button size="bento" onClick={() => choose(DEFAULTS)}>Xóa bộ lọc</Button>} />}
+          />
+          <Pagination page={shownPage} pageCount={pageCount} onChange={setPage}
+            summary={rows.length ? `Hiển thị ${(shownPage - 1) * PAGE_SIZE + 1}–${Math.min(shownPage * PAGE_SIZE, rows.length)} trong ${rows.length} thành viên` : '0 thành viên'} />
         </div>
-        <Card title="Quyền theo vai trò">
-          <div className="[&>div]:flex [&>div]:w-full [&_button]:flex-1"><Segmented value={permissionRole} onChange={(value) => setPermissionRole(value as 'MANAGER' | 'TECHNICIAN')} options={[{ value: 'MANAGER', label: 'Quản lý' }, { value: 'TECHNICIAN', label: 'Kỹ thuật viên' }]} /></div>
-          <PermissionChecklist role={permissionRole} />
-        </Card>
+        <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4"><Card variant="panel" title="Quyền theo vai trò"><PermissionTable /></Card></div>
       </div>
-      <Foot>Owner quản lý lời mời và vai trò; Manager chỉ xem. Bộ lọc tách người theo vai trò/trạng thái, còn bảng cho biết tên, Thư điện tử, ngày tham gia và thao tác được phép.</Foot>
-      {m === 'invite' && owner && <InviteDialog farmId={farmId} farmName={farm?.name} active={farmActive} onClose={closeModal} onSent={(message) => { setNotice(message); closeModal(); void query.refetch() }} />}
-      {selected && owner && <MemberChangeDialog farmId={farmId} member={selected} initialAction={(search.get('a') as ChangeMemberInput['action'] | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} />}
+      {m === 'invite' && owner && <InviteDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} active={farmActive} onClose={closeModal} onSent={(message) => { setNotice(message); closeModal(); query.refetch() }} />}
+      {selected && owner && <MemberChangeDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} member={selected} initialAction={(search.get('a') as MemberAction | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} onStale={stale} />}
     </Layout>
   )
 }

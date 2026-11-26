@@ -13,6 +13,8 @@ export type FeedFeedingRevision = {
   action: 'CORRECTED' | 'VOIDED'
   reason: string
   changedAt: string
+  actorName?: string | null
+  /** Empty when the current API omits line snapshots; never infer before/after values. */
   lines: FeedFeedingLine[]
 }
 
@@ -38,11 +40,32 @@ export type FeedFeedingRecord = {
   recordedAt: string | null
   leftoverKg: number | null
   note: string | null
+  voidReason?: string | null
   plannedTotalKg: number
   actualTotalKg: number
   lines: FeedFeedingLine[]
   revisions: FeedFeedingRevision[]
   [key: string]: unknown
+}
+
+export type FeedFeedingPlan = {
+  penId: number
+  penCode: string
+  feedingDate: string
+  sessionNo: number
+  feedingTime: string
+  ration: { id: number; rationCode: string; versionNo: number; name: string; sessionsPerDay: number } | null
+  headCount: number
+  lines: Array<{
+    feedItemId: number
+    feedCode: string
+    feedName: string
+    kgPerHead: number
+    plannedKg: number
+    stockKg: number
+    available: boolean
+  }>
+  existingRecordId: number | null
 }
 
 export type FeedFeedingLineInput = {
@@ -57,7 +80,7 @@ export type FeedFeedingDraftInput = {
   feedingDate: string
   sessionNo: number
   time: string
-  fedBy: string
+  fedBy?: string
   leftoverKg: number | null
   note: string
   rationCode: string | null

@@ -44,6 +44,7 @@ export function createAnnouncementsDemoStore(seed: AnnouncementsSeed = ANNOUNCEM
     const authorSeesUnread = isAuthor && Boolean(cur) && r.recipients.some((x) => x.readVersion !== cur.versionNo)
     return {
       id: r.id,
+      latestVersionId: cur?.id ?? null,
       title: cur?.title ?? r.title,
       state: r.state,
       authorName: authorOf(r).name,
@@ -74,7 +75,7 @@ export function createAnnouncementsDemoStore(seed: AnnouncementsSeed = ANNOUNCEM
       title: cur?.title ?? r.title,
       body: cur?.body ?? r.body,
       version: r.version,
-      versions: r.versions.map((v) => ({
+      versions: [...r.versions].sort((a, b) => b.versionNo - a.versionNo).map((v) => ({
         id: v.id, versionNo: v.versionNo, title: v.title, body: v.body, publishedTime: v.publishedTime, correctionReason: v.correctionReason,
         unread: unread && v.versionNo === cur.versionNo,
       })),
@@ -92,7 +93,9 @@ export function createAnnouncementsDemoStore(seed: AnnouncementsSeed = ANNOUNCEM
       relatedLink: r.relatedLink ?? null,
       unread,
       readTime: rcpt && !unread ? rcpt.readTime : null,
+      myDeliveryId: rcpt?.recipientId ?? null,
       isAuthor,
+      isReceived: Boolean(rcpt) && r.state === 'PUBLISHED',
       canCorrect: isAuthor && r.state === 'PUBLISHED',
     }
   }
@@ -127,8 +130,7 @@ export function createAnnouncementsDemoStore(seed: AnnouncementsSeed = ANNOUNCEM
     async saveDraft(viewer: Viewer, command: DraftCommand): Promise<AnnouncementView> {
       const me = identify(viewer)
       requireWriter(me)
-      assertText({ title: command.title })
-      if (command.body.length > 5000) assertText({ body: command.body })
+      assertText({ title: command.title, body: command.body })
       if (resolveRecipients(state.members, command.audience, me).invalid) throw new AnnouncementError('NOT_ALLOWED', MESSAGES.notAllowed)
 
       let r: AnnouncementRecord

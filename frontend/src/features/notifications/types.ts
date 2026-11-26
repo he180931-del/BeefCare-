@@ -10,6 +10,8 @@ export interface NotificationView {
   summary: string
   targetType: NotificationTargetType
   targetId: number
+  /** Farm owning a payment target; absent for targets that are not farm-scoped here. */
+  farmId?: number | null
   createdTime: string
   readTime: string | null
 }

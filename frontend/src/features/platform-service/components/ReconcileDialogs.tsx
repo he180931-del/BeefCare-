@@ -1,13 +1,12 @@
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Field, Note, inputCls } from '../../../components/ui'
+import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 import { platformServiceApi } from '../api/platformServiceApi'
 import type { Evidence, PlatformPayment, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { blockReason, checkAcceptance, evidenceCode, maskTransaction, PAYMENT_STATE_LABEL } from '../domain/reconciliation'
-import { validateReason } from '../domain/servicePeriods'
+import { validateReason } from '../validation/servicePeriodValidation'
 import { ReadField, ReasonField, useAction } from './common'
 
 export interface DialogCtx {
@@ -102,7 +101,7 @@ function AcceptDialog({ c }: { c: DialogCtx }) {
       <ReadField id="acc-code" label="Mã tham chiếu chính xác" value={cand ? `${cand.code} · ${c.explicit ? 'PM chọn thủ công' : 'duy nhất'}` : '—'} />
       <ReadField id="acc-amt" label="Tiền / người nhận" value={`${money(c.ev.amount)} vào ${c.ev.receivingAccount}`} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <ReadField id="acc-bank" label="Ngân hàng / nhận lần đầu" value={`${c.ev.bankPaidAt.slice(0, 16).replace('T', ' ')} / ${c.ev.receivedAt.slice(11, 19)}`} />
+        <ReadField id="acc-bank" label="Ngân hàng / nhận lần đầu" value={`${toBusinessTime(c.ev.bankPaidAt).slice(0, 16).replace('T', ' ')} / ${toBusinessTime(c.ev.receivedAt).slice(11, 19)}`} />
         <ReadField id="acc-win" label="Cửa sổ báo giá" value={cand ? `${fmtShort(cand.createdAt)} → ${fmtDateTime(cand.expiresAt)}` : '—'} />
       </div>
       <ReasonField id="acc-reason" label="Lý do & bằng chứng *" value={c.reason} onChange={c.setReason} error={fieldError} />

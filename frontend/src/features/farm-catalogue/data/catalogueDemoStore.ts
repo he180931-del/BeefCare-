@@ -1,8 +1,7 @@
-import {
-  FieldErrors, matchesFilters, purposeUsage, todayIso, validateBreed, validateMedicine, validatePurpose, validateVaccine, vaccineUsage,
-  type FieldErrorMap,
-} from '../domain/catalogueRules'
-import { describeChanges, validateParameterVersion } from '../domain/parameterRules'
+import { FieldErrors, matchesFilters, purposeUsage, todayIso, vaccineUsage, type FieldErrorMap } from '../domain/catalogueRules'
+import { validateBreed, validateMedicine, validatePurpose, validateVaccine } from '../validation/catalogueValidation'
+import { effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import type {
   Breed, BreedCommand, CatalogueBase, CatalogueFilters, Medicine, MedicineCommand, ParameterVersion, ParameterVersionCommand, Purpose,
   PurposeCommand, Vaccine, VaccineCommand,
@@ -46,11 +45,11 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
 
   const decorate = (): ParameterVersion[] => {
     const sorted = [...data.parameterVersions].sort((a, b) => a.versionNo - b.versionNo)
-    const current = [...sorted].reverse().find((v) => v.effectiveFrom <= today())
+    const current = effectiveVersion(sorted, today())
     return sorted
-      .map((v, i) => ({
+      .map((v) => ({
         ...structuredClone(v),
-        changes: describeChanges(i === 0 ? null : sorted[i - 1]!.parameters, v.parameters),
+        changes: parameterVersionChanges(sorted, v),
         status: (v.id === current?.id ? 'CURRENT' : v.effectiveFrom > today() ? 'SCHEDULED' : 'PAST') as ParameterVersion['status'],
       }))
       .reverse()
@@ -65,7 +64,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         rows: data.breeds, id, command: c, errors: validateBreed(c), referenced: (r) => r.referenced,
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), group: c.group.trim(), description: c.description.trim(), available: c.available,
-          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, version,
+          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, referencedCount: ex?.referencedCount, version,
         }),
       })
     },
@@ -79,7 +78,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), diseasePrevented: c.diseasePrevented.trim(), manufacturer: c.manufacturer.trim(),
           dose: c.dose.trim(), route: c.route, boosterInterval: c.boosterInterval, withdrawalDays: c.withdrawalDays ?? 0, available: c.available,
-          scheduleCount: ex?.scheduleCount ?? 0, recordCount: ex?.recordCount ?? 0, version,
+          scheduleCount: ex?.scheduleCount ?? 0, recordCount: ex?.recordCount ?? 0, referencedCount: ex?.referencedCount, version,
         }),
       })
     },
@@ -118,7 +117,7 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
         rows: data.purposes, id, command: c, errors, referenced: (r) => r.referenced,
         build: (ex, newId, version) => ({
           id: newId, code: c.code.trim(), name: c.name.trim(), purposeType: c.purposeType, description: c.description.trim(), available: c.available,
-          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, receivingPens: ex?.receivingPens ?? [], version,
+          activeCattle: ex?.activeCattle ?? 0, referenced: ex?.referenced ?? false, referencedCount: ex?.referencedCount, receivingPens: ex?.receivingPens ?? [], version,
         }),
       })
     },
@@ -130,9 +129,11 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
     async saveParameterVersion(c: ParameterVersionCommand, author: string): Promise<ParameterVersion> {
       const errors = validateParameterVersion(c, today())
       if (Object.keys(errors).length) throw new FieldErrors(errors)
+      const latest = data.parameterVersions.reduce((max, v) => Math.max(max, v.versionNo), 0)
+      if (c.baseVersion !== undefined && c.baseVersion !== latest) throw new Error(CONFLICT)
       const record = {
         id: nextId(data.parameterVersions),
-        versionNo: data.parameterVersions.reduce((max, v) => Math.max(max, v.versionNo), 0) + 1,
+        versionNo: latest + 1,
         effectiveFrom: c.effectiveFrom,
         parameters: structuredClone(c.parameters),
         sourceNote: c.sourceNote.trim(),

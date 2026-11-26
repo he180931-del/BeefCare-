@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261110000400-sepay-processing" author="beefcare">
+        <!-- Historical counts stay unknown; do not fabricate webhook deliveries or enqueue old PM decisions. -->
+        <addColumn tableName="bank_transfer_evidence">
+            <column name="delivery_attempts" type="integer"/>
+            <column name="provider_code" type="varchar(255)"/>
+            <column name="description" type="varchar(65536)"/>
+            <column name="conflicting_references" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+        </addColumn>
+        <modifyDataType tableName="bank_transfer_evidence" columnName="transfer_content" newDataType="varchar(65536)"/>
+        <createTable tableName="bank_evidence_job">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="evidence_id" type="bigint"><constraints nullable="false" unique="true" uniqueConstraintName="ux_bank_evidence_job_evidence"/></column>
+            <column name="requested_by_id" type="bigint"/>
+            <column name="created_at" type="timestamp"><constraints nullable="false"/></column>
+            <column name="available_at" type="timestamp"><constraints nullable="false"/></column>
+            <column name="lease_until" type="timestamp"/>
+            <column name="first_failure_at" type="timestamp"/>
+            <column name="completed_at" type="timestamp"/>
+            <column name="status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="attempts" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="last_error" type="varchar(100)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="bank_evidence_job" baseColumnNames="evidence_id" referencedTableName="bank_transfer_evidence" referencedColumnNames="id" constraintName="fk_bank_evidence_job_evidence"/>
+        <addForeignKeyConstraint baseTableName="bank_evidence_job" baseColumnNames="requested_by_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_bank_evidence_job_actor"/>
+        <createIndex tableName="bank_evidence_job" indexName="ix_bank_evidence_job_due"><column name="status"/><column name="available_at"/><column name="id"/></createIndex>
+        <createTable tableName="sepay_webhook_rejection">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="received_at" type="timestamp"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="body_bytes" type="integer"><constraints nullable="false"/></column>
+        </createTable>
+        <addColumn tableName="email_delivery_job"><column name="event_key" type="varchar(120)"/></addColumn>
+        <addUniqueConstraint tableName="email_delivery_job" columnNames="event_key" constraintName="ux_email_delivery_event_key"/>
+    </changeSet>
+</databaseChangeLog>

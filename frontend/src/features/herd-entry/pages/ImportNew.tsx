@@ -1,42 +1,30 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, Info, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import {
-  commitEntryExcel,
-  discardHerdEntryDraft,
-  downloadEntryAttachment,
-  downloadEntryImportTemplate,
-  entryExcelBackendEnabled,
-  herdEntryApi,
-  saveHerdEntry,
-  getEntryDraftState,
-  listEntrySellers,
-  listEntryPens,
-  listEntryVaccines,
-  listEntryBreeds,
-  listEntryParentCattle,
-  listPendingEntryCalves,
-  markCalfDiedBeforeRegistration,
-  assignCalfParentage,
-  previewEntryExcel,
-  removeEntryAttachment,
-} from '../api/index'
-import { useMutation, useQuery } from '../../../hooks/useApi'
-import { PAY_METHODS, PURPOSES } from '../data/entryData'
-import { INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
-import { dmy, money } from '../../../data/format'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Icon, Info, inputCls, KV, Note, SearchSelect, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { PURPOSES } from '../constants/entryOptions'
+import { ageOf, blankCow } from '../domain/entryCow'
+import { lineAmount } from '../domain/entryTotals'
+import { useEntryEditor } from '../hooks/useEntryEditor'
+import { useEntryDraftWorkflow } from '../hooks/useEntryDraftWorkflow'
+import { useEntryAttachments } from '../hooks/useEntryAttachments'
+import { useEntryCatalogues, useEntryNewQueries } from '../hooks/useEntryNewQueries'
+import { useEntryNewCommands } from '../hooks/useEntryNewCommands'
+import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
+import CalfDeathModal from '../components/CalfDeathModal'
 import ExcelModal from '../components/ExcelModal'
+import AddSellerModal from '../components/AddSellerModal'
 import PayModal from '../components/PayModal'
-import { validateEntryForPost } from '../entryValidation'
-import type { DocumentRow, EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
-import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { useSession } from '../../authorization'
+import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
+import type { EntryCalf, EntryCow, HerdEntry } from '../types'
+import type { Pen } from '../../pen-management'
+import { herdEntryError } from '../api/herdEntryError'
+import { useSession } from '../../../app/session/sessionContext'
+import { entryReceiverEditable, herdEntryApi, saveEntrySeller, type EntrySeller, type EntrySellerInput } from '../api'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
@@ -46,77 +34,75 @@ type EntryInput = Pick<EntryCow, 'code' | 'tag' | 'breed' | 'sex' | 'weight' | '
 type Calf = EntryCalf
 const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
 const num = (v: unknown) => Number(v) || 0
-const displayError = userFacingError
-const localToday = () => {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const displayError = herdEntryError
 
 export default function ImportNew() {
   const [params] = useSearchParams()
   const draftId = params.get('id')
-  const { data } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
-  const { data: detailedDraft, error: draftError } = useQuery<HerdEntry | null>(
-    () => draftId ? herdEntryApi.get(draftId) : Promise.resolve(null),
-    [draftId],
-  )
-  const { data: canonicalPens } = useQuery(() => listEntryPens(), [])
-  const { data: pendingCalves } = useQuery(() => listPendingEntryCalves(), [])
-  const { data: sellers } = useQuery(() => listEntrySellers(), [])
-  // Parent selectors are only needed on the farm-born flow. Avoid waiting on
-  // the cattle lookup for purchase vouchers (and keep the purchase form
-  // independent from the parentage endpoint).
-  const isFarmBornRoute = params.get('kind') === 'calf'
-  const { data: parentCattle } = useQuery<EntryParentOption[]>(
-    () => isFarmBornRoute ? listEntryParentCattle() : Promise.resolve([]),
-    [isFarmBornRoute],
-  )
+  const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdEntry } | null>(null)
+  const [reloadRevision, setReloadRevision] = useState(0)
+  const [addedSellers, setAddedSellers] = useState<EntrySeller[]>([])
+  const { data, detailedDraft, draftError, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults } = useEntryNewQueries({ draftId: draftId ?? undefined })
   if (!data || !canonicalPens || !pendingCalves || !sellers || (draftId && !detailedDraft && !draftError)) {
-    return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+    return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
   }
   if (draftError) {
-    return <Layout title="Phiếu nhập mới" user="manager"><Note tone="err">{displayError(draftError)}</Note></Layout>
+    return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><Note tone="err">{displayError(draftError)}</Note></Layout>
   }
-  const imports = detailedDraft
-    ? [...data.filter((row) => row.id !== detailedDraft.id), detailedDraft]
+  const activeDraft = reloadedDraft?.routeId === draftId ? reloadedDraft.row : detailedDraft
+  const reloadDraft = async (id: string) => {
+    const latest = await herdEntryApi.get(id)
+    setReloadedDraft({ routeId: draftId, row: latest })
+    setReloadRevision((value) => value + 1)
+  }
+  if (activeDraft && activeDraft.status !== 'Nháp') return <Layout title="Phiếu nhập"><Note>Phiếu {activeDraft.id} hiện ở trạng thái {activeDraft.status}. Vui lòng mở lại từ danh sách phiếu nhập.</Note></Layout>
+  const imports = activeDraft
+    ? [...data.filter((row) => row.id !== activeDraft.id), activeDraft]
     : data
   // Keep calves already attached to the draft visible when reopening it. The
   // backend marks those rows with draftVoucherId, so filtering every non-null
-  // value used to produce the misleading 0/0 state and hide parent selectors.
-  const currentDraftBackendId = Number((detailedDraft as (HerdEntry & { backendId?: number }) | null)?.backendId)
+  // value used to produce the misleading 0/0 state and hide source birth facts.
+  const currentDraftBackendId = Number(activeDraft?.backendId)
   const availablePendingCalves = pendingCalves.filter((calf) => calf.draftVoucherId == null || (Number.isFinite(currentDraftBackendId) && calf.draftVoucherId === currentDraftBackendId))
-  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} parentCattle={parentCattle ?? []} />
+  // FE-06 field 4 lists ACTIVE sellers; a draft keeps showing the seller it already references.
+  const draftSourceId = activeDraft?.draft?.sourceId
+  const loadedSellers = sellers.filter((seller) => seller.active !== false || seller.id === draftSourceId)
+  const sellerOptions = [...loadedSellers, ...addedSellers.filter((added) => !loadedSellers.some((seller) => seller.id === added.id))]
+  const addSeller = async (input: EntrySellerInput, options: { key: string }) => {
+    const seller = await saveEntrySeller(input, options)
+    setAddedSellers((current) => current.some((row) => row.id === seller.id) ? current : [...current, seller])
+    return seller
+  }
+  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellerOptions} onAddSeller={addSeller} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
 }
 
-function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[] }) {
-  const { mutate: persistEntry, loading, error: saveError } = useMutation(saveHerdEntry)
+function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, onAddSeller, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: EntrySeller[]; onAddSeller: (input: EntrySellerInput, options: { key: string }) => Promise<EntrySeller>; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
+  const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
   const location = useLocation()
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   const editingParam = params.get('m')
-  const editingIndex = editingParam?.startsWith('row-') ? Number(editingParam.slice(4)) : -1
-  const draftId = params.get('id') ?? undefined
+  const editingIndex = editingParam === 'row-new' ? 0 : editingParam?.startsWith('row-') ? Number(editingParam.slice(4)) : -1
+  const draftId = loadedDraftId ?? params.get('id') ?? undefined
   const draftState = getEntryDraftState(imports, draftId)
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const draft = draftRow?.draft
   const kind = draftRow?.type ?? (params.get('kind') === 'calf' ? KIND_CALF : KIND_BUY)
   const isBuy = kind === KIND_BUY
-  const { data: vaccines } = useQuery(() => editingIndex >= 0 ? listEntryVaccines() : Promise.resolve([]), [editingIndex])
-  const { data: breeds } = useQuery(() => (editingIndex >= 0 || !isBuy) ? listEntryBreeds() : Promise.resolve([]), [editingIndex, isBuy])
+  const { vaccines, breeds, purposes } = useEntryCatalogues({ editingIndex, isBuy })
+  const { commitEntryExcel, discardHerdEntryDraft, downloadEntryImportTemplate, entryExcelBackendEnabled, markCalfDiedBeforeRegistration, previewEntryExcel, getEntry } = useEntryNewCommands()
   // All receiving pens come from the farm endpoint. Do not reserve or remove
   // a hard-coded A3: farms may name their pens differently and purchase entry
   // must be able to select an active backend pen.
   const importBarns = canonicalPens
-  const calfBarn = canonicalPens.find((pen) => pen.status === 'ACTIVE') ?? {
-    code: '', name: 'Chưa chọn chuồng', count: 0, capacity: 0, status: 'INACTIVE' as const, cows: [],
-  }
   const barnOptions = importBarns.map((barn) => ({ value: barn.code, label: barn.name }))
   const calfBarnOptions = canonicalPens.filter((pen) => pen.status === 'ACTIVE').map((pen) => ({ value: pen.code, label: pen.name }))
   const typeLocked = Boolean(draftRow)
   const nextNumber = Math.max(0, ...imports.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1
-  const initialRecordId = draftRow?.id ?? (entryExcelBackendEnabled ? 'Tự động khi lưu' : `PN-2026-${String(nextNumber).padStart(4, '0')}`)
+  const defaults = newEntryDefaults({ isBuy, receiver: sessionName, nextNumber })
+  const initialRecordId = draftRow?.id ?? defaults.recordId
   const setKind = (next: string) => {
     if (typeLocked) return
     const query = new URLSearchParams(params)
@@ -125,154 +111,63 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     setParams(query)
   }
 
-  const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
-  const [date, setDate] = useState(draft?.date ?? (entryExcelBackendEnabled ? localToday() : TODAY))
-  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? (entryExcelBackendEnabled ? '' : 'KD-HN-2026-004512'))
-  const [plate, setPlate] = useState(draft?.plate ?? '')
-  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? sessionName : 'Anh A'))
-  const [note, setNote] = useState(draft?.note ?? (entryExcelBackendEnabled || !isBuy ? '' : 'Khám ngoại hình bình thường, 1 con hơi gầy'))
-  const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? (entryExcelBackendEnabled ? [] : INITIAL_COWS))
-  const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
-  const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
-  const [directCalfCount, setDirectCalfCount] = useState(0)
-  const [freight, setFreight] = useState(draft?.freight ?? (entryExcelBackendEnabled ? 0 : 1500000))
-  const [paid, setPaid] = useState(draft?.paid ?? (entryExcelBackendEnabled ? 0 : 40000000))
-  const [method, setMethod] = useState(draft?.method ?? (entryExcelBackendEnabled ? '' : PAY_METHODS[0]))
-  const [due, setDue] = useState(draft?.due ?? (entryExcelBackendEnabled ? '' : '2026-11-05'))
+  const editor = useEntryEditor({ draft, defaults, pendingCalves, pens: importBarns, isBuy })
+  const { sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
+    cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue,
+    printQr, setPrintQr, patchCow, patchCalf, purchase, pensAfter: barnAfter, overflow, calfPen: calfBarn, calvesSummary } = editor
   // Payment belongs to the entry voucher (not an individual cattle row). Keep
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
-  const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
-  const [documents, setDocuments] = useState<File[]>([])
-  const [storedDocuments, setStoredDocuments] = useState<DocumentRow[]>(draftRow?.detail?.docs ?? [])
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
+  const [snapshotRecord, setSnapshotRecord] = useState(draftRow)
+  const [commandError, setCommandError] = useState<unknown>(null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [priceResetNotice, setPriceResetNotice] = useState(false)
+  const [newCow, setNewCow] = useState<EntryCow>(() => ({...blankCow(importBarns.find(p => p.status === 'ACTIVE')?.code ?? ''),pricing}))
+  const [removeIndex, setRemoveIndex] = useState<number | null>(null)
+  const removeCow = (index: number) => { setCows(current => current.filter((_,i) => i !== index)); setRemoveIndex(null); closeModal() }
+
   const recordId = persistedRecordId ?? initialRecordId
+  const { documents, storedDocuments, setStoredDocuments, resetDocuments, attachmentError, addDocuments, viewDocument, removeDocument } = useEntryAttachments({ persistedRecordId, initialStored: draftRow?.detail?.docs ?? [] })
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
-  const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
-  // GBR-92: one pricing basis (per kg or per head) for every line of the voucher.
-  const lineAmount = (c: EntryCow) => pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
-  const cowsMoney = cows.reduce((s, c) => s + lineAmount(c), 0)
-  const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
-  const total = cowsMoney + freight
-  const debt = Math.max(total - paid, 0)
-  const estimatedCount = cows.filter((c) => c.estimated).length
-  const barnAfter = importBarns.map((b) => ({ ...b, after: b.count + cows.filter((c) => c.barn === b.code).length })).filter((b) => b.after !== b.count)
-  const overflow = barnAfter.filter((b) => b.after > b.capacity)
+  const source = sellers.find((s) => s.id === sourceId) ?? { id: '', name: '', phone: '', area: '' }
+  const { cattleAmount: cowsMoney, totalWeight, total, debt, estimatedCount } = purchase
 
-  const picked = calves.filter((c) => c.picked)
-  const calfWeight = picked.reduce((s, c) => s + c.weight, 0)
-  const calfEstimated = picked.filter((c) => c.estimated).length
-  const calfAfter = calfBarn.count + picked.length
-  const calfOver = picked.some((calf) => {
-    const pen = canonicalPens.find((candidate) => candidate.code === calf.barn)
-    const count = picked.filter((row) => row.barn === calf.barn).length
-    return !pen || pen.status !== 'ACTIVE' || pen.count + count > pen.capacity
-  })
+  const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
   const n = isBuy ? cows.length : picked.length
+  const missingWeightLines = isBuy ? missingKgWeightLines(cows, pricing) : []
+  const changePricing = (next: string) => {
+    if (next === pricing) return
+    const nextPricing = next as 'kg' | 'con'
+    setPriceResetNotice(cows.some((cow) => cow.unitPrice > 0))
+    setPricing(nextPricing)
+    setCows(cows.map((cow) => ({ ...cow, pricing: nextPricing, unitPrice: 0 })))
+  }
 
-  const patchCow = (i: number, p: Partial<EntryCow>) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
-  const patchCalf = (i: number, p: Partial<Calf>) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
-  const persistCalfParentage = async (calf: Calf, patch: Partial<Calf>) => {
-    const damId = Number(patch.damId ?? calf.damId)
-    if (!Number.isFinite(damId) || damId <= 0 || calf.calfOutcomeId == null) return
-    const sireSource = patch.sireSource ?? calf.sireSource ?? (patch.sireId ?? calf.sireId ? 'INTERNAL' : 'NONE')
-    try {
-      const updated = await assignCalfParentage(Number(calf.calfOutcomeId), {
-        damId,
-        sireSource: sireSource as 'NONE' | 'INTERNAL' | 'AI',
-        ...(sireSource === 'INTERNAL' && Number(patch.sireId ?? calf.sireId) > 0 ? { sireId: Number(patch.sireId ?? calf.sireId) } : {}),
-        ...(sireSource === 'AI' && String(patch.externalSireCode ?? calf.externalSireCode ?? '').trim() ? { externalSireCode: String(patch.externalSireCode ?? calf.externalSireCode).trim() } : {}),
-      })
-      patchCalf(calves.indexOf(calf), { damId: updated.damId, mother: updated.mother, sireId: updated.sireId, father: updated.father, sireSource: updated.sireSource, externalSireCode: updated.externalSireName })
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
-  const createDirectCalves = (count: number) => {
-    const n = Math.max(0, Math.min(10, Math.trunc(count || 0)))
-    setDirectCalfCount(n)
-    setCalves(Array.from({ length: n }, (_, index) => ({
-      name: `Bê số ${index + 1}`, tag: '', mother: '', father: 'Không rõ', damId: undefined, sireId: undefined,
-      born: date, sex: 'Cái', weight: 0, estimated: false, purpose: 'Chưa xác định', picked: true, barn: calfBarn.code,
-      calfOutcomeId: undefined,
-    })))
-  }
-  const markCalfDied = async (calf: Calf) => {
-    const calfOutcomeId = calf.calfOutcomeId
-    if (typeof calfOutcomeId !== 'number' || !Number.isFinite(calfOutcomeId)) return
-    const reason = window.prompt('Lý do bê chết trước đăng ký', '')?.trim()
-    if (!reason) return
-    try {
-      await markCalfDiedBeforeRegistration(calfOutcomeId, reason)
-      setCalves((current) => current.filter((row) => row.calfOutcomeId !== calfOutcomeId))
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
-  const addDocuments = (files: File[]) => {
-    const invalid = files.find((file) => !['application/pdf', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)
-    if (invalid) {
-      setValidationError(`Tệp ${invalid.name} không hợp lệ. Chỉ nhận PDF/JPG tối đa 10MB.`)
-      return
-    }
-    setValidationError(null)
-    setDocuments((current) => [...current, ...files.filter((file) => !current.some((item) => item.name === file.name && item.size === file.size))])
-  }
-  const viewDocument = async (index: number) => {
-    try {
-      if (index < storedDocuments.length) {
-        const document = storedDocuments[index]
-        const attachmentId = Number(document.id)
-        if (!persistedRecordId || !Number.isFinite(attachmentId)) throw new Error('Không xác định được chứng từ đã lưu')
-        const blob = await downloadEntryAttachment(persistedRecordId, attachmentId)
-        const url = URL.createObjectURL(blob)
-        window.open(url, '_blank', 'noopener,noreferrer')
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-        return
-      }
-      const file = documents[index - storedDocuments.length]
-      if (!file) return
-      const url = URL.createObjectURL(file)
-      window.open(url, '_blank', 'noopener,noreferrer')
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
-  const removeDocument = async (index: number) => {
-    try {
-      if (index < storedDocuments.length) {
-        const document = storedDocuments[index]
-        const attachmentId = Number(document.id)
-        if (!persistedRecordId || !Number.isFinite(attachmentId)) throw new Error('Không xác định được chứng từ đã lưu')
-        await removeEntryAttachment(persistedRecordId, attachmentId)
-        setStoredDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index))
-        return
-      }
-      const localIndex = index - storedDocuments.length
-      setDocuments((current) => current.filter((_, currentIndex) => currentIndex !== localIndex))
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
+  const [deathCalf, setDeathCalf] = useState<Calf | null>(null)
+  const [deathNotice, setDeathNotice] = useState('')
 
   const save = async (status: 'Nháp' | 'Đã nhập', navigateAfter = true): Promise<HerdEntry | undefined> => {
     setValidationError(null)
+    setCommandError(null)
     if (status === 'Đã nhập') {
       if (date > localToday()) {
         setValidationError('Ngày nhập không được ở tương lai.')
         return
       }
     }
+    if (isBuy) {
+      const weightError = validateEntryWeights(cows, pricing)
+      if (weightError) { setValidationError(weightError); return }
+    }
     const sourceText = isBuy
       ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
       : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`
     const editableDraft = {
-      sourceId, date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr,
+      sourceId, date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr, ...(isBuy ? { pricing } : {}),
     }
     const inputs: EntryInput[] = isBuy
       ? cows.map((cow) => ({ ...cow, date }))
@@ -282,9 +177,10 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
         date,
         type: kind,
         sourceId,
-        receiver,
+        // Máy chủ tự ghi người tạo / ghi sổ theo phiên; chỉ bản mô phỏng bắt nhập tay.
+        receiver: entryReceiverEditable ? receiver : undefined,
         cows: isBuy ? cows : inputs as EntryCow[],
-        pricing: 'kg',
+        pricing: isBuy ? pricing : 'kg',
         paid: isBuy ? paid : 0,
         total: isBuy ? total : 0,
         method: isBuy ? method : undefined,
@@ -305,6 +201,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           debt,
           status,
           printQr,
+          pricing,
         }
       : {
           date,
@@ -334,7 +231,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           weight: cow.weight,
           barn: cow.barn,
           current: `ACTIVE · ${cow.barn}`,
-          amount: isBuy ? lineAmount(cows[index]) : 0,
+          amount: isBuy ? lineAmount(cows[index], pricing) : 0,
         })),
         cowsTotal: isBuy ? cowsMoney : 0,
         freight: isBuy ? freight : 0,
@@ -345,11 +242,15 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
       record.draft = undefined
     }
     const saveId = persistedRecordId ?? draftRow?.id ?? (entryExcelBackendEnabled ? undefined : recordId)
-    const saved = await persistEntry({ id: saveId, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    const saveCommand = status === 'Đã nhập' ? postEntry : saveDraft
+    record.backendId = snapshotRecord?.backendId
+    const saved = await saveCommand({ id: saveId, expectedVersion: snapshotRecord?.version, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    setSnapshotRecord(saved)
+    setPriceResetNotice(false)
     setPersistedRecordId(saved.id)
     if (saved.detail?.docs) {
       setStoredDocuments(saved.detail.docs)
-      setDocuments([])
+      resetDocuments()
     }
     if (navigateAfter) nav('/herd-entry')
     return saved
@@ -365,13 +266,17 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const commitBackendExcel = async (file: File) => {
     const targetId = persistedRecordId ?? recordId
     await commitEntryExcel(targetId, file)
-    const refreshed = await herdEntryApi.get(targetId)
+    const refreshed = await getEntry(targetId)
+    setSnapshotRecord(refreshed)
     return refreshed.draft?.cows ?? []
   }
   const cancelExcelImport = async () => {
+    setCommandError(null)
     if (temporaryExcelDraftId) {
-      await discardHerdEntryDraft(temporaryExcelDraftId).catch(() => undefined)
+      try { await discardHerdEntryDraft(temporaryExcelDraftId, snapshotRecord?.version, snapshotRecord?.backendId) }
+      catch (error) { setCommandError(error); return }
       setPersistedRecordId(null)
+      setSnapshotRecord(undefined)
       setTemporaryExcelDraftId(null)
     }
     closeModal()
@@ -380,10 +285,13 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const rowIndex = m && m.startsWith('row-') ? Number(m.slice(4)) - 1 : -1
   const editing = rowIndex >= 0 && rowIndex < cows.length ? rowIndex : -1
   const blocked = isBuy ? overflow.length > 0 : calfOver
+  const title = persistedRecordId ? `Sửa phiếu nháp ${recordId}` : 'Phiếu nhập bò mới'
+  const adding = m === 'row-new'
 
   return (
-    <Layout title={isBuy ? 'Phiếu nhập mới – Mua ngoài (theo phiếu)' : 'Phiếu nhập mới – Bê sinh tại trại'} user="manager">
-      <div className="contents leading-[normal]">
+    <Layout title={title} user="manager">
+      {/* gap-5 = gap của <main> trong Layout, để khoảng cách giữa tiêu đề, lưới và chú thích giữ như các màn khác. */}
+      <div className="@container/entry flex min-w-0 flex-col gap-5 leading-[normal]">
         <div className="flex flex-wrap items-start gap-3">
           <Button
             variant="link"
@@ -394,7 +302,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
             ← Về đàn bò
           </Button>
           <div>
-            <h1 className="m-0 text-[22px] font-bold">Phiếu nhập mới</h1>
+            <h1 className="m-0 text-[22px] font-bold">{title}</h1>
             <p className="mb-0 mt-1 text-xs text-muted">
               {isBuy ? 'Mỗi con trong phiếu sẽ được cấp 1 mã bò và thẻ QR khi lưu.' : 'Bê được tạo từ sự kiện đẻ đang ở trạng thái Chờ xác nhận.'}
             </p>
@@ -408,11 +316,18 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           />
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="flex min-w-0 flex-col gap-[18px]">
-            <Card title="1. Thông tin phiếu">
+        {/*
+          Bento (docs/BeefCare-Bento-Grid.md §1–2, Figma Tab 16): form 8 + tóm tắt 4 khi vùng nội dung từ 1.024 px; từ 880 px
+          (laptop 1.280 px có sidebar) form 5 + tóm tắt 3 trên lưới 8 cột để nút lưu vẫn nằm cạnh form; hẹp hơn thì xếp dọc.
+        */}
+        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]/entry:grid-cols-8 @min-[1024px]/entry:grid-cols-12 @min-[1024px]/entry:gap-6">
+          <section
+            aria-label={isBuy ? 'Nội dung phiếu nhập mua ngoài' : 'Nội dung phiếu nhập bê sinh tại trại'}
+            className="@container/entry-form col-span-full flex min-w-0 flex-col gap-4 @min-[880px]/entry:col-span-5 @min-[1024px]/entry:col-span-8 @min-[1024px]/entry:gap-6"
+          >
+            <Card variant="panel" title="1. Thông tin phiếu">
               <div className="flex flex-col gap-3.5">
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3.5 @min-[460px]/entry-form:grid-cols-2 @min-[640px]/entry-form:grid-cols-3">
                   <Field id="entry-voucher-code" label="Mã phiếu"><input id="entry-voucher-code" className={inputCls} value={recordId} readOnly /></Field>
                   <Field id="entry-date" label={isBuy ? 'Ngày nhập trại *' : 'Ngày lập phiếu *'}>
                     <DateInput id="entry-date" value={date} onChange={setDate} />
@@ -420,10 +335,17 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                   <Field id="entry-type" label="Loại nhập"><input id="entry-type" className={inputCls} value={kind} readOnly /></Field>
                   {isBuy && (
                     <>
-                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={`${source.phone} · + Thêm nguồn mới`}>
-                        <Select id="entry-source" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-                          {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </Select>
+                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={<>{source.phone ? `${source.phone} · ` : ''}<button type="button" onClick={() => openModal('seller')} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] font-semibold text-brand">+ Thêm nguồn mới</button></>}>
+                        <SearchSelect
+                          id="entry-source"
+                          aria-label="Nguồn / chủ bò cũ"
+                          value={sourceId}
+                          onChange={setSourceId}
+                          clearable={false}
+                          allLabel="Chọn người bán"
+                          options={sellers.map((s) => ({ value: s.id, label: s.name, hint: [s.phone, s.area].filter(Boolean).join(' · ') }))}
+                          className="w-full"
+                        />
                       </Field>
                       <Field id="entry-quarantine" label="Số giấy kiểm dịch">
                         <input id="entry-quarantine" maxLength={50} className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} />
@@ -433,7 +355,9 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập" hint={entryReceiverEditable ? undefined : 'Tự ghi theo người đang đăng nhập'}>
+                    <input id="entry-receiver" className={inputCls} value={entryReceiverEditable ? receiver : sessionName} readOnly={!entryReceiverEditable} onChange={entryReceiverEditable ? (e) => setReceiver(e.target.value) : undefined} />
+                  </Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -443,12 +367,13 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
             {isBuy ? (
               <Card
+                variant="panel"
                 title={`2. Danh sách bò trong phiếu (${cows.length} con)`}
                 sub='Lịch sử trước nhập đàn mặc định "Không rõ" · sửa từng con bằng nút bút chì'
                 actions={
                   <>
                     <Button small onClick={() => openModal('excel')}><Icon name="upload" />Nhập từ Excel</Button>
-                    <Button small onClick={() => { setCows([...cows, { ...blankCow(importBarns[0]?.code ?? ''), pricing }]); openModal(`row-${cows.length + 1}`) }}><Icon name="circle-plus" />Thêm con</Button>
+                    <Button small onClick={() => { setNewCow({...blankCow(importBarns.find(p => p.status === 'ACTIVE')?.code ?? ''), pricing}); openModal('row-new') }}><Icon name="circle-plus" />Thêm con</Button>
                   </>
                 }
               >
@@ -456,7 +381,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                   <span className="text-xs font-semibold">Cách tính giá</span>
                   <Segmented
                     value={pricing}
-                    onChange={(next) => { setPricing(next as 'kg' | 'con'); setCows(cows.map((c) => ({ ...c, pricing: next as 'kg' | 'con' }))) }}
+                    onChange={changePricing}
                     options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]}
                   />
                 </div>
@@ -469,63 +394,61 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       <Th className={`${TH} w-[60px]`}>Tuổi</Th>
                       <Th className={`${TH} w-[70px]`}>Cân nặng</Th>
                       <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                      <Th className={`${TH} w-[90px]`}>{`Đơn giá/${pricing === 'con' ? 'con' : 'kg'}`}</Th>
+                      {pricing === 'kg' && <Th className={`${TH} w-[90px]`}>Đơn giá/kg</Th>}
                       <Th className={`${TH} w-[80px]`}>Thành tiền</Th>
                       <Th className={`${TH} w-[20px]`} />
                     </tr>
                   </thead>
                   <tbody>
+                    {cows.length === 0 && (
+                      <tr><Td colSpan={pricing === 'kg' ? 9 : 8} className={`${TH} py-6 text-center text-muted`}>Trống</Td></tr>
+                    )}
                     {cows.map((c, i) => (
                       <tr key={i}>
                         <Td className={TH}>{i + 1}</Td>
                         <Td className={TH}>{c.tag || <span className="text-muted">Gắn sau</span>}</Td>
                         <Td className={TH}>{`${c.breed || '—'} · ${c.sex} · ${c.stage}`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{`~${ageOf(c.dob ?? '', date)} th`}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : c.ageMonths != null ? `~${c.ageMonths} th` : '—'}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c))}</Td>
+                        {pricing === 'kg' && <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>}
+                        <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
+                          <button type="button" aria-label={`Xóa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-err-fg" onClick={() => setRemoveIndex(i)}><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" /></svg></button>
                         </Td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
+                  {cows.length > 0 && <tfoot>
                     <tr className="font-semibold">
                       <Td className={TH} />
                       <Td className={TH}>{cows.length} con</Td>
                       <Td className={TH} /><Td className={TH} />
                       <Td className={`${TH} whitespace-nowrap`}>{`${money(totalWeight)} kg`}</Td>
-                      <Td className={TH} /><Td className={TH} />
+                      <Td className={TH} />{pricing === 'kg' && <Td className={TH} />}
                       <Td className={`${TH} whitespace-nowrap`}>{money(cowsMoney)}</Td>
                       <Td className={TH} />
                     </tr>
-                  </tfoot>
+                  </tfoot>}
                 </Table>
                 <p className="m-0 text-[11px] text-muted">
                   UT = cân nặng ước tính. Con chưa có thẻ tai vẫn được tạo hồ sơ & QR, gắn thẻ sau. Mỗi dòng được kiểm tra tiêu chí và sức chứa của chuồng nhận.
                 </p>
               </Card>
             ) : (
-              <Card title="2. Chọn bê chờ xác nhận" sub={`${picked.length} / ${calves.length} bê được chọn`}>
-                {calves.length === 0 && (
-                  <div className="mb-3 flex items-end gap-3 rounded-md border border-field bg-page p-3">
-                    <Field label="Số lượng bê muốn nhập *">
-                      <input aria-label="Số lượng bê muốn nhập" type="number" min="1" max="10" value={directCalfCount || ''} onChange={(e) => createDirectCalves(Number(e.target.value))} className="w-28 rounded border border-field bg-white px-2 py-1 text-sm" placeholder="Ví dụ: 2" />
-                    </Field>
-                    <span className="pb-1 text-xs text-muted">Tạo tối đa 10 dòng để nhập bố/mẹ, giống, ngày sinh, giới tính và cân sơ sinh.</span>
-                  </div>
-                )}
+              <Card variant="panel" title="2. Chọn bê chờ xác nhận" sub={`${picked.length} / ${calves.length} bê được chọn`}>
+                {deathNotice && <Note tone="ok">{deathNotice}</Note>}
+                {calves.length === 0 && <Note>Chưa có bê chờ xác nhận. Hãy ghi kết quả lần đẻ tại Sinh sản rồi quay lại chọn bê.</Note>}
                 <Table scroll>
                   <thead>
                     <tr>
                       <Th className={`${TH} w-[20px]`} />
                       <Th className={`${TH} w-[90px]`}>Bê · thẻ tai</Th>
-                      <Th className={`${TH} w-[170px]`}>Bò mẹ trong đàn</Th>
-                      <Th className={`${TH} w-[210px]`}>Bò bố trong đàn / nguồn</Th>
+                      <Th className={`${TH} w-[170px]`}>Mẹ</Th>
+                      <Th className={`${TH} w-[210px]`}>Bố / nguồn tinh</Th>
                       <Th className={`${TH} w-[78px]`}>Ngày sinh</Th>
                       <Th className={`${TH} w-[56px]`}>Giới tính</Th>
                       <Th className={`${TH} w-[72px]`}>Cân sơ sinh</Th>
@@ -545,35 +468,9 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                           />
                         </Td>
                         <Td className={TH}><span className="whitespace-nowrap">{c.tag || 'Chưa gắn thẻ'}</span><br />{c.name}</Td>
-                        <Td className={TH}>
-                          {c.calfOutcomeId != null && c.mother ? (
-                            <span className="whitespace-nowrap">{c.mother}</span>
-                          ) : (
-                            <>
-                          <select aria-label={`Bò mẹ của bê ${i + 1}`} className="w-full min-w-[150px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={String(c.damId ?? '')} disabled={!parentCattle.some((row) => row.sex === 'FEMALE')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = { damId: option?.id, mother: option?.code ?? '' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
-                            <option value="">{c.mother ? `Đang chọn: ${c.mother}` : 'Chọn bò mẹ trong đàn'}</option>
-                            {parentCattle.filter((row) => row.sex === 'FEMALE').map((row) => <option key={row.id} value={row.id}>{row.code}{row.name ? ` · ${row.name}` : ''}</option>)}
-                          </select>
-                            </>
-                          )}
-                        </Td>
-                        <Td className={TH}>
-                          {c.calfOutcomeId != null && c.mother ? (
-                            <span className="whitespace-nowrap">{c.father || 'Không rõ'}</span>
-                          ) : (
-                            <>
-                          <select aria-label={`Bò bố của bê ${i + 1}`} className="w-full min-w-[190px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={c.sireSource === 'AI' ? 'AI' : String(c.sireId ?? '')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = e.target.value === 'AI' ? { sireId: undefined, sireSource: 'AI', father: 'Thụ tinh nhân tạo' } : { sireId: option?.id, sireSource: option ? 'INTERNAL' : 'NONE', father: option?.code ?? 'Không rõ' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
-                            <option value="">{c.sireId ? `Đang chọn: ${c.father}` : (c.father && c.father !== 'Không rõ' ? c.father : 'Chọn bò bố hoặc thụ tinh nhân tạo')}</option>
-                            <option value="AI">Thụ tinh nhân tạo</option>
-                            {parentCattle.filter((row) => row.sex === 'MALE').map((row) => <option key={row.id} value={row.id}>{row.code}{row.name ? ` · ${row.name}` : ''}</option>)}
-                          </select>
-                          {c.sireSource === 'AI' && <input aria-label={`Mã nguồn tinh cho bê ${i + 1}`} className="mt-1 w-full rounded border border-field px-2 py-1 text-[11px]" placeholder="Mã lô tinh / nguồn tinh" value={String(c.externalSireCode ?? '')} onChange={(e) => { const next = { externalSireCode: e.target.value }; patchCalf(i, next); void persistCalfParentage(c, next) }} />}
-                          {(c.sireSource || c.externalSireName || c.semenBatch || c.sireBreed) && <small className="block text-[10px] text-muted">
-                            {[c.sireSource, c.externalSireName, c.semenBatch, c.sireBreed ? `Giống ${c.sireBreed}` : ''].filter(Boolean).join(' · ')}
-                          </small>}
-                            </>
-                          )}
-                        </Td>
+                        <Td className={TH}><span className="whitespace-nowrap">{c.mother || 'Không rõ'}</span></Td>
+                        <Td className={TH}><span className="whitespace-nowrap">{c.sireSource === 'AI' || c.semenBatch
+                          ? `TTNT · ${c.semenBatch || c.externalSireName || c.father || 'Không rõ'}` : c.father || 'Không rõ'}</span></Td>
                         <Td className={`${TH} whitespace-nowrap`}>{dmy(c.born)}</Td>
                         <Td className={TH}>{c.sex}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
@@ -585,7 +482,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         </Td>
                         <Td className={TH}>
                           {c.calfOutcomeId != null && (
-                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="border-0 bg-transparent p-1 text-[11px] text-danger" onClick={() => { void markCalfDied(c) }}>
+                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="min-w-[120px] cursor-pointer border-0 bg-transparent p-1 text-left text-[11px] font-semibold text-err-fg [overflow-wrap:normal] hover:underline" onClick={() => setDeathCalf(c)}>
                               Đánh dấu chết trước đăng ký
                             </button>
                           )}
@@ -595,27 +492,28 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                   </tbody>
                 </Table>
                 <p className="m-0 text-[11px] text-muted">
-                  Bố, mẹ, nguồn bố (bò nội bộ, bố ngoài đàn hoặc lô tinh), giống, giới tính và cân sơ sinh lấy từ sự kiện đẻ – chỉ đọc, không sửa ở phiếu nhập. Ngày nhập đàn của bê = ngày sinh; giai đoạn = Bê theo mẹ. Bê chưa gắn thẻ vẫn chọn được, hệ thống cấp mã và QR. Bê đã chết trước khi đăng ký được đánh dấu tại đây.
+                  Bố, mẹ, nguồn bố (bò nội bộ, bố ngoài đàn hoặc lô tinh), giống, giới tính và cân sơ sinh lấy từ sự kiện đẻ – chỉ đọc, không sửa ở phiếu nhập. Ngày nhập đàn của bê = ngày sinh; giai đoạn = Bê theo mẹ. Bê chưa gắn thẻ vẫn chọn được, hệ thống cấp mã và QR. Muốn sửa bố mẹ, hãy sửa bản ghi lần phối / lần đẻ nguồn. Bê đã chết trước khi đăng ký được đánh dấu tại đây sau khi xác nhận.
                 </p>
               </Card>
             )}
 
-            <div className={`grid items-start gap-[18px] ${isBuy ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
-              <Card title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
-                <Dropzone
+            <div className={`grid grid-cols-1 items-start gap-4 @min-[1024px]/entry:gap-6 ${isBuy ? '@min-[640px]/entry-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
+              <Card variant="panel" title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
+                <FileDropzone
+                  label="Chọn chứng từ đính kèm"
                   hint={isBuy ? 'PDF, JPG ≤ 10MB' : 'Ảnh bê, biên bản đỡ đẻ · PDF, JPG ≤ 10MB'}
                   onFiles={addDocuments}
                 />
                 {(storedDocuments.length > 0 || documents.length > 0) && (
-                  <Docs
-                    docs={[...storedDocuments, ...documents.map((file) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name }))]}
-                    onView={viewDocument}
-                    onRemove={removeDocument}
+                  <AttachmentList
+                    items={[...storedDocuments.map((doc, index) => ({ ...doc, key: `stored:${index}` })), ...documents.map((file, index) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name, key: `new:${index}` }))].map((doc) => ({ key: doc.key, name: doc.name, extension: doc.ext }))}
+                    onView={(key) => { const [kind, rawIndex] = key.split(':'); const index = Number(rawIndex); void viewDocument(kind === 'new' ? storedDocuments.length + index : index) }}
+                    onRemove={(key) => { const [kind, rawIndex] = key.split(':'); const index = Number(rawIndex); void removeDocument(kind === 'new' ? storedDocuments.length + index : index) }}
                   />
                 )}
               </Card>
               {isBuy && (
-                <Card title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
+                <Card variant="panel" title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
                   <Info cols={2} items={[
                     ['Tiền bò', `${money(cowsMoney)} đ`],
                     ['Phí vận chuyển', `${money(freight)} đ`],
@@ -628,13 +526,16 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 </Card>
               )}
             </div>
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-[18px]">
-            <Card title="Tóm tắt phiếu nhập" actions={<Badge>Nháp</Badge>}>
+          <section
+            aria-label="Tóm tắt và lưu phiếu"
+            className="col-span-full flex min-w-0 flex-col gap-4 @min-[880px]/entry:col-span-3 @min-[1024px]/entry:col-span-4 @min-[1024px]/entry:gap-6"
+          >
+            <Card variant="panel" title="Tóm tắt phiếu nhập" actions={<Badge>Nháp</Badge>}>
               <div className="flex flex-col gap-3">
                 <KV k="Số con">{n}</KV>
-                <KV k="Loại nhập">{isBuy ? 'Mua ngoài · theo phiếu' : 'Bê sinh tại trại'}</KV>
+                <KV k="Loại nhập">{isBuy ? 'Mua ngoài' : 'Bê sinh tại trại'}</KV>
                 {isBuy ? (
                   <KV k="Tổng cân nặng">{`${money(totalWeight)} kg${estimatedCount ? ` (${estimatedCount} con ước tính)` : ''}`}</KV>
                 ) : (
@@ -656,13 +557,15 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               </div>
               {!isBuy && <Note>Phiếu bê sinh tại trại không có giá và thanh toán.</Note>}
               {!isBuy && calfOver && <Note tone="err">{`Chuồng ${calfBarn.code} không thể nhận thêm (${calfAfter}/${calfBarn.capacity}).`}</Note>}
-              {isBuy && estimatedCount > 0 && <Note tone="warn">{`Cân nặng ${estimatedCount} con sẽ được lưu là ƯỚC TÍNH.`}</Note>}
-              {isBuy && !quarantine.trim() && <Note tone="warn">Chưa nhập số giấy kiểm dịch. Bạn vẫn có thể lưu phiếu và bổ sung sau.</Note>}
-              {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="warn" key={b.code}>{`Chuồng ${b.code} sẽ đầy (${b.after}/${b.capacity}) sau khi nhập.`}</Note>)}
+              {isBuy && estimatedCount > 0 && <Note tone="err">{`Cân nặng ${estimatedCount} con sẽ được lưu là ƯỚC TÍNH.`}</Note>}
+              {missingWeightLines.length > 0 && <Note tone="err">{`Con ${missingWeightLines.slice(0, 5).map((line) => `#${line}`).join(', ')}${missingWeightLines.length > 5 ? ` và ${missingWeightLines.length - 5} con khác` : ''} chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.`}</Note>}
+              {isBuy && priceResetNotice && <Note tone="err">{`Đã đổi cách tính giá sang ${pricing === 'con' ? 'Theo con' : 'Theo kg'}. Đơn giá các dòng đã được đặt về 0, vui lòng nhập lại.`}</Note>}
+              {isBuy && !quarantine.trim() && <Note tone="err">Chưa nhập số giấy kiểm dịch. Bạn vẫn có thể lưu phiếu và bổ sung sau.</Note>}
+              {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} sẽ đầy (${b.after}/${b.capacity}) sau khi nhập.`}</Note>)}
               {isBuy && overflow.map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} vượt sức chứa (${b.after}/${b.capacity}).`}</Note>)}
             </Card>
 
-            <Card title="Kiểm tra trước khi lưu">
+            <Card variant="panel" title="Kiểm tra trước khi lưu">
               {(isBuy
                 ? [
                   'Thẻ tai không trùng với bò đang có trong trại',
@@ -681,44 +584,52 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               ))}
             </Card>
 
-            <Card>
+            <Card variant="panel">
               <Checkbox checked={printQr} onChange={(e) => setPrintQr(e.target.checked)}>
                 <span className="text-[13px]">{`In tem QR cho ${n} con sau khi lưu`}</span>
               </Checkbox>
-              {validationError && <Note tone="err">{validationError}</Note>}
-              {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
+              {(validationError || attachmentError) && <Note tone="err">{validationError || attachmentError}</Note>}
+              <VoucherCommandError error={commandError ?? saveError} formatError={displayError} onReload={() => onReload(recordId)} />
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
                 <Icon name="circle-check" />{`Lưu & tạo hồ sơ ${n} con`}
               </Button>
               <Button block disabled={loading} onClick={() => { void save('Nháp').catch(() => undefined) }}>Lưu nháp phiếu</Button>
               <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
             </Card>
-          </div>
+          </section>
         </div>
 
-        <Foot>
-          {isBuy
-            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã bò, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
-            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.'}
-        </Foot>
       </div>
 
-      {isBuy && editing >= 0 && (
+      {deathCalf && <CalfDeathModal calf={deathCalf} onClose={() => setDeathCalf(null)} onConfirm={async reason => {
+        const id = deathCalf.calfOutcomeId
+        if (typeof id !== 'number' || !Number.isFinite(id)) throw new Error('Không tìm thấy kết quả bê nguồn.')
+        await markCalfDiedBeforeRegistration(id, reason)
+        setCalves(current => current.filter(row => row.calfOutcomeId !== id))
+        setDeathNotice('Đã đánh dấu bê chết trước khi đăng ký.')
+        setDeathCalf(null)
+      }} />}
+
+      {isBuy && (adding || editing >= 0) && (
         <RowEditModal
-          key={editing}
-          cow={cows[editing]}
-          index={editing}
+          key={adding ? 'new' : editing}
+          cow={adding ? newCow : cows[editing]}
+          isNew={adding}
+          index={adding ? cows.length : editing}
           recordId={recordId}
           dateIso={date}
+          pricing={pricing}
           pens={importBarns}
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
-          others={cows.filter((_, idx) => idx !== editing)}
-          onSave={(next) => { patchCow(editing, { ...next, pricing }); closeModal() }}
-          onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
+          purposes={purposes ?? undefined}
+          others={adding ? cows : cows.filter((_, idx) => idx !== editing)}
+          onSave={(next) => { if (adding) setCows(current => [...current,{...next,pricing}]); else patchCow(editing, { ...next, pricing }); setPriceResetNotice(false); closeModal() }}
+          onRemove={() => removeCow(editing)}
           onClose={closeModal}
         />
       )}
+      {removeIndex != null && <Modal title={`Xóa con #${removeIndex + 1} khỏi phiếu?`} width={420} onClose={() => setRemoveIndex(null)}><p>Con này sẽ được bỏ khỏi phiếu nháp.</p><ModalFooter><ModalButton onClick={() => setRemoveIndex(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={() => removeCow(removeIndex)}>Xóa con</ModalButton></ModalFooter></Modal>}
       {isBuy && paymentModalOpen && (
         <PayModal
           record={{
@@ -729,33 +640,48 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
             source: source.name,
             detail: { sourceName: source.name, payments: paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: paid }] : [] },
           }}
-          onSave={(payment) => {
-            if (payment.amount <= 0 || payment.amount > total) {
-              setValidationError(payment.amount <= 0 ? 'Số tiền thanh toán phải lớn hơn 0.' : 'Số tiền thanh toán không được vượt quá tổng phải trả.')
-              return
-            }
-            // Initial payment is sent with the voucher POST. The standalone
-            // payment endpoint is used from ImportDetail after the voucher is posted.
-            setPaid(payment.amount)
-            setMethod(payment.method)
-            setDue(payment.date)
-            setPaymentModalOpen(false)
-            setValidationError(null)
+          draftPayment={{
+            freight,
+            cattleAmount: cowsMoney,
+            onSave: (nextFreight, payment) => {
+              setFreight(nextFreight)
+              setPaid(payment.amount)
+              if (payment.amount > 0) {
+                setMethod(payment.method)
+                setDue(payment.date)
+              }
+              setPaymentModalOpen(false)
+              setValidationError(null)
+            },
           }}
           onClose={() => setPaymentModalOpen(false)}
         />
       )}
+      {isBuy && m === 'seller' && (
+        <AddSellerModal
+          onClose={closeModal}
+          onSave={async (input, options) => {
+            const seller = await onAddSeller(input, options)
+            setSourceId(seller.id)
+            closeModal()
+            return seller
+          }}
+        />
+      )}
       {isBuy && m === 'excel' && (
         <ExcelModal
+          commandError={commandError ?? saveError}
+          onReload={() => onReload(recordId)}
           recordId={recordId}
           onBackendPreview={entryExcelBackendEnabled ? prepareBackendExcel : undefined}
           onBackendCommit={entryExcelBackendEnabled ? commitBackendExcel : undefined}
           onDownloadTemplate={entryExcelBackendEnabled ? downloadEntryImportTemplate : undefined}
           onAdd={(added) => {
-            const mapped = added.map((cow) => ({
+            // Backend mode: the lines come back from the server already mapped (ids, age, markings, quarantine); keep them whole.
+            const mapped = entryExcelBackendEnabled ? added.map((cow) => ({ ...cow, pricing })) : added.map((cow) => ({
               tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '',
               dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0,
-              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing: cow.pricing ?? 'kg',
+              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,
               hist: cow.hist ?? { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
             }))
             setCows(entryExcelBackendEnabled ? mapped : [...cows, ...mapped])

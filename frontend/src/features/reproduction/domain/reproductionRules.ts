@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type {
   BreedingEligibility,
   CalfOutcome,
@@ -8,7 +9,6 @@ import type {
   ReproductionFemale,
   WorklistFilters,
 } from '../types'
-import { reproductionNow } from './reproductionClock'
 
 export type ReproductionAction =
   | 'RECORD_ESTRUS'
@@ -32,12 +32,12 @@ export function actionsForStatus(status: ReproductiveStatus | null): Reproductio
 const DAY_MS = 86_400_000
 
 /** Pregnant female whose expected calving date is within the next 30 days (tab "Sắp đẻ"). */
-export function isDueSoon(row: ReproductionFemale, now: string = reproductionNow()): boolean {
+export function isDueSoon(row: ReproductionFemale, now: string): boolean {
   const expected = row.openPregnancy?.expectedCalvingAt
-  return row.status === 'PREGNANT' && !!expected && Date.parse(expected) <= Date.parse(now) + 30 * DAY_MS
+  return row.status === 'PREGNANT' && !!expected && parseBusinessTime(expected) <= parseBusinessTime(now) + 30 * DAY_MS
 }
 
-export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string = reproductionNow()): ReproductionFemale[] {
+export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string): ReproductionFemale[] {
   const query = filters.query?.trim().toLocaleLowerCase('vi')
   return rows.filter((row) => {
     if (!row.applicable || row.herdStatus !== 'ACTIVE' || !row.status) return false
@@ -67,64 +67,70 @@ export function statusCounts(rows: readonly ReproductionFemale[]): Record<Reprod
 }
 
 const occurredAtError = (value: string, today: string): string | null => {
-  if (!value || Number.isNaN(Date.parse(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
+  if (!value || Number.isNaN(parseBusinessTime(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
   if (value > today) return 'Thời điểm sự kiện không được ở tương lai.'
   return null
 }
 
-export function validateReproductionCommand(
+/**
+ * Lỗi của một sự kiện sinh sản (động dục, phối, khám thai, diễn biến thai). Lỗi nhập liệu gắn {@code field} (khóa trùng
+ * tên tham số backend: occurredAt, sireCattleId, sireBreed, semenCode, performerName, estimatedMonths, note, details,
+ * healthCaseId, description) để hiện dưới ô; lỗi điều kiện (bò không còn nuôi, không phải bò cái, không có thai kỳ mở)
+ * không có {@code field} và hiện bằng popup (D51).
+ */
+export function reproductionIssues(
   command: ReproductionCommand,
   context: { today: string; profile: ReproductionFemale },
-): string[] {
-  const errors: string[] = []
+): ReproductionIssue[] {
+  const issues: ReproductionIssue[] = []
+  const add = (field: string | undefined, message: string) => issues.push(field ? { field, message } : { message })
   const dateError = occurredAtError(command.occurredAt, context.today)
-  if (dateError) errors.push(dateError)
-  if (context.profile.herdStatus !== 'ACTIVE') errors.push('Chỉ ghi sự kiện cho bò đang nuôi.')
-  if (context.profile.sex && context.profile.sex !== 'FEMALE') errors.push('Sự kiện sinh sản chỉ áp dụng cho bò cái.')
+  if (dateError) add('occurredAt', dateError)
+  if (context.profile.herdStatus !== 'ACTIVE') add(undefined, 'Chỉ ghi sự kiện cho bò đang nuôi.')
+  if (context.profile.sex && context.profile.sex !== 'FEMALE') add(undefined, 'Sự kiện sinh sản chỉ áp dụng cho bò cái.')
 
   if (command.type === 'BREEDING') {
     if (command.linkedEstrusId) {
       const estrus = context.profile.events.find((event) => event.id === command.linkedEstrusId && event.type === 'ESTRUS' && event.status === 'VALID')
-      if (estrus && command.occurredAt < estrus.occurredAt) errors.push('Ngày phối không được trước sự kiện động dục đã chọn.')
+      if (estrus && command.occurredAt < estrus.occurredAt) add('occurredAt', 'Ngày phối không được trước sự kiện động dục đã chọn.')
     }
-    if (command.method === 'NATURAL_SERVICE' && command.sireSource === 'FARM' && !command.farmSireId?.trim()) {
-      errors.push('Chọn bò đực giống trong trại.')
-    }
-    if (command.sireSource === 'EXTERNAL' && !command.externalSireBreed?.trim()) {
-      errors.push('Nhập giống bò đực hoặc giống tinh ngoài trại.')
-    }
-    if (command.method === 'ARTIFICIAL_INSEMINATION' && command.sireSource === 'FARM' && !command.farmSireId?.trim()) {
-      errors.push('Chọn bò đực giống trong trại.')
-    }
-    if (command.semenCode && command.semenCode.length > 50) errors.push('Mã lô tinh tối đa 50 ký tự.')
-    if (command.performer && command.performer.length > 100) errors.push('Người thực hiện tối đa 100 ký tự.')
+    if (command.sireSource === 'FARM' && !command.farmSireId?.trim()) add('sireCattleId', 'Chọn bò đực giống trong trại.')
+    if (command.sireSource === 'EXTERNAL' && !command.externalSireBreed?.trim()) add('sireBreed', 'Nhập giống bò đực hoặc giống tinh ngoài trại.')
+    if (command.semenCode && command.semenCode.length > 50) add('semenCode', 'Mã lô tinh tối đa 50 ký tự.')
+    if (command.performer && command.performer.length > 100) add('performerName', 'Người thực hiện tối đa 100 ký tự.')
   }
 
   if (command.type === 'PREGNANCY_CHECK') {
-    if (command.estimatedMonths != null && (!Number.isInteger(command.estimatedMonths) || command.estimatedMonths < 1 || command.estimatedMonths > 9)) {
-      errors.push('Số tháng mang thai phải từ 1 đến 9.')
-    }
-    if (command.result !== 'PREGNANT' && command.estimatedMonths != null) errors.push('Chỉ nhập số tháng khi kết quả là Có thai.')
+    const months = command.estimatedMonths
+    if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) add('estimatedMonths', 'Số tháng mang thai phải là số nguyên từ 1 đến 9.')
+    else if (command.result !== 'PREGNANT' && months != null) add('estimatedMonths', 'Chỉ nhập số tháng khi kết quả là Có thai.')
     if (command.linkedBreedingId) {
       const breeding = context.profile.events.find((event) => event.id === command.linkedBreedingId && event.type === 'BREEDING' && event.status === 'VALID')
-      if (breeding && command.occurredAt < breeding.occurredAt) errors.push('Ngày khám thai không được trước lần phối đã chọn.')
+      if (breeding && command.occurredAt < breeding.occurredAt) add('occurredAt', 'Ngày khám thai không được trước lần phối đã chọn.')
     }
-    if (command.note && command.note.length > 500) errors.push('Ghi chú tối đa 500 ký tự.')
+    if (command.note && command.note.length > 500) add('note', 'Ghi chú tối đa 500 ký tự.')
   }
 
   if (command.type === 'PREGNANCY_UPDATE') {
-    if (!context.profile.openPregnancy) errors.push('Không có thai kỳ đang mở để ghi diễn biến.')
-    else if (command.occurredAt < context.profile.openPregnancy.confirmedAt) errors.push('Diễn biến thai không được trước ngày xác nhận có thai.')
-    if (!command.details.trim()) errors.push('Nhập chi tiết diễn biến.')
-    if (command.details.length > 1000) errors.push('Chi tiết tối đa 1.000 ký tự.')
-    if (command.updateType !== 'COMPLICATION' && command.linkedHealthCaseId) errors.push('Chỉ liên kết ca sức khỏe khi ghi biến chứng.')
+    if (!context.profile.openPregnancy) add(undefined, 'Không có thai kỳ đang mở để ghi diễn biến.')
+    else if (command.occurredAt < context.profile.openPregnancy.confirmedAt) add('occurredAt', 'Diễn biến thai không được trước ngày xác nhận có thai.')
+    if (!command.details.trim()) add('details', 'Nhập chi tiết diễn biến.')
+    if (command.details.length > 1000) add('details', 'Chi tiết tối đa 1.000 ký tự.')
+    if (command.updateType !== 'COMPLICATION' && command.linkedHealthCaseId) add('healthCaseId', 'Chỉ liên kết ca sức khỏe khi ghi biến chứng.')
   }
 
   if (command.type === 'ESTRUS' && command.description && command.description.length > 1000) {
-    errors.push('Mô tả tối đa 1.000 ký tự.')
+    add('description', 'Mô tả tối đa 1.000 ký tự.')
   }
+  return issues
+}
 
-  return errors
+/** Câu lỗi của một sự kiện (giữ cho chỗ chỉ cần danh sách câu). */
+export function validateReproductionCommand(
+  command: ReproductionCommand,
+  context: { today: string; profile: ReproductionFemale },
+): string[] {
+  return reproductionIssues(command, context).map((issue) => issue.message)
 }
 
 export class ReproductionValidationError extends Error {
@@ -176,8 +182,8 @@ export function calvingIssues(command: CalvingCommand, context: CalvingContext):
         const other = calf.sex === 'FEMALE' ? 'đực' : 'cái'
         add('purpose', `${label}: mục đích này chỉ dành cho bò ${other}, còn bê là bò ${sex}. Chọn Vỗ béo, Chưa xác định hoặc mục đích hợp giới tính.`)
       }
+      // FE-12 Q5 / D36: thẻ tai không bắt buộc, kể cả khi Đăng ký ngay (hệ thống cấp mã khi ghi sổ phiếu nhập bê).
       const tag = calf.earTag?.trim() ?? ''
-      if (!tag && registerNow) add('earTag', `${label}: nhập mã thẻ tai / QR để đăng ký ngay.`)
       if (tag) {
         if (tag.length > 50) add('earTag', `Mã thẻ tai ${label.toLocaleLowerCase('vi')}: tối đa 50 ký tự.`)
         const owner = context.tagOwners?.[normalize(tag)]
@@ -213,15 +219,20 @@ export const GESTATION_DAYS = 283
 /** Tentative (breeding) expected calving date, GBR-53. */
 export const expectedCalvingDate = (bredAt: string, days: number = GESTATION_DAYS): string => addDaysText(bredAt, days)
 
-/** Breeding eligibility as "met / 3" over age, weight and open health case (GBR-55), advisory only. */
-export function eligibilityScore(eligibility: BreedingEligibility): { met: number; total: 3; label: string; failed: string[]; badge: string } {
-  const checks: Array<[boolean, string]> = [
-    [eligibility.minimumAgeMet, 'tuổi'], [eligibility.minimumWeightMet, 'cân nặng'], [eligibility.noOpenHealthCase, 'sức khỏe'],
-  ]
+/** Các tiêu chí của điều kiện phối (GBR-55): tuổi, cân, sức khỏe, và sau đẻ khi bò đã từng đẻ (D67). Chỉ khuyến nghị. */
+export const eligibilityChecks = (eligibility: BreedingEligibility): Array<[boolean, string]> => [
+  [eligibility.minimumAgeMet, 'tuổi'], [eligibility.minimumWeightMet, 'cân nặng'], [eligibility.noOpenHealthCase, 'sức khỏe'],
+  ...(eligibility.postpartumMet === undefined ? [] : [[eligibility.postpartumMet, 'sau đẻ'] as [boolean, string]]),
+]
+
+/** Breeding eligibility as "met / total" (GBR-55), advisory only. */
+export function eligibilityScore(eligibility: BreedingEligibility): { met: number; total: number; label: string; failed: string[]; badge: string } {
+  const checks = eligibilityChecks(eligibility)
   const failed = checks.filter(([ok]) => !ok).map(([, name]) => name)
-  const met = 3 - failed.length
-  const label = failed.length ? `Chưa đạt ${met}/3` : 'Đạt 3/3'
-  return { met, total: 3, label, failed, badge: `${label} · ${failed.length ? failed.join(', ') : 'tuổi, cân nặng, sức khỏe'}` }
+  const total = checks.length
+  const met = total - failed.length
+  const label = failed.length ? `Chưa đạt ${met}/${total}` : `Đạt ${total}/${total}`
+  return { met, total, label, failed, badge: `${label} · ${failed.length ? failed.join(', ') : checks.map(([, name]) => name).join(', ')}` }
 }
 
 export const METHOD_TEXT = { NATURAL_SERVICE: 'Phối tự nhiên', ARTIFICIAL_INSEMINATION: 'Thụ tinh nhân tạo' } as const
@@ -238,7 +249,7 @@ export function breedingDetails(event: { method?: string; sireLabel?: string; se
 
 export type WorklistTab = ReproductiveStatus | 'DUE_SOON'
 
-export function tabCounts(rows: readonly ReproductionFemale[], now: string = reproductionNow()): Record<WorklistTab, number> {
+export function tabCounts(rows: readonly ReproductionFemale[], now: string): Record<WorklistTab, number> {
   return { ...statusCounts(rows), DUE_SOON: filterWorklist(rows, { status: 'DUE_SOON' }, now).length }
 }
 
@@ -262,24 +273,39 @@ export function addDaysText(value: string, days: number): string {
 }
 
 export function daysBetween(from: string, to: string): number {
-  return Math.floor((Date.parse(to) - Date.parse(from)) / DAY_MS)
+  return Math.floor((parseBusinessTime(to) - parseBusinessTime(from)) / DAY_MS)
 }
 
 const windowText = (window: { from: string; to: string }) => `${formatShort(window.from)}–${window.to.slice(11, 16)}`
 
 /** Deadline column of the worklist: the suggested window for an estrus female, otherwise the due date. */
 export function dueLabel(row: ReproductionFemale): string {
+  // D82: bò khai mang thai lúc nhập có hạn khám thai (REM-03) dù điều kiện phối chưa đạt.
+  if (row.declaredPregnancy) return row.dueAt ? formatDate(row.dueAt) : '—'
   if (row.eligibility?.status === 'NOT_MET') return '—'
   if (row.status === 'IN_ESTRUS' && row.breedingWindow) return windowText(row.breedingWindow)
   return row.dueAt ? formatDate(row.dueAt) : '—'
 }
 
+/** D82, SCR-39 #3: "Khai báo mang thai ~4 tháng (chưa khám)". */
+export function declaredPregnancyText(declared: NonNullable<ReproductionFemale['declaredPregnancy']>): string {
+  return `Khai báo mang thai${declared.months ? ` ~${declared.months} tháng` : ''} (chưa khám)`
+}
+
+/** Bò chưa có bản ghi cân VALID (cân lúc nhập đàn không tính – chốt 15/11/2026, GBR-39). */
+export const NO_WEIGHING = 'Chưa có lần cân'
+export const hasNoWeighing = (eligibility: BreedingEligibility): boolean => !eligibility.minimumWeightMet && eligibility.actualWeightKg == null
+
 export function eligibilityLabel(eligibility: NonNullable<ReproductionFemale['eligibility']>): string {
   if (eligibility.status === 'MET') return 'Đạt'
+  const noWeighing = hasNoWeighing(eligibility)
+  // Chỉ thiếu lần cân: hiện đúng "Chưa có lần cân", không gọi là "Chưa đạt".
+  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase && eligibility.postpartumMet !== false) return NO_WEIGHING
   const details = [
     !eligibility.minimumAgeMet && `tuổi ${eligibility.actualAgeMonths} tháng`,
-    !eligibility.minimumWeightMet && (eligibility.actualWeightKg == null ? 'chưa có cân' : `cân ${eligibility.actualWeightKg} kg`),
+    !eligibility.minimumWeightMet && (noWeighing ? NO_WEIGHING : `cân ${eligibility.actualWeightKg} kg`),
     !eligibility.noOpenHealthCase && 'có ca bệnh mở',
+    eligibility.postpartumMet === false && `sau đẻ ${eligibility.daysSinceCalving} ngày`,
   ].filter(Boolean)
   return `Chưa đạt${details.length ? ` · ${details.join(' · ')}` : ''}`
 }
@@ -298,7 +324,7 @@ const STATUS_NOUN: Record<ReproductiveStatus, string> = {
   AWAITING_BREEDING: 'chờ phối', IN_ESTRUS: 'động dục', BRED: 'đã phối', PREGNANT: 'mang thai', POST_CALVING: 'sau sinh',
 }
 
-export function technicianRowInfo(row: ReproductionFemale, now: string = reproductionNow()): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
+export function technicianRowInfo(row: ReproductionFemale, now: string): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
   const base = `${row.breed} · ${row.penCode}`
   if (row.eligibility?.status === 'NOT_MET' && row.status === 'IN_ESTRUS') {
     return { subtitle: `${base} · ${row.latestWeightKg ?? '—'} kg`, badge: { label: 'Chưa đủ điều kiện', tone: 'err' } }
@@ -328,5 +354,5 @@ export const ACTION_FOR_MODAL = Object.fromEntries(Object.entries(MODAL_FOR_ACTI
 /** Same-type event of this female within 12 hours of the entered time (MSG-FE11-03). */
 export function findNearbyEvent(profile: ReproductionFemale, type: 'ESTRUS' | 'BREEDING', occurredAt: string) {
   return profile.events.find((event) => event.type === type && event.status === 'VALID'
-    && Math.abs(Date.parse(event.occurredAt) - Date.parse(occurredAt)) < 12 * 3_600_000)
+    && Math.abs(parseBusinessTime(event.occurredAt) - parseBusinessTime(occurredAt)) < 12 * 3_600_000)
 }

@@ -3,7 +3,7 @@ import { createReproductionApi } from '../../../src/features/reproduction/api/re
 import { createReproductionDemoStore } from '../../../src/features/reproduction/data/reproductionDemoStore'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
 import { ReproductionValidationError } from '../../../src/features/reproduction/domain/reproductionRules'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { CalvingCommand } from '../../../src/features/reproduction/types'
 
 const transport: BackendTransport = { get: vi.fn(), command: vi.fn(), farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`) }

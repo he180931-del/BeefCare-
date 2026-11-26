@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient, BackendError } from '../../src/api/backendClient'
+import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
+import { mapTimeline } from '../../src/features/cattle/api/cattleTimeline'
+
+test('TC-FE16-API: timeline preserves withdrawal days, including zero and null', () => {
+  for (const withdrawalDays of [0, 21, 365, null]) {
+    const event = mapTimeline({ type: 'VACCINATION_RECORD', category: 'VACCINATION', sourceId: 77,
+      canCorrect: true, values: { version: 2, source: 'ON_FARM', withdrawalDays } }, 0)
+    assert.equal(event.revisionSource?.values.withdrawalDays, withdrawalDays)
+  }
+})
 
 test('TC-CAT-API01: GET /api/farms/{id}/cattle lists cattle with filters and pagination', async () => {
   const fetchMock: typeof fetch = async (input) => {

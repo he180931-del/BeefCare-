@@ -25,6 +25,7 @@ Date | A*, M, D | In charge | Change Description
 27/10/2026 | M | G35 Team | Popups are no longer counted as screens: the 36 dialogs (change password, invite member, pen dialogs, update profile, QR tag, voucher line and Excel import, record payment, correction and void dialogs, recording dialogs for growth, vaccination, health, reproduction and feeding, close ticket) are described in Part III as "Popup:" sections without their own code, each with the screens it is opened from, and listed under their parent screen in Table 5.1-2. The remaining 86 screens renumbered SCR-01 to SCR-86 in the order of Table 5.1-2; all references, including the rows above, use the new numbers.
 27/10/2026 | A | G35 Team | Starter catalogue for a new farm (GBR-109, Table III-6): four production purposes, common Vietnamese breeds (main breeds chosen at registration are ACTIVE), vaccines by disease to be completed from labels and common feed items are created with the farm together with the default parameters (UC-FE02-01); reference medicines are left to the farm. "Getting started" panel added to the farm dashboard (SCR-48); vaccine badge "Complete from label"; Main breeds on SCR-10 became a multi-select.
 28/10/2026 | A | G35 Team | UC-FE10-05 Correct or Void Treatment or Follow-up added with its popup (III.10.7), "Edit · Void" actions on SCR-37, lifecycle of Treatment and Health Observation, GBR-46 and messages MSG-FE10-11 to 13; "Zebu đỏ" added to the starter breeds (Table III-6); MSG-FE05-12 reworded to name the purpose to choose; figures of the correct/void herd entry and vaccination popups point to the Layout (Figma 16, 17).
+19/11/2026 | M | G35 Team | Aligned with the implementation decisions log: SCR-61 searches by farm name or payment code (no subscription code); Table III-2 lets the Technician view all catalogues and parameters; popup "Update / Close Health Case" gets the Progress field; UC-FE03-01 E6 (MSG-FE03-21) and UC-FE03-09 E8 (MSG-FE03-22) added; UC-FE02-02 opens SCR-58 for payment and shows non-ACTIVE farms to Manager and Technician as disabled cards; UC-FE12-02 and UC-FE12-03 return the female to AWAITING_BREEDING (Table 3.4-3).
 [/TABLE]
 [P24 ] *A - Added M - Modified D - Deleted
 [P25 2] Definition and Acronyms
@@ -83,7 +84,7 @@ Pregnancy episode | One confirmed pregnancy from the confirming check until calv
 Expected calving date | TENTATIVE (from breeding) or CONFIRMED (after a PREGNANT check) date = breeding time + gestation length.
 LMLM / FMD | Lở mồm long móng / Foot-and-Mouth Disease.
 Plan price version | An immutable published price list for the 1-, 2- and 3-year terms.
-Payment request (quote) | An immutable 24-hour transfer instruction for one farm and one term, with a unique payment reference and VietQR.
+Payment request (quote) | An immutable 24-hour transfer instruction for one farm and one term, with a unique payment reference and VietQR. The Owner may cancel it while it is unpaid and no transfer has been received for it.
 Purchased period | The service period granted by one accepted payment.
 Policy A | The subscription confirmation and period rules (GBR-69 to GBR-75).
 Policy B | The support ticket closure rule requiring explicit Owner acknowledgment (GBR-80).
@@ -99,7 +100,7 @@ Manual finance record | Platform income or expense recorded by the PM (DRAFT, PO
 Net cash flow | Receipts + posted other income − posted expenses for a period; not statutory profit.
 Snapshot | An immutable result of one report run, used for display and export.
 Request key | A client-generated key that makes a command safe to repeat (GBR-88).
-Asia/Ho_Chi_Minh | The default time zone (UTC+7) for farm dates and platform finance.
+Asia/Ho_Chi_Minh | Canonical identifier for the fixed UTC+07:00 business time zone across BeefCare (D39).
 OAuth 2.0 / OIDC | Open standards used for Google sign-in.
 [/TABLE]
 [P28 2] I. Overall Requirements
@@ -115,7 +116,7 @@ External entity | Direction | Main information exchanged
 Guest | In / Out | Views the public introduction, features, 1/2/3-year prices, FAQ and contact; submits registration, sign-in and password-reset requests.
 Farm Owner | In / Out | Owner profile, farm registration and information, invitations and member changes, herd entry vouchers and payments, pen and profile changes, herd exit vouchers and collections, feed stock and rations, catalogues and parameters, announcements, subscription payment requests, support tickets; receives dashboard, reports, reminders, notifications, payment instructions and ticket replies.
 Farm Manager | In / Out | Pens, herd entry vouchers, cattle profiles and QR tags, feed receipts, stock counts, rations and feeding sessions, growth, vaccination, health and reproduction records and corrections, catalogues and parameters, announcements to Technicians; receives reminders, dashboard and reports.
-Farm Technician | In / Out | QR scans and searches; receives read-only cattle, care, reproduction and today's ration information, reminders and announcements.
+Farm Technician | In / Out | Scans QR tags and searches. Views cattle, care, reproduction, today's rations, the farm catalogues and parameter history, reminders and announcements.
 Customer Support | In / Out | Ticket assignment, replies, internal notes, resolutions, closure, internal requests; receives the ticket queue and support notifications.
 Platform Manager | In / Out | Farm suspension/restoration, payment reconciliation decisions, plan price versions, manual finance records, internal request results; receives farm service overview, subscriptions, bank evidence, receipts and cash reports.
 System Admin | In / Out | Account suspension/restoration, platform staff access, internal request results; receives account lists and the audit history.
@@ -156,7 +157,7 @@ Step | Step Name | Detailed Description | Role | Note
 [/TABLE]
 [TABLE block 51]
 Step | Step Name | Detailed Description | Role | Note
-1 | Update Farm Information | The Owner completes registration, contact and operating information (time zone, shift start, operating notes). | Farm Owner | Start. UC-FE02-03.
+1 | Update Farm Information | The Owner completes registration, contact and operating information (shift start, operating notes). | Farm Owner | Start. UC-FE02-03.
 2 | Configure Pens | The Owner or a Manager creates or updates pens with code, name, capacity and advisory reception criteria, and can stop new placements in a pen. | Farm Owner / Farm Manager | UC-FE04-02 to 04.
 3 | Maintain Catalogues | The Owner or a Manager maintains breeds, vaccines, reference medicines and production purposes. | Farm Owner / Farm Manager | UC-FE18-02 to 16. Referenced items are deactivated, not deleted.
 4 | Configure Parameters | The Owner or a Manager sets life-stage ages, breeding conditions, gestation length, pregnancy-check interval, breeding window, estrus cycle, postpartum interval, BCS scale, weighing interval and reminder lead times, with a source note. | Farm Owner / Farm Manager | UC-FE18-17.
@@ -184,7 +185,7 @@ Step | Step Name | Detailed Description | Role | Note
 10 | Move to Another Pen | The user selects one animal (from its profile) or several animals (from the pen detail), the destination pen, move date and reason. | Farm Owner / Farm Manager | UC-FE04-05. From the profile or REM-08.
 11 | Move Allowed? | The system checks the pen and each animal: INACTIVE pen or not enough free places → blocked; criteria not met → warning, continue only with a reason. | System | Yes → Step 12; Blocked → keep current pen.
 12 | Save Pen Move | The system closes the current assignment, opens the new one and updates occupancy and pen history. | System | Steps 9–12 repeat during the animal's life.
-13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan, or opens a PENDING death/missing voucher created when a Manager closed a health case as DIED or MISSING (BF-04, reminder REM-12). | Farm Owner | UC-FE13-01.
+13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan. The Owner may also record a death or loss directly, or open the PENDING voucher created by BF-04 Step 9 (REM-12). | Farm Owner | UC-FE13-01.
 14 | Enter Lines and Amounts | The Owner enters the exit date, buyer or destination, transport certificate, vehicle and note; the exit weight of each line (default the latest weight, marked UT when estimated) and the unit price; deductions, deposit collected and due date. For a death: cause and carcass disposal, no amounts. | Farm Owner | Saved as DRAFT until confirmed.
 15 | Review Checks and Confirm | The Owner reviews the checks per cattle (meat withdrawal period, OPEN and CHRONIC health cases, future doses and reminders, open pregnancy, draft calves of the dam), ticks the confirmation and confirms, or dismisses a pending voucher with a reason. | Farm Owner | Until confirmed the cattle stay ACTIVE.
 16 | Record Exit | For each line the system sets EXITED, closes the pen assignment, cancels future doses and reminders, closes OPEN and CHRONIC health cases and any open pregnancy and locks the record; the voucher becomes CONFIRMED. | System | End. Collections: UC-FE13-04. A mistaken voucher is voided by the Owner (UC-FE13-03).
@@ -205,7 +206,7 @@ Step | Step Name | Detailed Description | Role | Note
 6 | Record Abnormal Signs | The Manager records observed time, temperature, signs, severity and observer, and opens a new case or adds to an OPEN or CHRONIC case; the health state becomes at least Monitoring. | Farm Manager | UC-FE10-02. Also for post-vaccination reactions.
 7 | Record Treatment and Follow-up | The Manager records each treatment actually given (medicine, dose, route, time, withdrawal days) and follow-up observations; the health state becomes Under treatment and the meat withdrawal date is updated. | Farm Manager | UC-FE10-04, UC-FE10-03. No diagnosis or prescription.
 8 | Case Outcome? | The Manager keeps the case OPEN, moves it to CHRONIC (long-term monitoring) or closes it as RECOVERED, DIED or MISSING. | Farm Manager | OPEN or CHRONIC → Step 7; DIED/MISSING → Step 9; RECOVERED → end of branch.
-9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 12); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
+9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 13); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
 10 | Manage Vaccination Schedule | The Manager creates or updates a schedule: vaccine, doses, interval, booster and target cattle by pen, herd group, life stage or selection. | Farm Manager | UC-FE09-02, UC-FE09-03.
 11 | Evaluate Doses | The system derives each dose as upcoming, due or overdue and raises REM-06. | System | JOB-01.
 12 | Can Vaccinate Now? | For each selected animal the Manager decides whether the dose is given now. | Farm Manager | Yes → Step 13; No → defer with reason and new date (UC-FE09-06).
@@ -800,9 +801,9 @@ Status / lifecycle | Created with the first payment request; coverage is derived
 [TABLE block 261]
 Field | Value
 Purpose | One Owner-initiated quote for a 1-, 2- or 3-year purchase with immutable transfer instructions.
-Key business attributes | Payment reference (e.g. BCF7K2Q9), farm, subscription, requested by, price version, term (years), amount (VND), receiving bank, account number and account name, created time, expiry time (created + 24 h), status, bank-paid time, received time, confirmed time, confirmation source (SEPAY / PM).
+Key business attributes | Payment reference (e.g. BCF7K2Q9), farm, subscription, requested by, price version, term (years), amount (VND), receiving bank, account number and account name, created time, expiry time (created + 24 h), status, bank-paid time, received time, confirmed time, confirmation source (SEPAY / PM), cancelled time, cancelled by and optional cancellation reason.
 Business identity | Payment reference is unique; at most one unexpired PENDING request per farm.
-Status / lifecycle | PENDING → PAID or EXPIRED; EXPIRED → PAID only for evidence paid within the original window.
+Status / lifecycle | PENDING → PAID, EXPIRED or CANCELLED (cancelled by the Owner, GBR-70); EXPIRED → PAID only for evidence paid within the original window; CANCELLED → PAID only for evidence paid before the cancellation time.
 Detail – Purchased Period | The service period granted by one accepted payment. Attributes: Payment request, subscription, start, end, term. Identity: One period per PAID payment request. Lifecycle: Immutable once created.
 [/TABLE]
 [P263 ] Entity: Bank Transfer Evidence
@@ -1072,7 +1073,7 @@ CONFIRMED | Owner voids with a reason (UC-FE13-03) | VOIDED | Every cattle retur
 1 | Guest | Unauthenticated visitor. Views the public landing page (introduction, features, 1/2/3-year prices, FAQ, contact), registers as a Farm Owner, signs in and resets a forgotten password. Sees no other farm, ticket or financial data.
 2 | Farm Owner | Account holder who completed Owner registration and owns one or more farms. In each owned farm: views all farm data; manages farm information, members and roles; manages the subscription and payments; changes production purposes; records herd entry vouchers and their payments (including farm-born calves); records, confirms, dismisses and voids herd exit vouchers and records collections from buyers; maintains pens, cattle profiles and QR tags; maintains feed stock, feed receipts, rations and the feed catalogue and views the feeding log; writes announcements to Managers and Technicians; uses the dashboard, reports and support. Does not record care or reproduction events or feeding sessions.
 3 | Farm Manager | Farm member with the Manager role in one farm. Records and corrects growth, vaccination, health and reproduction events; records daily feeding sessions; maintains pens, pen moves, herd entry vouchers and their payments (including farm-born calves), cattle profiles (except production purpose), QR tags, catalogues and parameters, feed stock, feed receipts, rations and the feed catalogue; writes announcements to Technicians; uses the dashboard and reports. Cannot manage members, the subscription or herd exit vouchers.
-4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
+4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, farm catalogues and parameter history, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
 5 | Customer Support (CS) | Platform staff. Reads the support queue; the assigned CS claims, processes, replies, writes internal notes, resolves and closes tickets and sends internal requests to a named PM or SA. Has no farm operational access.
 6 | Platform Manager (PM) | Platform staff. Views farm service status and suspends or restores farm service; views subscriptions, payments and bank evidence and reconciles payments; publishes plan prices; manages manual finance records and the platform cash report; handles internal requests assigned to them. Has no access to cattle or care data.
 7 | System Admin (SA) | Platform staff. Views and suspends or restores user accounts, grants and revokes CS, PM and SA access, reviews the platform audit history and handles internal requests assigned to them. Keeps at least one ACTIVE System Admin.
@@ -1089,7 +1090,7 @@ ID | Use Case | Feature | Use Case Description
 UC-FE01-01 | Register Farm Owner Account | FE-01 | A Guest creates an account with Google, or with an email and password verified through an emailed link, and completes the Owner profile so the account can register farms.
 UC-FE01-02 | Sign In | FE-01 | A Guest signs in with Google or with a verified email and password and reaches only the farms and platform areas currently authorized.
 UC-FE01-03 | Sign Out | FE-01 | A signed-in user ends the BeefCare session and clears the selected farm on the device.
-UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user views own profile, sign-in methods, roles and permissions in the current farm, and updates full name and contact phone.
+UC-FE01-04 | View and Update Own Profile | FE-01 | A signed-in user opens the shared account screen, views and updates full name and contact phone, views sign-in methods, and may consult the fixed permission matrix of each farm role independently of the current farm.
 UC-FE01-05 | Reset Forgotten Password | FE-01 | A Guest receives a single-use reset link by email and sets a new password.
 UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or adds a first password to an account that uses only Google.
 [/TABLE]
@@ -1097,7 +1098,7 @@ UC-FE01-06 | Change Password | FE-01 | A signed-in user changes the password, or
 [TABLE block 362]
 ID | Use Case | Feature | Use Case Description
 UC-FE02-01 | Register Farm Workspace | 2.1 Owner Farm Workspace | A Farm Owner registers a first or additional farm; the farm starts in PENDING_PAYMENT and the Owner continues to plan selection.
-UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm.
+UC-FE02-02 | View and Select Authorized Farm Workspace | 2.1 Owner Farm Workspace | A farm member views the farms where they have an ACTIVE membership with role and service status and selects one as the current farm, either on SCR-09 or from the quick farm switcher in the top bar.
 UC-FE02-03 | Update Farm Information | 2.1 Owner Farm Workspace | The Farm Owner updates registration, contact and operating information of an owned farm.
 UC-FE02-04 | View Platform Farm Service Overview | 2.2 Platform Farm Service | The Platform Manager views, searches and filters all farms with Owner, service status and coverage, without farm operational data.
 UC-FE02-05 | Suspend or Restore Farm Service | 2.2 Platform Farm Service | The Platform Manager suspends a farm's service with a reason, or restores it so that its status follows the subscription again.
@@ -1153,48 +1154,48 @@ UC-FE07-04 | View Farm Announcements and History | FE-07 | A farm member views a
 [P379 5] 4.2.8 FE-08 Growth and BCS Monitoring
 [TABLE block 380]
 ID | Use Case | Feature | Use Case Description
-UC-FE08-01 | Record Cattle Growth Assessment | FE-08 | The Farm Manager records a weight (measured or estimated) and/or BCS of a cattle.
+UC-FE08-01 | Record Cattle Growth Assessment | FE-08 | The Farm Owner or a Manager records a weight (measured or estimated) and/or BCS of a cattle.
 UC-FE08-02 | View Growth and BCS History | FE-08 | A farm member views the herd growth list and a cattle's weight chart, BCS, ADG and measurement history.
-UC-FE08-03 | Correct Growth Assessment Record | FE-08 | The Farm Manager corrects or excludes a wrong growth record with a reason, keeping the original.
+UC-FE08-03 | Correct Growth Assessment Record | FE-08 | The Farm Owner or a Manager corrects or excludes a wrong growth record with a reason, keeping the original.
 [/TABLE]
 [P382 5] 4.2.9 FE-09 Vaccination Schedule and Recording
 [TABLE block 383]
 ID | Use Case | Feature | Use Case Description
 UC-FE09-01 | View Vaccination Schedules | 9.1 Vaccination Schedule | A farm member views schedules and their planned doses as upcoming, due, overdue, deferred or done.
-UC-FE09-02 | Create Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Manager creates a schedule with vaccine, start date, doses, interval, booster and target cattle.
-UC-FE09-03 | Update Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Manager changes a schedule or its target cattle; only doses not yet given change.
-UC-FE09-04 | Stop Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Manager stops a schedule; its planned and deferred doses are cancelled.
-UC-FE09-05 | Record Vaccination | 9.2 Vaccination Recording | The Farm Manager records a vaccination given on the farm for one cattle or a selected batch (with its meat withdrawal days), or a historical vaccination.
-UC-FE09-06 | Defer Vaccination Dose | 9.2 Vaccination Recording | The Farm Manager defers a scheduled dose with a reason and an optional new expected date.
+UC-FE09-02 | Create Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Owner or a Manager creates a schedule with vaccine, start date, doses, interval, booster and target cattle.
+UC-FE09-03 | Update Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Owner or a Manager changes a schedule or its target cattle; only doses not yet given change.
+UC-FE09-04 | Stop Vaccination Schedule | 9.1 Vaccination Schedule | The Farm Owner or a Manager stops a schedule; its planned and deferred doses are cancelled.
+UC-FE09-05 | Record Vaccination | 9.2 Vaccination Recording | The Farm Owner or a Manager records a vaccination given on the farm for one cattle or a selected batch (with its meat withdrawal days), or a historical vaccination.
+UC-FE09-06 | Defer Vaccination Dose | 9.2 Vaccination Recording | The Farm Owner or a Manager defers a scheduled dose with a reason and an optional new expected date.
 UC-FE09-07 | View Vaccination History | 9.2 Vaccination Recording | A farm member views vaccinations given or declared, with batch, source, vaccinator and linked reactions.
-UC-FE09-08 | Correct or Void Vaccination Record | 9.2 Vaccination Recording | The Farm Manager corrects or voids a wrong vaccination record with a reason.
+UC-FE09-08 | Correct or Void Vaccination Record | 9.2 Vaccination Recording | The Farm Owner or a Manager corrects or voids a wrong vaccination record with a reason.
 [/TABLE]
 [P385 5] 4.2.10 FE-10 Health Case and Treatment Management
 [TABLE block 386]
 ID | Use Case | Feature | Use Case Description
 UC-FE10-01 | View Health Cases and Treatment History | FE-10 | A farm member views health cases, observations, treatments and withdrawal periods.
-UC-FE10-02 | Open Health Case | FE-10 | The Farm Manager records an abnormal observation and opens a new case or adds it to an open case.
-UC-FE10-03 | Update Health Case Status and Observation | FE-10 | The Farm Manager records follow-up observations, moves a case between OPEN and CHRONIC monitoring, or closes it with an outcome; DIED or MISSING creates a pending herd exit.
-UC-FE10-04 | Record Treatment | FE-10 | The Farm Manager records a treatment actually given with medicine, dose, route, time and withdrawal period.
-UC-FE10-05 | Correct or Void Treatment or Follow-up | FE-10 | The Farm Manager corrects a wrong treatment or follow-up observation, or voids one recorded by mistake, with a reason; the meat withdrawal date and health state are recalculated.
+UC-FE10-02 | Open Health Case | FE-10 | The Farm Owner or a Manager records an abnormal observation and opens a new case or adds it to an open case.
+UC-FE10-03 | Update Health Case Status and Observation | FE-10 | The Farm Owner or a Manager records follow-up observations, moves a case between OPEN and CHRONIC monitoring, or closes it with an outcome; DIED or MISSING creates a pending herd exit.
+UC-FE10-04 | Record Treatment | FE-10 | The Farm Owner or a Manager records a treatment actually given with medicine, dose, route, time and withdrawal period.
+UC-FE10-05 | Correct or Void Treatment or Follow-up | FE-10 | The Farm Owner or a Manager corrects a wrong treatment or follow-up observation, or voids one recorded by mistake, with a reason; the meat withdrawal date and health state are recalculated.
 [/TABLE]
 [P388 5] 4.2.11 FE-11 Estrus and Breeding Recording
 [TABLE block 389]
 ID | Use Case | Feature | Use Case Description
 UC-FE11-01 | View Breeding Status and History | FE-11 | A farm member views the reproduction worklist and a female's reproductive status, breeding eligibility indicator, breeding window and reproduction timeline.
-UC-FE11-02 | Record Estrus Event | FE-11 | The Farm Manager records an observed estrus with time, observer and description.
-UC-FE11-03 | Record Breeding Event | FE-11 | The Farm Manager records a breeding with method, sire or semen, performer and optional linked estrus; a tentative expected calving date is set.
-UC-FE11-04 | Correct or Void Estrus and Breeding Record | FE-11 | The Farm Manager corrects or voids an estrus or breeding record with a reason and dependency checks.
+UC-FE11-02 | Record Estrus Event | FE-11 | The Farm Owner or a Manager records an observed estrus with time, observer and description.
+UC-FE11-03 | Record Breeding Event | FE-11 | The Farm Owner or a Manager records a breeding with method, sire or semen, performer and optional linked estrus; a tentative expected calving date is set.
+UC-FE11-04 | Correct or Void Estrus and Breeding Record | FE-11 | The Farm Owner or a Manager corrects or voids an estrus or breeding record with a reason and dependency checks.
 [/TABLE]
 [P391 5] 4.2.12 FE-12 Pregnancy and Calving Recording
 [TABLE block 392]
 ID | Use Case | Feature | Use Case Description
 UC-FE12-01 | View Pregnancy and Calving Records | FE-12 | A farm member views checks, the current pregnancy and expected calving date, pregnancy updates and calving history with calf registration states.
-UC-FE12-02 | Record Pregnancy Check Result | FE-12 | The Farm Manager records a pregnancy check result PREGNANT, NOT_PREGNANT or INCONCLUSIVE.
-UC-FE12-03 | Update Pregnancy Status | FE-12 | The Farm Manager records a pregnancy observation, complication or loss.
-UC-FE12-04 | Record Calving Event and Outcome | FE-12 | The Farm Manager records a calving with one outcome per calf and saves each live calf as a draft or registers it now.
-UC-FE12-05 | Correct or Void Pregnancy Check Result | FE-12 | The Farm Manager corrects or voids a pregnancy check without contradicting later records.
-UC-FE12-06 | Correct or Void Pregnancy and Calving Record | FE-12 | The Farm Manager corrects or voids a pregnancy update, calving or calf outcome while keeping valid links.
+UC-FE12-02 | Record Pregnancy Check Result | FE-12 | The Farm Owner or a Manager records a pregnancy check result PREGNANT, NOT_PREGNANT or INCONCLUSIVE.
+UC-FE12-03 | Update Pregnancy Status | FE-12 | The Farm Owner or a Manager records a pregnancy observation, complication or loss.
+UC-FE12-04 | Record Calving Event and Outcome | FE-12 | The Farm Owner or a Manager records a calving with one outcome per calf and saves each live calf as a draft or registers it now.
+UC-FE12-05 | Correct or Void Pregnancy Check Result | FE-12 | The Farm Owner or a Manager corrects or voids a pregnancy check without contradicting later records.
+UC-FE12-06 | Correct or Void Pregnancy and Calving Record | FE-12 | The Farm Owner or a Manager corrects or voids a pregnancy update, calving or calf outcome while keeping valid links.
 [/TABLE]
 [P394 5] 4.2.13 FE-13 Herd Exit Recording
 [TABLE block 395]
@@ -1243,7 +1244,7 @@ UC-FE18-09 | View Medicine Reference Catalogue | 18.3 Medicine | A farm member v
 UC-FE18-10 | Create Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager adds a reference medicine with reference dose, route and withdrawal period.
 UC-FE18-11 | Update Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager edits a medicine reference without changing past treatments.
 UC-FE18-12 | Change Medicine Reference Availability | 18.3 Medicine | The Farm Owner or a Manager deactivates or reactivates a reference medicine.
-UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | The Farm Owner or a Manager views the farm's production purposes.
+UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | A farm member views the farm's production purposes.
 UC-FE18-14 | Create Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager adds a production purpose with its purpose type (Breeding, Fattening, Sire, Undecided).
 UC-FE18-15 | Update Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager edits a production purpose; existing cattle keep their purpose and the purpose type is fixed once referenced.
 UC-FE18-16 | Change Production Purpose Availability | 18.4 Production Purpose | The Farm Owner or a Manager deactivates or reactivates a production purpose for new selection.
@@ -1306,8 +1307,8 @@ UC-FE23-04 | Record Stock Adjustment | 23.1 Feed Stock | The Farm Owner or a Man
 UC-FE23-05 | View Rations | 23.2 Rations | The Farm Owner, a Manager or a Technician views the effective and scheduled rations by pen with components, planned daily quantity and estimated cost; the Technician sees Today's Rations on the phone.
 UC-FE23-06 | Create or Update Ration | 23.2 Rations | The Farm Owner or a Manager creates a ration for pens and a herd group, or saves a new version effective from a future date, which ends the previous version.
 UC-FE23-07 | View Feeding Log | 23.3 Feeding Log | The Farm Owner, a Manager or a Technician views the sessions recorded per pen and date with planned and actual quantities, sessions not yet recorded and the day's consumption by feed.
-UC-FE23-08 | Record Feeding Session | 23.3 Feeding Log | The Farm Manager records the actual quantity of each feed given to a pen in one session; the quantities are deducted from stock.
-UC-FE23-09 | Correct or Void Feeding Record | 23.3 Feeding Log | The Farm Manager corrects the quantities of a feeding record or voids it with a reason; stock is adjusted by the difference.
+UC-FE23-08 | Record Feeding Session | 23.3 Feeding Log | The Farm Owner or a Manager records the actual quantity of each feed given to a pen in one session; the quantities are deducted from stock.
+UC-FE23-09 | Correct or Void Feeding Record | 23.3 Feeding Log | The Farm Owner or a Manager corrects the quantities of a feeding record or voids it with a reason; stock is adjusted by the difference.
 UC-FE23-10 | Maintain Feed Catalogue and Suppliers | 23.4 Catalogue and Report | The Farm Owner or a Manager creates and edits feed items (group, units, conversion, minimum level) and suppliers, or makes them inactive.
 UC-FE23-11 | View Feed Consumption and Cost Report | 23.4 Catalogue and Report | The Farm Owner or a Manager views consumption and feed cost by herd group, pen or feed for a period, compared with the rations, and prints the report.
 [/TABLE]
@@ -1345,7 +1346,7 @@ Total | 135 |
 [TABLE block 445]
 [Figure to be inserted] UC diagram – Farm Technician
 [/TABLE]
-[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09; UC-FE23-05, 07.
+[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09, 13 and SCR-56 read-only; UC-FE23-05, 07.
 [P448 5] 4.3.5 UCs for Customer Support
 [TABLE block 449]
 [Figure to be inserted] UC diagram – Customer Support
@@ -1385,8 +1386,10 @@ Farm Membership (Detail of Farm) | View members | Full | Restricted ⁵ | No | N
 Farm Membership (Detail of Farm) | Change role / deactivate / reactivate | Restricted ⁶ | No | No | No | No | No | No
 Breed, vaccine, medicine | View | Full | Full | Full | No | No | No | No
 Breed, vaccine, medicine | Create / update / change availability / remove unused | Full | Full | No | No | No | No | No
-Production purpose | View / create / update / change availability | Full | Full | No | No | No | No | No
-Farm Parameter Version (Detail of Farm) | View / save new version | Full | Full | No | No | No | No | No
+Production purpose | View | Full | Full | Full | No | No | No | No
+Production purpose | Create / update / change availability | Full | Full | No | No | No | No | No
+Farm Parameter Version (Detail of Farm) | View current parameters and version history | Full | Full | Full | No | No | No | No
+Farm Parameter Version (Detail of Farm) | Save new version | Full | Full | No | No | No | No | No
 Pen | View | Full | Full | Full | No | No | No | No
 Pen | Create / update / change availability | Full | Full | No | No | No | No | No
 Pen Assignment (Detail of Cattle) | Move cattle to another pen | Full | Full | No | No | No | No | No
@@ -1420,7 +1423,7 @@ Farm announcement | Create draft / edit / publish / correct | Restricted ⁸ | R
 Farm announcement | View | Restricted ⁹ | Restricted ⁹ | Restricted ⁹ | No | No | No | No
 Reminder (3.2 J) | View and open source | Restricted ¹⁰ | Full | Restricted ¹⁰ | No | No | No | No
 Dashboard and management report | View | Full | Full | No | No | No | No | No
-Subscription and payment (own farm) | View / request payment | Restricted ¹¹ | No | No | No | No | No | No
+Subscription and payment (own farm) | View / request / cancel payment | Restricted ¹¹ | No | No | No | No | No | No
 Subscription, payment and evidence (platform) | View / reconcile | No | No | No | No | Full | No | No
 Plan price version | Publish | No | No | No | No | Full | No | No
 Notification (3.2 J) | Subscription notices | Full | No | No | No | No | No | No
@@ -1446,7 +1449,7 @@ Public landing page | View | Full | Full | Full | Full | Full | Full | Full
 [P474 ] ⁷ Read-only. On the timeline a herd exit shows status, date and type only, and the herd entry details and pending exits are hidden.
 [P475 ] ⁸ Only own announcements. Owner recipients: Managers and Technicians; Manager recipients: Technicians only (GBR-60, GBR-61).
 [P476 ] ⁹ Announcements the user authored or received; drafts only to their author.
-[P477 ] ¹⁰ Owner: all farm reminders except REM-11 (feeding session not recorded). Technician: all farm reminders except REM-09 (draft calf awaiting confirmation), REM-10 (low feed stock), REM-12 (death or loss awaiting confirmation) and REM-13 (finishing weight reached).
+[P477 ] ¹⁰ Owner: all farm reminders. Technician: all farm reminders except REM-09 (draft calf awaiting confirmation), REM-10 (low feed stock), REM-12 (death or loss awaiting confirmation) and REM-13 (finishing weight reached).
 [P478 ] ¹¹ Only owned farms; available in any service status. A renewal request is allowed only in the renewal window (GBR-71).
 [P479 ] ¹² Only own tickets and their PUBLIC content (GBR-81).
 [P480 ] ¹³ Only internal requests currently assigned to the user by name.
@@ -1475,15 +1478,16 @@ Public landing page | View | Full | Full | Full | Full | Full | Full | Full
 [P498 ] Table 5.1-1 Navigation menu by role
 [TABLE block 499]
 Role | Menu group | Menu items → screen
-All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; farm switcher → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; profile → SCR-08; sign out
+All signed-in users | Top bar | Search cattle (code, ear tag, QR) → SCR-18; Scan QR → SCR-22; quick farm switcher changes an ACTIVE farm directly and "Manage farms" → SCR-09; notifications → SCR-45 / SCR-46 / SCR-47; shared user menu (avatar and name) → SCR-08 or sign out
 Farm Owner | Overview | Farm Dashboard SCR-48; Farm Reminders SCR-44; Farm Announcements SCR-26
 Farm Owner | Herd | Cattle SCR-18; Herd Entry Vouchers SCR-23; Pens SCR-17; Herd Exit Vouchers SCR-41
-Farm Owner | Care | Growth & BCS SCR-29; Vaccination SCR-31; Health & Treatment SCR-36; Reproduction SCR-38; Feed SCR-77 (tabs Stock SCR-77, Feed Receipts SCR-78, Stock Count SCR-80, Rations SCR-81, Feeding Log SCR-83, Catalogue SCR-84, Report SCR-85)
+Farm Owner | Care | Growth & BCS SCR-29; Vaccination SCR-31; Health & Treatment SCR-36; Reproduction SCR-38; Feed SCR-77 (tabs Stock SCR-77, Feed Receipts SCR-78, Stock Count SCR-80, Rations SCR-81, Feeding Log SCR-83, Catalogue SCR-84, Report SCR-85); recording buttons are shown on the care, reproduction and feeding log screens
 Farm Owner | Administration | Management Reports SCR-49; Catalogues & Parameters SCR-52 to SCR-56
 Farm Owner | Farm | Farm Information SCR-11; Members & Roles SCR-13; Subscription SCR-57; Support SCR-64
-Farm Manager | Overview, Herd, Care, Administration | Same as Farm Owner; Herd Exit Vouchers are read-only; recording buttons are shown on the care, reproduction and feeding log screens
+Farm Manager | Overview, Herd, Care, Administration | Same as Farm Owner; Herd Exit Vouchers are read-only
 Farm Manager | Farm | Members (read-only) SCR-13
 Farm Technician (phone) | Bottom navigation | Home SCR-74; Cattle SCR-18; Scan QR SCR-22; Reproduction SCR-38; Today's Rations SCR-86 (→ Feeding Log SCR-83); Announcements SCR-26 (all read-only)
+Farm Technician (phone) | Home shortcut | Catalogues & Parameters SCR-52 to SCR-56 (read-only)
 Customer Support | Support / Account | Ticket Queue SCR-67; Support Notifications SCR-46
 Platform Manager | Service | Farm Service Overview SCR-12; Platform Subscriptions SCR-61
 Platform Manager | Platform finance | Payments & Reconciliation SCR-62; Plan Prices SCR-63; Subscription Receipts SCR-70; Manual Finance Records SCR-71; Cash Report SCR-73
@@ -1503,7 +1507,7 @@ SCR-04 | Verify Email (Xác minh email) | FE-01 | Informs the Guest that a verif
 SCR-05 | Forgot Password (Quên mật khẩu) | FE-01 | Allows a Guest to request a password-reset link; shows the same confirmation whether or not the email exists.
 SCR-06 | Set New Password (Đặt mật khẩu mới) | FE-01 | Allows a Guest who opened a valid reset link to set a new password; shows "link no longer valid" for an expired or used link.
 SCR-07 | Complete Owner Profile (Hoàn tất hồ sơ chủ trại) | FE-01 | Allows a newly authenticated user to complete the Owner profile (step 1 of onboarding).
-SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Allows a signed-in user to view and update own profile, sign-in methods and the fixed permissions of their role in the current farm. Popups: Change Password.
+SCR-08 | My Profile and Permissions (Hồ sơ & quyền của tôi) | FE-01, FE-03 | Shared account screen for every signed-in role. The Profile tab updates own name and contact phone; the Permissions by Role tab shows the fixed Table III-2 matrix for Owner, Manager or Technician independently of the selected farm. Popups: Change Password.
 SCR-09 | Select Farm (Chọn trang trại) | FE-02 | Allows a user to see their farms with role and service status, register a new farm (Owner) and enter a farm.
 SCR-10 | Register Farm (Đăng ký trang trại) | FE-02 | Allows the Owner to register a farm (step 2 of onboarding).
 SCR-11 | Farm Information (Thông tin trại) | FE-02 | Allows the Owner to view and update registration, contact and operating information and see the service summary.
@@ -1525,17 +1529,17 @@ SCR-26 | Farm Announcements (Thông báo trại) | FE-07 | Allows farm members t
 SCR-27 | Announcement Editor (Soạn thông báo) | FE-07 | Allows the Owner or a Manager to write an announcement and save a draft. Popups: Review and Publish.
 SCR-28 | Announcement Correction (Đính chính thông báo) | FE-07 | Allows the author to publish a corrected version with a reason.
 SCR-29 | Growth and BCS (Tăng trưởng & BCS) | FE-08 | Allows farm members to view growth indicators of the herd and open a cattle's growth tab.
-SCR-30 | Profile tab – Growth and BCS (Tăng trưởng & BCS) | FE-08 | Allows farm members to view a cattle's weight chart, ADG, BCS and measurement history; the Manager records and corrects. Popups: Record Weight and BCS, Correct / Exclude Growth Record.
-SCR-31 | Vaccination Schedule (Lịch tiêm phòng) | FE-09 | Allows farm members to view schedules and doses by due status; the Manager records or defers doses. Popups: Defer Dose.
-SCR-32 | Manage Vaccination Schedule (Quản lý lịch tiêm) | FE-09 | Allows the Manager to create, update or stop a schedule.
-SCR-33 | Record Vaccination (Ghi nhận tiêm) | FE-09 | Allows the Manager to record a vaccination for one cattle or a batch, deferring individual cattle.
-SCR-34 | Profile tab – Vaccination (Tiêm phòng) | FE-09 | Allows farm members to view a cattle's scheduled doses and vaccination history; the Manager records, defers and corrects. Popups: Defer Dose, Correct / Void Vaccination.
+SCR-30 | Profile tab – Growth and BCS (Tăng trưởng & BCS) | FE-08 | Allows farm members to view a cattle's weight chart, ADG, BCS and measurement history; the Owner or a Manager records and corrects. Popups: Record Weight and BCS, Correct / Exclude Growth Record.
+SCR-31 | Vaccination Schedule (Lịch tiêm phòng) | FE-09 | Allows farm members to view schedules and doses by due status; the Owner or a Manager records or defers doses. Popups: Defer Dose.
+SCR-32 | Manage Vaccination Schedule (Quản lý lịch tiêm) | FE-09 | Allows the Owner or a Manager to create, update or stop a schedule.
+SCR-33 | Record Vaccination (Ghi nhận tiêm) | FE-09 | Allows the Owner or a Manager to record a vaccination for one cattle or a batch, deferring individual cattle.
+SCR-34 | Profile tab – Vaccination (Tiêm phòng) | FE-09 | Allows farm members to view a cattle's scheduled doses and vaccination history; the Owner or a Manager records, defers and corrects. Popups: Defer Dose, Correct / Void Vaccination.
 SCR-35 | Vaccination History (Lịch sử tiêm phòng) | FE-09 | Allows farm members to search vaccinations across the herd.
 SCR-36 | Health Cases (Sức khỏe & Điều trị) | FE-10 | Allows farm members to view open and closed health cases of the herd.
-SCR-37 | Profile tab – Health (Sức khỏe) | FE-10 | Allows farm members to view a cattle's cases, observations, treatments and withdrawal; the Manager opens, follows up, treats and closes. Popups: Open Health Case, Record Follow-up, Record Treatment, Update / Close Health Case.
+SCR-37 | Profile tab – Health (Sức khỏe) | FE-10 | Allows farm members to view a cattle's cases, observations, treatments and withdrawal; the Owner or a Manager opens, follows up, treats and closes. Popups: Open Health Case, Record Follow-up, Record Treatment, Update / Close Health Case.
 SCR-38 | Reproduction Worklist (Sinh sản) | FE-11, FE-12 | Allows farm members to view females by reproductive situation and the next action and open a profile.
-SCR-39 | Profile tab – Reproduction (Sinh sản) | FE-11, FE-12 | Allows farm members to view reproductive status, breeding eligibility, breeding window, current pregnancy and reproduction timeline; the Manager records and corrects. Popups: Record Estrus, Record Breeding, Correct / Void Estrus or Breeding, Record Pregnancy Check, Record Pregnancy Update, Correct / Void Pregnancy Check, Correct / Void Pregnancy and Calving Record.
-SCR-40 | Record Calving (Ghi sự kiện đẻ & kết quả bê) | FE-12 | Allows the Manager to record a calving, calf outcomes and the registration choice for each live calf.
+SCR-39 | Profile tab – Reproduction (Sinh sản) | FE-11, FE-12 | Allows farm members to view reproductive status, breeding eligibility, breeding window, current pregnancy and reproduction timeline; the Owner or a Manager records and corrects. Popups: Record Estrus, Record Breeding, Correct / Void Estrus or Breeding, Record Pregnancy Check, Record Pregnancy Update, Correct / Void Pregnancy Check, Correct / Void Pregnancy and Calving Record.
+SCR-40 | Record Calving (Ghi sự kiện đẻ & kết quả bê) | FE-12 | Allows the Owner or a Manager to record a calving, calf outcomes and the registration choice for each live calf.
 SCR-41 | Herd Exit Vouchers (Phiếu xuất – Danh sách) | FE-13 | Allows the Owner or a Manager to view exit vouchers by status and type with totals and amounts to collect; the Owner starts a new voucher.
 SCR-42 | Herd Exit Voucher (Phiếu xuất mới – Bán / Loại thải / Khác) | FE-13 | Allows the Owner to enter an exit voucher with cattle, weights, prices and collection, review the checks and confirm. Popups: Select Cattle for Exit Voucher.
 SCR-43 | Death / Missing Exit Voucher (Phiếu xuất – Chết / mất) | FE-13 | Allows the Owner to complete and confirm, or dismiss, a pending voucher created from a health case.
@@ -1550,8 +1554,8 @@ SCR-51 | Platform Audit History (Lịch sử audit nền tảng) | FE-17 | Allow
 SCR-52 | Breed Catalogue (Giống bò) | FE-18 | Allows farm members to view breeds; the Owner or a Manager creates, edits and changes availability.
 SCR-53 | Vaccine Catalogue (Vắc-xin) | FE-18 | Allows farm members to view vaccines; the Owner or a Manager creates, edits, changes availability or removes unused ones.
 SCR-54 | Medicine Catalogue (Thuốc tham chiếu) | FE-18 | Allows farm members to view reference medicines; the Owner or a Manager creates, edits and changes availability.
-SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Allows the Owner or a Manager to view and maintain production purposes and their purpose types. Popups: Update Cattle Profile.
-SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Allows the Owner or a Manager to view parameters and save a new version.
+SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Farm members view production purposes and their purpose types. The Owner and Managers maintain the catalogue. Popups: Update Cattle Profile.
+SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Farm members view the effective parameters and version history. The Owner and Managers may save a new version.
 SCR-57 | Farm Subscription (Gói dịch vụ của trại) | FE-19 | Allows the Owner to view service status, periods, renewal date, pending request and prices.
 SCR-58 | Select Term and Review (Chọn thời hạn / Đăng ký gói) | FE-19 | Allows the Owner to choose 1, 2 or 3 years, review and create a payment request.
 SCR-59 | Transfer Instructions (Hướng dẫn chuyển khoản) | FE-19 | Allows the Owner to see VietQR, transfer details, countdown and progress of a payment request.
@@ -1578,7 +1582,7 @@ SCR-79 | Feed Receipt Form (Phiếu nhập kho mới) | FE-23 | Allows the Owner
 SCR-80 | Stock Adjustment (Kiểm kê / điều chỉnh tồn kho) | FE-23 | Allows the Owner or a Manager to compare counted with system stock and post the differences with reasons.
 SCR-81 | Rations (Khẩu phần) | FE-23 | Allows the Owner or a Manager to view rations by pen, version and status with daily quantity and cost.
 SCR-82 | Ration Editor (Sửa khẩu phần) | FE-23 | Allows the Owner or a Manager to create a ration or save a new version with its components and effective date.
-SCR-83 | Feeding Log (Nhật ký cho ăn) | FE-23 | Allows the Owner, a Manager or a Technician to view feeding sessions per pen and date; the Manager records and corrects. Popups: Record Feeding Session, Correct / Void Feeding Record.
+SCR-83 | Feeding Log (Nhật ký cho ăn) | FE-23 | Allows the Owner, a Manager or a Technician to view feeding sessions per pen and date; the Owner or a Manager records and corrects. Popups: Record Feeding Session, Correct / Void Feeding Record.
 SCR-84 | Feed Catalogue and Suppliers (Danh mục thức ăn & nhà cung cấp) | FE-23 | Allows the Owner or a Manager to maintain feed items and suppliers.
 SCR-85 | Feed Consumption and Cost Report (Báo cáo tiêu thụ & chi phí thức ăn) | FE-23 | Allows the Owner or a Manager to view and print consumption and cost by herd group, pen or feed.
 SCR-86 | Today's Rations (Kỹ thuật viên · Khẩu phần hôm nay) | FE-23 | Allows a Technician to view today's planned feeding per pen and session on the phone (read-only).
@@ -1712,7 +1716,7 @@ Trigger | The Owner completes the Owner profile (UC-FE01-01) or selects "Registe
 Description | As a farm owner, I want to register a farm, so that I can subscribe it and manage its herd separately from my other farms.
 Preconditions | PRE-1: The Owner is signed in, the account is ACTIVE and Owner registration is complete.
 Postconditions | POST-1: One new farm exists in PENDING_PAYMENT with exactly one OWNER membership for this account. / POST-2: The Owner is on plan selection for the new farm (SCR-58). / POST-3: No subscription, payment request or service period is created; other owned farms are unchanged. / POST-4: The farm has its default parameter version and starter catalogue (GBR-109).
-Normal Flow | 1. System shows Register Farm (SCR-10) as step 2 of onboarding. / 2. Owner enters farm name, province, commune and optional detailed address, contact person, contact phone, registration certificate information, expected herd size and main breeds, and selects "Create farm and continue". / 3. System validates the fields and the request key (GBR-88). / 4. System creates, in one transaction, the farm in PENDING_PAYMENT with default time zone Asia/Ho_Chi_Minh, its OWNER membership, the initial farm parameter version (default values, UC-FE18-17), the starter catalogue of production purposes, breeds, vaccines and feed items (Table III-6, GBR-109) and the audit entry. / 5. System shows MSG-FE02-01 and opens plan selection for the farm (UC-FE19-02, SCR-58).
+Normal Flow | 1. System shows Register Farm (SCR-10) as step 2 of onboarding. / 2. Owner enters farm name, province, commune and optional detailed address, contact person, contact phone, registration certificate information, expected herd size and main breeds, and selects "Create farm and continue". / 3. System validates the fields and the request key (GBR-88). / 4. System creates, in one transaction, the farm in PENDING_PAYMENT with the canonical time zone identifier Asia/Ho_Chi_Minh, its OWNER membership, the initial farm parameter version (default values, UC-FE18-17), the starter catalogue of production purposes, breeds, vaccines and feed items (Table III-6, GBR-109) and the audit entry. / 5. System shows MSG-FE02-01 and opens plan selection for the farm (UC-FE19-02, SCR-58).
 Alternative Flows | AF1 – "Later" on plan selection (step 5): the farm stays PENDING_PAYMENT on Select Farm with "Pay to activate". / AF2 – Repeated submission or page reload (step 3): the farm already created is returned; no second farm or membership. / AF3 – Back / cancel before step 2 ends: no farm is created.
 Exceptions | E1: Owner registration not complete: MSG-FE02-02 and Complete Owner Profile opens; no farm. / E2: Missing or invalid fields: MSG-COM-06 / MSG-COM-10; nothing is saved. / E3: Save failure: MSG-COM-02; no partial farm.
 Priority | High
@@ -1730,8 +1734,8 @@ Trigger | The user signs in with more than one farm, or opens the farm switcher.
 Description | As a farm member, I want to see my farms with my role and their service status and choose one, so that I work only with that farm's data.
 Preconditions | PRE-1: The user is signed in and the account is ACTIVE.
 Postconditions | POST-1: The selected farm is the current context with the user's role in that farm. / POST-2: No farm, membership or subscription is changed.
-Normal Flow | 1. User opens Select Farm (SCR-09). / 2. System lists every farm where the user has an ACTIVE membership as a card: farm name, location, service status, user's role, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED. / 3. User selects "Enter farm" on an ACTIVE farm. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
-Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Farm Subscription (SCR-57) with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician card of a farm that is not ACTIVE: the card is disabled with MSG-FE02-04. / AF4 – Only one available farm: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm".
+Normal Flow | 1. User opens Select Farm (SCR-09), or opens the quick farm switcher from the current farm name in the top bar. / 2. System lists every farm where the user has an ACTIVE membership with its name, service status and the user's role; SCR-09 additionally shows location, number of active cattle and service end date. For an Owner it also lists owned farms in PENDING_PAYMENT, EXPIRED or SUSPENDED; a Manager or Technician sees a farm that is not ACTIVE as unavailable (AF3). / 3. User selects "Enter farm" on SCR-09 or selects an ACTIVE farm in the quick switcher. / 4. System rechecks membership, role and service status (GBR-09, GBR-14). / 5. System clears the data and filters of the previous farm, sets the new current farm and opens its home (Farm Dashboard for Owner and Manager, Technician Home on phone).
+Alternative Flows | AF1 – Owner selects a PENDING_PAYMENT or EXPIRED farm: the card shows "Pay to activate" / "Renew"; the System opens Select Term and Review (SCR-58) for the first purchase or the renewal with MSG-FE02-03; only farm information, subscription and support are available. / AF2 – Owner selects a SUSPENDED farm: the card shows "Send support ticket"; MSG-FE02-03. / AF3 – Manager or Technician farm that is not ACTIVE: SCR-09 shows a disabled card with MSG-FE02-04; selecting it from the quick switcher opens SCR-09 and never opens farm operations. / AF4 – Only one available farm immediately after sign-in: it is opened directly. / AF5 – No farm: MSG-FE01-15; an Owner sees "Register new farm". / AF6 – User selects "Manage farms" in the quick switcher: SCR-09 opens.
 Exceptions | E1: Membership deactivated or role changed after the list was shown: MSG-COM-01 and the list is refreshed. / E2: Loading failure: MSG-COM-03.
 Priority | High
 Frequency of Use | At every sign-in; several times a day for multi-farm users.
@@ -1769,7 +1773,7 @@ Preconditions | PRE-1: The Owner is signed in and owns the current farm. / PRE-2
 Postconditions | POST-1: One PENDING invitation bound to the farm, the email and the role exists with its expiry time. / POST-2: The invitation email with a single-use link has been sent. / POST-3: No membership is created before acceptance.
 Normal Flow | 1. System shows popup "Invite Member" with the farm name. / 2. Owner enters the recipient email, selects the role Farm Manager or Farm Technician and the validity (3, 7 or 14 days; default 7). The System shows the fixed permissions of the selected role (GBR-06). / 3. Owner selects "Send invitation". / 4. System rechecks ownership and farm service, validates the email and checks that the email is not an ACTIVE member and has no PENDING invitation for this farm. / 5. System creates the PENDING invitation with expiry time and a link token stored as a hash, and the audit entry. / 6. System sends the invitation email (API-04) and shows MSG-FE03-01.
 Alternative Flows | AF1 – A PENDING invitation for the email exists (step 4): MSG-FE03-03 offers Resend (UC-FE03-03); no second invitation. / AF2 – The email belongs to an INACTIVE member (step 4): the System proposes Reactivate in UC-FE03-06 instead. / AF3 – Cancel: nothing is created. / AF4 – Email delivery fails (step 6): the invitation stays PENDING; delivery is retried and the Owner may resend.
-Exceptions | E1: Not the Owner of the farm: MSG-COM-01. / E2: Farm not ACTIVE: MSG-FE03-04. / E3: Email empty or invalid: MSG-COM-06 / MSG-COM-10. / E4: Email is already an ACTIVE member: MSG-FE03-02. / E5: Save failure: MSG-COM-02.
+Exceptions | E1: Not the Owner of the farm: MSG-COM-01. / E2: Farm not ACTIVE: MSG-FE03-04. / E3: Email empty or invalid: MSG-COM-06 / MSG-COM-10. / E4: Email is already an ACTIVE member: MSG-FE03-02. / E5: Save failure: MSG-COM-02. / E6: Email belongs to an INACTIVE member of the farm: MSG-FE03-21; no invitation is created and the Owner may reactivate the member instead (UC-FE03-06, current role kept).
 Priority | High
 Frequency of Use | Occasionally, when the farm adds staff.
 Business Rules | GBR-06, GBR-14, GBR-16; BR-D05.
@@ -1859,7 +1863,7 @@ Preconditions | PRE-1: The SA is signed in with ACTIVE SA access. / PRE-2: The t
 Postconditions | POST-1: The account has at most one ACTIVE platform role, saved with reason, history and audit. / POST-2: Farm memberships are unchanged; the new access applies at the person's next request. / POST-3: At least one ACTIVE SA remains.
 Normal Flow | 1. System shows popup "Platform Staff Access" with the account, current platform role and status and the role history. / 2. SA chooses Grant, Change role, Revoke or Restore, selects the role (CS, PM or SA) when required and enters the reason. / 3. SA confirms. / 4. System rechecks SA access, the target account, current access, version, the one-ACTIVE-role rule and the last-SA rule. / 5. System saves the access change with history and audit in one transaction. / 6. System shows MSG-FE03-19. Tickets assigned to a CS who loses CS access return to the queue; OPEN internal requests of a removed PM or SA are flagged for reassignment.
 Alternative Flows | AF1 – Cancel: nothing changes.
-Exceptions | E1: No ACTIVE SA access: MSG-COM-01. / E2: No account for the email: MSG-FE03-18; no invitation is sent. / E3: The change would leave no ACTIVE SA: MSG-FE03-17. / E4: Same role already ACTIVE: MSG-FE03-20. / E5: Empty reason: MSG-COM-06. / E6: Changed in another session: MSG-COM-05. / E7: Save failure: MSG-COM-02.
+Exceptions | E1: No ACTIVE SA access: MSG-COM-01. / E2: No account for the email: MSG-FE03-18; no invitation is sent. / E3: The change would leave no ACTIVE SA: MSG-FE03-17. / E4: Same role already ACTIVE: MSG-FE03-20. / E5: Empty reason: MSG-COM-06. / E6: Changed in another session: MSG-COM-05. / E7: Save failure: MSG-COM-02. / E8: Grant, change or restore for a SUSPENDED account: MSG-FE03-22; revoke is still allowed.
 Priority | High
 Frequency of Use | Rare.
 Business Rules | GBR-10, GBR-11, GBR-86; BR-D06.
@@ -2037,10 +2041,10 @@ Assumptions | —
 [TABLE block 592]
 UC ID and Name | UC-FE08-01 — Record Cattle Growth Assessment
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record weight & BCS" (Ghi nhận cân & BCS) on the Growth & BCS tab of a cattle profile, or from a weighing reminder (REM-01).
 Description | As a farm manager, I want to record an animal's weight and/or body condition score with how it was measured, so that growth can be followed honestly.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and registered (not a draft calf).
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and registered (not a draft calf).
 Postconditions | POST-1: A VALID growth assessment is saved with measured time, entry time and recorder. / POST-2: Current weight, ADG and growth reminders are recalculated; REM-01 is resolved and a pen-move or life-stage suggestion (REM-08) may be raised.
 Normal Flow | 1. System shows popup "Record Weight and BCS" with the cattle (read-only), measured time (default now) and measurer (default the user). / 2. Manager selects the method (electronic scale, measuring tape, other estimate) and enters the weight in kg; for measuring tape the Manager may enter heart girth and body length and the System calculates the weight (GBR-39); the basis is set from the method (MEASURED for scale, ESTIMATED otherwise) (GBR-38). / 3. Manager selects a BCS value on the farm scale and/or enters a note, then selects "Save assessment". / 4. System validates: weight or BCS present, weight > 0, BCS on the scale, measured time not in the future and not before herd entry, cattle state. / 5. System saves the assessment and the timeline entry. / 6. System recalculates current weight and ADG (GBR-39), resolves REM-01, re-evaluates REM-08 (JOB-01) and shows MSG-FE08-01.
 Alternative Flows | AF1 – Large difference from the last weight: when the new weight differs by more than 20 % from the latest valid weight within 30 days, MSG-FE08-04 asks the Manager to confirm before saving. / AF2 – BCS only: no weight fields are required. / AF3 – Measured by a Technician: the Manager selects the Technician as measurer; the Manager remains the recorder. / AF4 – Cancel: nothing is saved.
@@ -2055,10 +2059,10 @@ Assumptions | The farm BCS scale is configured in UC-FE18-17.
 [TABLE block 595]
 UC ID and Name | UC-FE08-03 — Correct Growth Assessment Record
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Exclude" (Sửa · Loại trừ) on a row of the measurement history.
 Description | As a farm manager, I want to correct or exclude a wrong measurement with a reason, so that charts and indicators are right while the original stays in the history.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and the record is VALID.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and the record is VALID.
 Postconditions | POST-1: Correct: the record shows the new values with a "Corrected" marker and stays VALID; a Record Revision keeps the old values. / POST-2: Exclude: the record is EXCLUDED and no longer used in calculations. / POST-3: Indicators and reminders are recalculated.
 Normal Flow | 1. System shows popup "Correct / Exclude Growth Record" with the record (values, method, measurer) and the action choice. / 2. Manager keeps "Correct values" and enters the new weight, BCS, method or measured time. / 3. Manager enters the reason and selects Save. / 4. System validates the new values as in UC-FE08-01 and the version. / 5. System saves the correction and the Record Revision in one transaction, recalculates indicators and shows MSG-FE08-05.
 Alternative Flows | AF1 – Exclude record (step 2): the Manager selects "Exclude record", enters the reason and saves; the record becomes EXCLUDED. / AF2 – Cancel: nothing changes.
@@ -2074,10 +2078,10 @@ Assumptions | —
 [TABLE block 599]
 UC ID and Name | UC-FE09-02 — Create Vaccination Schedule
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Manage schedule" → "New schedule" (Quản lý lịch) on Vaccination Schedule.
 Description | As a farm manager, I want to plan a vaccine for a defined group of cattle with its doses and booster, so that every planned dose is reminded and tracked per animal.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The vaccine exists and is ACTIVE in the farm catalogue.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The vaccine exists and is ACTIVE in the farm catalogue.
 Postconditions | POST-1: An ACTIVE schedule exists with one PLANNED dose per target cattle and dose number. / POST-2: Vaccination reminders (REM-06) are evaluated for the new doses.
 Normal Flow | 1. System shows Manage Vaccination Schedule (SCR-32) for a new schedule. / 2. Manager enters the schedule name, selects the vaccine (the reference disease, dose, route and withdrawal are shown), the start date, the number of doses, the days between doses and the optional booster interval in months. / 3. Manager selects the target: one or more pens, herd groups and life stages (GBR-24); the System shows the number of matching ACTIVE cattle and the list, from which the Manager may remove or add individual cattle. / 4. System shows the planned doses table (dose number, planned date, number of cattle). / 5. Manager selects "Save schedule". / 6. System validates the fields, the vaccine availability, the target (at least one cattle) and name uniqueness among ACTIVE schedules. / 7. System saves the schedule and the PLANNED doses in one transaction (GBR-41), triggers JOB-01 and shows MSG-FE09-01.
 Alternative Flows | AF1 – Cattle already received the same vaccine dose recently: the System marks them in the list; the Manager decides to keep or remove them. / AF2 – Cancel: nothing is saved. / AF3 – Booster: when the last dose of the series (or a booster) is recorded, the System plans the next booster at administered date + booster interval while the schedule is ACTIVE.
@@ -2092,10 +2096,10 @@ Assumptions | New cattle that later match the target are added only by the Manag
 [TABLE block 602]
 UC ID and Name | UC-FE09-05 — Record Vaccination
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record vaccination" (Ghi nhận tiêm) on Vaccination Schedule (for selected doses) or on the Vaccination tab of a cattle profile.
 Description | As a farm manager, I want to record the vaccinations actually given, for one animal or a batch, so that each animal's vaccination history and schedule status are correct.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The selected cattle are ACTIVE and registered.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The selected cattle are ACTIVE and registered.
 Postconditions | POST-1: One VALID vaccination record exists per vaccinated cattle; matching scheduled doses are DONE and next doses (and boosters) are planned. / POST-2: Cattle marked "Defer" have DEFERRED doses with reason and new date. / POST-3: Reminders are updated (REM-06). / POST-4: For on-farm vaccination with withdrawal days above 0, each vaccinated cattle's meat withdrawal end date is updated (GBR-46).
 Normal Flow | 1. System shows Record Vaccination (SCR-33) with the schedule and dose (when started from a schedule) and the selected cattle (code, pen). / 2. Manager confirms or selects the vaccine and enters the batch number, administration time (default now), dose, route, withdrawal days (proposed from the vaccine, editable), vaccinator and source "On-farm vaccination". / 3. For each cattle the result is "Vaccinate" by default; the Manager may switch a cattle to "Defer" and enter the reason and new expected date. / 4. System shows the summary (vaccinated, deferred). / 5. Manager selects "Save n vaccinations". / 6. System validates the fields, each cattle's state, that the dose is not already DONE and the versions. / 7. System saves, in one transaction, one vaccination record per vaccinated cattle, marks the doses DONE, recalculates the next dose dates, saves the deferrals (GBR-42, GBR-43), updates each cattle's meat withdrawal end date (GBR-46) and adds the timeline entries. / 8. System triggers JOB-01 and shows MSG-FE09-04.
 Alternative Flows | AF1 – Single cattle from the profile: the same dialog with one cattle; when the cattle has a matching PLANNED or DEFERRED dose, it is linked automatically. / AF2 – Historical vaccination: the Manager selects source "Historical entry"; batch number and exact time may be unknown; no scheduled dose is closed and no withdrawal is calculated. / AF3 – Reaction after vaccination: the Manager opens a health case linked to the record (UC-FE10-02). / AF4 – Cancel: nothing is saved.
@@ -2110,10 +2114,10 @@ Assumptions | —
 [TABLE block 605]
 UC ID and Name | UC-FE09-06 — Defer Vaccination Dose
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Defer" (Hoãn) on a scheduled dose in Vaccination Schedule or on the Vaccination tab.
 Description | As a farm manager, I want to postpone a dose with a reason and a new date, so that delays are recorded and reminders follow the new date.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The dose is PLANNED or DEFERRED and the cattle is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The dose is PLANNED or DEFERRED and the cattle is ACTIVE.
 Postconditions | POST-1: The dose is DEFERRED with reason, new expected date (optional) and actor. / POST-2: The REM-06 reminder of the dose follows the new date.
 Normal Flow | 1. System shows popup "Defer Dose" with the cattle, schedule, dose number and due date. / 2. Manager enters the reason, the optional new expected date and an optional note, and selects "Save deferral". / 3. System validates the reason, that the new date is not before today, the dose status and version. / 4. System saves the deferral, updates the reminder (GBR-43) and shows MSG-FE09-06.
 Alternative Flows | AF1 – No new date: the dose stays DEFERRED without a date and is listed under "Deferred" until recorded or deferred again. / AF2 – Cancel: nothing changes.
@@ -2128,10 +2132,10 @@ Assumptions | —
 [TABLE block 608]
 UC ID and Name | UC-FE09-08 — Correct or Void Vaccination Record
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Void" on a vaccination record in the Vaccination tab or Vaccination History.
 Description | As a farm manager, I want to correct a wrong vaccination record or void one recorded by mistake, so that vaccination history and schedules remain accurate.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the cattle is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the cattle is ACTIVE.
 Postconditions | POST-1: Correct: the record shows the new values with a "Corrected" marker and stays VALID; a Record Revision keeps the old values. / POST-2: Void: the record is VOIDED; its scheduled dose returns to PLANNED (or DEFERRED with its previous date) unless the schedule is STOPPED (GBR-44).
 Normal Flow | 1. System shows popup "Correct / Void Vaccination" with the record and the action choice. / 2. Manager keeps "Correct record" and edits vaccine, batch number, administration time, dose, route or vaccinator. / 3. Manager enters the reason and selects Save. / 4. System validates the values and the version. / 5. System saves the correction and the Record Revision in one transaction and shows MSG-FE09-08.
 Alternative Flows | AF1 – Void record (step 2): the Manager selects "Void record", enters the reason and confirms; the System voids the record, restores the dose and reminders and shows MSG-FE09-08. / AF2 – A health case is linked as a reaction: the case keeps its link and shows that the vaccination was voided. / AF3 – Cancel: nothing changes.
@@ -2147,10 +2151,10 @@ Assumptions | —
 [TABLE block 612]
 UC ID and Name | UC-FE10-02 — Open Health Case
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Open health case" (Mở ca sức khỏe) on the Health tab of a cattle profile, or "Record reaction" on a vaccination record.
 Description | As a farm manager, I want to record abnormal signs of an animal and open or update a health case, so that its health status, treatments and outcome are tracked in one place.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and registered.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is ACTIVE and registered.
 Postconditions | POST-1: A new OPEN case with its opening observation exists, or the observation is added to the selected OPEN or CHRONIC case. / POST-2: The health state is recalculated (GBR-45): a new case without treatment makes it at least "Monitoring".
 Normal Flow | 1. System shows popup "Open Health Case" with the cattle (read-only), observed time (default now) and observer (default the user). / 2. Manager enters the body temperature (optional), the signs/description, an optional suspected diagnosis and contagious flag, and the severity (mild, moderate, severe), and selects "Open new case" (default) or "Add to an existing case" with the case selected from the cattle's OPEN and CHRONIC cases. / 3. Manager optionally selects a Technician as observer and selects "Save". / 4. System validates the fields and cattle state. / 5. System creates the case with a case code (HC-nnnn) and its opening observation, or adds the observation to the selected case, in one transaction. / 6. System updates the health state and shows MSG-FE10-01.
 Alternative Flows | AF1 – Reaction after vaccination: the vaccination record is linked to the case (GBR-47). / AF2 – Cancel: nothing is saved.
@@ -2165,10 +2169,10 @@ Assumptions | BeefCare records observations; it does not diagnose.
 [TABLE block 615]
 UC ID and Name | UC-FE10-03 — Update Health Case Status and Observation
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record follow-up" (Ghi theo dõi) or "Update status" (Cập nhật trạng thái) on an OPEN or CHRONIC case.
 Description | As a farm manager, I want to record the progress of a case and close it with an outcome, so that the animal's health history is complete and deaths are passed to the Owner.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The case is OPEN or CHRONIC and the cattle is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The case is OPEN or CHRONIC and the cattle is ACTIVE.
 Postconditions | POST-1: Follow-up: a follow-up observation is added to the case. / POST-2: Close: the case is CLOSED with outcome, closing time and closer; the health state is recalculated. / POST-3: Outcome DIED or MISSING: a PENDING death voucher is created for the Owner (GBR-95); the cattle stays ACTIVE. / POST-4: Chronic monitoring: the case is CHRONIC with its "chronic since" date, or OPEN again; the health state is recalculated (GBR-45).
 Normal Flow | 1. Manager selects "Record follow-up"; System shows popup "Record Follow-up" with the case. / 2. Manager enters the time, optional temperature, the progress (improved, unchanged, worsened) and the description and selects Save. / 3. System validates and saves the observation; MSG-FE10-02. / 4. Later the Manager selects "Update status"; System shows popup "Update / Close Health Case". / 5. Manager enters the latest progress, selects "Close case", the outcome (recovered, died, missing), the closing time and the confirming person, and selects Save. / 6. System validates the outcome, time (not before the last observation or treatment) and version. / 7. System closes the case and recalculates the health state in one transaction; MSG-FE10-04.
 Alternative Flows | AF1 – Keep OPEN or Keep CHRONIC (step 5): the Manager saves the progress without changing the status; only an observation is added. / AF2 – Move to chronic monitoring (step 5): for an OPEN case the Manager selects "Move to chronic monitoring"; the System sets the case CHRONIC with the date, recalculates the health state (Monitoring when no other OPEN case has a treatment) and shows MSG-FE10-08. / AF3 – Return to OPEN (step 5): for a CHRONIC case the Manager selects "Return to OPEN"; the System sets the case OPEN, recalculates the health state and shows MSG-FE10-09. / AF4 – Outcome DIED or MISSING (step 7): in the same transaction the System creates a PENDING herd exit (type DEATH, or OTHER with reason "Missing") linked to the case and notifies the Owner (GBR-47); MSG-FE10-05. / AF5 – Cancel: nothing changes.
@@ -2183,10 +2187,10 @@ Assumptions | —
 [TABLE block 618]
 UC ID and Name | UC-FE10-04 — Record Treatment
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record treatment" (Ghi điều trị) on an OPEN or CHRONIC case.
 Description | As a farm manager, I want to record each treatment actually given with its withdrawal period, so that treatment history and meat-safety dates are known.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The case is OPEN or CHRONIC and the cattle is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The case is OPEN or CHRONIC and the cattle is ACTIVE.
 Postconditions | POST-1: A treatment record is saved in the case with the withdrawal end date. / POST-2: The cattle's meat withdrawal end date is updated (GBR-46). / POST-3: The case is OPEN (a CHRONIC case returns to OPEN) and the health state is "Under treatment" (GBR-45).
 Normal Flow | 1. System shows popup "Record Treatment" with the case. / 2. Manager selects the medicine from the farm catalogue (reference dose, route and withdrawal days are proposed), enters the dose given, route, administration time (default now), course days (default 1), withdrawal days (editable), performer and optional veterinary advice. / 3. System shows the withdrawal end date = last administration (administration time + course days − 1) + withdrawal days. / 4. Manager selects "Save treatment". / 5. System validates the fields, the case and cattle state. / 6. System saves the treatment and timeline entry, updates the withdrawal end date, recalculates the health state and shows MSG-FE10-03.
 Alternative Flows | AF1 – Daily course: a course of the same medicine, dose and route is recorded once with its number of days; a change of medicine or dose is recorded as a new treatment. / AF2 – Treatment on a CHRONIC case: MSG-FE10-10 is shown in the dialog; on save the case returns to OPEN in the same transaction. / AF3 – Cancel: nothing is saved.
@@ -2201,10 +2205,10 @@ Assumptions | Stock of medicines is not tracked.
 [TABLE block 621]
 UC ID and Name | UC-FE10-05 — Correct or Void Treatment or Follow-up
 Created By | G35 Team | Date Created | 28/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Void" (Sửa · Hủy) on a treatment or follow-up row in the Health tab of the cattle profile.
 Description | As a farm manager, I want to correct a wrong treatment or follow-up, or void one recorded by mistake, so that the treatment history and the meat withdrawal date are right before any sale.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The record is VALID, its case is not CLOSED_BY_EXIT and the cattle is ACTIVE and not on a PENDING death voucher for a new event; corrections remain possible on a PENDING death voucher (GBR-26).
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The record is VALID, its case is not CLOSED_BY_EXIT and the cattle is ACTIVE and not on a PENDING death voucher for a new event; corrections remain possible on a PENDING death voucher (GBR-26).
 Postconditions | POST-1: Correct: the record shows the new values with a "Corrected" marker and stays VALID; a Record Revision keeps the old values, reason, actor and time. / POST-2: Void: the record is VOIDED, greyed in the history and excluded from calculations. / POST-3: The cattle's meat withdrawal end date and health state are recalculated from the VALID records (GBR-45, GBR-46); reminders and the herd exit checks use the new values.
 Normal Flow | 1. System shows popup "Correct / Void Treatment or Follow-up" with the record (type, case, time, recorder) and the action choice. / 2. Manager keeps "Correct record" and edits the fields allowed for the record type: treatment – medicine, dose, route, first administration time, course days, withdrawal days, performer; follow-up – observed time, temperature, progress, description, observer. / 3. System shows the meat withdrawal end date before and after the change. / 4. Manager enters the reason and selects Save. / 5. System validates the values (as in UC-FE10-04 or UC-FE10-03), chronology within the case and the version. / 6. System saves the correction and the Record Revision, recalculates the withdrawal end date and health state in one transaction and shows MSG-FE10-11, with MSG-FE10-12 when the withdrawal end date changed.
 Alternative Flows | AF1 – Void record (step 2): the Manager selects "Void record", enters the reason and confirms; the System voids the record, recalculates the withdrawal end date and health state and shows MSG-FE10-11 (and MSG-FE10-12). / AF2 – Last treatment of an OPEN case voided: the health state becomes Monitoring when no other OPEN case has a treatment (GBR-45). / AF3 – Opening observation: the observation that opened the case can be corrected but not voided (MSG-FE10-13); a case opened by mistake is closed with a reason through UC-FE10-03. / AF4 – Cancel: nothing changes.
@@ -2219,10 +2223,10 @@ Other Information | Screen SCR-37, popup "Correct / Void Treatment or Follow-up"
 [TABLE block 625]
 UC ID and Name | UC-FE11-02 — Record Estrus Event
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record estrus" (Ghi động dục) on the Reproduction tab of a female's profile.
 Description | As a farm manager, I want to record an observed estrus, so that the breeding window is suggested and the reproduction history is complete.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female and its reproductive status offers this action (GBR-54).
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female and its reproductive status offers this action (GBR-54).
 Postconditions | POST-1: A VALID estrus event exists with observed time, observer, description, recorder and entry time. / POST-2: The reproductive status becomes IN_ESTRUS; the breeding window reminder REM-02 is created when the parameters exist; a TENTATIVE expected calving date of an earlier breeding is cancelled (GBR-53).
 Normal Flow | 1. System shows popup "Record Estrus": female (read-only: code, ear tag, breed, pen), observed time (default now), observer (default the user; a Technician may be selected), signs and description. / 2. Manager enters the observed time, observer, ticks the observed signs and optionally a description, and selects "Save estrus". / 3. System validates the time (not in the future, not before herd entry) and checks for a possible duplicate (same female within 12 hours). / 4. System saves the event, updates the reproductive status and reminders (JOB-01) and shows MSG-FE11-01 with the suggested breeding window.
 Alternative Flows | AF1 – Possible duplicate (step 3): MSG-FE11-03 asks whether to save anyway; No returns to the form. / AF2 – Female PREGNANT: the action is not offered; if a pregnancy exists when saving, MSG-FE11-05 asks the Manager to review the status first. / AF3 – Breeding parameters not configured: the event is saved; MSG-FE11-08 explains that no window is suggested. / AF4 – Cancel: nothing is saved.
@@ -2237,10 +2241,10 @@ Assumptions | Estrus is observed by people; no sensor input.
 [TABLE block 628]
 UC ID and Name | UC-FE11-03 — Record Breeding Event
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record breeding" (Ghi phối giống) on the Reproduction tab of a female in status AWAITING_BREEDING, IN_ESTRUS or POST_CALVING (GBR-54).
 Description | As a farm manager, I want to record a breeding with method and sire or semen, so that a tentative expected calving date and the pregnancy-check reminder are prepared.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female to which reproductive status applies, without an OPEN pregnancy episode (GBR-54).
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female to which reproductive status applies, without an OPEN pregnancy episode (GBR-54).
 Postconditions | POST-1: A VALID breeding event exists; the female is BRED. / POST-2: A TENTATIVE expected calving date (breeding time + gestation length) is shown and REM-03 is created when parameters exist; an earlier tentative date is replaced.
 Normal Flow | 1. System shows popup "Record Breeding" with the female (read-only), the latest estrus of the last 72 hours proposed as link and the breeding eligibility indicator with each condition (GBR-55). / 2. Manager enters bred time, data source, method (natural service or AI) and sire source (internal or external). / 3. Internal sire: Manager selects a male ACTIVE cattle of the farm. External / AI: Manager enters sire breed, semen straw/batch code and supplier. / 4. Manager selects the performer (person or AI technician name) and an optional note; the System shows the tentative expected calving date. / 5. Manager selects "Save breeding". / 6. System validates the fields, chronology (not before the linked estrus, not in the future), the sire (different male of the same farm) and the female's state. / 7. System saves the event, sets the female BRED, the tentative date and REM-03 (JOB-01) and shows MSG-FE11-02.
 Alternative Flows | AF1 – No observed estrus: the Manager clears the estrus link; no estrus is invented (GBR-50). / AF2 – Breeding eligibility Not met: MSG-FE11-09 is shown; the Manager may still save (GBR-55). / AF3 – Second insemination in the same estrus: allowed; the latest breeding is the basis of the tentative date. / AF4 – Cancel: nothing is saved.
@@ -2255,10 +2259,10 @@ Assumptions | —
 [TABLE block 631]
 UC ID and Name | UC-FE11-04 — Correct or Void Estrus and Breeding Record
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Void" (Sửa · Hủy) on an estrus or breeding row of the reproduction timeline.
 Description | As a farm manager, I want to correct or void a wrong estrus or breeding record with a reason, so that reproduction data and dates stay correct without losing history.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the female is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the female is ACTIVE.
 Postconditions | POST-1: Correct: the record has the new values with a "Corrected" marker and stays VALID; a Record Revision keeps the old values. / POST-2: Void: the record is VOIDED and excluded from status and dates. / POST-3: Reproductive status, tentative date and reminders are recalculated.
 Normal Flow | 1. System shows popup "Correct / Void Estrus or Breeding" with the record and the action choice. / 2. Manager keeps "Correct record" and changes the allowed fields (estrus: observed time, observer, description; breeding: time, source, method, sire, semen, performer, linked estrus). / 3. Manager enters the reason and selects Save. / 4. System checks the version and the dependencies: a breeding linked to a pregnancy check or episode cannot change in a way that contradicts them (GBR-59). / 5. System saves the change and the Record Revision in one transaction, recalculates status, dates and reminders and shows MSG-FE11-06.
 Alternative Flows | AF1 – Void record (step 2): the Manager selects "Void record", enters the reason and confirms; dependencies are checked as in step 4. / AF2 – Cancel: nothing changes.
@@ -2274,11 +2278,11 @@ Assumptions | —
 [TABLE block 635]
 UC ID and Name | UC-FE12-02 — Record Pregnancy Check Result
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record pregnancy check" (Ghi khám thai) on the Reproduction tab of a female in status BRED or PREGNANT, from "More actions" for any ACTIVE female at stage Young stock or Adult (GBR-54), or from reminder REM-03 / REM-04.
 Description | As a farm manager, I want to record the result of a pregnancy examination, so that pregnancy is confirmed only by an actual check and the calving date becomes reliable.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female.
-Postconditions | POST-1: A VALID pregnancy check is saved. / POST-2: PREGNANT: a pregnancy episode is OPEN (or confirmed) with a CONFIRMED expected calving date and REM-05. NOT_PREGNANT: the female returns to OPEN and the tentative date is cancelled. INCONCLUSIVE: status unchanged and REM-04 is created. / POST-3: REM-03 is resolved.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The cattle is an ACTIVE, registered female.
+Postconditions | POST-1: A VALID pregnancy check is saved. / POST-2: PREGNANT: a pregnancy episode is OPEN (or confirmed) with a CONFIRMED expected calving date and REM-05. NOT_PREGNANT: the female returns to AWAITING_BREEDING and the tentative date is cancelled. INCONCLUSIVE: status unchanged and REM-04 is created. / POST-3: REM-03 is resolved.
 Normal Flow | 1. System shows popup "Record Pregnancy Check" with the female (read-only) and the latest breeding proposed as link. / 2. Manager enters checked time, result (pregnant, not pregnant, inconclusive), method (ultrasound, rectal, other), estimated months pregnant (optional), examiner and optional note; the data source is Direct observation unless changed; for PREGNANT the System shows the expected calving date from the linked breeding or from the estimated months (GBR-53). / 3. Manager selects "Save check result". / 4. System validates the fields, chronology (not before the linked breeding) and the female's state; it serializes changes for the female (GBR-52). / 5. System saves the check and applies the result (GBR-51, GBR-53) in one transaction, updates reminders (JOB-01) and shows MSG-FE12-01.
 Alternative Flows | AF1 – No linked breeding: a PREGNANT result opens an episode with an ESTIMATED expected date from the estimated months, or without expected date when no months are entered (MSG-FE12-11). / AF2 – PREGNANT while an episode is already OPEN: the check confirms the existing episode. / AF3 – Cancel: nothing is saved.
 Exceptions | E1: Missing required field: MSG-COM-06. / E2: Conflict with an existing check or newer episode: MSG-FE12-02. / E3: Time invalid: MSG-COM-07 / MSG-FE11-10. / E4: Cattle EXITED: MSG-COM-13. / E5: Save failure: MSG-COM-02.
@@ -2292,11 +2296,11 @@ Assumptions | Results may come from an external veterinarian; no veterinarian ac
 [TABLE block 638]
 UC ID and Name | UC-FE12-03 — Update Pregnancy Status
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record pregnancy update" (Ghi diễn biến thai) on the Reproduction tab of a PREGNANT female.
 Description | As a farm manager, I want to record observations, complications or a loss during pregnancy, so that the pregnancy history is complete and a loss closes the pregnancy.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The female has an OPEN pregnancy episode.
-Postconditions | POST-1: A VALID pregnancy update is saved against the episode. / POST-2: LOSS: the episode is LOST, REM-05 is cancelled and the female returns to OPEN.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The female has an OPEN pregnancy episode.
+Postconditions | POST-1: A VALID pregnancy update is saved against the episode. / POST-2: LOSS: the episode is LOST, REM-05 is cancelled and the female returns to AWAITING_BREEDING.
 Normal Flow | 1. System shows popup "Record Pregnancy Update" with the episode (pregnancy number, expected date). / 2. Manager selects the update type (observation, complication, loss), enters the time, data source and details and, for a complication, optionally links an existing health case of the female. / 3. Manager selects "Save update". / 4. System validates the fields, chronology (after the confirming check) and episode state. / 5. System saves the update in one transaction and shows MSG-FE12-03.
 Alternative Flows | AF1 – Loss (step 5): the System closes the episode as LOST, cancels REM-05, updates status and shows MSG-FE12-04 (GBR-56). / AF2 – Complication needing treatment: the Manager opens or updates the case in FE-10 (UC-FE10-02). / AF3 – Cancel: nothing is saved.
 Exceptions | E1: Missing required field: MSG-COM-06. / E2: Episode no longer OPEN: MSG-FE12-12. / E3: Time invalid: MSG-COM-07. / E4: Save failure: MSG-COM-02.
@@ -2310,10 +2314,10 @@ Assumptions | —
 [TABLE block 641]
 UC ID and Name | UC-FE12-04 — Record Calving Event and Outcome
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record calving" (Ghi sự kiện đẻ) on the Reproduction tab of a female in status BRED or PREGNANT, or "Record calving (untracked pregnancy)" under More actions for any ACTIVE female at stage Young stock or Adult (GBR-54).
 Description | As a farm manager, I want to record a calving with one outcome per calf and register live calves now or as drafts, so that births are complete and every live calf becomes one cattle record.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The dam is an ACTIVE, registered female.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The dam is an ACTIVE, registered female.
 Postconditions | POST-1: A VALID calving with at least one calf outcome is saved; the linked episode is CALVED and the dam is POST_CALVING. / POST-2: Each LIVE calf is REGISTERED (Register now) or PENDING_CONFIRMATION with REM-09 (draft). / POST-3: REM-05 is resolved and REM-07 is created when parameters exist. / POST-4: Registered calves have life stage UNWEANED_CALF; a dam whose life stage is not ADULT gets a REM-08 suggestion to change it to ADULT (GBR-25).
 Normal Flow | 1. System opens Record Calving (SCR-40) with the dam (read-only) and the OPEN episode proposed as linked pregnancy. / 2. Manager enters birth time, birth attendant, calving course (normal, assisted, caesarean), dam condition (good, needs monitoring, critical) and retained placenta; the data source is Direct observation unless changed; the System shows one calf block and the Manager adds a block for each further calf. / 3. For each calf the Manager enters the outcome (live, stillborn), sex (male, female; unknown only for a stillborn calf), birth weight with unit and basis (measured, estimated). / 4. For each live calf the Manager enters the tag/QR code, initial pen (default: the dam's pen), breed (default from dam and sire) and chooses "Save as draft calf" or "Register now"; for "Register now" the Manager also selects the production purpose (default: the first ACTIVE purpose of type UNDECIDED). / 5. Manager selects "Save calving". / 6. System validates the fields, chronology, tag uniqueness in the farm, pen availability for calves to register and the dam's state; it serializes changes for the dam (GBR-52). / 7. System saves, in one transaction, the calving, the outcomes, the episode closure and the dam status; registers each "Register now" calf with UC-FE06-01 logic (FARM_BORN, GBR-31); saves each draft calf as PENDING_CONFIRMATION and creates REM-09 for the Owner and Managers (GBR-58). / 8. System updates reminders (JOB-01) and shows MSG-FE12-05 with MSG-FE12-09 and/or MSG-FE12-10.
 Alternative Flows | AF1 – Pregnancy not tracked: the Manager selects "No tracked pregnancy"; the calving is saved without an episode (GBR-57). / AF2 – Stillborn calf: no tag, pen or registration choice is asked. / AF3 – Calf dies before registration (later): the Owner or a Manager marks the draft calf DIED_BEFORE_REGISTRATION from the pending calves list (SCR-25). / AF4 – Add / remove calf blocks: "+ Add calf" / "Remove calf" before saving. / AF5 – Cancel: nothing is saved.
@@ -2328,10 +2332,10 @@ Assumptions | —
 [TABLE block 644]
 UC ID and Name | UC-FE12-05 — Correct or Void Pregnancy Check Result
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Void" on a pregnancy check row of the reproduction timeline.
 Description | As a farm manager, I want to correct or void a wrong pregnancy check, so that the pregnancy status is right without contradicting later records.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The check is VALID and the female is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The check is VALID and the female is ACTIVE.
 Postconditions | POST-1: The check is corrected (VALID with a "Corrected" marker and a Record Revision) or VOIDED. / POST-2: The pregnancy episode, expected date, status and reminders are recalculated consistently.
 Normal Flow | 1. System shows popup "Correct / Void Pregnancy Check" with the record and the action choice. / 2. Manager keeps "Correct record" and changes result, checked time, method, examiner or data source. / 3. Manager enters the reason and selects Save. / 4. System checks the version and dependencies: a check that opened an episode with later updates, a calving or registered calves cannot be changed to NOT_PREGNANT or voided (GBR-59). / 5. System saves the change and Record Revision, recalculates the episode and reminders in one transaction and shows MSG-FE11-06.
 Alternative Flows | AF1 – Void record: as step 2–5 with "Void record". / AF2 – Correction that removes the only PREGNANT result of an episode without later records: the episode is voided together with the change. / AF3 – Cancel: nothing changes.
@@ -2346,10 +2350,10 @@ Assumptions | —
 [TABLE block 647]
 UC ID and Name | UC-FE12-06 — Correct or Void Pregnancy and Calving Record
 Created By | G35 Team | Date Created | 21/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Edit · Void" on a pregnancy update, calving or calf outcome row of the reproduction timeline.
 Description | As a farm manager, I want to correct or void a wrong pregnancy update, calving or calf outcome, so that birth records are accurate while registered calves stay consistent.
-Preconditions | PRE-1: The user is a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the dam is ACTIVE.
+Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm. / PRE-2: The record is VALID and the dam is ACTIVE.
 Postconditions | POST-1: The record is corrected (VALID with a "Corrected" marker and a Record Revision) or VOIDED; dependent states (episode, dam status, draft calves, reminders) are recalculated.
 Normal Flow | 1. System shows popup "Correct / Void Pregnancy and Calving Record". / 2. Manager selects the record type (pregnancy update, calving, calf outcome), the record and the action (correct or void). / 3. Manager edits the allowed fields (update: type, time, details, health case; calving: time, source, attendant, course, dam condition; calf outcome: sex, birth weight, basis, tag of a draft calf) and enters the reason. / 4. Manager selects Save. / 5. System checks the version and dependencies: a LIVE outcome registered as a cattle cannot be voided or changed to STILLBORN; voiding a calving with registered calves is blocked; voiding a LOSS reopens the episode only when no later episode exists (GBR-59). / 6. System saves the change and Record Revision and recalculates dependent states in one transaction; MSG-FE11-06.
 Alternative Flows | AF1 – Void a calving whose live calves are all drafts: the drafts are voided with it and REM-09 is cancelled. / AF2 – Cancel: nothing changes.
@@ -2408,7 +2412,7 @@ Description | As a farm owner or manager, I want to set the farm's life-stage ag
 Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm.
 Postconditions | POST-1: A new parameter version with source note, effective date and author is saved and becomes effective at its effective time. / POST-2: Reminders evaluated after that time use the new values; recorded events are unchanged (GBR-68).
 Normal Flow | 1. System shows State and Reminder Parameters (SCR-56) with the current version, its source and the version history. / 2. User edits the values in the groups: life stages (weaning age, young-stock age, adult age, in months); breeding conditions (minimum age, minimum weight); gestation and checks (gestation length, pregnancy check after breeding, re-check after inconclusive, calving preparation lead time, postpartum interval); breeding window (start and end hours after estrus, estrus cycle length); growth and vaccination (BCS scale, weighing interval, vaccination reminder lead time, optional target finishing weight). / 3. User enters the source note (for example "Owner interview 20/09/2026") and the effective date (default today) and selects "Save new version". / 4. System validates each value against its allowed range and the version. / 5. System saves the new version and, when effective now, triggers JOB-01 to recompute future reminders. / 6. System shows MSG-FE18-05.
-Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – View an older version: the user opens the history; old versions are read-only. / AF3 – Cancel: nothing changes.
+Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – Read-only access: farm members, including Technicians, may view the current parameters and version history. Only the Owner or a Manager can save a version. / AF3 – Cancel: nothing changes.
 Exceptions | E1: Value out of range, end hour not after start hour, or life-stage ages not in increasing order (weaning < young stock < adult): MSG-FE18-06. / E2: Missing source note: MSG-COM-06. / E3: Changed in another session: MSG-COM-05. / E4: Save failure: MSG-COM-02.
 Priority | Medium
 Frequency of Use | A few times a year.
@@ -2425,13 +2429,13 @@ Primary Actor | Farm Owner | Secondary Actors | SePay (VietQR image)
 Trigger | The Owner selects "Renew plan" (Gia hạn gói) on Farm Subscription, "Pay to activate" on Select Farm, or continues from Register Farm (first purchase).
 Description | As a farm owner, I want to choose a 1-, 2- or 3-year term and get transfer instructions with VietQR, so that I can pay for my farm by bank transfer.
 Preconditions | PRE-1: The user is the Owner of the farm (any service status except SUSPENDED). / PRE-2: A price version is effective and the receiving account is configured.
-Postconditions | POST-1: One PENDING payment request with immutable term, amount, price version, receiving account, unique payment reference and 24-hour expiry exists for the farm (or the existing valid request is reopened). / POST-2: The Owner sees the transfer instructions; no service period changes until the payment is confirmed (UC-FE19-08 / UC-FE19-06).
+Postconditions | POST-1: One PENDING payment request with immutable term, amount, price version, receiving account, unique payment reference and 24-hour expiry exists for the farm (or the existing valid request is reopened). / POST-2: The Owner sees the transfer instructions; no service period changes until the payment is confirmed (UC-FE19-08 / UC-FE19-06). / POST-3: When the Owner cancels (AF6), the request is CANCELLED with time, Owner and optional reason; its instructions are withdrawn and it no longer blocks a new request.
 Normal Flow | 1. System shows Select Term and Review (SCR-58): the three terms with total prices from the effective price version, the plan terms (same functions for all terms, one payment per farm, no automatic renewal, request valid 24 hours) and the farm's service status and current period. / 2. Owner selects a term; the System shows the review: farm, term, amount, estimated service period and price version. / 3. Owner selects "Create payment request". / 4. System checks ownership, service status, the renewal window (GBR-71), that no unexpired PENDING request exists and that the reviewed price version is still effective (GBR-70). / 5. System creates the request with a unique payment reference (e.g. BCF7K2Q9), expiry = now + 24 hours and the receiving account snapshot; it creates the farm's Subscription record if none exists. / 6. System shows Transfer Instructions (SCR-59): VietQR (API-01), status PENDING, countdown, expiry time, bank, account number, account name, amount and transfer content with copy buttons, and the progress steps (request created, bank transaction received, confirmed and period granted), with MSG-FE19-05.
-Alternative Flows | AF1 – A valid PENDING request exists (step 4): MSG-FE19-01 offers to reopen its instructions; no new request. / AF2 – Price changed since review (step 4): MSG-FE19-02 shows old and new prices; the Owner reviews again (step 2). / AF3 – "Later" / "Close instructions": the request stays PENDING until it expires; it can be reopened from Payment History. / AF4 – Check again (step 6): the System refreshes the status; when PAID it shows the purchased period (MSG-FE19-06). / AF5 – Request expired: MSG-FE19-07 offers a new request.
-Exceptions | E1: Not the Owner: MSG-COM-01. / E2: Outside the renewal window: MSG-FE19-03 with the opening date. / E3: Farm SUSPENDED: MSG-FE19-09 with "Send support ticket". / E4: Prices or receiving account unavailable: MSG-FE19-04 with Retry. / E5: VietQR image cannot be rendered: the transfer details remain shown as text. / E6: Save failure: MSG-COM-02; no request is created.
+Alternative Flows | AF1 – A valid PENDING request exists (step 4): MSG-FE19-01 offers to reopen its instructions; no new request. / AF2 – Price changed since review (step 4): MSG-FE19-02 shows old and new prices; the Owner reviews again (step 2). / AF3 – "Later" / "Close instructions": the request stays PENDING until it expires or is cancelled; it can be reopened from Payment History. / AF4 – Check again (step 6): the System refreshes the status; when PAID it shows the purchased period (MSG-FE19-06). / AF5 – Request expired: MSG-FE19-07 offers a new request. / AF6 – Cancel request (step 6, unexpired PENDING request without a received transfer): the Owner selects "Cancel request" and confirms with an optional reason (MSG-FE19-17); the System rechecks ownership, that the request is still unexpired PENDING and that no transfer has been received for it, records CANCELLED with time, Owner and reason, withdraws the instructions and offers a new request (MSG-FE19-18). A transfer paid before the cancellation time is still confirmed (GBR-72).
+Exceptions | E1: Not the Owner: MSG-COM-01. / E2: Outside the renewal window: MSG-FE19-03 with the opening date. / E3: Farm SUSPENDED: MSG-FE19-09 with "Send support ticket". / E4: Prices or receiving account unavailable: MSG-FE19-04 with Retry. / E5: VietQR image cannot be rendered: the transfer details remain shown as text. / E6: Save failure: MSG-COM-02; no request is created. / E7: Cancel when a transfer has already been received for the request: MSG-FE19-19; the request stays PENDING. / E8: Cancel when the request is no longer unexpired PENDING: MSG-COM-05; the current status is shown.
 Priority | High
 Frequency of Use | Once every 1–3 years per farm.
-Business Rules | GBR-69, GBR-70, GBR-71, GBR-75; BR-D23.
+Business Rules | GBR-69, GBR-70, GBR-71, GBR-72, GBR-75; BR-D23.
 Other Information | Screens SCR-57, SCR-58, SCR-59, SCR-60. API-01. JOB-03 expires requests.
 Assumptions | The Owner transfers from a Vietnamese bank account that supports VietQR.
 [/TABLE]
@@ -2748,10 +2752,10 @@ Assumptions | Rations are expressed per head for all animals of the pen; individ
 [TABLE block 719]
 UC ID and Name | UC-FE23-08 — Record Feeding Session
 Created By | G35 Team | Date Created | 22/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Record feeding session" (Ghi cữ cho ăn) or an empty session cell on Feeding Log (SCR-83), or opens reminder REM-11.
 Description | As a farm manager, I want to record the feed actually given to a pen in each session, so that stock is deducted automatically and consumption and cost can be compared with the ration.
-Preconditions | PRE-1: The user is a Farm Manager of an ACTIVE farm. / PRE-2: The pen is ACTIVE.
+Preconditions | PRE-1: The user is the Farm Owner or a Farm Manager of an ACTIVE farm. / PRE-2: The pen is ACTIVE.
 Postconditions | POST-1: One VALID feeding record exists for the pen, date and session with its lines, headcount and ration version. / POST-2: One FEEDING stock movement per feed deducts the actual kg at its average cost; REM-11 for the session is resolved; REM-10 is created for feeds at or below their minimum level.
 Normal Flow | 1. System shows popup "Record Feeding Session" for the selected date (default today) with pen and session. / 2. Manager selects the pen and session (if not preselected); System shows the feeding time, the effective ration version, the current headcount and, for each feed of the ration, the kg per head, the planned quantity (kg per head × headcount) and the current stock. / 3. Manager enters the actual kg of each feed, or selects "Fill from plan" (Điền theo kế hoạch) and adjusts; optionally adds feeds outside the ration, the leftover kg, the member who fed (Manager or Technician) and a note. / 4. Manager selects "Save & deduct stock" (Lưu & trừ kho). / 5. System validates: no VALID record exists for the pen, date and session; the date is not in the future; each actual quantity ≥ 0 and not more than the stock (GBR-102). / 6. System saves the record and the stock movements in one transaction, resolves REM-11 and evaluates REM-10. / 7. System shows MSG-FE23-12 and updates the Feeding Log.
 Alternative Flows | AF1 – No effective ration: MSG-FE23-20; the Manager enters actual feeds without a plan. / AF2 – Feed out of stock: the actual quantity of that feed is 0 and the reason is written in the note; the log shows "out of stock". / AF3 – Cancel: nothing changes (MSG-COM-14).
@@ -2766,10 +2770,10 @@ Assumptions | Feeding is recorded per pen, not per animal.
 [TABLE block 722]
 UC ID and Name | UC-FE23-09 — Correct or Void Feeding Record
 Created By | G35 Team | Date Created | 22/10/2026
-Primary Actor | Farm Manager | Secondary Actors | None
+Primary Actor | Farm Owner, Farm Manager | Secondary Actors | None
 Trigger | The Manager selects "Correct" (Sửa) or "Void" (Hủy) on a recorded session in Feeding Log (SCR-83).
 Description | As a farm manager, I want to correct or void a wrong feeding record with a reason, so that stock and consumption are right while the original entry stays traceable.
-Preconditions | PRE-1: The user is a Farm Manager of an ACTIVE farm. / PRE-2: The feeding record is VALID.
+Preconditions | PRE-1: The user is the Farm Owner or a Farm Manager of an ACTIVE farm. / PRE-2: The feeding record is VALID.
 Postconditions | POST-1: Correct: the new quantities are current, a Record Revision keeps the old values, reason, actor and time, and one FEEDING_CORRECTION movement per changed feed adjusts stock by the difference. / POST-2: Void: the record is VOIDED and one FEEDING_VOID movement per feed returns the deducted quantity to stock; REM-11 is re-evaluated for the session.
 Normal Flow | 1. System shows popup "Correct / Void Feeding Record" with the pen, session, date, recorder and time, and the action choice "Correct quantities" / "Void record". / 2. Manager keeps "Correct quantities" and enters the new kg of the feeds to correct; System shows the stock difference of each feed. / 3. Manager enters the reason and selects "Save changes". / 4. System validates that each new quantity ≥ 0, that no feed's stock becomes negative (BR-D36) and the version. / 5. System saves the correction, the Record Revision and the stock movements in one transaction and shows MSG-FE23-15.
 Alternative Flows | AF1 – Void record (step 1): the Manager enters the reason and confirms MSG-FE23-16; System voids the record, returns the stock and shows MSG-COM-09. / AF2 – Close: nothing changes.
@@ -2787,7 +2791,7 @@ Assumptions | —
 Item | Convention
 Required field | Marked with * on the label. A required field left empty shows MSG-COM-06 under it.
 Text | Leading and trailing spaces are removed. Unless stated otherwise: short text max 100 characters, long text (descriptions, notes, reasons) max 1,000 characters. A reason must contain at least 5 non-space characters.
-Date / time | Displayed as dd/mm/yyyy and HH:mm (24 h) in the farm time zone (platform screens: Asia/Ho_Chi_Minh). Date pickers do not allow future dates for events that already happened (MSG-COM-07).
+Date / time | Displayed as dd/mm/yyyy and HH:mm (24 h) in fixed UTC+07:00 across farm and platform screens. Date pickers do not allow future dates for events that already happened (MSG-COM-07).
 Numbers and money | Vietnamese format: "." thousands separator, "," decimal separator (e.g. 1.200.000 đ; 3,5). Money is whole VND. Weight in kg with at most 1 decimal.
 Lists | 20 rows per page with page navigation; sortable by the column headers marked in the field table; filters are kept while the user stays in the session. An empty result shows MSG-COM-04 with "Clear filters". A loading failure shows MSG-COM-03 with Retry.
 Status badges | Status values are shown with the codes used in this document (e.g. ACTIVE, PENDING, RESOLVED) and a Vietnamese label on the interface.
@@ -2796,7 +2800,8 @@ Dialog behaviour | Cancel or ✕ closes without saving; when data was entered, M
 Home screen by role | After sign-in, after entering a farm and from the logo: Farm Owner and Farm Manager → Farm Dashboard (SCR-48); Farm Technician → Technician Home (SCR-74); Customer Support → Ticket Queue (SCR-67); Platform Manager → Farm Service Overview (SCR-12); System Admin → User Accounts (SCR-16).
 Links from email | The verification link opens SCR-07 (or SCR-02 when Owner registration is not pending); the password-reset link opens SCR-06; the invitation link opens SCR-15 after sign-in or registration with the invited email.
 Read-only records | An EXITED cattle shows MSG-COM-13 and a VOIDED cattle MSG-COM-18, with no recording buttons; a cattle on a PENDING death voucher shows MSG-COM-17 and only correction and void actions (GBR-26). A farm that is not ACTIVE shows MSG-COM-12 on farm operation screens (GBR-14).
-Sign out | Available from the user menu in the top bar of every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
+User menu | The same avatar-and-name menu is used on farm, farm-selection and account screens. It contains exactly "My profile" (SCR-08) and "Sign out".
+Sign out | Available from the shared user menu on every signed-in screen (UC-FE01-03); ends the session, clears the selected farm and returns to SCR-02.
 Farm scope and versions | Every list, count and detail shows only data of the current farm (BR-D01); every update carries the record version (BR-D31, GBR-89).
 Phone screens | The same screens adapt to phone width: tables become cards, the sidebar becomes the bottom navigation and dialogs become full-screen sheets (NFR-I02).
 [/TABLE]
@@ -2902,20 +2907,21 @@ Complete and register farm | Button. Saves Owner registration and opens SCR-10.
 [TABLE block 776]
 [Figure to be inserted] Mockup – Figma 02 › "Hồ sơ & quyền của tôi"
 [/TABLE]
-[P778 ] This screen allows any signed-in user to view and update their own profile (UC-FE01-04) and to see the fixed permissions of their role in the current farm (GBR-06). Platform staff see their platform role instead of farm permissions.
+[P778 ] This shared account screen is available at one account destination for every signed-in role and does not depend on the selected farm. It has two tabs: Profile, for viewing and updating the user's own account data (UC-FE01-04), and Permissions by Role, for consulting the fixed Table III-2 matrix for Farm Owner, Farm Manager or Farm Technician (GBR-06). Platform staff may consult the same reference matrix; it does not grant permissions.
 [P779 ] Field Description
 [TABLE block 780]
 Field Name | Description
-Header | Full name and "role at farm name" (or platform role).
+Account navigation | Tabs Profile and Permissions by Role.
+Header | "My profile" on the Profile tab.
 Sign-in email | Read-only, with verification state.
 Sign-in methods | Read-only: Google and/or Email & password.
 Full name * | Text, 2–100 characters.
 Contact phone | Optional, Vietnamese phone format.
 Change password / Add password | Button. Opens popup "Change Password" (UC-FE01-06). "Add password" is shown when the account has no password.
-Save profile | Button. Saves name and phone; MSG-FE01-13.
-My permissions in this farm | 
-Role | Read-only: Farm Owner, Farm Manager or Farm Technician.
-Permission table | Read-only list of permission areas with the value for the user's role, as in Table III-2.
+Save profile | Button. Saves name and phone without password re-authentication; MSG-FE01-13. Email and sign-in methods do not change.
+Permissions by Role |
+Role selector | Farm Owner, Farm Manager or Farm Technician; one role at a time.
+Function table | Read-only Table III-2 reference for the selected role. Areas with no access are omitted; concise labels describe View, Manage, Record or Correct access. It does not depend on the user's membership or selected farm.
 [/TABLE]
 [P782 4] 1.8 Popup: Change Password
 [TABLE block 783]
@@ -2942,7 +2948,7 @@ Cancel / Save | Buttons. On success MSG-FE01-07; other sessions are ended.
 [P796 ] Field Description
 [TABLE block 797]
 Field Name | Description
-User | Read-only full name and email; sign-out link.
+User menu | Avatar initials and full name; exactly "My profile" (SCR-08) and "Sign out".
 Register new farm | Button. Opens SCR-10 (SCR-07 first when Owner registration is incomplete).
 Farm card (one per farm) | 
 Farm name, address | Read-only; commune and province.
@@ -2951,6 +2957,7 @@ Your role | Read-only: Farm Owner, Farm Manager or Farm Technician.
 Herd size | Number of ACTIVE cattle.
 Service | "Until dd/mm/yyyy", "No service period yet" or "Suspended".
 Card action | ACTIVE: "Enter farm" opens the farm home screen: SCR-48 for the Owner and a Manager, SCR-74 for a Technician. Owner + PENDING_PAYMENT: "Pay to activate" (SCR-58). Owner + EXPIRED: "Renew" (SCR-58). Owner + SUSPENDED: "Send support ticket" (SCR-65). Manager or Technician of a farm that is not ACTIVE: disabled card with "The Owner manages the subscription" (MSG-FE02-04).
+Quick farm switcher | On farm screens, the current farm name opens a menu of the user's farms. The current item is marked "Selected". Selecting an ACTIVE farm rechecks access, clears the previous farm's data and opens the new farm home; selecting a non-ACTIVE farm opens SCR-09. "Manage farms" opens SCR-09.
 [/TABLE]
 [P799 5] 2.1.2 SCR-10 Register Farm
 [TABLE block 800]
@@ -2984,7 +2991,7 @@ Field Name | Description
 Registration and contact | 
 Farm name *, Province / City *, Commune / Ward *, Detailed address, Contact person, Contact phone, Registration certificate information | As in SCR-10.
 Operating information | 
-Time zone | Dropdown, default Asia/Ho_Chi_Minh. Used for all farm dates (GBR-66).
+Time zone | Read-only. All business dates use fixed UTC+07:00 (GBR-66, D39).
 Morning shift start | Time HH:mm, optional (used for display of "today's" reminders).
 Operating notes | Long text, max 1,000 characters.
 Save changes | Button; MSG-FE02-05.
@@ -3058,24 +3065,24 @@ Joined | mm/yyyy.
 Actions | Owner only: "Change role · Deactivate" for ACTIVE members, "Reactivate" for INACTIVE members (popup "Change Role / Deactivate Member"). None on the Owner row.
 Permissions by role | Read-only Table III-2.
 [/TABLE]
-[P838 ] Table III-2 Permissions by farm role (shown on SCR-08 and SCR-13)
+[P838 ] Table III-2 Permissions by farm role (shown as a role-reference tab on SCR-08 and as the membership permission reference on SCR-13)
 [TABLE block 839]
 Permission area | Farm Owner | Farm Manager | Farm Technician
 Cattle profile and QR tag | Manage (incl. purpose) | Manage (except purpose) | View
 Pens and pen moves | Manage | Manage | View
 Herd entry vouchers, payments and calf registration | Manage | Manage | —
-Growth and BCS | View | Record and correct | View
-Vaccination | View | Plan, record and correct | View
-Health and treatment | View | Record and correct | View
-Reproduction | View | Record and correct | View
-Catalogues and parameters | Production purposes, parameters; view catalogues | Manage all | View breeds, vaccines, medicines
+Growth and BCS | Record and correct | Record and correct | View
+Vaccination | Plan, record and correct | Plan, record and correct | View
+Health and treatment | Record and correct | Record and correct | View
+Reproduction | Record and correct | Record and correct | View
+Catalogues and parameters | Manage all | Manage all | View all
 Farm announcements | Write to Managers and Technicians | Write to Technicians | Read received
-Reminders | View (except feeding sessions not recorded) | View all | View (except draft calves and low feed stock)
+Reminders | View all | View all | View (except draft calves and low feed stock)
 Dashboard and reports | View | View | —
 Members and roles | Manage | View list | —
 Herd exit vouchers and collections | Record, confirm, dismiss, void | View vouchers | —
 Feed stock, receipts, rations and catalogue | Manage | Manage | View rations
-Feeding log | View | Record and correct | View
+Feeding log | Record and correct | Record and correct | View
 Subscription and payment | Manage | — | —
 Farm information | Manage | — | —
 [/TABLE]
@@ -3754,11 +3761,11 @@ Open | Row action; opens SCR-30.
 [TABLE block 1080]
 [Figure to be inserted] Mockup – Figma 06 › "Hồ sơ bò › Tăng trưởng & BCS", "Kỹ thuật viên · Hồ sơ bò › Tăng trưởng & BCS"
 [/TABLE]
-[P1082 ] This tab allows farm members to view a cattle's growth (UC-FE08-02) and the Manager to record (UC-FE08-01) and correct (UC-FE08-03) measurements.
+[P1082 ] This tab allows farm members to view a cattle's growth (UC-FE08-02) and the Owner or a Manager to record (UC-FE08-01) and correct (UC-FE08-03) measurements.
 [P1083 ] Field Description
 [TABLE block 1084]
 Field Name | Description
-Record weight & BCS | Button (Manager); opens popup "Record Weight and BCS".
+Record weight & BCS | Button (Owner, Manager); opens popup "Record Weight and BCS".
 Latest weight | kg, date and basis.
 ADG 90 days | kg/day.
 Finishing projection | FATTENING cattle with a target finishing weight (GBR-107): "Target 450 kg · projected dd/mm/yyyy (n days) at ADG 60 days", "Target reached" (REM-13) or "Not enough weights".
@@ -3772,7 +3779,7 @@ BCS | Value.
 ADG | kg/day since the previous valid weight.
 Measured by | Member name.
 Status | VALID (with a "Corrected" marker when corrected), EXCLUDED or VOIDED (excluded and voided rows greyed).
-Actions | "Edit · Exclude" (Manager); opens popup "Correct / Exclude Growth Record".
+Actions | "Edit · Exclude" (Owner, Manager); opens popup "Correct / Exclude Growth Record".
 Next weighing | Due date from REM-01.
 [/TABLE]
 [P1086 4] 8.3 Popup: Record Weight and BCS
@@ -3780,7 +3787,7 @@ Next weighing | Due date from REM-01.
 [Figure to be inserted] Mockup – Figma 06 › "Ghi nhận cân & BCS"
 [/TABLE]
 [P1089 ] Opened from: SCR-30 Profile tab – Growth and BCS.
-[P1090 ] This dialog allows the Manager to record a growth assessment (UC-FE08-01).
+[P1090 ] This dialog allows the Owner or a Manager to record a growth assessment (UC-FE08-01).
 [P1091 ] Field Description
 [TABLE block 1092]
 Field Name | Description
@@ -3799,7 +3806,7 @@ Cancel / Save assessment | Buttons; success MSG-FE08-01; large change MSG-FE08-0
 [Figure to be inserted] Mockup – Figma 06 › "Sửa / loại trừ bản ghi cân"
 [/TABLE]
 [P1097 ] Opened from: SCR-30 Profile tab – Growth and BCS; SCR-50 Profile tab – Timeline.
-[P1098 ] This dialog allows the Manager to correct or exclude a growth record (UC-FE08-03).
+[P1098 ] This dialog allows the Owner or a Manager to correct or exclude a growth record (UC-FE08-03).
 [P1099 ] Field Description
 [TABLE block 1100]
 Field Name | Description
@@ -3815,31 +3822,31 @@ Cancel / Save | Buttons; success MSG-FE08-05.
 [TABLE block 1105]
 [Figure to be inserted] Mockup – Figma 06 › "Lịch tiêm phòng"
 [/TABLE]
-[P1107 ] This screen allows farm members to view schedules and doses by due status (UC-FE09-01). The Manager can manage schedules, select doses for batch recording (UC-FE09-05) and defer doses (UC-FE09-06).
+[P1107 ] This screen allows farm members to view schedules and doses by due status (UC-FE09-01). The Owner or a Manager can manage schedules, select doses for batch recording (UC-FE09-05) and defer doses (UC-FE09-06).
 [P1108 ] Field Description
 [TABLE block 1109]
 Field Name | Description
 Vaccination history | Button; opens SCR-35.
-Manage schedules | Button (Manager); opens SCR-32.
-Record vaccination | Button (Manager); opens SCR-33 for the selected doses.
+Manage schedules | Button (Owner, Manager); opens SCR-32.
+Record vaccination | Button (Owner, Manager); opens SCR-33 for the selected doses.
 Schedule cards | 
 Schedule | Name, vaccine, number of doses and interval.
 Progress | "Done x / y" and "n overdue" or "On track".
 Dose tabs | All, Overdue, Due within 7 days, Upcoming, Deferred, Done – with counts (GBR-43).
 Dose list | 
-Select | Checkbox (Manager) for batch recording.
+Select | Checkbox (Owner, Manager) for batch recording.
 Cattle | Display code, breed, sex.
 Pen | Pen code – name.
 Schedule · Dose | e.g. "FMD 2026 · dose 2/2" or "booster".
 Planned date | dd/mm/yyyy (sortable).
 Status | Overdue n days / Due / Upcoming / Deferred to dd/mm / Done dd/mm.
-Actions | "Record" opens SCR-33 with the dose; "Defer" opens popup "Defer Dose" (Manager).
+Actions | "Record" opens SCR-33 with the dose; "Defer" opens popup "Defer Dose" (Owner, Manager).
 [/TABLE]
 [P1111 5] 9.1.2 SCR-32 Manage Vaccination Schedule
 [TABLE block 1112]
 [Figure to be inserted] Mockup – Figma 06 › "Quản lý lịch tiêm"
 [/TABLE]
-[P1114 ] This screen allows the Manager to create (UC-FE09-02), update (UC-FE09-03) or stop (UC-FE09-04) a schedule.
+[P1114 ] This screen allows the Owner or a Manager to create (UC-FE09-02), update (UC-FE09-03) or stop (UC-FE09-04) a schedule.
 [P1115 ] Field Description
 [TABLE block 1116]
 Field Name | Description
@@ -3865,7 +3872,7 @@ Save schedule | Button; success MSG-FE09-01. Changes affect only doses not yet g
 [TABLE block 1120]
 [Figure to be inserted] Mockup – Figma 06 › "Ghi nhận tiêm"
 [/TABLE]
-[P1122 ] This screen allows the Manager to record a vaccination for one cattle or a batch (UC-FE09-05).
+[P1122 ] This screen allows the Owner or a Manager to record a vaccination for one cattle or a batch (UC-FE09-05).
 [P1123 ] Field Description
 [TABLE block 1124]
 Field Name | Description
@@ -3889,14 +3896,14 @@ Cancel / Save n vaccinations | Buttons; success MSG-FE09-04.
 [TABLE block 1127]
 [Figure to be inserted] Mockup – Figma 06 › "Hồ sơ bò › Tiêm phòng", "Kỹ thuật viên · Hồ sơ bò › Tiêm phòng"
 [/TABLE]
-[P1129 ] This tab allows farm members to view a cattle's scheduled doses and vaccination history (UC-FE09-01, UC-FE09-07); the Manager records, defers and corrects (UC-FE09-05, 06, 08).
+[P1129 ] This tab allows farm members to view a cattle's scheduled doses and vaccination history (UC-FE09-01, UC-FE09-07); the Owner or a Manager records, defers and corrects (UC-FE09-05, 06, 08).
 [P1130 ] Field Description
 [TABLE block 1131]
 Field Name | Description
-Record vaccination | Button (Manager); opens SCR-33 for this cattle.
+Record vaccination | Button (Owner, Manager); opens SCR-33 for this cattle.
 Scheduled doses | 
 Schedule, Dose, Planned date, Status | As in SCR-31.
-Actions | "Record" opens SCR-33 with the dose; "Defer" opens popup "Defer Dose" (Manager).
+Actions | "Record" opens SCR-33 with the dose; "Defer" opens popup "Defer Dose" (Owner, Manager).
 Vaccination history | 
 Administered at | dd/mm/yyyy HH:mm (sortable).
 Vaccine · dose | Vaccine name snapshot and dose number.
@@ -3905,14 +3912,14 @@ Withdrawal until | Withdrawal end date of an on-farm record, or "—".
 Source | On-farm / Historical.
 Vaccinator | Name.
 Reaction | Linked health case code, or "—".
-Actions | "Edit · Void" (Manager); opens popup "Correct / Void Vaccination". Voided rows greyed.
+Actions | "Edit · Void" (Owner, Manager); opens popup "Correct / Void Vaccination". Voided rows greyed.
 [/TABLE]
 [P1133 5] 9.2.3 Popup: Defer Dose
 [TABLE block 1134]
 [Figure to be inserted] Mockup – Figma 06 › "Hoãn mũi tiêm"
 [/TABLE]
 [P1136 ] Opened from: SCR-31 Vaccination Schedule; SCR-34 Profile tab – Vaccination.
-[P1137 ] This dialog allows the Manager to defer a scheduled dose (UC-FE09-06).
+[P1137 ] This dialog allows the Owner or a Manager to defer a scheduled dose (UC-FE09-06).
 [P1138 ] Field Description
 [TABLE block 1139]
 Field Name | Description
@@ -3940,7 +3947,7 @@ Administered at, Cattle · pen, Vaccine · dose, Batch · amount, Source, Vaccin
 [Figure to be inserted] Mockup – Figma 17 › "Sửa / hủy bản ghi tiêm"
 [/TABLE]
 [P1151 ] Opened from: SCR-34 Profile tab – Vaccination; SCR-50 Profile tab – Timeline.
-[P1152 ] This dialog allows the Manager to correct or void a vaccination record (UC-FE09-08).
+[P1152 ] This dialog allows the Owner or a Manager to correct or void a vaccination record (UC-FE09-08).
 [P1153 ] Field Description
 [TABLE block 1154]
 Field Name | Description
@@ -3977,21 +3984,21 @@ Open | Row action; opens SCR-37 on the case.
 [TABLE block 1165]
 [Figure to be inserted] Mockup – Figma 06 › "Hồ sơ bò › Sức khỏe", "Kỹ thuật viên · Hồ sơ bò › Sức khỏe"
 [/TABLE]
-[P1167 ] This tab allows farm members to view a cattle's cases, observations and treatments (UC-FE10-01); the Manager opens, follows up, treats, moves to or from chronic monitoring and closes cases (UC-FE10-02, 03, 04).
+[P1167 ] This tab allows farm members to view a cattle's cases, observations and treatments (UC-FE10-01); the Owner or a Manager opens, follows up, treats, moves to or from chronic monitoring and closes cases (UC-FE10-02, 03, 04).
 [P1168 ] Field Description
 [TABLE block 1169]
 Field Name | Description
 Health state | Healthy / Monitoring / Under treatment (GBR-45).
-Open health case | Button (Manager); opens popup "Open Health Case".
+Open health case | Button (Owner, Manager); opens popup "Open Health Case".
 Case card (one per OPEN or CHRONIC case) | 
 Case | Code and main signs.
 Status | OPEN · day n, or CHRONIC · since dd/mm/yyyy.
 Severity, Opened at, Number of treatments | Read-only.
 Meat withdrawal until | Latest withdrawal end date of the cattle from treatments and on-farm vaccinations (GBR-46), or "—".
-Record follow-up / Record treatment / Update status | Buttons (Manager); open popup "Record Follow-up" / popup "Record Treatment" / popup "Update / Close Health Case".
+Record follow-up / Record treatment / Update status | Buttons (Owner, Manager); open popup "Record Follow-up" / popup "Record Treatment" / popup "Update / Close Health Case".
 Progress and treatments | 
 Time, Type, Details, Recorded by | Chronological rows: Opened (signs, temperature), Follow-up (progress, description), Treatment (medicine, dose, route, withdrawal); corrected rows marked "Corrected", voided rows greyed.
-Actions | "Edit · Void" on follow-up and treatment rows, "Edit" on the opening observation (Manager); opens popup "Correct / Void Treatment or Follow-up" (UC-FE10-05).
+Actions | "Edit · Void" on follow-up and treatment rows, "Edit" on the opening observation (Owner, Manager); opens popup "Correct / Void Treatment or Follow-up" (UC-FE10-05).
 Previous cases | 
 Case code, Signs, Outcome · month | Read-only rows.
 [/TABLE]
@@ -4000,7 +4007,7 @@ Case code, Signs, Outcome · month | Read-only rows.
 [Figure to be inserted] Mockup – Figma 06 › "Mở ca sức khỏe / ghi bất thường"
 [/TABLE]
 [P1174 ] Opened from: SCR-37 Profile tab – Health.
-[P1175 ] This dialog allows the Manager to record an abnormal observation and open or link a case (UC-FE10-02).
+[P1175 ] This dialog allows the Owner or a Manager to record an abnormal observation and open or link a case (UC-FE10-02).
 [P1176 ] Field Description
 [TABLE block 1177]
 Field Name | Description
@@ -4021,7 +4028,7 @@ Cancel / Save | Buttons; success MSG-FE10-01.
 [Figure to be inserted] Mockup – Figma 06 › "Ghi theo dõi ca sức khỏe"
 [/TABLE]
 [P1182 ] Opened from: SCR-37 Profile tab – Health.
-[P1183 ] This dialog allows the Manager to add a follow-up observation (UC-FE10-03).
+[P1183 ] This dialog allows the Owner or a Manager to add a follow-up observation (UC-FE10-03).
 [P1184 ] Field Description
 [TABLE block 1185]
 Field Name | Description
@@ -4037,7 +4044,7 @@ Cancel / Save follow-up | Buttons; success MSG-FE10-02.
 [Figure to be inserted] Mockup – Figma 06 › "Ghi điều trị"
 [/TABLE]
 [P1190 ] Opened from: SCR-37 Profile tab – Health.
-[P1191 ] This dialog allows the Manager to record a treatment given (UC-FE10-04).
+[P1191 ] This dialog allows the Owner or a Manager to record a treatment given (UC-FE10-04).
 [P1192 ] Field Description
 [TABLE block 1193]
 Field Name | Description
@@ -4059,12 +4066,13 @@ Cancel / Save treatment | Buttons; success MSG-FE10-03.
 [Figure to be inserted] Mockup – Figma 06 › "Cập nhật trạng thái / đóng ca"
 [/TABLE]
 [P1198 ] Opened from: SCR-37 Profile tab – Health.
-[P1199 ] This dialog allows the Manager to keep a case open with new progress, move it to or from chronic monitoring, or close it with an outcome (UC-FE10-03).
+[P1199 ] This dialog allows the Owner or a Manager to keep a case open with new progress, move it to or from chronic monitoring, or close it with an outcome (UC-FE10-03).
 [P1200 ] Field Description
 [TABLE block 1201]
 Field Name | Description
 Case | Read-only code, cattle, opening date, current status (OPEN or CHRONIC).
 Latest progress | Long text, max 1,000; saved as a follow-up observation.
+Progress | Improved / Unchanged / Worsened, no default; required when the dialog saves a follow-up observation (Keep OPEN / Keep CHRONIC, or Latest progress entered) (MSG-COM-06).
 Suspected diagnosis, Contagious | Editable as in popup "Open Health Case".
 Case status * | For an OPEN case: Keep OPEN (default) / Move to chronic monitoring / Close case. For a CHRONIC case: Keep CHRONIC (default) / Return to OPEN / Close case.
 Outcome * | Recovered / Died / Missing; shown and required only when closing. Died or Missing shows MSG-FE10-05 before saving; the PENDING death voucher is then completed by the Owner in SCR-43, reached from REM-12 or the exit voucher list (SCR-41).
@@ -4077,7 +4085,7 @@ Cancel / Save | Buttons; success MSG-FE10-04 (closed), MSG-FE10-08 (moved to chr
 [Figure to be inserted] Mockup – Figma 06 › "Sửa / hủy bản ghi điều trị"; Figma 17 › "Sửa / hủy bản ghi điều trị"
 [/TABLE]
 [P1206 ] Opened from: SCR-37 Profile tab – Health.
-[P1207 ] This dialog allows the Manager to correct or void a treatment or a follow-up observation (UC-FE10-05).
+[P1207 ] This dialog allows the Owner or a Manager to correct or void a treatment or a follow-up observation (UC-FE10-05).
 [P1208 ] Field Description
 [TABLE block 1209]
 Field Name | Description
@@ -4121,7 +4129,7 @@ Open | Row action; opens SCR-39.
 [TABLE block 1220]
 [Figure to be inserted] Mockup – Figma 07 › "Hồ sơ bò › Sinh sản – Đang động dục / Đã phối, chờ khám thai / Đang mang thai", Technician read-only variants
 [/TABLE]
-[P1222 ] This tab shows a female's reproductive status, breeding eligibility, window, current pregnancy and reproduction timeline (UC-FE11-01, UC-FE12-01). The Manager sees the recording buttons allowed by the status (GBR-54) and "Edit · Void" on timeline rows; the Owner and Technicians see the tab read-only.
+[P1222 ] This tab shows a female's reproductive status, breeding eligibility, window, current pregnancy and reproduction timeline (UC-FE11-01, UC-FE12-01). The Owner and Managers see the recording buttons allowed by the status (GBR-54) and "Edit · Void" on timeline rows; Technicians see the tab read-only.
 [P1223 ] Field Description
 [TABLE block 1224]
 Field Name | Description
@@ -4131,8 +4139,8 @@ Services in current cycle, Parity, Last calving, Latest weight | Read-only. Pari
 Declared at entry | Bought-in females with a declared pregnancy and no later check: "Declared pregnant ~n months (not checked)" with "Record pregnancy check".
 Reproduction indicators | Per female (GBR-106); "—" when not yet applicable.
 Age at first calving, Last calving interval, Days since last calving, Days open (current or last cycle), Conception record | Read-only, e.g. "26 months · 392 days · 64 days · 81 days · 3 pregnancies from 5 services"; "Overdue for conception" badge when GBR-106 (8) applies.
-Action buttons | Manager only, by status (GBR-54): AWAITING_BREEDING and IN_ESTRUS – Record estrus (popup "Record Estrus"), Record breeding (popup "Record Breeding"); BRED – Record estrus, Record pregnancy check (popup "Record Pregnancy Check"), Record calving (SCR-40); PREGNANT – Record pregnancy check, Record pregnancy update (popup "Record Pregnancy Update"), Record calving; POST_CALVING – Record estrus, Record breeding.
-More actions | Manager only, for any ACTIVE female at stage Young stock or Adult: Record pregnancy check; Record calving (untracked pregnancy).
+Action buttons | Owner and Manager only, by status (GBR-54): AWAITING_BREEDING and IN_ESTRUS – Record estrus (popup "Record Estrus"), Record breeding (popup "Record Breeding"); BRED – Record estrus, Record pregnancy check (popup "Record Pregnancy Check"), Record calving (SCR-40); PREGNANT – Record pregnancy check, Record pregnancy update (popup "Record Pregnancy Update"), Record calving; POST_CALVING – Record estrus, Record breeding.
+More actions | Owner and Manager only, for any ACTIVE female at stage Young stock or Adult: Record pregnancy check; Record calving (untracked pregnancy).
 Breeding eligibility | Shown for AWAITING_BREEDING, IN_ESTRUS and POST_CALVING.
 Overall result | Met / Not met (advisory, GBR-55).
 Criterion / Value / Result | Minimum age, minimum weight (latest valid weight), no OPEN health case – Met / Not met.
@@ -4145,7 +4153,7 @@ Pregnancy number, Linked breeding, Confirmed on, Expected calving date (CONFIRME
 Reproduction timeline | 
 Event type, From, To | Filters.
 Time, Event, Details, Data source, Recorded by | Rows of estrus, breeding, checks, pregnancy updates and calvings; corrected rows marked "Corrected", voided rows greyed.
-Actions | "Edit · Void" (Manager); open popup "Correct / Void Estrus or Breeding", popup "Correct / Void Pregnancy Check" or popup "Correct / Void Pregnancy and Calving Record".
+Actions | "Edit · Void" (Owner, Manager); open popup "Correct / Void Estrus or Breeding", popup "Correct / Void Pregnancy Check" or popup "Correct / Void Pregnancy and Calving Record".
 Calving history | 
 Calving date, Calf outcomes, Registration | e.g. "Calf 1: Live · Female · 22 kg" – cattle code, "Draft" or "Died before registration".
 [/TABLE]
@@ -4154,7 +4162,7 @@ Calving date, Calf outcomes, Registration | e.g. "Calf 1: Live · Female · 22 k
 [Figure to be inserted] Mockup – Figma 07 › "Ghi động dục (mở từ hồ sơ …)"
 [/TABLE]
 [P1229 ] Opened from: SCR-39 Profile tab – Reproduction.
-[P1230 ] This dialog allows the Manager to record an observed estrus (UC-FE11-02).
+[P1230 ] This dialog allows the Owner or a Manager to record an observed estrus (UC-FE11-02).
 [P1231 ] Field Description
 [TABLE block 1232]
 Field Name | Description
@@ -4170,7 +4178,7 @@ Cancel / Save estrus | Buttons; success MSG-FE11-01; possible duplicate MSG-FE11
 [Figure to be inserted] Mockup – Figma 07 › "Ghi phối giống (mở từ hồ sơ …)"
 [/TABLE]
 [P1237 ] Opened from: SCR-39 Profile tab – Reproduction.
-[P1238 ] This dialog allows the Manager to record a breeding (UC-FE11-03).
+[P1238 ] This dialog allows the Owner or a Manager to record a breeding (UC-FE11-03).
 [P1239 ] Field Description
 [TABLE block 1240]
 Field Name | Description
@@ -4195,7 +4203,7 @@ Cancel / Save breeding | Buttons; success MSG-FE11-02; eligibility Not met MSG-F
 [Figure to be inserted] Mockup – Figma 07 › "Sửa / hủy bản ghi động dục, phối giống (từ dòng thời gian)"
 [/TABLE]
 [P1245 ] Opened from: SCR-39 Profile tab – Reproduction; SCR-50 Profile tab – Timeline.
-[P1246 ] This dialog allows the Manager to correct or void an estrus or breeding record (UC-FE11-04).
+[P1246 ] This dialog allows the Owner or a Manager to correct or void an estrus or breeding record (UC-FE11-04).
 [P1247 ] Field Description
 [TABLE block 1248]
 Field Name | Description
@@ -4211,7 +4219,7 @@ Cancel / Save | Buttons; success MSG-FE11-06; dependencies MSG-FE11-07.
 [Figure to be inserted] Mockup – Figma 07 › "Ghi khám thai (mở từ hồ sơ …)"
 [/TABLE]
 [P1254 ] Opened from: SCR-39 Profile tab – Reproduction.
-[P1255 ] This dialog allows the Manager to record a pregnancy check (UC-FE12-02).
+[P1255 ] This dialog allows the Owner or a Manager to record a pregnancy check (UC-FE12-02).
 [P1256 ] Field Description
 [TABLE block 1257]
 Field Name | Description
@@ -4232,7 +4240,7 @@ Cancel / Save check result | Buttons; success MSG-FE12-01.
 [Figure to be inserted] Mockup – Figma 07 › "Ghi diễn biến thai (mở từ hồ sơ …)"
 [/TABLE]
 [P1262 ] Opened from: SCR-39 Profile tab – Reproduction.
-[P1263 ] This dialog allows the Manager to record a pregnancy observation, complication or loss (UC-FE12-03).
+[P1263 ] This dialog allows the Owner or a Manager to record a pregnancy observation, complication or loss (UC-FE12-03).
 [P1264 ] Field Description
 [TABLE block 1265]
 Field Name | Description
@@ -4248,7 +4256,7 @@ Cancel / Save update | Buttons; success MSG-FE12-03; loss MSG-FE12-04.
 [TABLE block 1268]
 [Figure to be inserted] Mockup – Figma 07 › "Ghi sự kiện đẻ & kết quả bê", "Ghi sự kiện đẻ – lỗi trùng mã thẻ tai"
 [/TABLE]
-[P1270 ] This page allows the Manager to record a calving and its calf outcomes (UC-FE12-04).
+[P1270 ] This page allows the Owner or a Manager to record a calving and its calf outcomes (UC-FE12-04).
 [P1271 ] Field Description
 [TABLE block 1272]
 Field Name | Description
@@ -4279,7 +4287,7 @@ Cancel / Save calving | Buttons; success MSG-FE12-05 with MSG-FE12-09 / MSG-FE12
 [Figure to be inserted] Mockup – Figma 07 › "Sửa / hủy kết quả khám thai (từ dòng thời gian)"
 [/TABLE]
 [P1277 ] Opened from: SCR-39 Profile tab – Reproduction; SCR-50 Profile tab – Timeline.
-[P1278 ] This dialog allows the Manager to correct or void a pregnancy check (UC-FE12-05).
+[P1278 ] This dialog allows the Owner or a Manager to correct or void a pregnancy check (UC-FE12-05).
 [P1279 ] Field Description
 [TABLE block 1280]
 Field Name | Description
@@ -4294,7 +4302,7 @@ Cancel / Save | Buttons; success MSG-FE11-06; dependencies MSG-FE11-07.
 [Figure to be inserted] Mockup – Figma 07 › "Sửa / hủy diễn biến thai, sự kiện đẻ, kết quả bê (từ dòng thời gian)"
 [/TABLE]
 [P1285 ] Opened from: SCR-39 Profile tab – Reproduction; SCR-50 Profile tab – Timeline.
-[P1286 ] This dialog allows the Manager to correct or void a pregnancy update, calving or calf outcome (UC-FE12-06).
+[P1286 ] This dialog allows the Owner or a Manager to correct or void a pregnancy update, calving or calf outcome (UC-FE12-06).
 [P1287 ] Field Description
 [TABLE block 1288]
 Field Name | Description
@@ -4465,7 +4473,7 @@ REM-07 | Post-calving breeding readiness | Calving of the female. | Calving time
 REM-08 | Pen move or life-stage suggestion | Pen move: ACTIVE cattle that no longer meets the effective reception criteria of its current pen (purpose type, life stage, sex, minimum age or weight). Life stage: ACTIVE cattle whose age reaches the next stage age (Unweaned calf → Weaned calf at the weaning age, 6 months; Weaned calf → Young stock at the young-stock age, 12 months; Young stock → Adult at the adult age, 24 months), or a female not yet Adult with a first VALID calving. No stage suggestion when the birth date is UNKNOWN. | Pen move: immediately. Life stage: the date the age is reached, or the calving date. | Pen move: resolved by a pen move or when the cattle meets the criteria again. Life stage: resolved by a life-stage change (UC-FE05-03). Both cancelled at exit. Suggestions never change pen or stage by themselves (GBR-25). | Owner, Manager, Technician | popup "Move Pen" or popup "Update Cattle Profile"
 REM-09 | Draft calf awaiting confirmation | Calf outcome in PENDING_CONFIRMATION. | Immediately; highlighted after 3 days. | Resolved by registration or "died before registration"; cancelled when the calving is voided. | Owner, Manager | SCR-25
 REM-10 | Low feed stock | ACTIVE feed item with a minimum stock level whose stock is at or below that level (GBR-104). | Immediately; shown as "Out of stock" at 0 kg. | Resolved when a posted receipt or adjustment brings the stock above the minimum level; cancelled when the item becomes inactive or its minimum level is removed. | Owner, Manager | SCR-77 (receive: SCR-79)
-REM-11 | Feeding session not recorded | Session of the effective ration of an ACTIVE pen with cattle, for today (GBR-104). | Session time + 2 hours. | Resolved by a VALID feeding record for the pen, date and session; cancelled at the end of the day, when the ration ends or the pen has no cattle. | Manager, Technician | SCR-83 (record: popup "Record Feeding Session")
+REM-11 | Feeding session not recorded | Session of the effective ration of an ACTIVE pen with cattle, for today (GBR-104). | Session time + 2 hours. | Resolved by a VALID feeding record for the pen, date and session; cancelled at the end of the day, when the ration ends or the pen has no cattle. | Owner, Manager, Technician | SCR-83 (record: popup "Record Feeding Session")
 REM-12 | Death or loss awaiting confirmation | PENDING DEATH herd exit voucher created when a health case was closed as DIED or MISSING (GBR-95). | Immediately; highlighted after 3 days. | Resolved when the Owner confirms or dismisses the voucher; cancelled when the voucher is voided or the case closure is corrected. | Owner, Manager | SCR-43 (Owner acts; a Manager sees the status)
 REM-13 | Finishing weight reached | ACTIVE cattle with purpose type FATTENING whose latest valid weight is at or above the target finishing weight (farm parameter, GBR-107). | The date of the weight record. | Resolved by a herd exit or a change of purpose; cancelled when a corrected weight falls below the target or the parameter is removed. | Owner, Manager | SCR-30 (Owner may start an exit voucher: SCR-42)
 [/TABLE]
@@ -4477,7 +4485,7 @@ REM-13 | Finishing weight reached | ACTIVE cattle with purpose type FATTENING wh
 [P1346 ] Field Description
 [TABLE block 1347]
 Field Name | Description
-Type tabs | All, Vaccination, Calving, Breeding, Pregnancy check, Pen move & life stage, Weighing, Draft calves (Owner and Manager), Herd exit & finishing (REM-12, REM-13; Owner and Manager), Feed (low stock for the Owner and Manager; sessions not recorded for the Manager and Technician) – each with count.
+Type tabs | All, Vaccination, Calving, Breeding, Pregnancy check, Pen move & life stage, Weighing, Draft calves (Owner and Manager), Herd exit & finishing (REM-12, REM-13; Owner and Manager), Feed (low stock for the Owner and Manager; sessions not recorded for the Owner, Manager and Technician) – each with count.
 Groups | Overdue (n), Today (n), Upcoming within 7 days (n).
 Reminder item | 
 Title | Rule text with key value (e.g. "FMD dose 2", "Breeding window 14:30–18:30", "Expected calving 22/10 – prepare calving pen").
@@ -4768,7 +4776,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1445]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Production Purpose Catalogue & Availability"
 [/TABLE]
-[P1447 ] This screen allows the Owner or a Manager to view and maintain production purposes (UC-FE18-13 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
+[P1447 ] Farm members view production purposes (UC-FE18-13). The Owner and Managers maintain them (UC-FE18-14 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
 [P1448 ] Field Description
 [TABLE block 1449]
 Field Name | Description
@@ -4787,7 +4795,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1452]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Farm State and Reminder References"
 [/TABLE]
-[P1454 ] This screen allows the Owner or a Manager to view the effective parameters and save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
+[P1454 ] Farm members can view the effective parameters and version history. Only the Owner and Managers can save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
 [P1455 ] Field Description
 [TABLE block 1456]
 Field Name | Description
@@ -4880,8 +4888,8 @@ Back / Later | Buttons; "Later" leaves the farm in its current status.
 [TABLE block 1479]
 Field Name | Description
 Title | "Request code · term · farm".
-VietQR | QR image (API-01) encoding bank, account, amount and transfer content; hidden when EXPIRED.
-Status | PENDING / PAID / EXPIRED badge.
+VietQR | QR image (API-01) encoding bank, account, amount and transfer content; hidden when EXPIRED or CANCELLED.
+Status | PENDING / PAID / EXPIRED / CANCELLED badge.
 Valid for | Countdown hh:mm:ss until expiry.
 Expires at | dd/mm/yyyy HH:mm.
 Transfer details | 
@@ -4889,6 +4897,7 @@ Receiving bank, Account number, Account name, Amount, Transfer content | Read-on
 Progress | 
 Step / Time / Status | Request created (time, Done); Bank transaction received (time or —, Waiting); Confirmed and period granted (time or —, Not yet / Done with period).
 Check again | Button; refreshes the status (MSG-FE19-08 when the result cannot be retrieved).
+Cancel request | Button; shown while the request is unexpired PENDING and no transfer has been received for it (UC-FE19-02 AF6); confirmation MSG-FE19-17 with optional reason (max 1,000); afterwards the status is CANCELLED, the QR is hidden and MSG-FE19-18 offers a new request; blocked MSG-FE19-19.
 View history / Close instructions | Buttons; "View history" opens SCR-60; "Close instructions" returns to the source screen (SCR-57, SCR-60 or SCR-09) and changes nothing.
 Enter farm / Back to subscription | Shown when the status becomes PAID. First payment of a new farm: "Enter farm" opens SCR-48. Renewal: "Back to subscription" opens SCR-57.
 [/TABLE]
@@ -4901,17 +4910,17 @@ Enter farm / Back to subscription | Shown when the status becomes PAID. First pa
 [TABLE block 1486]
 Field Name | Description
 Search payment code | Text.
-Status | All, PENDING, PAID, EXPIRED.
+Status | All, PENDING, PAID, EXPIRED, CANCELLED.
 Created from / to | Date range.
 Payment list | 
 Code, Term, Amount | Read-only.
 Created at, Expires at | dd/mm/yyyy HH:mm (sortable).
-Status | PENDING / PAID / EXPIRED.
+Status | PENDING / PAID / EXPIRED / CANCELLED.
 Confirmed at · period | For PAID.
 Actions | PENDING: "Reopen" (SCR-59); others: "View" (opens the payment detail panel below).
 Payment detail | 
 Code, Status, Farm, Price version, Term, Amount | Read-only.
-Bank paid at, Received at, Confirmed at | Read-only timestamps (seconds).
+Bank paid at, Received at, Confirmed at, Cancelled at | Read-only timestamps (seconds); a cancelled request also shows its cancellation reason.
 Purchased period | Start → end.
 Empty state | "No payment yet" with "View farm subscription".
 [/TABLE]
@@ -4924,14 +4933,14 @@ Empty state | "No payment yet" with "View farm subscription".
 [P1493 ] Field Description
 [TABLE block 1494]
 Field Name | Description
-Search | Farm name or subscription code.
+Search | Farm name or payment code of a purchased period.
 Coverage | All, Current, Future only, None.
 Service / suspension | Service status filter.
 Coverage end from / to | Date range.
 Subscription list | 
 Farm, Owner, Service, Current period, Confirmed until | Read-only (sortable by confirmed until).
 Subscription detail | 
-Subscription code, Service and suspension, Current period, Renewal opens, Latest purchase (term, payment code) | Read-only.
+Farm, Service and suspension, Current period, Renewal opens, Latest purchase (term, payment code) | Read-only.
 Purchased periods | Period, term, confirmed at, source payment link ("View source payment" opens SCR-62).
 Farm without subscription | "No subscription yet: no period or end date."
 [/TABLE]
@@ -5241,7 +5250,7 @@ Contact | Email tuanpqhe181869@fpt.edu.vn and phone 0386 671 863; no address (OR
 Footer | Copyright BeefCare.
 [/TABLE]
 [P1601 3] 23. FE-23 Feed Management
-[P1602 ] Feed Management is a page of the Care menu with the tabs Stock, Feed Receipts, Stock Count, Rations, Feeding Log, Catalogue and Report. Stock is kept in kg per feed item and changes only through posted receipts, stock adjustments and feeding records (GBR-99); it is never negative (BR-D36). The Owner and Managers manage stock, rations and the catalogue; only Managers record feeding; Technicians view rations and the feeding log (GBR-103).
+[P1602 ] Feed Management is a page of the Care menu with the tabs Stock, Feed Receipts, Stock Count, Rations, Feeding Log, Catalogue and Report. Stock is kept in kg per feed item and changes only through posted receipts, stock adjustments and feeding records (GBR-99); it is never negative (BR-D36). The Owner and Managers manage stock, rations and the catalogue and record feeding; Technicians view rations and the feeding log (GBR-103).
 [P1603 4] 23.1 Feed Stock
 [P1604 5] 23.1.1 SCR-77 Feed Stock
 [TABLE block 1605]
@@ -5413,11 +5422,11 @@ Notice | "View only – the Manager records feeding sessions. Report shortages t
 [TABLE block 1656]
 [Figure to be inserted] Mockup – Figma 10 › "Nhật ký cho ăn – theo ngày"
 [/TABLE]
-[P1658 ] This screen allows the Owner, a Manager or a Technician to view feeding sessions (UC-FE23-07); the Manager records (UC-FE23-08) and corrects or voids them (UC-FE23-09).
+[P1658 ] This screen allows the Owner, a Manager or a Technician to view feeding sessions (UC-FE23-07); the Owner or a Manager records (UC-FE23-08) and corrects or voids them (UC-FE23-09).
 [P1659 ] Field Description
 [TABLE block 1660]
 Field Name | Description
-Record feeding session | Button (Manager); opens popup "Record Feeding Session". "Quick fill from ration" fills the selected empty sessions with planned quantities for review.
+Record feeding session | Button (Owner, Manager); opens popup "Record Feeding Session". "Quick fill from ration" fills the selected empty sessions with planned quantities for review.
 Date | Day selector, default today; view By day / By week.
 Session, Pen | Filters.
 Summary tiles | Actual today vs planned for the day (kg); sessions recorded / expected and the pens not yet recorded (REM-11); variance of recorded sessions (%); stock deducted today (value at average cost).
@@ -5426,17 +5435,17 @@ Pen / Head | Pen, headcount, ration code and version.
 Session columns | Planned → actual kg, time and person who fed, or "Not recorded"; notes such as out-of-stock feeds.
 Whole day | Actual / planned kg.
 Recorded by | Member name.
-⋯ | Manager: "Correct" or "Void" (popup "Correct / Void Feeding Record").
+⋯ | Owner, Manager: "Correct" or "Void" (popup "Correct / Void Feeding Record").
 Totals row | Pens, head, actual / planned kg.
 Consumption by feed today | Feed, actual kg, remaining stock, status (Low, Out of stock).
-Notices | REM-11 sessions not recorded; REM-10 low feeds with a link to SCR-79; "Medicine mixed into feed is recorded in the health case (FE-10). The Owner and Technicians only view the log."
+Notices | REM-11 sessions not recorded; REM-10 low feeds with a link to SCR-79; "Medicine mixed into feed is recorded in the health case (FE-10). Technicians only view the log."
 [/TABLE]
 [P1662 5] 23.3.2 Popup: Record Feeding Session
 [TABLE block 1663]
 [Figure to be inserted] Mockup – Figma 10 › "Ghi cữ cho ăn"
 [/TABLE]
 [P1665 ] Opened from: SCR-83 Feeding Log.
-[P1666 ] This dialog allows the Manager to record the feed given to a pen in one session (UC-FE23-08).
+[P1666 ] This dialog allows the Owner or a Manager to record the feed given to a pen in one session (UC-FE23-08).
 [P1667 ] Field Description
 [TABLE block 1668]
 Field Name | Description
@@ -5445,7 +5454,7 @@ Pen * | Dropdown of ACTIVE pens with headcount.
 Session * | Morning / Afternoon / Evening (sessions of the ration).
 Feeding time | Time, default the session time.
 Effective ration | Read-only ration code and name, or MSG-FE23-20.
-Fed by | Member of the farm (Manager or Technician), default the user.
+Fed by | Member of the farm (Owner, Manager or Technician), default the user.
 Feeds given (planned = ration × head) | 
 Feed | Name, code and kg per head.
 Planned | kg (read-only).
@@ -5463,7 +5472,7 @@ Fill from plan / Cancel / Save & deduct stock | Buttons; MSG-FE23-12.
 [Figure to be inserted] Mockup – Figma 10 › "Sửa / hủy bản ghi cho ăn"
 [/TABLE]
 [P1673 ] Opened from: SCR-83 Feeding Log.
-[P1674 ] This dialog allows the Manager to correct or void a feeding record (UC-FE23-09).
+[P1674 ] This dialog allows the Owner or a Manager to correct or void a feeding record (UC-FE23-09).
 [P1675 ] Field Description
 [TABLE block 1676]
 Field Name | Description
@@ -5757,7 +5766,7 @@ NFR-R02 Idempotency | Repeated submissions, webhook retries and job re-runs retu
 NFR-R03 Concurrency control | Updates use optimistic versions (GBR-89); changes to the same female's pregnancy and to the same farm's payments are serialized (GBR-52, GBR-72).
 NFR-R04 Availability | Target availability 99 % per month during the capstone pilot, excluding announced maintenance.
 NFR-R05 Backup | The database is backed up daily with 14 days of retention; a restore is tested before the pilot.
-NFR-R06 Time handling | All timestamps are stored with time zone; farm dates use the farm time zone and platform finance uses Asia/Ho_Chi_Minh (GBR-66).
+NFR-R06 Time handling | Timestamps are stored as instants. Business dates and displayed times use fixed UTC+07:00 (GBR-66, D39).
 [/TABLE]
 [P1826 2] V. Requirement Appendix
 [P1827 3] 1. Business Rules
@@ -5772,7 +5781,7 @@ GBR-04 | Only an ACTIVE account can sign in. A SUSPENDED account is blocked for 
 GBR-05 | A Guest becomes a Farm Owner only by completing Owner registration (full name, terms acceptance). Owner registration grants no farm, membership, platform role or service; a farm is created only through UC-FE02-01. | UC-FE01-01, UC-FE02-01 | Separates personal account creation from farm tenancy. | System, on save
 GBR-06 | Each farm role has a fixed permission set; there are no per-member permission grants. Farm Owner: views all farm data and performs the Owner-only actions in GBR-07 plus farm-structure actions (pens, pen moves, herd entry, cattle profile and QR, draft-calf confirmation, announcements, all farm catalogues (breeds, vaccines, reference medicines, production purposes) and farm parameters). Farm Manager: records and corrects all care and reproduction events, maintains pens, herd entry, cattle profile and QR, catalogues and parameters, confirms draft calves and writes announcements to Technicians. Farm Technician: read-only access to cattle, pens, care and reproduction data, reminders and received announcements. | FE-03 to FE-18 | Predictable, easy-to-explain roles for small farms; matches the field division of work. | System, on every request (I.4.4)
 GBR-07 | Owner-only actions: invite members and manage membership and roles, manage the subscription and payments, create, confirm, dismiss and void herd exit vouchers and record their collections, change a cattle's production purpose and update the farm's registration and operating information. These actions cannot be performed by any other role. | FE-02, FE-03, FE-05, FE-13, FE-19 | Ownership decisions and money stay with the legal owner of the farm. | System, on every request
-GBR-08 | Care and reproduction events (growth, vaccination, health, estrus, breeding, pregnancy check, pregnancy update, calving) are recorded, corrected and voided only by a Farm Manager. The Farm Owner views them. A Farm Technician can be selected as the observer or performer of an event that a Manager records. | FE-08 to FE-12 | One accountable recorder per event; the Owner supervises rather than enters field data. | System, on save
+GBR-08 | Care and reproduction events (growth, vaccination, health, estrus, breeding, pregnancy check, pregnancy update, calving) are recorded, corrected and voided by the Farm Owner or a Farm Manager. A Farm Technician views them and can be selected as the observer or performer of an event that the Owner or a Manager records. Where the use cases, screens and dialogs of FE-08 to FE-12 name the Manager as the person who records, corrects or voids, the Owner has the same right. | FE-08 to FE-12 | One accountable recorder per event: the user who saves it; the Owner can also enter field data, for example on a farm without a Manager. | System, on save
 GBR-09 | Every protected request rechecks the account status, the user's current membership and role in the selected farm (or current platform role) and the farm service status. The selected farm in the browser, a link, a notification or a QR code is never proof of permission. | All authenticated UCs | Access changes must apply immediately, including to open sessions. | System, on every request
 GBR-10 | Platform staff access (CS, PM, SA) is granted, changed, revoked or restored only by a System Admin, only to an existing account with a verified email, and is independent of farm membership. A user has at most one ACTIVE platform role. The first System Admin is created at deployment and at least one ACTIVE System Admin must always remain. | UC-FE03-07 to 09 | Keeps platform administration controlled and recoverable. | System, on save
 GBR-11 | Platform roles never receive farm operational access. CS, PM and SA see only the farm data their own use cases require (service status, subscription and payment data, ticket context, account summary); cattle, care and reproduction records are never shown to them. | FE-02, FE-17, FE-19 to FE-21 | Farm data privacy. | System, on every request
@@ -5782,7 +5791,7 @@ GBR-11 | Platform roles never receive farm operational access. CS, PM and SA see
 GBR-ID | Rule Statement | Applies To | Rationale | Enforced By
 GBR-12 | One farm is one independent tenant with exactly one Owner. One Owner may own several farms; each farm has its own members, data, subscription and service status. Data of one farm is never shown in the context of another farm. | All farm UCs | Multi-farm owners must keep farms separate. | System, on every request
 GBR-13 | Farm service status is derived: PENDING_PAYMENT from registration until the first accepted payment; ACTIVE while an accepted purchased period covers the current time; EXPIRED when coverage has ended; SUSPENDED while a Platform Manager suspension is in force, regardless of payment. | FE-02, FE-19 | One clear rule for service availability. | System, on every request and JOB-04
-GBR-14 | Farm operations (all farm UCs except those below) require service status ACTIVE. While the farm is not ACTIVE the Owner can still select the farm, view and update farm information, manage the subscription and payments, use support, cancel pending invitations and deactivate members. Managers and Technicians cannot open a farm that is not ACTIVE. | FE-02 to FE-21 | The Owner must be able to pay, get help and withdraw access while service is inactive. | System, on every request
+GBR-14 | Farm operations (all farm UCs except those below) require service status ACTIVE. While the farm is not ACTIVE the Owner can still select the farm, view and update farm information, manage the subscription and payments, use support, view farm invitations and cancel pending invitations, and view and deactivate members. Viewing invitations is an Owner-only read exception supporting withdrawal of access (D26, 12/11/2026); viewing members is the same kind of Owner-only exception supporting deactivation (D29, 14/11/2026), while change role and reactivate still require ACTIVE service; sending and resending still require ACTIVE service. Managers and Technicians cannot open a farm that is not ACTIVE. | FE-02 to FE-21 | The Owner must be able to pay, get help and withdraw access while service is inactive. | System, on every request
 GBR-15 | Suspension and payment are independent: an accepted payment never lifts a suspension, and restoring a suspended farm never creates or extends a purchased period. After restore the status is derived again from the subscription (GBR-13). Suspend and restore require a reason and are kept in Farm Service History. | UC-FE02-05, FE-19 | Administrative and commercial decisions must not override each other. | System, on save
 GBR-16 | Only the Owner invites members, only for an ACTIVE farm, with role Farm Manager or Farm Technician. At most one PENDING invitation exists per farm and email. An invitation is valid for the period chosen by the Owner (3, 7 or 14 days; default 7) counted from the last send, unless accepted or cancelled; resending keeps the same invitation and restarts its validity. ACCEPTED, CANCELLED and EXPIRED are final. | UC-FE03-01 to 03 | Controlled, traceable onboarding of staff. | System, on save and JOB-02
 GBR-17 | An invitation is accepted only by a signed-in account whose verified email equals the invited email, while the invitation is PENDING and unexpired and the farm is ACTIVE. Acceptance creates exactly one membership; a user has at most one membership per farm, and repeating the acceptance returns the existing membership. | UC-FE03-04 | Prevents forwarded links from granting access to the wrong person. | System, on acceptance
@@ -5850,7 +5859,7 @@ GBR-62 | Publishing saves an immutable version, the resolved recipient snapshot 
 GBR-63 | Reminders are generated only by the rules REM-01 to REM-13 (III.14 Reminder Rule Catalogue). Each reminder has one source record and stores the parameter version used; a missing parameter suppresses only that reminder. Lifecycle ACTIVE → RESOLVED, CANCELLED or SUPERSEDED describes applicability, not performed care; reading a reminder never resolves it. Correcting or voiding the source replaces or cancels the reminder. | FE-14, JOB-01 | Reminders are always traceable to real data. | System, JOB-01
 GBR-64 | A notification has one typed target and one recipient. Opening a notification, its preview or an unread count rechecks current access; revoked access hides it. A record change and its notification event are saved together; delivery retries independently and never repeats or rolls back the business change. | FE-14, JOB-07 | Correct routing without leaks or duplicates. | System, on every read and JOB-07
 GBR-65 | The dashboard and management reports are available to the Owner and Managers only. Every indicator uses the current farm, counts each cattle once per indicator, excludes draft calves from the active herd and shows the generation time and filters. Stock indicators use one as-of date; event indicators use occurrence time within a [from, to) period. | FE-15 | Correct, reproducible management figures. | System, on calculation
-GBR-66 | Dates and periods are evaluated in the farm time zone (default Asia/Ho_Chi_Minh). A user date range is converted to [start of first day, start of the day after the last day). Platform finance uses Asia/Ho_Chi_Minh. | FE-14, FE-15, FE-19, FE-21 | Correct period boundaries. | System, on calculation
+GBR-66 | Dates, business periods and scheduled jobs across BeefCare use fixed UTC+07:00. A user date range is converted to [start of first day, start of the day after the last day). Date-only values keep their calendar date (D39). | All features | Correct period boundaries. | System, on calculation
 GBR-67 | Farm catalogue codes (breed, vaccine, medicine, production purpose) are unique within the farm. A referenced catalogue item is deactivated, never deleted; a vaccine that has never been referenced may be deleted. Editing an item never rewrites past records, which keep a snapshot of the name used. Inactive items cannot be chosen for new records. The purpose type of a production purpose cannot be changed once the purpose is referenced by a cattle or a pen criteria version. | FE-18 | Stable master data with true history. | System, on save
 GBR-68 | Farm state and reminder parameters are saved as a new version with a source note and effective date; a version affects only reminders and suggestions evaluated after it takes effect. Recorded events never change when parameters change. | UC-FE18-17, JOB-01 | Parameters evolve without rewriting history. | System, on save
 [/TABLE]
@@ -5858,9 +5867,9 @@ GBR-68 | Farm state and reminder parameters are saved as a new version with a so
 [TABLE block 1848]
 GBR-ID | Rule Statement | Applies To | Rationale | Enforced By
 GBR-69 | BeefCare has one functional plan sold per farm for 1, 2 or 3 calendar years. Initial prices: 1,200,000 VND (1 year), 2,160,000 VND (2 years), 3,060,000 VND (3 years). Payment is a bank transfer initiated by the Owner; there is no automatic debit, automatic renewal, monthly or per-cattle price. | FE-19, FE-22 | Simple pricing for small farms. | System, on quote
-GBR-70 | A payment request (quote) is immutable: farm, term, amount, price version, receiving account, unique payment reference and VietQR. It is valid for 24 hours from creation. A farm has at most one unexpired PENDING quote; opening Pay again reopens it. If the effective price changed since the Owner reviewed it, the Owner must review the new price before a quote is created. | UC-FE19-02 | One unambiguous transfer instruction at a time. | System, on save and JOB-03
+GBR-70 | A payment request (quote) is immutable: farm, term, amount, price version, receiving account, unique payment reference and VietQR. It is valid for 24 hours from creation. A farm has at most one unexpired PENDING quote; opening Pay again reopens it. While the quote is unexpired PENDING and no incoming transfer for its payment reference has been received, the Owner may cancel it with an optional reason; CANCELLED is final, its transfer instructions are withdrawn and a new quote can then be created. If the effective price changed since the Owner reviewed it, the Owner must review the new price before a quote is created. | UC-FE19-02 | One unambiguous transfer instruction at a time. | System, on save, on cancellation and JOB-03
 GBR-71 | A first purchase can be requested at any time. A renewal quote can be created only in the last 90 calendar days of the latest confirmed coverage, or at any time after coverage has ended. No new payment request can be created while the farm is SUSPENDED; the Owner is directed to support. | UC-FE19-02 | Prevents paying years in advance by mistake. | System, on quote
-GBR-72 | A payment becomes PAID only through the shared confirmation operation used by both the SePay webhook and PM acceptance. It requires authenticated bank evidence that is incoming, has the exact amount, the configured receiving account, a bank-paid time inside the quote window [created, expires) and is not already allocated, and that identifies exactly one request: automatically by the exact unique payment reference in the transfer content, or, in PM review only, by the PM explicitly selecting the single candidate request with a reason when the reference is mistyped. One evidence funds one payment; amounts are never combined, split or used to infer a term. Confirmations for one farm are processed one at a time and a repeated confirmation returns the original result. | UC-FE19-06, UC-FE19-08 | Money is accepted exactly once and only when it matches. | System, on confirmation
+GBR-72 | A payment becomes PAID only through the shared confirmation operation used by both the SePay webhook and PM acceptance. It requires authenticated bank evidence that is incoming, has the exact amount, the configured receiving account, a bank-paid time inside the quote window [created, expires) – [created, cancelled) for a cancelled quote – and is not already allocated, and that identifies exactly one request: automatically by the exact unique payment reference in the transfer content, or, in PM review only, by the PM explicitly selecting the single candidate request with a reason when the reference is mistyped. One evidence funds one payment; amounts are never combined, split or used to infer a term. Confirmations for one farm are processed one at a time and a repeated confirmation returns the original result. | UC-FE19-06, UC-FE19-08 | Money is accepted exactly once and only when it matches. | System, on confirmation
 GBR-73 | On acceptance the purchased period starts at max(confirmation time, latest confirmed end) and lasts the quoted 1, 2 or 3 calendar years (Asia/Ho_Chi_Minh); periods are immutable and half-open [start, end). Continuous renewals keep the original anniversary (29 February becomes 28 February in non-leap years); a gap resets the anniversary. Before acceptance all service dates are estimates. | UC-FE19-06, UC-FE19-08 | Predictable coverage; early renewal never loses days. | System, on confirmation
 GBR-74 | Every authenticated bank transaction is retained as evidence, deduplicated by (provider, environment, account namespace, provider transaction ID), including unmatched, partial, excess and late transfers. Unaccepted evidence never grants service or produces a receipt. A PM decision on evidence is ACCEPT (re-runs GBR-72), HOLD (stays unresolved) or REJECT, each with a reason. BeefCare does not refund money; evidence to be returned outside the system is locked so it can never fund a payment. | UC-FE19-05, UC-FE19-06 | Full traceability of money received. | System, on save
 GBR-75 | The PM publishes plan prices as a complete version (all three terms, positive whole VND) effective immediately or at a future time. Published versions are immutable. New quotes and the public page use the version effective at that time; issued quotes and accepted periods never change. | UC-FE19-07, UC-FE22-01 | Price changes are controlled and traceable. | System, on save
@@ -5906,9 +5915,9 @@ GBR-98 | A feed item has a code (TA-nn) unique in the farm, a group, the stock u
 GBR-99 | Feed stock changes only through stock movements created by posting a receipt, voiding a receipt, posting an adjustment and saving, correcting or voiding a feeding record; stock = sum of movements and never becomes negative (BR-D36). A DRAFT receipt has no effect. Posting a receipt adds each line in kg and recalculates the weighted average cost = (stock value + received value) ÷ (stock + received kg). A POSTED receipt is voided, with a reason, only while the stock of every feed covers its received quantity; otherwise a stock adjustment is used. | UC-FE23-01, UC-FE23-02, UC-FE23-03 | Stock is always explainable by documents. | System, on post and void
 GBR-100 | A stock adjustment compares counted stock with system stock at the count date; every non-zero difference needs a reason and creates one movement valued at the weighted average cost. Posted adjustments are immutable and never change receipts or feeding records; a mistake is corrected with a new adjustment. | UC-FE23-04 | Physical counts are reconciled without rewriting history. | System, on post
 GBR-101 | A ration defines, for its pens, the kg per head of each feed for each daily session (1–3 sessions). Changing a ration saves a new version effective from tomorrow or later; the previous version ends the day before. At most one ration version is effective per pen and date (BR-D38). A scheduled version can be cancelled and an effective ration stopped from a future date. Recorded feeding is never changed by a new version. | UC-FE23-06 | The plan can evolve while the record of what was planned stays true. | System, on save
-GBR-102 | A feeding record is kept per pen, date and session (BR-D37), not in the future. Planned kg per feed = kg per head of the effective ration × headcount of the pen at recording time. Actual kg per feed ≥ 0 and not above its stock. Saving deducts the actual kg from stock at the weighted average cost. Only a Manager records, corrects or voids feeding; a correction or void needs a reason, keeps the original values (BR-D15) and adjusts stock by the difference. The person who fed may be a Technician. | UC-FE23-08, UC-FE23-09 | Daily feeding is recorded once and reflected in stock. | System, on save
-GBR-103 | Feed permissions: the Owner and Managers view stock and manage receipts, payments to suppliers, adjustments, rations, the catalogue and the report; only Managers record, correct and void feeding records; Technicians view rations (Today's Rations) and the feeding log. Feed management requires an ACTIVE farm service (GBR-14). | FE-23 | Feeding follows the farm's care responsibilities. | System, on every request
-GBR-104 | REM-10 (low feed stock) is raised for an ACTIVE feed item whose stock is at or below its minimum level, for the Owner and Managers. REM-11 (feeding session not recorded) is raised for each session of today's effective ration of an occupied pen with no VALID record 2 hours after the session time, for Managers and Technicians. Both follow GBR-63. | FE-23, JOB-01 | Shortages and missed feedings are seen in time. | JOB-01
+GBR-102 | A feeding record is kept per pen, date and session (BR-D37), not in the future. Planned kg per feed = kg per head of the effective ration × headcount of the pen at recording time. Actual kg per feed ≥ 0 and not above its stock. Saving deducts the actual kg from stock at the weighted average cost. Only the Owner or a Manager records, corrects or voids feeding (the Manager named in UC-FE23-08 and UC-FE23-09 stands for either); a correction or void needs a reason, keeps the original values (BR-D15) and adjusts stock by the difference. The person who fed may be a Technician. | UC-FE23-08, UC-FE23-09 | Daily feeding is recorded once and reflected in stock. | System, on save
+GBR-103 | Feed permissions: the Owner and Managers view stock and manage receipts, payments to suppliers, adjustments, rations, the catalogue and the report, and record, correct and void feeding records; Technicians view rations (Today's Rations) and the feeding log. Feed management requires an ACTIVE farm service (GBR-14). | FE-23 | Feeding follows the farm's care responsibilities. | System, on every request
+GBR-104 | REM-10 (low feed stock) is raised for an ACTIVE feed item whose stock is at or below its minimum level, for the Owner and Managers. REM-11 (feeding session not recorded) is raised for each session of today's effective ration of an occupied pen with no VALID record 2 hours after the session time, for the Owner, Managers and Technicians. Both follow GBR-63. | FE-23, JOB-01 | Shortages and missed feedings are seen in time. | JOB-01
 GBR-105 | Feed cost of a feeding record = Σ actual kg × weighted average cost at recording time. Days of cover = stock ÷ average daily use of the last 7 days. Stock value = Σ stock × average cost. Average head of a period = mean daily headcount from pen assignments. Variance versus ration = (actual − planned) ÷ planned over recorded sessions. Losses from stock adjustments are reported separately and not allocated to herd groups. Rations show estimated cost from current average costs. | UC-FE23-01, UC-FE23-05, UC-FE23-11 | Reproducible feed consumption and cost figures. | System, on calculation
 [/TABLE]
 [P1862 4] 1.12 Herd Performance
@@ -5985,6 +5994,8 @@ GBR-109 | A new farm is created with its default farm parameter version and the 
 61 | MSG-FE03-18 | Inline (dialog) | No account exists for the email | No BeefCare account exists for this email. The person must sign in once before access can be granted.
 62 | MSG-FE03-19 | Toast (success) | Platform access changed | {role} access of {email} has been {action}.
 63 | MSG-FE03-20 | Inline (dialog) | The requested role or status is already in effect | No change: {target} already has this {value}.
+63a | MSG-FE03-21 | Dialog | The invited email belongs to an INACTIVE member of the farm | {email} is a deactivated member of this farm. Reactivate this member instead? [Reactivate] [Back]
+63b | MSG-FE03-22 | Inline (dialog) | Platform access is granted, changed or restored for a SUSPENDED account | The account {email} is suspended. Restore the account before granting, changing or restoring access.
 64 | MSG-FE04-01 | Toast (success) | Pen created or updated | Pen {pen_code} has been saved.
 65 | MSG-FE04-02 | Inline (under field) | Pen code already used in the farm | Pen code {pen_code} already exists in this farm.
 66 | MSG-FE04-03 | Inline (under field) | Capacity invalid or below the headcount | Capacity must be a whole number of at least {min_capacity}.
@@ -6126,61 +6137,64 @@ GBR-109 | A new farm is created with its default farm parameter version and the 
 202 | MSG-FE19-14 | Inline (under field) | Effective time in the past | The effective time cannot be in the past.
 203 | MSG-FE19-15 | Inline (form) | Another version is scheduled at the same time | Version v{version} is already scheduled for {time}.
 204 | MSG-FE19-16 | Toast (success) | Evidence locked for return | Transaction {transaction} is locked for return and cannot fund any payment.
-205 | MSG-FE20-01 | Dialog (info) | Ticket submitted | Ticket {code} has been submitted. Customer Support will reply in the ticket.
-206 | MSG-FE20-02 | Toast (success) | Reply sent | Your reply has been sent.
-207 | MSG-FE20-03 | Toast (success) | Resolution confirmed | Thank you. Your confirmation of resolution version {version} has been recorded.
-208 | MSG-FE20-04 | Toast (success) | Ticket reopened | Ticket {code} has been reopened.
-209 | MSG-FE20-05 | Dialog | A newer resolution exists | This ticket has a newer resolution than the one you are viewing. [Reload ticket]
-210 | MSG-FE20-06 | Banner | The ticket is CLOSED | This ticket is closed and read-only. Create a new ticket if you need further help.
-211 | MSG-FE20-07 | Toast (success) | Ticket claimed | You are now responsible for {code}.
-212 | MSG-FE20-08 | Toast (success) | Ticket handed over | {code} has been handed over to {cs}.
-213 | MSG-FE20-09 | Inline (page) | A CS who is not assigned tries to change the ticket | Only the assigned CS can change this ticket. [Claim]
-214 | MSG-FE20-10 | Toast (success) | Internal note added | Internal note added (visible to CS only).
-215 | MSG-FE20-11 | Toast (success) | Resolution recorded | Resolution version {version} recorded. The Owner has been notified.
-216 | MSG-FE20-12 | Inline (panel) | An internal request is OPEN | Internal request {request} is still OPEN. The ticket cannot be resolved or closed yet.
-217 | MSG-FE20-13 | Inline (dialog) | The Owner has not confirmed the latest resolution | The Owner has not confirmed resolution version {version} yet.
-218 | MSG-FE20-14 | Toast (success) | Ticket closed | Ticket {code} has been closed.
-219 | MSG-FE20-15 | Toast (success) | Internal request created | Internal request {request} sent to {recipient}.
-220 | MSG-FE20-16 | Inline (dialog) | An OPEN request for the role exists | An internal request to {role} is already open for this ticket.
-221 | MSG-FE20-17 | Toast (success) | Internal request reassigned or cancelled | Internal request {request} has been {action}.
-222 | MSG-FE20-18 | Toast (success) | Internal request completed | The result of {request} has been sent to {cs}.
-223 | MSG-FE20-19 | Banner | The request is no longer assigned to the user | This request is no longer assigned to you.
-224 | MSG-FE20-20 | Toast (success) | Ticket status changed | Ticket {code} is now {status}.
-225 | MSG-FE21-01 | Toast (success) | Draft saved | Finance record {code} saved as draft.
-226 | MSG-FE21-02 | Toast (success) | Record posted | Finance record {code} has been posted.
-227 | MSG-FE21-03 | Dialog (confirm) | PM posts a draft | Post {code}? A posted record cannot be edited; corrections require a void.
-228 | MSG-FE21-04 | Dialog (confirm) | PM voids a posted record | Void {code}? Enter the reason. Reports generated later will exclude it.
-229 | MSG-FE21-05 | Toast (success) | Record voided | Finance record {code} has been voided. [Create replacement draft]
-230 | MSG-FE21-06 | Dialog (confirm) | PM discards a draft | Discard draft {code}? It will not appear in any report.
-231 | MSG-FE21-07 | Toast (success) | Draft discarded | Draft {code} has been discarded.
-232 | MSG-FE21-08 | Inline (form) | The bank transaction is already recognized or is a subscription transfer | This bank transaction is already recognized as {target}. It cannot be recorded as other income.
-233 | MSG-FE21-09 | Inline (under field) | Amount invalid | Amount must be a whole number of VND greater than 0.
-234 | MSG-FE21-10 | Inline (under field) | Category not compatible with the type | Category {category} cannot be used for {type}.
-235 | MSG-FE21-11 | Toast (success) | Report snapshot generated | Report {code} generated at {time}.
-236 | MSG-FE21-12 | Banner | The displayed snapshot has expired | This report result has expired. Run the report again.
-237 | MSG-FE21-13 | Toast (success) | Export file ready | The export file {file} is ready.
-238 | MSG-FE21-14 | Toast (error) | Export failed | The report could not be exported. [Retry]
-239 | MSG-FE22-01 | Inline (section) | Public prices cannot be loaded | Prices are temporarily unavailable. [Retry]
-240 | MSG-FE23-01 | Toast (success) | Feed receipt posted | Receipt {receipt_code} posted. {total_kg} kg added to stock.
-241 | MSG-FE23-02 | Toast (success) | Feed receipt or stock adjustment saved as draft | {document_code} saved as draft. Stock has not changed.
-242 | MSG-FE23-03 | Inline (under field) | Expiry date not after the receipt date | The expiry date must be after the receipt date.
-243 | MSG-FE23-04 | Dialog (confirm) | The user voids a posted feed receipt | Void receipt {receipt_code}? {total_kg} kg will be removed from stock. Payments stay in the history.
-244 | MSG-FE23-05 | Inline (dialog) | Receipt void blocked by insufficient stock | Receipt {receipt_code} cannot be voided: the stock of {feed} ({stock} kg) is less than the quantity received. Record a stock adjustment instead.
-245 | MSG-FE23-06 | Toast (success) | Feed receipt voided | Receipt {receipt_code} has been voided.
-246 | MSG-FE23-07 | Toast (success) | Stock adjustment posted | Stock adjustment {document_code} posted: {difference} kg ({value} đ).
-247 | MSG-FE23-08 | Inline (row) | A difference has no reason | Enter a reason for each feed with a difference.
-248 | MSG-FE23-09 | Toast (success) | Ration version saved | Ration {ration_code} v{version} saved, effective from {date}. The previous version ends on {end_date}.
-249 | MSG-FE23-10 | Inline (under field) | Ration effective date earlier than tomorrow | The effective date must be tomorrow or later.
-250 | MSG-FE23-11 | Inline (form) | A pen already has another ration on the date | Pen {pen} already has ration {ration_code} on {date}.
-251 | MSG-FE23-12 | Toast (success) | Feeding session recorded | Feeding of {pen} ({session}) saved. {total_kg} kg deducted from stock.
-252 | MSG-FE23-13 | Inline (dialog) | A feeding record exists for the pen, date and session | {pen} already has a {session} record on {date}. [Open record]
-253 | MSG-FE23-14 | Inline (row) | Actual quantity above stock, or stock would become negative | {feed}: only {stock} kg in stock.
-254 | MSG-FE23-15 | Toast (success) | Feeding record corrected | Feeding record corrected. Stock adjusted by {difference} kg.
-255 | MSG-FE23-16 | Dialog (confirm) | The Manager voids a feeding record | Void the {session} record of {pen} on {date}? {total_kg} kg will be returned to stock.
-256 | MSG-FE23-17 | Toast (success) | Feed item or supplier saved | {name} has been saved.
-257 | MSG-FE23-18 | Inline (under field) | Code or stock unit change after stock movements | The code and stock unit cannot change because {feed} already has stock movements.
-258 | MSG-FE23-19 | Banner | Feeds at or below the minimum level (REM-10) | {count} feed(s) at or below the minimum level: {feeds}. [Create feed receipt]
-259 | MSG-FE23-20 | Inline (dialog) | No ration is effective for the pen on the date | No ration is effective for {pen} on {date}. Enter the actual feeds only.
+205 | MSG-FE19-17 | Dialog (confirm) | The Owner cancels a payment request | Cancel payment request {code}? Its payment reference and VietQR can no longer be used. If you have already transferred the money, do not cancel: the transfer is confirmed automatically. Reason (optional). [Cancel request] [Back]
+206 | MSG-FE19-18 | Inline (page) | The payment request is cancelled | Payment request {code} was cancelled at {time}. Do not transfer to this reference. [Create a new request]
+207 | MSG-FE19-19 | Dialog | Cancellation blocked because a transfer was received | A bank transfer for {code} was received at {time}, so this request can no longer be cancelled. It is being confirmed or reviewed. [Send support ticket] [Close]
+208 | MSG-FE20-01 | Dialog (info) | Ticket submitted | Ticket {code} has been submitted. Customer Support will reply in the ticket.
+209 | MSG-FE20-02 | Toast (success) | Reply sent | Your reply has been sent.
+210 | MSG-FE20-03 | Toast (success) | Resolution confirmed | Thank you. Your confirmation of resolution version {version} has been recorded.
+211 | MSG-FE20-04 | Toast (success) | Ticket reopened | Ticket {code} has been reopened.
+212 | MSG-FE20-05 | Dialog | A newer resolution exists | This ticket has a newer resolution than the one you are viewing. [Reload ticket]
+213 | MSG-FE20-06 | Banner | The ticket is CLOSED | This ticket is closed and read-only. Create a new ticket if you need further help.
+214 | MSG-FE20-07 | Toast (success) | Ticket claimed | You are now responsible for {code}.
+215 | MSG-FE20-08 | Toast (success) | Ticket handed over | {code} has been handed over to {cs}.
+216 | MSG-FE20-09 | Inline (page) | A CS who is not assigned tries to change the ticket | Only the assigned CS can change this ticket. [Claim]
+217 | MSG-FE20-10 | Toast (success) | Internal note added | Internal note added (visible to CS only).
+218 | MSG-FE20-11 | Toast (success) | Resolution recorded | Resolution version {version} recorded. The Owner has been notified.
+219 | MSG-FE20-12 | Inline (panel) | An internal request is OPEN | Internal request {request} is still OPEN. The ticket cannot be resolved or closed yet.
+220 | MSG-FE20-13 | Inline (dialog) | The Owner has not confirmed the latest resolution | The Owner has not confirmed resolution version {version} yet.
+221 | MSG-FE20-14 | Toast (success) | Ticket closed | Ticket {code} has been closed.
+222 | MSG-FE20-15 | Toast (success) | Internal request created | Internal request {request} sent to {recipient}.
+223 | MSG-FE20-16 | Inline (dialog) | An OPEN request for the role exists | An internal request to {role} is already open for this ticket.
+224 | MSG-FE20-17 | Toast (success) | Internal request reassigned or cancelled | Internal request {request} has been {action}.
+225 | MSG-FE20-18 | Toast (success) | Internal request completed | The result of {request} has been sent to {cs}.
+226 | MSG-FE20-19 | Banner | The request is no longer assigned to the user | This request is no longer assigned to you.
+227 | MSG-FE20-20 | Toast (success) | Ticket status changed | Ticket {code} is now {status}.
+228 | MSG-FE21-01 | Toast (success) | Draft saved | Finance record {code} saved as draft.
+229 | MSG-FE21-02 | Toast (success) | Record posted | Finance record {code} has been posted.
+230 | MSG-FE21-03 | Dialog (confirm) | PM posts a draft | Post {code}? A posted record cannot be edited; corrections require a void.
+231 | MSG-FE21-04 | Dialog (confirm) | PM voids a posted record | Void {code}? Enter the reason. Reports generated later will exclude it.
+232 | MSG-FE21-05 | Toast (success) | Record voided | Finance record {code} has been voided. [Create replacement draft]
+233 | MSG-FE21-06 | Dialog (confirm) | PM discards a draft | Discard draft {code}? It will not appear in any report.
+234 | MSG-FE21-07 | Toast (success) | Draft discarded | Draft {code} has been discarded.
+235 | MSG-FE21-08 | Inline (form) | The bank transaction is already recognized or is a subscription transfer | This bank transaction is already recognized as {target}. It cannot be recorded as other income.
+236 | MSG-FE21-09 | Inline (under field) | Amount invalid | Amount must be a whole number of VND greater than 0.
+237 | MSG-FE21-10 | Inline (under field) | Category not compatible with the type | Category {category} cannot be used for {type}.
+238 | MSG-FE21-11 | Toast (success) | Report snapshot generated | Report {code} generated at {time}.
+239 | MSG-FE21-12 | Banner | The displayed snapshot has expired | This report result has expired. Run the report again.
+240 | MSG-FE21-13 | Toast (success) | Export file ready | The export file {file} is ready.
+241 | MSG-FE21-14 | Toast (error) | Export failed | The report could not be exported. [Retry]
+242 | MSG-FE22-01 | Inline (section) | Public prices cannot be loaded | Prices are temporarily unavailable. [Retry]
+243 | MSG-FE23-01 | Toast (success) | Feed receipt posted | Receipt {receipt_code} posted. {total_kg} kg added to stock.
+244 | MSG-FE23-02 | Toast (success) | Feed receipt or stock adjustment saved as draft | {document_code} saved as draft. Stock has not changed.
+245 | MSG-FE23-03 | Inline (under field) | Expiry date not after the receipt date | The expiry date must be after the receipt date.
+246 | MSG-FE23-04 | Dialog (confirm) | The user voids a posted feed receipt | Void receipt {receipt_code}? {total_kg} kg will be removed from stock. Payments stay in the history.
+247 | MSG-FE23-05 | Inline (dialog) | Receipt void blocked by insufficient stock | Receipt {receipt_code} cannot be voided: the stock of {feed} ({stock} kg) is less than the quantity received. Record a stock adjustment instead.
+248 | MSG-FE23-06 | Toast (success) | Feed receipt voided | Receipt {receipt_code} has been voided.
+249 | MSG-FE23-07 | Toast (success) | Stock adjustment posted | Stock adjustment {document_code} posted: {difference} kg ({value} đ).
+250 | MSG-FE23-08 | Inline (row) | A difference has no reason | Enter a reason for each feed with a difference.
+251 | MSG-FE23-09 | Toast (success) | Ration version saved | Ration {ration_code} v{version} saved, effective from {date}. The previous version ends on {end_date}.
+252 | MSG-FE23-10 | Inline (under field) | Ration effective date earlier than tomorrow | The effective date must be tomorrow or later.
+253 | MSG-FE23-11 | Inline (form) | A pen already has another ration on the date | Pen {pen} already has ration {ration_code} on {date}.
+254 | MSG-FE23-12 | Toast (success) | Feeding session recorded | Feeding of {pen} ({session}) saved. {total_kg} kg deducted from stock.
+255 | MSG-FE23-13 | Inline (dialog) | A feeding record exists for the pen, date and session | {pen} already has a {session} record on {date}. [Open record]
+256 | MSG-FE23-14 | Inline (row) | Actual quantity above stock, or stock would become negative | {feed}: only {stock} kg in stock.
+257 | MSG-FE23-15 | Toast (success) | Feeding record corrected | Feeding record corrected. Stock adjusted by {difference} kg.
+258 | MSG-FE23-16 | Dialog (confirm) | The Manager voids a feeding record | Void the {session} record of {pen} on {date}? {total_kg} kg will be returned to stock.
+259 | MSG-FE23-17 | Toast (success) | Feed item or supplier saved | {name} has been saved.
+260 | MSG-FE23-18 | Inline (under field) | Code or stock unit change after stock movements | The code and stock unit cannot change because {feed} already has stock movements.
+261 | MSG-FE23-19 | Banner | Feeds at or below the minimum level (REM-10) | {count} feed(s) at or below the minimum level: {feeds}. [Create feed receipt]
+262 | MSG-FE23-20 | Inline (dialog) | No ration is effective for the pen on the date | No ration is effective for {pen} on {date}. Enter the actual feeds only.
 [/TABLE]
 [P1869 3] 3. Other Requirements
 [TABLE block 1870]

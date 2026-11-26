@@ -1,36 +1,35 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, PageHeader, Segmented } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { financeApi } from '../api/financeApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
+import { financeError } from '../api/financeError'
+import { useFinanceNotices, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { relativeTime, unreadCount } from '../domain/financeRules'
 import type { NoticeKind, PmNotice } from '../types'
 import { FlashNote, type Flash } from './common'
 
 /** Danh sách thông báo dùng chung cho SCR-47 (đối soát) và thông báo hỗ trợ của PM. */
-export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title: string; sub: string; foot: string }) {
+export function NoticeList({ kind, title, sub }: { kind: NoticeKind; title: string; sub: string }) {
   const navigate = useNavigate()
   const [tab, setTab] = useState<'ALL' | 'UNREAD'>('ALL')
   const [flash, setFlash] = useState<Flash | null>(null)
-  const { data, loading, error, refetch } = useQuery(async () => ({ list: await financeApi.listNotices(kind), now: financeApi.now() }), [kind])
+  const useCases = usePlatformFinanceUseCases()
+  const { data, loading, error, refetch } = useFinanceNotices(kind)
 
   if (loading && !data) return <Layout title={title}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={title}><ErrorBlock message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
+  if (error || !data) return <Layout title={title}><ErrorBlock message={financeError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
 
   const unread = unreadCount(data.list)
   const shown = tab === 'UNREAD' ? data.list.filter((n) => !n.readTime) : data.list
   const markAll = async () => {
     try {
-      await financeApi.markAllNoticesRead(kind)
+      await useCases.markAllNoticesRead(kind)
       setFlash({ tone: 'ok', text: 'Tất cả thông báo đã được đánh dấu là đã đọc.' })
       refetch()
-    } catch (e) { setFlash({ tone: 'err', text: userFacingError(e, 'Không cập nhật được thông báo.') }) }
+    } catch (e) { setFlash({ tone: 'err', text: financeError(e, 'Không cập nhật được thông báo.') }) }
   }
   const openItem = async (n: PmNotice) => {
-    try { await financeApi.markNoticeRead(n.id); navigate(n.href) } catch (e) { setFlash({ tone: 'err', text: userFacingError(e, 'Không mở được thông báo.') }) }
+    try { await useCases.markNoticeRead(n.id); navigate(n.href) } catch (e) { setFlash({ tone: 'err', text: financeError(e, 'Không mở được thông báo.') }) }
   }
 
   return (
@@ -61,7 +60,6 @@ export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title
             </ul>
           )}
         </Card>
-        <Foot>{foot}</Foot>
       </div>
     </Layout>
   )

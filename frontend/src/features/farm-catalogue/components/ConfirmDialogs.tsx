@@ -1,5 +1,4 @@
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Note } from '../../../components/ui'
+import { Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 
 /** MSG-FE18-03: ngừng dùng mục đã được tham chiếu. */
 export function DeactivateDialog({ name, count, busy, onCancel, onConfirm }: { name: string; count: number; busy: boolean; onCancel: () => void; onConfirm: () => void }) {

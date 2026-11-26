@@ -19,16 +19,22 @@ public class FeedRationVersion implements Serializable {
     @Column(name="basis",length=500) private String basis;
     @Column(name="effective_from",nullable=false) private LocalDate effectiveFrom;
     @Column(name="effective_to") private LocalDate effectiveTo;
+    /** Marks an explicit stop command, even when it chooses the already scheduled boundary date. */
+    @Column(name="effective_to_manually_set",nullable=false) private boolean effectiveToManuallySet;
     @Column(name="status",length=20,nullable=false) private String status="SCHEDULED";
     @Column(name="sessions_per_day",nullable=false) private Integer sessionsPerDay;
     @Column(name="session_times",length=30,nullable=false) private String sessionTimes;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="created_by_id") private AppUser createdBy;
     @Column(name="created_at",nullable=false) private Instant createdAt;
+    /** Optimistic concurrency token for stopping/cancelling this persisted version. */
+    @Version @Column(name="row_version",nullable=false) private Integer version;
     public Long getId(){return id;} public Farm getFarm(){return farm;} public void setFarm(Farm v){farm=v;} public String getRationCode(){return rationCode;} public void setRationCode(String v){rationCode=v;}
     public Integer getVersionNo(){return versionNo;} public void setVersionNo(Integer v){versionNo=v;} public String getName(){return name;} public void setName(String v){name=v;}
     public String getHerdGroup(){return herdGroup;} public void setHerdGroup(String v){herdGroup=v;} public String getBasis(){return basis;} public void setBasis(String v){basis=v;}
     public LocalDate getEffectiveFrom(){return effectiveFrom;} public void setEffectiveFrom(LocalDate v){effectiveFrom=v;} public LocalDate getEffectiveTo(){return effectiveTo;} public void setEffectiveTo(LocalDate v){effectiveTo=v;}
+    public boolean isEffectiveToManuallySet(){return effectiveToManuallySet;} public void setEffectiveToManuallySet(boolean v){effectiveToManuallySet=v;}
     public String getStatus(){return status;} public void setStatus(String v){status=v;} public Integer getSessionsPerDay(){return sessionsPerDay;} public void setSessionsPerDay(Integer v){sessionsPerDay=v;}
     public String getSessionTimes(){return sessionTimes;} public void setSessionTimes(String v){sessionTimes=v;} public AppUser getCreatedBy(){return createdBy;} public void setCreatedBy(AppUser v){createdBy=v;}
     public Instant getCreatedAt(){return createdAt;} public void setCreatedAt(Instant v){createdAt=v;}
+    public Integer getVersion(){return version;} public void setVersion(Integer v){version=v;}
 }

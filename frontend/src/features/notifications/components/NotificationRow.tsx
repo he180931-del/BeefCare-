@@ -8,17 +8,17 @@ export function NotificationRow({ item, now, onOpen }: { item: NotificationView;
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-field px-4 py-3 text-left hover:border-brand ${unread ? 'bg-chip' : 'bg-white'}`}
+      className={`grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-2xl border border-field px-4 py-3 text-left hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand @min-[640px]:grid-cols-[auto_minmax(0,1fr)_auto] ${unread ? 'bg-chip' : 'bg-white'}`}
     >
       <span aria-hidden className={`size-2 shrink-0 rounded-full ${unread ? 'bg-[#454545]' : 'bg-[#dedede]'}`} />
-      <span className="min-w-0 flex-1 basis-[200px]">
+      <span className="min-w-0">
         <span className={`block break-words text-[13px] text-ink ${unread ? 'font-semibold' : ''}`}>
           {unread && <span className="sr-only">Chưa đọc: </span>}
           {item.title}
         </span>
-        <span className="block break-words text-xs text-muted">{item.summary}</span>
+        <span className="block break-words text-xs text-label">{item.summary}</span>
       </span>
-      <span className="shrink-0 pl-5 text-xs text-muted sm:pl-0">{relativeTime(item.createdTime, now)}</span>
+      <span className="col-start-2 text-xs text-label @min-[640px]:col-start-3 @min-[640px]:row-start-1">{relativeTime(item.createdTime, now)}</span>
     </button>
   )
 }

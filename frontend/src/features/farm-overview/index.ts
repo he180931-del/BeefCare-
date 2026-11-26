@@ -1,5 +1,2 @@
-export const loadFarmDashboardPage = () => import('./pages/FarmDashboardPage')
-export const loadRemindersPage = () => import('./pages/RemindersPage')
-export const loadManagementReportPage = () => import('./pages/ManagementReportPage')
-export const loadTechnicianHomePage = () => import('./pages/TechnicianHomePage')
-export const loadTechnicianRemindersPage = () => import('./pages/TechnicianRemindersPage')
+// Nothing of this feature is used by other features; its screens load through routes.ts.
+export {}

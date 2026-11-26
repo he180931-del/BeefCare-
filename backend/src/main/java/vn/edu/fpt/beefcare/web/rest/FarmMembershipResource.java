@@ -1,8 +1,16 @@
 package vn.edu.fpt.beefcare.web.rest;
 
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.transaction.TransactionException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import vn.edu.fpt.beefcare.service.DomainMessages;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,20 +33,76 @@ public class FarmMembershipResource {
 
     private final FarmMembershipService service;
     private final IdempotencyCommandService commands;
+    private final DomainMessages messages;
 
-    public FarmMembershipResource(FarmMembershipService service, IdempotencyCommandService commands) {
+    public FarmMembershipResource(FarmMembershipService service, IdempotencyCommandService commands, DomainMessages messages) {
         this.service = service;
         this.commands = commands;
+        this.messages = messages;
     }
 
+    /** FE-03 field validation uses the spec codes; retain per-field details for the form. */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail invalidFields(MethodArgumentNotValidException failure) {
+        var errors = failure.getBindingResult().getFieldErrors();
+        var required = errors.stream().filter(error -> "NotBlank".equals(error.getCode()) || "NotNull".equals(error.getCode())).findFirst();
+        String code = required.isPresent() ? MessageCodes.COM_06 : MessageCodes.COM_10;
+        String field = required.orElseGet(() -> errors.getFirst()).getField();
+        var params = java.util.Map.<String, Object>of("field", field);
+        ProblemDetail problem = commandProblem(code, params, HttpStatus.BAD_REQUEST);
+        problem.setProperty("fieldErrors", errors.stream().map(error -> java.util.Map.of("field", error.getField(), "message", java.util.Objects.toString(error.getDefaultMessage(), "Invalid"))).toList());
+        return problem;
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail missingHeader(MissingRequestHeaderException failure) {
+        return commandProblem(MessageCodes.COM_06, java.util.Map.of("field", failure.getHeaderName()), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail invalidQuery(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException failure) {
+        return commandProblem(MessageCodes.COM_10, java.util.Map.of("field", failure.getName()), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler({DataAccessException.class, TransactionException.class})
+    public ProblemDetail storageFailure(RuntimeException failure, jakarta.servlet.http.HttpServletRequest request) {
+        if ("GET".equals(request.getMethod())) return commandProblem(MessageCodes.COM_03, java.util.Map.of(), HttpStatus.INTERNAL_SERVER_ERROR);
+        boolean concurrent = failure instanceof ConcurrencyFailureException || failure.getCause() instanceof ConcurrencyFailureException;
+        return commandProblem(concurrent ? MessageCodes.COM_05 : MessageCodes.COM_02, java.util.Map.of(), concurrent ? HttpStatus.CONFLICT : HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private ProblemDetail commandProblem(String code, java.util.Map<String, Object> params, HttpStatus status) {
+        ProblemDetail problem = ProblemDetail.forStatus(status);
+        problem.setProperty("code", code); problem.setProperty("params", params);
+        problem.setProperty("message", messages.resolve(code, params));
+        return problem;
+    }
+
+    /** A1 / SCR-13 (D29): the whole list with tab counts; Owner in any service status, Manager read-only, Technician 403. */
     @GetMapping("/farms/{farmId}/members")
-    public List<MemberView> members(@PathVariable Long farmId) {
+    public MemberList members(@PathVariable Long farmId) {
         return service.listMembers(farmId);
     }
 
     @GetMapping("/farms/{farmId}/invitations")
-    public List<InvitationView> invitations(@PathVariable Long farmId, @RequestParam(required = false) String status) {
-        return service.listInvitations(farmId, status);
+    public InvitationPage invitations(@PathVariable Long farmId,
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(allowableValues = {"PENDING", "ACCEPTED", "EXPIRED", "CANCELLED"}))
+        @RequestParam(required = false) String status,
+        // A schema annotation without a type is exported as a string; numeric query values keep their type and defaults (D26).
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0", maximum = "21474836"))
+        @RequestParam(defaultValue = "0") int page,
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int32", defaultValue = "20", minimum = "1", maximum = "100"))
+        @RequestParam(defaultValue = "20") int size,
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", allowableValues = {"lastSentAt"}, defaultValue = "lastSentAt"))
+        @RequestParam(defaultValue = "lastSentAt") String sort,
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", allowableValues = {"asc", "desc"}, defaultValue = "desc"))
+        @RequestParam(defaultValue = "desc") String dir,
+        @io.swagger.v3.oas.annotations.Parameter(description = "Exact invitation lookup for UC1; still scoped to this Owner's farm", schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int64", minimum = "1"))
+        @RequestParam(required = false) Long invitationId) {
+        return service.listInvitations(farmId, status, page, size, sort, dir, invitationId);
     }
 
     // Owner-only commands: VIEW_FARM_INFORMATION is the Owner-only permission that stays available in every service status
@@ -70,13 +134,15 @@ public class FarmMembershipResource {
             () -> service.changeMember(farmId, membershipId, request));
     }
 
+    /** A7 / SCR-15: PENDING to review, or ACCEPTED with the caller's own membership (AF2); other states are MSG-FE03-08 (D28). */
     @GetMapping("/invitations/accept")
     public InvitationAcceptance preview(@RequestParam String token) {
         return service.preview(token);
     }
 
+    /** A8: no Idempotency-Key (D28); the link token is the intent and a repeat returns the same membership (GBR-17). */
     @PostMapping("/invitations/accept")
-    public MemberView accept(@Valid @RequestBody AcceptInvitation request) {
+    public AcceptedInvitation accept(@Valid @RequestBody AcceptInvitation request) {
         return service.accept(request.token());
     }
 }

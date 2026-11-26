@@ -1,24 +1,33 @@
 import { useMemo, useState } from 'react'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { platformServiceApi } from '../api/platformServiceApi'
+import { useSearchParams } from 'react-router-dom'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { usePlatformServiceDemoMode, useReconciliationQueries } from '../hooks/usePlatformServiceUseCase'
 import EvidencePanel from '../components/EvidencePanel'
 import EvidenceTrack from '../components/EvidenceTrack'
 import ReconcileDialogs from '../components/ReconcileDialogs'
 import { usePmAccess } from '../components/common'
 import type { EvidenceFilters, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtShort } from '../domain/dates'
-import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
-import { validateReason } from '../domain/servicePeriods'
+import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
+import { validateReason } from '../validation/servicePeriodValidation'
+import PaymentSourcePage from './PaymentSourcePage'
+import PaymentReadPage from './PaymentReadPage'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
-const PAY_TONE = { PENDING: 'warn', PAID: 'ok', EXPIRED: 'outline' } as const
+const PAY_TONE = PAYMENT_STATE_TONE
 
 export default function PaymentReconciliationRoutes() {
+  const [params] = useSearchParams()
+  const demoReconciliation = usePlatformServiceDemoMode()
+  if (params.has('paymentId') && params.get('origin') !== 'payments') return <PaymentSourcePage key={params.get('paymentId')} />
+  return demoReconciliation ? <ReconciliationPage /> : <PaymentReadPage />
+}
+
+function ReconciliationPage() {
   const canAct = usePmAccess()
   const [m, openModal, closeModal] = useModalParam()
   const [tab, setTab] = useState<Tab>('evidence')
@@ -36,11 +45,7 @@ export default function PaymentReconciliationRoutes() {
   const [tick, setTick] = useState(0)
 
   const filters = useMemo(() => ({ status, bankFrom: from, bankTo: to }), [status, from, to])
-  const list = useQuery(() => platformServiceApi.listEvidence(filters), [filters, tick])
-  const tiles = useQuery(() => platformServiceApi.paymentTiles(), [tick])
-  const payments = useQuery(() => platformServiceApi.listPayments(), [tick])
-  const selected = useQuery(() => platformServiceApi.getEvidence(selectedId), [selectedId, tick])
-  const candidates = useQuery(() => platformServiceApi.listCandidates(selectedId), [selectedId, tick])
+  const { list, tiles, payments, selected, candidates } = useReconciliationQueries(filters, selectedId, tick)
 
   if ((list.loading && !list.data) || (payments.loading && !payments.data)) return <Layout title={TITLE}><LoadingBlock /></Layout>
   const failure = list.error ?? payments.error ?? tiles.error
@@ -81,7 +86,7 @@ export default function PaymentReconciliationRoutes() {
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={[{ value: 'evidence', label: 'Chứng từ ngân hàng' }, { value: 'requests', label: 'Yêu cầu thanh toán' }]} />
         {tab === 'evidence' ? (
           <>
-            <FilterSelect aria-label="Trạng thái xem xét" value={status} onChange={(e) => setStatus(e.target.value as NonNullable<EvidenceFilters['status']>)}>
+            <FilterSelect size="lg" aria-label="Trạng thái xem xét" value={status} onChange={(e) => setStatus(e.target.value as NonNullable<EvidenceFilters['status']>)}>
               <option value="">Trạng thái xem xét: Tất cả</option>
               <option value="TO_REVIEW">Chưa xử lý</option>
               <option value="HOLD">Tạm giữ</option>
@@ -102,8 +107,15 @@ export default function PaymentReconciliationRoutes() {
               <thead><tr><Th>Mã</Th><Th>Trang trại</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Tạo lúc</Th><Th>Hết hạn</Th><Th>Trạng thái</Th><Th>Chứng từ</Th></tr></thead>
               <tbody>
                 {payments.data.map((p) => (
-                  <tr key={p.id}>
-                    <Td><button type="button" className="font-medium text-brand" onClick={() => { setRequestId(p.id); openModal('request') }}>{p.code}</button></Td>
+                  <tr
+                    key={p.id}
+                    tabIndex={0}
+                    aria-label={`Mở yêu cầu thanh toán ${p.code}`}
+                    className={interactiveRowClass}
+                    onClick={(event) => activateTableRow(event, () => { setRequestId(p.id); openModal('request') })}
+                    onKeyDown={(event) => activateTableRowByKey(event, () => { setRequestId(p.id); openModal('request') })}
+                  >
+                    <Td><button type="button" className="inline-flex min-h-6 items-center font-medium text-brand" onClick={() => { setRequestId(p.id); openModal('request') }}>{p.code}</button></Td>
                     <Td>{p.farmName}</Td>
                     <Td>{p.termYears} năm</Td>
                     <Td>{fmtMoney(p.amount)}</Td>
@@ -126,8 +138,16 @@ export default function PaymentReconciliationRoutes() {
                   <thead><tr><Th>Giao dịch</Th><Th>Số tiền</Th><Th>Nội dung CK</Th><Th>Ngân hàng ghi</Th><Th>Khớp</Th></tr></thead>
                   <tbody>
                     {list.data.map((e) => (
-                      <tr key={e.id} aria-selected={e.id === selectedId} className={`cursor-pointer ${e.id === selectedId ? 'bg-[#eef4ef]' : ''}`} onClick={() => select(e.id)}>
-                        <Td><button type="button" className="whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
+                      <tr
+                        key={e.id}
+                        tabIndex={0}
+                        aria-label={`Mở chứng từ ${maskTransaction(e.transactionId)}`}
+                        aria-selected={e.id === selectedId}
+                        className={`${interactiveRowClass} ${e.id === selectedId ? 'bg-[#eef4ef]' : ''}`}
+                        onClick={(event) => activateTableRow(event, () => select(e.id))}
+                        onKeyDown={(event) => activateTableRowByKey(event, () => select(e.id))}
+                      >
+                        <Td><button type="button" className="inline-flex min-h-6 items-center whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
                         <Td><span className="whitespace-nowrap">{fmtMoney(e.amount)}</span></Td>
                         <Td>{e.content}</Td>
                         <Td>{fmtShort(e.bankPaidAt)}</Td>
@@ -153,7 +173,6 @@ export default function PaymentReconciliationRoutes() {
           ) : null}
         </div>
       )}
-      <Foot>Thanh toán & đối soát (PM). Bảng trái liệt kê chứng từ ngân hàng theo ngày; chọn một dòng để xem xét ở khung phải. "Chấp nhận" chỉ mở khi mã, số tiền, tài khoản và thời gian đều khớp; các quyết định khác cần lý do và bằng chứng. Khung dưới theo dõi ứng viên và lịch sử xử lý của chứng từ.</Foot>
       {ev && m ? (
         <ReconcileDialogs
           m={m}

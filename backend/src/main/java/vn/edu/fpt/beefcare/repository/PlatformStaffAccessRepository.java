@@ -28,4 +28,22 @@ public interface PlatformStaffAccessRepository extends JpaRepository<PlatformSta
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<PlatformStaffAccess> findAllByRoleIgnoreCaseAndStatusIgnoreCaseOrderById(String role, String status);
+
+    /**
+     * BR-D06 (D32): ACTIVE SA access held by an ACTIVE account other than {@code excludedUserId}. A scalar query reads the
+     * committed rows, not accounts already loaded in the persistence context, so it sees a change that committed while
+     * this transaction waited for its row locks.
+     */
+    @Query(
+        "select count(a) from PlatformStaffAccess a where upper(a.role) = 'SA' and upper(a.status) = 'ACTIVE' " +
+        "and upper(a.user.accountStatus) = 'ACTIVE' and a.user.id <> :excludedUserId"
+    )
+    long countOtherActiveAdministrators(@Param("excludedUserId") Long excludedUserId);
+
+    /** Whether {@code userId} still holds ACTIVE SA access on an ACTIVE account, read from the database (D32). */
+    @Query(
+        "select count(a) > 0 from PlatformStaffAccess a where upper(a.role) = 'SA' and upper(a.status) = 'ACTIVE' " +
+        "and upper(a.user.accountStatus) = 'ACTIVE' and a.user.id = :userId"
+    )
+    boolean isActiveAdministrator(@Param("userId") Long userId);
 }

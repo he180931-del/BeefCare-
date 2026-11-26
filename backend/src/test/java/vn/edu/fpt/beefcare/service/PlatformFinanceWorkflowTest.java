@@ -39,6 +39,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
     @Autowired ManualFinanceBankClaimRepository claims;
     @Autowired CashReportSnapshotRepository snapshots;
     @Autowired BankTransferEvidenceRepository evidences;
+    @Autowired vn.edu.fpt.beefcare.service.payment.PlatformSubscriptionQueryService subscriptionQueries;
 
     private static final AtomicInteger KEYS = new AtomicInteger();
     private static final long BASE_TXN = 910_000L;
@@ -114,9 +115,9 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(draft.state()).isEqualTo("DRAFT"); assertThat(draft.recordCode()).matches("FR-\\d{4,}");
         assertThat(draft.sourceType()).isEqualTo("MANUAL"); assertThat(draft.postedAt()).isNull();
 
-        RecordFields edited = new RecordFields("INCOME", "INTEREST", new BigDecimal("520000"), TODAY.minusDays(1), "GENERAL", null, "DOC-2", "Đã sửa", "MANUAL");
+        RecordFields edited = new RecordFields("INCOME", "COST_REIMBURSEMENT", new BigDecimal("520000"), TODAY.minusDays(1), "GENERAL", null, "DOC-2", "Đã sửa", "MANUAL");
         RecordDTO updated = api().update(draft.id(), new VersionedRecord(edited, null, draft.version()), key());
-        assertThat(updated.category()).isEqualTo("INTEREST"); assertThat(updated.amountVnd()).isEqualByComparingTo("520000");
+        assertThat(updated.category()).isEqualTo("COST_REIMBURSEMENT"); assertThat(updated.amountVnd()).isEqualByComparingTo("520000");
         assertThat(updated.version()).isGreaterThan(draft.version());
 
         RecordDTO posted = post(updated);
@@ -136,7 +137,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(replacement.state()).isEqualTo("DRAFT"); assertThat(replacement.id()).isNotEqualTo(voided.id());
         assertThat(replacement.recordCode()).isNotEqualTo(voided.recordCode());
         assertThat(replacement.replacementRecordId()).isEqualTo(voided.id());
-        assertThat(replacement.amountVnd()).isEqualByComparingTo("520000"); assertThat(replacement.category()).isEqualTo("INTEREST");
+        assertThat(replacement.amountVnd()).isEqualByComparingTo("520000"); assertThat(replacement.category()).isEqualTo("COST_REIMBURSEMENT");
         assertThat(replacement.occurredOn()).isEqualTo(voided.occurredOn()); assertThat(replacement.postedAt()).isNull(); assertThat(replacement.voidReason()).isNull();
         // only a VOID record can be replaced
         assertCode(catchThrowable(() -> api().replacement(replacement.id(), null, key())), "MSG-COM-05", 409);
@@ -147,7 +148,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(detail.history()).extracting(HistoryDTO::actor).doesNotContainNull();
         assertThat(detail.history().get(3).reason()).isEqualTo("Nhập sai số tiền");
         assertThat(audits("FINANCE_DRAFT_CREATE")).isEqualTo(1); assertThat(audits("FINANCE_DRAFT_EDIT")).isEqualTo(1);
-        assertThat(audits("FINANCE_RECORD_POST")).isEqualTo(1); assertThat(audits("FINANCE_RECORD_VOID")).isEqualTo(1);
+        assertThat(audits("FINANCE_RECORD_POSTED")).isEqualTo(1); assertThat(audits("FINANCE_RECORD_VOIDED")).isEqualTo(1);
         assertThat(audits("FINANCE_REPLACEMENT_CREATE")).isEqualTo(1);
     }
 
@@ -231,14 +232,14 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         VersionedAction postBody = new VersionedAction(updated.version(), null);
         RecordDTO posted = api().post(first.id(), postBody, "post-1");
         assertThat(api().post(first.id(), postBody, "post-1")).isEqualTo(posted);
-        assertThat(audits("FINANCE_RECORD_POST")).isEqualTo(1); assertThat(actions(first.id())).containsExactly("CREATE", "EDIT", "POST");
+        assertThat(audits("FINANCE_RECORD_POSTED")).isEqualTo(1); assertThat(actions(first.id())).containsExactly("CREATE", "EDIT", "POST");
         // a different key with the same stale body is a genuine new command and is rejected
         assertCode(catchThrowable(() -> api().post(first.id(), postBody, "post-2")), "MSG-COM-05", 409);
         // void
         VersionedAction voidBody = new VersionedAction(posted.version(), "Sai chứng từ");
         RecordDTO voided = api().voidPosted(first.id(), voidBody, "void-1");
         assertThat(api().voidPosted(first.id(), voidBody, "void-1")).isEqualTo(voided);
-        assertThat(audits("FINANCE_RECORD_VOID")).isEqualTo(1);
+        assertThat(audits("FINANCE_RECORD_VOIDED")).isEqualTo(1);
         // replacement
         RecordDTO replacement = api().replacement(first.id(), null, "replace-1").getBody();
         assertThat(api().replacement(first.id(), null, "replace-1").getBody()).isEqualTo(replacement);
@@ -283,10 +284,12 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         pm();
         BankTransferEvidence transfer = bankTransfer(1, "IN", 750_000, null);
         assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::transactionId).contains(transfer.getProviderTxnId());
+        assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::evidenceId).contains(transfer.getId());
 
         RecordDTO first = createFromBank(transfer, "INCOME", "OTHER_INCOME");
         assertThat(first.sourceType()).isEqualTo("BANK_TRANSACTION"); assertThat(first.amountVnd()).isEqualByComparingTo("750000");
         assertThat(first.sourceReference()).isEqualTo(PlatformFinanceService.sourceReference(transfer));
+        assertThat(first.sourceEvidenceId()).isEqualTo(transfer.getId());
         assertThat(claims.existsById(first.sourceReference())).isTrue();
         assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::transactionId).doesNotContain(transfer.getProviderTxnId());
 
@@ -310,16 +313,38 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(third.state()).isEqualTo("DRAFT"); assertThat(voidedSecond.state()).isEqualTo("VOID");
     }
 
+    @Test void aDraftCanAtomicallyReplaceItsClaimedBankTransaction() {
+        pm();
+        BankTransferEvidence firstTransfer = bankTransfer(20, "IN", 150_000, null);
+        BankTransferEvidence replacementTransfer = bankTransfer(21, "IN", 275_000, null);
+        RecordDTO draft = createFromBank(firstTransfer, "INCOME", "OTHER_INCOME");
+
+        RecordFields replacementFields = new RecordFields(
+            "INCOME", "OTHER_INCOME", replacementTransfer.getAmount(), TODAY, "GENERAL", null, null,
+            "Đổi sang giao dịch đúng", "BANK_TRANSACTION");
+        RecordDTO updated = api().update(
+            draft.id(), new VersionedRecord(replacementFields, replacementTransfer.getId(), draft.version()), key());
+
+        String firstReference = PlatformFinanceService.sourceReference(firstTransfer);
+        String replacementReference = PlatformFinanceService.sourceReference(replacementTransfer);
+        assertThat(updated.sourceReference()).isEqualTo(replacementReference);
+        assertThat(updated.amountVnd()).isEqualByComparingTo("275000");
+        assertThat(claims.existsById(firstReference)).isFalse();
+        assertThat(claims.findById(replacementReference)).get().extracting(claim -> claim.getRecord().getId()).isEqualTo(draft.id());
+        assertThat(actions(draft.id())).containsExactly("CREATE", "EDIT");
+    }
+
     @Test void bankSourceRulesRejectSubscriptionTransfersWrongDirectionAndAcceptedPayments() {
         pm();
         // unmatched transfer that carries a quote reference is a known subscription-origin transfer (GBR-84)
         BankTransferEvidence quoted = bankTransfer(10, "IN", 100_000, "BC000000000001");
         assertCode(catchThrowable(() -> createFromBank(quoted, "INCOME", "OTHER_INCOME")), "MSG-FE21-08", 409);
+        assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::transactionId).doesNotContain(quoted.getProviderTxnId());
         // income needs an incoming transfer, expense an outgoing one
         BankTransferEvidence outgoing = bankTransfer(11, "OUT", 100_000, null), incoming = bankTransfer(12, "IN", 100_000, null);
         assertCode(catchThrowable(() -> createFromBank(outgoing, "INCOME", "OTHER_INCOME")), "MSG-FE21-08", 409);
-        assertCode(catchThrowable(() -> createFromBank(incoming, "EXPENSE", "OPERATIONS")), "MSG-FE21-08", 409);
-        assertThat(createFromBank(outgoing, "EXPENSE", "OPERATIONS").state()).isEqualTo("DRAFT");
+        assertCode(catchThrowable(() -> createFromBank(incoming, "EXPENSE", "SERVER_STORAGE")), "MSG-FE21-08", 409);
+        assertThat(createFromBank(outgoing, "EXPENSE", "SERVER_STORAGE").state()).isEqualTo("DRAFT");
         // unauthenticated delivery is never a usable source
         BankTransferEvidence unverified = bankTransfer(13, "IN", 100_000, null);
         unverified.setAuthOutcome("REJECTED"); em.flush();
@@ -341,8 +366,8 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertCode(catchThrowable(() -> create(fields("INCOME", "OTHER_INCOME", -5, TODAY, null))), "MSG-FE21-09", 400);
         RecordFields fractional = new RecordFields("INCOME", "OTHER_INCOME", new BigDecimal("10.5"), TODAY, "GENERAL", null, null, null, "MANUAL");
         assertCode(catchThrowable(() -> create(fractional)), "MSG-FE21-09", 400);
-        assertCode(catchThrowable(() -> create(fields("INCOME", "OPERATIONS", 10, TODAY, null))), "MSG-FE21-10", 400);
-        assertCode(catchThrowable(() -> create(fields("EXPENSE", "INTEREST", 10, TODAY, null))), "MSG-FE21-10", 400);
+        assertCode(catchThrowable(() -> create(fields("INCOME", "SERVER_STORAGE", 10, TODAY, null))), "MSG-FE21-10", 400);
+        assertCode(catchThrowable(() -> create(fields("EXPENSE", "COST_REIMBURSEMENT", 10, TODAY, null))), "MSG-FE21-10", 400);
         assertCode(catchThrowable(() -> create(fields("INCOME", "OTHER_INCOME", 10, TODAY.plusDays(1), null))), "MSG-COM-10", 400);
         assertCode(catchThrowable(() -> create(fields(null, "OTHER_INCOME", 10, TODAY, null))), "MSG-COM-06", 400);
         RecordFields farmWithoutFarm = new RecordFields("INCOME", "OTHER_INCOME", BigDecimal.TEN, TODAY, "FARM", null, null, null, "MANUAL");
@@ -352,8 +377,8 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         RecordFields longText = new RecordFields("INCOME", "OTHER_INCOME", BigDecimal.TEN, TODAY, "GENERAL", null, null, "d".repeat(501), "MANUAL");
         assertCode(catchThrowable(() -> create(longText)), "MSG-COM-10", 400);
         assertThat(records.count()).isZero();
-        RecordDTO farmRecord = create(fields("expense", "software", 10, TODAY, farm.getId()));
-        assertThat(farmRecord.type()).isEqualTo("EXPENSE"); assertThat(farmRecord.category()).isEqualTo("SOFTWARE"); assertThat(farmRecord.farmId()).isEqualTo(farm.getId());
+        RecordDTO farmRecord = create(fields("expense", "domain_software", 10, TODAY, farm.getId()));
+        assertThat(farmRecord.type()).isEqualTo("EXPENSE"); assertThat(farmRecord.category()).isEqualTo("DOMAIN_SOFTWARE"); assertThat(farmRecord.farmId()).isEqualTo(farm.getId());
     }
 
     @Test void cashReportSnapshotSumsReceiptsPostedIncomeAndPostedExpenseOnly() {
@@ -365,13 +390,13 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         LocalDate from = LocalDate.of(2026, 10, 1);
 
         posted(fields("INCOME", "OTHER_INCOME", 300_000, LocalDate.of(2026, 10, 20), null));       // general income 300,000
-        posted(fields("INCOME", "INTEREST", 50_000, LocalDate.of(2026, 10, 25), farmA.getId()));   // farm A income 50,000
-        posted(fields("EXPENSE", "OPERATIONS", 200_000, LocalDate.of(2026, 10, 22), null));        // general expense 200,000
-        posted(fields("EXPENSE", "MARKETING", 80_000, LocalDate.of(2026, 10, 26), farmA.getId())); // farm A expense 80,000
-        posted(fields("EXPENSE", "SOFTWARE", 15_000, LocalDate.of(2026, 10, 27), farmB.getId()));  // farm B expense 15,000
+        posted(fields("INCOME", "COST_REIMBURSEMENT", 50_000, LocalDate.of(2026, 10, 25), farmA.getId()));   // farm A income 50,000
+        posted(fields("EXPENSE", "SERVER_STORAGE", 200_000, LocalDate.of(2026, 10, 22), null));        // general expense 200,000
+        posted(fields("EXPENSE", "OTHER_EXPENSE", 80_000, LocalDate.of(2026, 10, 26), farmA.getId())); // farm A expense 80,000
+        posted(fields("EXPENSE", "DOMAIN_SOFTWARE", 15_000, LocalDate.of(2026, 10, 27), farmB.getId()));  // farm B expense 15,000
         posted(fields("INCOME", "OTHER_INCOME", 777_000, LocalDate.of(2026, 8, 1), null));         // outside the period
-        voided(posted(fields("INCOME", "REFUND", 999_000, LocalDate.of(2026, 10, 21), null)), "Ghi nhầm"); // VOID: excluded
-        create(fields("EXPENSE", "BANK_FEE", 111_000, LocalDate.of(2026, 10, 23), null));          // DRAFT: excluded
+        voided(posted(fields("INCOME", "COST_REIMBURSEMENT", 999_000, LocalDate.of(2026, 10, 21), null)), "Ghi nhầm"); // VOID: excluded
+        create(fields("EXPENSE", "OTHER_EXPENSE", 111_000, LocalDate.of(2026, 10, 23), null));          // DRAFT: excluded
 
         CashReport all = api().runReport(new ReportRequest(from, TODAY, null, "ALL"), key()).getBody();
         ReportSummary s = all.summary();
@@ -380,10 +405,12 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(s.totalIncome()).isEqualByComparingTo("1550000");
         assertThat(s.totalExpense()).isEqualByComparingTo("295000");
         assertThat(s.netCashFlow()).isEqualByComparingTo("1255000");
-        assertThat(s.note()).contains("not statutory profit");
+        assertThat(s.note()).isEqualTo("Dòng tiền, không phải lợi nhuận theo luật định.");
         assertThat(s.dailyIncome()).extracting(DailyTotals::date).containsExactly(LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 25), TODAY);
         assertThat(totals(s, "PLATFORM", null).expense()).isEqualByComparingTo("295000");
+        assertThat(totals(s, "PLATFORM", null).farmName()).isEqualTo("Toàn nền tảng");
         assertThat(totals(s, "GENERAL", null).otherIncome()).isEqualByComparingTo("300000");
+        assertThat(totals(s, "GENERAL", null).farmName()).isEqualTo("Chung nền tảng");
         assertThat(totals(s, "GENERAL", null).expense()).isEqualByComparingTo("200000");
         ScopeTotals a = totals(s, "FARM", farmA.getId());
         assertThat(a.subscriptionReceipts()).isEqualByComparingTo("1200000"); assertThat(a.otherIncome()).isEqualByComparingTo("50000"); assertThat(a.expense()).isEqualByComparingTo("80000");
@@ -395,6 +422,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(farmOnly.subscriptionReceipts()).isEqualByComparingTo("1200000"); assertThat(farmOnly.otherIncome()).isEqualByComparingTo("50000");
         assertThat(farmOnly.totalExpense()).isEqualByComparingTo("80000"); assertThat(farmOnly.netCashFlow()).isEqualByComparingTo("1170000");
         assertThat(farmOnly.scopes()).noneMatch(x -> "GENERAL".equals(x.scope()));
+        assertThat(totals(farmOnly, "PLATFORM", null).farmName()).isEqualTo("Tổng cộng");
         ReportSummary farmBOnly = api().runReport(new ReportRequest(from, TODAY, farmB.getId(), "ALL"), key()).getBody().summary();
         assertThat(farmBOnly.totalIncome()).isEqualByComparingTo("0"); assertThat(farmBOnly.netCashFlow()).isEqualByComparingTo("-15000");
 
@@ -414,6 +442,7 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertThat(finance.report(all.id()).summary()).isEqualTo(all.summary());
         assertThat(finance.exportSnapshot(all.id()).lines()).extracting(ReportLine::amount).doesNotContain(new BigDecimal("999000"), new BigDecimal("111000"), new BigDecimal("777000"));
         assertThat(finance.exportSnapshot(all.id()).lines()).hasSize(6);
+        assertThat(snapshots.findById(all.id()).orElseThrow().getDetailsJson()).contains("\"sourceVersion\":");
         ReportSummary refreshed = api().runReport(new ReportRequest(from, TODAY, null, "ALL"), key()).getBody().summary();
         assertThat(refreshed.otherIncome()).isEqualByComparingTo("351000"); assertThat(snapshots.count()).isEqualTo(before + 1);
 
@@ -421,6 +450,67 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY, from, null, "ALL"), key())), "MSG-COM-10", 400);
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY.minusYears(3), TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
         assertCode(catchThrowable(() -> api().runReport(new ReportRequest(from, TODAY, null, "NOPE"), key())), "MSG-COM-10", 400);
+    }
+
+    /** A PAID payment that never got an accepted bank transfer (bad data): it has no bank-paid time, so it is not a receipt. */
+    private Payment paidWithoutEvidence(Payment sibling, AppUser owner, String quoteRef) {
+        Payment p = new Payment();
+        p.setQuoteRef(quoteRef); p.setDurationYears(1); p.setAmountVnd(new BigDecimal("1200000")); p.setState("PAID");
+        p.setRequestedAt(clock.instant().minusSeconds(60)); p.setExpiresAt(clock.instant().plusSeconds(86_340)); p.setPurchasedStart(clock.instant());
+        p.setSubscription(sibling.getSubscription()); p.setRequestedBy(owner); p.setPriceVersion(sibling.getPriceVersion());
+        p.setReceivingAccountNamespace("LOCAL-MOCK"); p.setReceivingEnvironment("MOCK"); p.setReceivingAccount("MOCK-ACCOUNT"); p.setReceivingBankCode("MOCKBANK"); p.setVersion(0L);
+        return save(p);
+    }
+
+    @Test void receiptsPageAndCashReportCountTheSameReceiptsOncePerPayment() {
+        AppUser manager = pm();
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        Payment paid = paidReceipt(farm, owner, 82_300L, "BC999999999993");
+        paidWithoutEvidence(paid, owner, "BC999999999994");
+        // a second accepted transfer linked to the same payment must not create a second receipt
+        BankTransferEvidence again = bankTransfer(82_301L, "IN", 1_200_000, "BC999999999993");
+        again.setPayment(paid); again.setReviewStatus("ACCEPTED"); save(again);
+        actAs(manager);
+
+        ReportSummary report = api().runReport(new ReportRequest(TODAY.minusDays(5), TODAY, farm.getId(), "RECEIPTS_ONLY"), key()).getBody().summary();
+        var page = subscriptionQueries.receipts(null, farm.getId(), TODAY.minusDays(5), TODAY, 0, 25);
+        var unfiltered = subscriptionQueries.receipts(null, farm.getId(), null, null, 0, 25);
+
+        assertThat(report.subscriptionReceipts()).isEqualByComparingTo("1200000");
+        assertThat(page.receiptsInPeriod()).isEqualTo(1);
+        assertThat(page.totalAmount()).isEqualByComparingTo(report.subscriptionReceipts());
+        assertThat(unfiltered.items()).extracting(r -> r.paymentId()).containsExactly(paid.getId());
+    }
+
+    @Test void periodMayEndInTheFutureButStaysWithin24Months() {
+        pm();
+        posted(fields("INCOME", "OTHER_INCOME", 40_000, TODAY.minusDays(1), null));
+        LocalDate monthEnd = TODAY.plusDays(20);
+
+        ReportSummary s = api().runReport(new ReportRequest(TODAY.minusDays(5), monthEnd, null, "ALL"), key()).getBody().summary();
+        assertThat(s.otherIncome()).isEqualByComparingTo("40000");
+        assertThat(api().records(null, null, null, null, null, TODAY.minusDays(5), monthEnd, 0, 25).getContent()).hasSize(1);
+
+        assertCode(catchThrowable(() -> api().runReport(new ReportRequest(monthEnd, TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
+        assertCode(catchThrowable(() -> api().runReport(new ReportRequest(TODAY.minusMonths(24).minusDays(1), TODAY, null, "ALL"), key())), "MSG-COM-10", 400);
+    }
+
+    @Test void recordListLooksUpBankSourcesOncePerPage() {
+        pm();
+        org.hibernate.stat.Statistics stats = em.getEntityManagerFactory().unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true);
+        java.util.function.LongSupplier statementsForList = () -> {
+            em.flush(); em.clear(); stats.clear();
+            var page = api().records(null, null, null, null, null, null, null, 0, 25).getContent();
+            assertThat(page).allSatisfy(r -> assertThat(r.sourceEvidenceId()).isNotNull());
+            return stats.getPrepareStatementCount();
+        };
+        createFromBank(bankTransfer(82_400L, "IN", 10_000, null), "INCOME", "OTHER_INCOME");
+        long withOne = statementsForList.getAsLong();
+        for (int i = 1; i < 4; i++) createFromBank(bankTransfer(82_400L + i, "IN", 10_000 + i, null), "INCOME", "OTHER_INCOME");
+        long withFour = statementsForList.getAsLong();
+        assertThat(withFour).isEqualTo(withOne);
     }
 
     @Test void expiredSnapshotIsGoneAndCannotBeExported() {

@@ -115,6 +115,15 @@ public class FeedAttachmentService {
         return dto(attachment);
     }
 
+    /** Retires receipt files with their DRAFT owner when the user discards that draft. */
+    @Transactional
+    public void retireReceiptAttachmentsForDiscard(Long farmId, Long receiptId) {
+        for (Attachment attachment : attachments.findByOwnerTypeAndOwnerIdAndFarm_IdAndRemovedAtIsNullOrderByIdAsc(
+            AttachmentOwnerType.FEED_RECEIPT, receiptId, farmId)) {
+            attachment.setRemovedAt(Instant.now());
+        }
+    }
+
     /**
      * Hash of the request content for the idempotency record, so a retried upload of the same file replays and a different file conflicts.
      * It does not validate: permission is checked first by the command, and the file rules are applied inside it.

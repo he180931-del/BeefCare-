@@ -32,6 +32,10 @@ public class EntryCatalogLookup {
 
     public Optional<Vaccine> vaccine(Long farmId, Long id) {
         Vaccine v = id == null ? null : em.find(Vaccine.class, id);
+        // Read-only checks stay non-locking. A saved declaration/posting keeps a share lock until commit (D42).
+        if (v != null && farmId.equals(v.getFarm().getId()) && !org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            em.refresh(v, LockModeType.PESSIMISTIC_READ);
+        }
         return v != null && v.getFarm() != null && farmId.equals(v.getFarm().getId()) ? Optional.of(v) : Optional.empty();
     }
 

@@ -6,7 +6,7 @@ import CowList from '../../../src/features/cattle/pages/CowList'
 import CowProfile from '../../../src/features/cattle/pages/CowProfile'
 import ScanQrPage from '../../../src/features/cattle/pages/ScanQrPage'
 import TechnicianCattleRoutes from '../../../src/features/cattle/pages/TechnicianCattleRoutes'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 
 const Where = () => <p data-testid="where">{useLocation().pathname + useLocation().search}</p>
 
@@ -55,7 +55,7 @@ describe('cattle slice S12', () => {
     render(<MemoryRouter initialEntries={['/kt/quet-qr']}><ScanQrPage /></MemoryRouter>)
     await user.type(screen.getByLabelText('Nhập mã thủ công'), 'KHONG-CO')
     await user.click(screen.getByRole('button', { name: 'Tra cứu' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Mã này không phải thẻ tai')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Mã này không phải thẻ bò của trại bạn được truy cập.')
     await user.clear(screen.getByLabelText('Nhập mã thủ công'))
     await user.type(screen.getByLabelText('Nhập mã thủ công'), 'VN-BV-0512')
     await user.click(screen.getByRole('button', { name: 'Tra cứu' }))

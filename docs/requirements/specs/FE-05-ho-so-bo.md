@@ -22,7 +22,7 @@
 | UC-FE05-04 | Cấp / thay thẻ QR | Owner, Manager | SCR-21, popup Cấp / Thay thẻ QR |
 | UC-FE05-05 | Quét mã QR bò | Owner, Manager, Technician | SCR-22 |
 
-**SCR-19 là khung chứa các tab:** Tổng quan (spec này), Dòng thời gian (SCR-50, FE-16), Cân & BCS (SCR-30, FE-08), Tiêm phòng (SCR-34, FE-09), Sức khỏe (SCR-37, FE-10), Sinh sản (SCR-39, FE-11/12, chỉ bò cái), Lịch sử chuồng (SCR-20), Thẻ QR (SCR-21). Nội dung các tab của feature khác nằm trong spec của feature đó.
+**SCR-19 là khung chứa các tab:** Tổng quan (spec này), Dòng thời gian (SCR-50, FE-16), Cân & BCS (SCR-30, FE-08), Tiêm phòng (SCR-34, FE-09), Sức khỏe (SCR-37, FE-10), Sinh sản (SCR-39, FE-11/12, chỉ bò cái). D79: Lịch sử chuồng (SCR-20) và Thẻ QR (SCR-21) là **khối gập cuối tab Tổng quan**, không còn là tab riêng – còn 6 tab (5 với bò đực). Liên kết cũ `?tab=barns` / `?tab=qr` mở tab Tổng quan với khối tương ứng mở sẵn. Nội dung các tab của feature khác nằm trong spec của feature đó.
 
 **Ngoài gói:** tạo bò (nhập đàn FE-06), chuyển chuồng (FE-04), các trạng thái suy ra lấy nguồn từ FE-08 → FE-13.
 
@@ -78,7 +78,7 @@ Mọi thao tác ghi cần trại ACTIVE và bò ACTIVE.
 | Đủ điều kiện phối | Đủ / Chưa đủ (kèm điều kiện chưa đạt) | Tham số trại (GBR-55) | Bò cái Chờ phối, Động dục, Sau sinh |
 | Cân gần nhất, ADG 90 ngày, BCS | Kèm cơ sở (đo / ước tính) | FE-08 (GBR-39) | — |
 
-**Thứ tự huy hiệu** trên danh sách và tiêu đề hồ sơ: trạng thái đàn (hoặc Chờ xuất) → nhóm đàn → sức khỏe → cách ly thịt → sinh sản. Bò EXITED / VOIDED **chỉ** hiện trạng thái đàn kèm loại xuất và ngày, hoặc lý do hủy; không hiện các trạng thái suy ra.
+**Thứ tự huy hiệu** trên danh sách và tiêu đề hồ sơ: trạng thái đàn (hoặc Chờ xuất) → sức khỏe → nghi truyền nhiễm → cách ly thịt → sinh sản. D78: nhóm đàn không còn là huy hiệu (đã có ở cột Mục đích và bộ lọc SCR-18) và bò đang nuôi bình thường không hiện huy hiệu trạng thái đàn. Bò EXITED / VOIDED **chỉ** hiện trạng thái đàn kèm loại xuất và ngày, hoặc lý do hủy; không hiện các trạng thái suy ra.
 
 ### 3.3 Lịch sử thay đổi hồ sơ (Cattle Profile Change)
 
@@ -121,7 +121,7 @@ Mỗi lần đổi một nhóm trường: bò, nhóm trường, giá trị cũ, 
 ## 5. Luồng xử lý
 
 ### UC-FE05-01 Xem danh sách bò
-SCR-18: tìm, lọc, tab nhóm đàn có số đếm → bấm dòng mở SCR-19. Mặc định trạng thái đàn = ACTIVE. Không có kết quả → MSG-COM-04.
+SCR-18: tìm, lọc, tab nhóm đàn có số đếm → bấm dòng mở SCR-19. Mặc định trạng thái đàn = ACTIVE. Không có kết quả → MSG-COM-04. 10 con mỗi trang (D75).
 
 ### UC-FE05-02 Xem hồ sơ bò
 SCR-19: tiêu đề (ảnh, mã, tên, dòng tóm tắt, huy hiệu theo thứ tự §3.2), các khối Định danh, Thông tin cá thể, Tóm tắt chăm sóc, Nhắc việc liên quan; các tab. Bò EXITED: chỉ huy hiệu "Đã xuất · loại · ngày" + MSG-COM-13; VOIDED: "Nhập nhầm – đã hủy" + MSG-COM-18; phiếu chết PENDING: MSG-COM-17 kèm link phiếu (Owner: SCR-43).
@@ -136,17 +136,17 @@ AF1 Manager mở → tab Mục đích chỉ đọc + MSG-FE05-03 · AF2 mở t�
 E1 trùng số tai → MSG-FE05-02 · E2 danh mục ngưng → MSG-FE18-08 · E3 thiếu lý do / ngày, ngày tương lai, ngày trước nhập đàn → MSG-COM-06 / 07 / 15 · E4 bò EXITED → MSG-COM-13 · E5 sửa đồng thời → MSG-COM-05 · E6 lỗi lưu → MSG-COM-02.
 
 ### UC-FE05-04 Cấp / thay thẻ QR
-1. Popup hiện thẻ hiện tại (mã, trạng thái, tháng cấp) và mã thẻ mới hệ thống tạo (hoặc người dùng nhập mã thẻ in sẵn).
+1. Popup hiện thẻ hiện tại (mã, trạng thái, tháng cấp). Để trống ô mã để hệ thống cấp khi xác nhận, hoặc nhập mã thẻ in sẵn.
 2. Chọn lý do thay (Mất / Hỏng / Khác), ghi chú tùy chọn.
-3. **In thử** (không lưu, tùy chọn) → **Xác nhận thẻ mới**.
-4. Kiểm trạng thái bò, mã mới duy nhất → R-05-12 → MSG-FE05-04 → đề nghị in.
+3. Nếu đã nhập mã hợp lệ, có thể xem QR, tải PNG hoặc **In thẻ thử**. Tem thử chưa được gắn với bò ở bước này.
+4. **Xác nhận thẻ mới** kiểm trạng thái bò và tính duy nhất của mã (R-05-12). Sau khi lưu, hiển thị QR của mã vừa cấp, cho tải hoặc in lại ngay (MSG-FE05-04).
 
 AF1 cấp lần đầu → không hỏi lý do · AF2 Hủy.
 E1 bò EXITED → MSG-COM-13 · E2 in lỗi → MSG-FE05-08 · E3 lỗi lưu → MSG-COM-02.
 
 ### UC-FE05-05 Quét QR
-1. Mở SCR-22, xin quyền camera khi cần.
-2. Đưa camera vào thẻ → hệ thống đọc mã, tìm bò (R-05-14), kiểm bò thuộc trại hiện tại và người dùng được xem.
+1. Mở SCR-22, bấm **Bật camera** để xin quyền. Có thể chọn **Quét từ ảnh** hoặc nhập mã thủ công.
+2. Hệ thống đọc QR từ camera hoặc tệp ảnh trên thiết bị rồi tra cứu cùng API (R-05-14). Camera tự tắt khi đã đọc được mã hoặc rời màn hình.
 3. Hiện thẻ tóm tắt bò → **Mở hồ sơ** (SCR-19, chỉ nút theo vai trò) hoặc **Quét lại**.
 
 AF1 **Nhập mã thủ công** (mã hiển thị, số tai hoặc mã thẻ) → xử lý như quét · AF2 thẻ REPLACED → MSG-FE05-05 · AF3 bò của trại khác có quyền → MSG-FE05-06, đồng ý thì chuyển trại (UC-FE02-02) rồi mở hồ sơ · AF4 bò EXITED → hồ sơ chỉ đọc + MSG-COM-13.
@@ -163,55 +163,59 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 1 | Header / Tiêu đề | Chữ | "n đang nuôi · m đã xuất" (không đếm bò VOIDED) |
 | 2 | New entry voucher / Phiếu nhập mới | Nút (Owner, Manager) | Mở SCR-24 |
 | 3 | Search / Tìm | Ô chữ | Khớp mã hiển thị, số tai hoặc tên |
-| 4 | Breed, Sex, Pen / Giống, Giới tính, Chuồng | Dropdown | Mặc định Tất cả |
-| 5 | Purpose / Mục đích | Dropdown | Các mục đích ACTIVE; mặc định Tất cả |
-| 6 | Life stage / Giai đoạn | Dropdown | Bê chưa cai sữa, Bê cai sữa, Bò tơ, Trưởng thành; mặc định Tất cả |
+| 4 | Breed, Sex, Pen / Giống, Giới tính, Chuồng | Dropdown | Mặc định Tất cả. Chuồng ở hàng bộ lọc chính; Giống, Giới tính nằm trong "Bộ lọc khác" (D75) |
+| 5 | Purpose / Mục đích | Dropdown | Các mục đích ACTIVE; mặc định Tất cả; trong "Bộ lọc khác" |
+| 6 | Life stage / Giai đoạn | Dropdown | Bê chưa cai sữa, Bê cai sữa, Bò tơ, Trưởng thành; mặc định Tất cả; trong "Bộ lọc khác" |
+| 6a | More filters / Bộ lọc khác | Nút | Mở / đóng nhóm Giống, Giới tính, Giai đoạn, Mục đích, Dữ liệu cân, Sắp xếp; hiện số bộ lọc đang áp, tự mở khi có bộ lọc đang áp (D75) |
 | 7 | Health / Sức khỏe | Dropdown | Tất cả, Khỏe mạnh, Theo dõi, Đang điều trị, Đang cách ly thịt |
 | 8 | Herd status / Trạng thái đàn | Dropdown | ACTIVE (mặc định), Chờ xuất, EXITED, VOIDED, Tất cả |
 | 9 | Herd group tabs / Tab nhóm đàn | Tab có số đếm | Tất cả, Bò cái sinh sản, Bò tơ, Vỗ béo, Bê, Đực giống, Khác, Đã xuất; tab Khác luôn hiện kể cả 0; tổng các nhóm = tổng ACTIVE |
-| 10 | Cattle / Bò | Cột | Mã hiển thị + tên (sắp xếp được) |
-| 11 | Breed / Giống | Cột | Tên giống |
-| 12 | Sex · Age / Giới tính · Tuổi | Cột | Ví dụ "Cái · 4 năm 7 tháng"; "~" khi ước tính |
+| 10 | Cattle / Bò | Cột | Mã hiển thị + tên (sắp xếp được); dòng phụ: giống · giới tính · tuổi, ví dụ "Lai Sind · Cái · ~3t 7th" ("~" khi ước tính) (D75) |
+| 11 | Breed / Giống | — | Gộp vào dòng phụ của cột Bò (D75); sắp xếp theo giống ở "Sắp xếp" |
+| 12 | Sex · Age / Giới tính · Tuổi | — | Gộp vào dòng phụ của cột Bò (D75); sắp xếp theo ngày sinh ở "Sắp xếp" |
 | 13 | Pen / Chuồng | Cột | Mã + tên chuồng hiện tại |
-| 14 | Purpose · Stage / Mục đích · Giai đoạn | Cột | Ví dụ "Bò sinh sản · Trưởng thành"; **không** thay giai đoạn bằng nhóm đàn |
-| 15 | Latest weight / Cân gần nhất | Cột | "342 kg · 12/10"; "*" = cân ước tính |
-| 16 | Status / Trạng thái | Huy hiệu | Chờ xuất / Chờ xác nhận chết / mất; EXITED: "Đã xuất · loại · ngày"; VOIDED: "Nhập nhầm – đã hủy" |
-| 17 | Health / Sức khỏe | Huy hiệu | Chỉ ACTIVE: Khỏe mạnh / Theo dõi / Đang điều trị; "Cách ly thịt đến dd/mm"; "Nghi truyền nhiễm" khi có ca OPEN gắn cờ |
-| 18 | Reproduction / Sinh sản | Huy hiệu | Bò cái ACTIVE thuộc diện: Chờ phối / Động dục / Đã phối / Mang thai ("Sắp đẻ") / Sau sinh; còn lại "—" |
-| 19 | Open / Mở | Thao tác dòng | Mở SCR-19 |
+| 14 | Purpose · Stage / Mục đích · Giai đoạn | Cột | Mục đích, dòng phụ giai đoạn, ví dụ "Bò sinh sản" / "Trưởng thành"; **không** thay giai đoạn bằng nhóm đàn |
+| 15 | Latest weight / Cân gần nhất | Cột | "342 kg", dòng phụ ngày cân khi có; "*" = cân ước tính |
+| 16 | Status / Trạng thái | Chữ trong cột Tình trạng | Chỉ hiện khi khác Đang nuôi (D75): Chờ xuất / Chờ xác nhận chết / mất; EXITED: "Đã xuất · loại · ngày"; VOIDED: "Nhập nhầm – đã hủy" |
+| 17 | Health / Sức khỏe | Cột Tình trạng | Chỉ ACTIVE: "Khỏe mạnh" là chữ xám thường; Theo dõi (vàng) / Đang điều trị (đỏ) là huy hiệu; "Cách ly thịt đến dd/mm"; "Nghi truyền nhiễm" khi có ca OPEN gắn cờ (D75) |
+| 18 | Reproduction / Sinh sản | Huy hiệu | Bò cái ACTIVE thuộc diện: Chờ phối / Động dục / Đã phối / Mang thai ("Sắp đẻ") / Sau sinh; còn lại để trống (D75) |
+| 19 | Open / Mở | Thao tác dòng | Cả dòng bấm được (chuột, Enter / Space) mở SCR-19 |
+| 20 | Row edge / Vạch đầu dòng | Màu | Đỏ khi đang điều trị; vàng khi theo dõi, cách ly thịt hoặc chờ xuất; không tô khi bình thường (D75) |
+| 21 | Pagination / Phân trang | Điều hướng | 10 con mỗi trang; "Hiển thị a–b / n con" (D75) |
 
 ### SCR-19 Hồ sơ bò – Tổng quan
 
 | # | Trường | Loại | Nội dung / Hành vi |
 |---|---|---|---|
 | **Tiêu đề** | | | |
-| 1 | Photo / Ảnh | Ảnh nhỏ | Ảnh hiện tại hoặc ảnh mặc định; bấm để phóng to |
+| 1 | Photo / Ảnh | Ảnh nhỏ và nút | Bấm ảnh hiện tại để mở hộp thoại phóng to, giữ tỷ lệ gốc. Khi chưa có ảnh, hiển thị biểu tượng bò. Chủ trại và Quản lý được sửa hồ sơ thấy nút **Thêm ảnh** hoặc **Đổi ảnh**, mở tab **Định danh & mô tả**. |
 | 2 | Display code, name / Mã, tên | Chữ | Ví dụ BC-000125 "Hoa Đỏ" |
-| 3 | Summary line / Dòng tóm tắt | Chữ | Số tai ("Gắn tai sau" khi trống) · giống · giới tính · tuổi · chuồng hiện tại |
+| 3 | Summary line / Dòng tóm tắt | Chữ | Số tai ("Gắn tai sau" khi trống) · giống · giới tính · tuổi · chuồng hiện tại · cân gần nhất "342 kg* (18/10/2026)", "*" = ước tính, bỏ trống khi chưa cân (D78) |
 | 4 | Badges / Huy hiệu | Huy hiệu | Theo thứ tự §3.2; quy tắc cho EXITED / VOIDED / phiếu chết PENDING ở mục 5 |
 | 5 | Update profile / Reissue QR – Cập nhật hồ sơ / Cấp lại QR | Nút (Owner, Manager) | Ẩn với EXITED, VOIDED, phiếu chết PENDING |
 | 6 | More ⋯ › Copy internal ID / Sao chép mã nội bộ | Menu | Sao chép Internal Cattle ID để gửi hỗ trợ; không hiển thị ID |
-| **Định danh** | | | |
-| 7 | Display code, Ear tag number / Mã hiển thị, Số tai | Chỉ đọc | Thẻ QR hiện tại ở tab Thẻ QR |
-| **Thông tin cá thể** | | | |
-| 8 | Sex, Breed / Giới tính, Giống | Chỉ đọc | — |
+| **Thông tin cá thể** | | | D79: một khối. Luôn hiện Giống, Ngày sinh · tuổi, Mục đích, Giai đoạn, và Cách ly nhập đàn khi còn hiệu lực. Các trường còn lại (#7, giới tính, #10, #11, #15, #16) nằm sau nút "Xem thêm: định danh, nguồn gốc, bố mẹ"; Chuồng hiện tại (#14) không lặp lại vì đã có ở tiêu đề và khối Lịch sử chuồng |
+| 7 | Display code, Ear tag number / Mã hiển thị, Số tai | Chỉ đọc | Sau "Xem thêm" (đã có ở tiêu đề #2, #3) |
+| 8 | Sex, Breed / Giới tính, Giống | Chỉ đọc | Giống luôn hiện; giới tính sau "Xem thêm" (đã có ở tiêu đề) |
 | 9 | Birth date, Age / Ngày sinh, Tuổi | Chỉ đọc | Luôn hiện độ chính xác: ngày chính xác; "~" + "(ước tính)"; "Không rõ" và không có tuổi |
 | 10 | Entry source / Nguồn nhập | Chỉ đọc | Mua: ngày nhập, người bán, cân lúc nhập kèm cơ sở, mã phiếu (link SCR-75 cho Owner, Manager); "Cách ly đến dd/mm/yyyy" khi ngày đó ≥ hôm nay. Sinh tại trại: ngày sinh, bò mẹ |
-| 11 | Declared at entry / Khai báo khi nhập | Chỉ đọc | Chỉ bò mua: tóm tắt khai báo (tiêm, bệnh, sinh sản: số lứa đã đẻ, mang thai khoảng n tháng); "Không rõ" hiện là không rõ (GBR-30) |
+| 11 | Declared at entry / Khai báo khi nhập | Chỉ đọc | Chỉ bò mua: tóm tắt khai báo (tiêm, bệnh, sinh sản: số lứa đã đẻ, mang thai khoảng n tháng); "Không rõ" hiện là không rõ (GBR-30). D82: mục riêng sau "Xem thêm", thứ tự Tiêm phòng · Bệnh đã biết · Sinh sản; mũi tiêm "Tên (dd/mm/yyyy)" hoặc "(không rõ ngày)" kèm nguồn; mọi vai trò xem được, sửa qua phiếu nhập; bò sinh tại trại hoặc đã hủy nhập không có mục. API: `entry.declarations[]` |
 | 12 | Production purpose / Mục đích | Chỉ đọc | Giá trị, loại mục đích, "từ ngày" |
 | 13 | Life stage / Giai đoạn | Chỉ đọc | Giá trị, "từ ngày"; gợi ý REM-08 đang chờ hiện dạng gợi ý với nút "Xem xét" (Owner, Manager) mở popup tab Giai đoạn |
-| 14 | Current pen / Chuồng hiện tại | Chỉ đọc | Chuồng, "từ ngày" |
+| 14 | Current pen / Chuồng hiện tại | Chỉ đọc | Chuồng, "từ ngày" – hiện ở tiêu đề (#3) và dòng tóm tắt khối Lịch sử chuồng (D79) |
 | 15 | Dam, Sire / Bò mẹ, Bò bố | Link / chữ | Link bò nội bộ; mã đực / tinh ngoài dạng chữ; "Không rõ" |
 | 16 | Name, Description / Tên, Mô tả | Chỉ đọc | — |
-| **Tóm tắt chăm sóc** | | | |
-| 17 | Latest weight, ADG 90 days, BCS | Chỉ đọc | Từ bản ghi cân hợp lệ, kèm cơ sở |
+| **Tóm tắt chăm sóc** | | | D79: mỗi ô là nút mở tab chứa số liệu gốc – #17 → Cân & BCS, #18 và #19 → Sức khỏe, #20 → Sinh sản (bò đực: chỉ chữ "Không áp dụng"), #21 → Tiêm phòng |
+| 17 | Latest weight, ADG 90 days, BCS | Chỉ đọc | Từ bản ghi cân hợp lệ, kèm cơ sở và ngày cân (`latestWeightDate`, giờ trại – D78) |
 | 18 | Health / Sức khỏe | Chỉ đọc | Trạng thái; số ca OPEN, CHRONIC kèm chẩn đoán nghi ngờ của từng ca, hoặc "Không có ca đang mở"; "Nghi truyền nhiễm – cách ly" khi có cờ |
 | 19 | Meat withdrawal / Cách ly thịt | Chỉ đọc | "Đến dd/mm/yyyy" tô nổi khi còn hiệu lực, không thì "Không" |
 | 20 | Reproduction / Sinh sản | Chỉ đọc | Trạng thái, đủ điều kiện phối (Đạt / Chưa đạt), ngày đẻ dự kiến kèm cơ sở; "Không áp dụng" cho bò đực, bê, bò cái ngoài diện |
-| 21 | Vaccination / Tiêm phòng | Chỉ đọc | Số mũi quá hạn |
+| 21 | Vaccination / Tiêm phòng | Chỉ đọc | `vaccinationOverdue`: "n mũi quá hạn" (đỏ) khi n > 0, "Đúng lịch" khi n = 0, "—" khi không có số liệu (D78) |
 | 22 | Related reminders / Nhắc việc liên quan | Danh sách | Tối đa 5 nhắc việc đang có: tiêu đề, hạn; link SCR-44 |
 
-### SCR-20 Tab Lịch sử chuồng
+### SCR-20 Lịch sử chuồng (khối gập trong tab Tổng quan – D79)
+
+Gập sẵn; dòng tóm tắt khi gập: "Tên chuồng · từ dd/mm/yyyy · n/sức chứa con", hoặc "Chưa phân chuồng". Bấm tiêu đề "Lịch sử chuồng" để mở.
 
 | # | Trường | Nội dung |
 |---|---|---|
@@ -222,14 +226,16 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 5 | Reason / Lý do | Lý do xếp / chuyển; lý do cảnh báo khi không đạt tiêu chí |
 | 6 | Recorded by / Người ghi | Tên thành viên |
 
-### SCR-21 Tab Thẻ QR
+### SCR-21 Thẻ QR (khối gập trong tab Tổng quan – D79)
+
+Gập sẵn; dòng tóm tắt khi gập: "Mã thẻ · cấp dd/mm/yyyy", hoặc "Chưa có thẻ đang dùng". Bấm tiêu đề "Thẻ QR" để mở.
 
 | # | Trường | Nội dung |
 |---|---|---|
 | 1 | Tag code, Status / Mã thẻ, Trạng thái | Chỉ đọc |
 | 2 | Code printed on tag / Mã in trên thẻ | Mã hiển thị in phía trên QR (OR-02) |
 | 3 | Issued at · by / Cấp lúc · bởi | Chỉ đọc |
-| 4 | Print tag / In thẻ | Nút (Owner, Manager) |
+| 4 | Print tag / In thẻ | Owner/Manager có quyền ghi có thể mở hộp thoại in hoặc tải tem PNG của thẻ ACTIVE. Mã hiển thị của bò nằm trên QR. |
 | 5 | Replace tag / Thay thẻ | Nút (Owner, Manager); mở popup Cấp / Thay thẻ QR |
 | 6 | Tag history / Lịch sử thẻ | Dòng chỉ đọc: mã thẻ, cấp, kết thúc, lý do (Mất / Hỏng / Khác / "Cấp lần đầu"), người làm |
 
@@ -238,7 +244,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | **Tab Định danh & mô tả** | | | | | |
-| 1 | Photo / Ảnh | File | — | JPG / PNG, ≤ 5 MB; thay hoặc xóa | MSG-COM-10 |
+| 1 | Photo / Ảnh nhận diện | File | — | Nút **Chọn ảnh** mở trình chọn tệp JPG/PNG, tối đa 5 MB. Hiện tên tệp đã chọn. Khi có ảnh hiện tại, nút **Xóa ảnh** đánh dấu xóa. Bấm **Lưu thay đổi** để áp dụng. | MSG-COM-10 |
 | 2 | Ear tag number / Số tai | Ô chữ | — | ≤ 30; duy nhất trong bò ACTIVE | MSG-COM-10, MSG-FE05-02 |
 | 3 | Name / Tên | Ô chữ | — | ≤ 50 | MSG-COM-10 |
 | 4 | Colour and markings / Màu lông, đặc điểm | Ô chữ | — | ≤ 255 | MSG-COM-10 |
@@ -263,19 +269,21 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 2 | Replacement reason / Lý do thay | Dropdown | * (chỉ khi thay) | Mất / Hỏng / Khác | MSG-COM-06 |
 | 3 | New tag code / Mã thẻ mới | Chỉ đọc hoặc ô chữ | — | Hệ thống tạo; hoặc nhập mã thẻ in sẵn (duy nhất) | MSG-FE12-08 |
 | 4 | Note / Ghi chú | Ô chữ | — | ≤ 255 | MSG-COM-10 |
-| 5 | Print test tag / In thử | Nút | — | In không lưu | — |
+| 5 | Print test tag / In thẻ thử | Nút | — | Hiện với mã do người dùng nhập hợp lệ. In hoặc tải ảnh không cấp thẻ. | — |
 | 6 | Cancel / Confirm new tag – Hủy / Xác nhận thẻ mới | Nút | — | — | MSG-COM-13, MSG-COM-02; thành công MSG-FE05-04; in lỗi MSG-FE05-08 |
 
 ### SCR-22 Quét QR
 
 | # | Trường | Loại | Nội dung |
 |---|---|---|---|
-| 1 | Camera view / Khung camera | Camera | Khung quét; không dùng được → MSG-FE05-07 |
+| 1 | Camera view / Khung camera | Camera | Bật/tắt camera. Camera cần quyền của trình duyệt và trang HTTPS hoặc localhost. |
 | 2 | Identified cattle card / Thẻ bò đã nhận diện | Chỉ đọc | Mã hiển thị, số tai, giống, giới tính, tuổi, chuồng, trạng thái đàn, sức khỏe, sinh sản |
 | 3 | Open profile / Mở hồ sơ | Nút | Mở SCR-19 |
 | 4 | Scan again / Quét lại | Nút | Xóa kết quả |
 | 5 | Enter code manually / Nhập mã thủ công | Ô chữ | Mã hiển thị, số tai hoặc mã thẻ; xử lý như quét |
 | 6 | Messages / Thông báo | — | MSG-FE05-05, 06, 09, 10, MSG-COM-13 |
+| 7 | Scan from image / Quét từ ảnh | Tệp | PNG, JPG, WebP hoặc GIF, tối đa 10 MB. Ảnh được đọc trên thiết bị. |
+| 8 | Switch farm / Chuyển trại và mở hồ sơ | Nút | Chỉ hiện khi API xác nhận người dùng có thể vào trại của bò. Kiểm lại trại, tra cứu lại mã rồi mở đúng hồ sơ. |
 
 ---
 
@@ -284,7 +292,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Danh sách bò | `q?, breedId?, sex?, penId?, purposeId?, lifeStage?, health? (HEALTHY\|MONITORING\|UNDER_TREATMENT\|WITHDRAWAL), herdStatus? (ACTIVE\|EXIT_PENDING\|EXITED\|VOIDED\|ALL), herdGroup?, page, size, sort?` | `{header {active, exited}, groupCounts {all, breedingFemales, youngStock, fattening, calves, sires, other, exited}, items[{cattleId, displayCode, name, breed, sex, ageText, ageEstimated, pen, purpose, purposeType, lifeStage, latestWeight {kg, date, estimated}, exitPending?, herdStatus, exitInfo?, health?, withdrawalUntil?, contagious, reproStatus?, dueSoon}], total}` | COM-03 | `GET /api/farms/{farmId}/cattle` |
-| A2 | Hồ sơ (Tổng quan) | — | Mọi trường SCR-19: `identity, individual, entrySource, declaration, purpose {value, type, since}, lifeStage {value, since, suggestion?}, pen {code, name, since}, dam, sire, careSummary {latestWeight, adg90, bcs, health {state, openCases[], chronicCases[], contagious}, withdrawalUntil, repro {status, eligible, failedConditions[], expectedCalving}, overdueDoses}, reminders[≤5], badges[], allowedActions[], version` (không có Internal ID trong giao diện; có trường riêng cho "Sao chép") | COM-08 | `GET /api/farms/{farmId}/cattle/{id}` |
+| A2 | Hồ sơ (Tổng quan) | — | Mọi trường SCR-19: `identity, individual, entrySource, declaration (D82: `entry.declarations[{category, status, vaccines[{name, date}], description, informationSource, earlierCalvings, pregnantAtEntry, estMonthsPregnant}]`), purpose {value, type, since}, lifeStage {value, since, suggestion?}, pen {code, name, since}, dam, sire, careSummary {latestWeight, adg90, bcs, health {state, openCases[], chronicCases[], contagious}, withdrawalUntil, repro {status, eligible, failedConditions[], expectedCalving}, overdueDoses}, reminders[≤5], badges[], allowedActions[], version` (không có Internal ID trong giao diện; có trường riêng cho "Sao chép") | COM-08 | `GET /api/farms/{farmId}/cattle/{id}` |
 | A3 | Cập nhật hồ sơ | `group: IDENTIFICATION\|PURPOSE\|LIFE_STAGE`, các trường của nhóm, `effectiveDate?, reason?, confirmReproEnd?, version` + `Idempotency-Key` | A2 | FE05-02, FE05-03, FE05-11 (cần xác nhận), FE05-12, FE18-08, COM-06, COM-07, COM-15, COM-13, COM-17, COM-05, COM-02 | `PUT /api/farms/{farmId}/cattle/{id}/profile` |
 | A4 | Tải / xóa ảnh | File (multipart) + `expectedVersion` + `Idempotency-Key` | `{photoUrl}` | COM-10 (loại / dung lượng) | `POST` / `DELETE /api/farms/{farmId}/cattle/{cattleId}/photo` |
 | A5 | Lịch sử thẻ | — | `[{tagCode, status, issuedAt, issuedBy, endedAt, reason, note}]` | COM-08 | `GET /api/farms/{farmId}/cattle/{id}/qr-tags` |
@@ -357,6 +365,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | TC-05-34 | Từ chối quyền camera | Mở SCR-22 | MSG-FE05-07, hiện ô nhập thủ công | E | UC-05 E1 |
 | TC-05-35 | Technician | Mở hồ sơ | Không có nút Cập nhật, Cấp lại QR, Chuyển chuồng, In thẻ | E | R-05-16 |
 | TC-05-36 | Bò mua có khai báo "không rõ" về tiêm | Mở hồ sơ | Hiện "Không rõ" (không hiện như "Không") | E | SCR-19 |
+| TC-05-36a | Bò mua khai tiêm (1 mũi danh mục + 1 mũi tên tự do, không rõ ngày), bệnh Có, mang thai ~4 tháng (D82) | Mở hồ sơ → "Xem thêm" | Mục "Khai báo khi nhập": Tiêm phòng "Tên (dd/mm/yyyy); Tên (không rõ ngày) · nguồn: …", Bệnh đã biết đúng mô tả, Sinh sản "n lứa đã đẻ · mang thai ~4 tháng khi nhập"; Kỹ thuật viên cũng thấy; bò sinh tại trại không có mục | E | SCR-19 #11 |
 | TC-05-37 | Ngày sinh ước tính | Danh sách / hồ sơ | Tuổi có "~"; hồ sơ có "(ước tính)" | E | SCR-18, SCR-19 |
 | TC-05-38 | Bò VOIDED | Mở hồ sơ | Chỉ huy hiệu "Nhập nhầm – đã hủy" + MSG-COM-18; không hiện trạng thái suy ra | E | §3.2 |
 
@@ -380,3 +389,6 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 24/11/2026 | 28/10/2026 | D75: SCR-18 theo Bento – tab gạch chân, bộ lọc và bảng trong một khối; nút "Bộ lọc khác"; giống / giới tính / tuổi gộp vào dòng phụ của Bò; trạng thái chỉ hiện khi khác Đang nuôi; vạch màu đầu dòng; 10 con mỗi trang | Tuấn |
+| 26/11/2026 | 28/10/2026 | D78: tiêu đề hồ sơ thêm cân gần nhất, bỏ huy hiệu nhóm đàn và Đang nuôi; ô Tiêm phòng của Tóm tắt chăm sóc lấy số mũi quá hạn từ backend | Tuấn |
+| 26/11/2026 | 28/10/2026 | D79: Lịch sử chuồng và Thẻ QR thành khối gập cuối tab Tổng quan (còn 6 tab); Định danh gộp vào Thông tin cá thể với nút Xem thêm; ô Tóm tắt chăm sóc mở tab tương ứng | Tuấn |

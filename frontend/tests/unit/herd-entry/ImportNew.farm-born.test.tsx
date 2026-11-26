@@ -1,13 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { EntryCalf, HerdEntry, Pen } from '../../../src/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { EntryCalf, HerdEntry } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const state = vi.hoisted(() => ({
   calves: [] as EntryCalf[],
   saved: [] as Array<{ id?: string; record: Partial<HerdEntry>; cattleRows?: unknown[]; documents?: File[] }>,
   saveError: null as Error | null,
+  markDied: vi.fn(),
 }))
 
 const pens: Pen[] = [
@@ -30,6 +33,7 @@ vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => 
     listEntryPens: async () => structuredClone(pens),
     listPendingEntryCalves: async () => structuredClone(state.calves),
     listEntrySellers: async () => [],
+    markCalfDiedBeforeRegistration: state.markDied,
     saveHerdEntry: async (input: (typeof state.saved)[number]) => {
       if (state.saveError) throw state.saveError
       state.saved.push(input)
@@ -56,9 +60,65 @@ beforeEach(() => {
   }]
   state.saved = []
   state.saveError = null
+  state.markDied.mockReset().mockResolvedValue({})
 })
+afterEach(cleanup)
 
 describe('Phiếu nhập bê sinh tại trại', () => {
+  it('shows inherited parentage as text even with a missing dam code, and never offers parent or semen inputs', async () => {
+    state.calves[0] = { ...state.calves[0], mother: '', father: 'SEMEN-17', sireSource: 'AI', semenBatch: 'SEMEN-17' }
+    renderPage()
+    await screen.findByText('1. Thông tin phiếu')
+    expect(screen.getByText('TTNT · SEMEN-17')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /Bò mẹ|Bò bố/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /Mã nguồn tinh/ })).not.toBeInTheDocument()
+  })
+
+  it('does not offer fabricated calf rows when no calving outcome is pending', async () => {
+    state.calves = []; renderPage()
+    await screen.findByText('1. Thông tin phiếu')
+    expect(screen.queryByRole('spinbutton', { name: 'Số lượng bê muốn nhập' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Chưa có bê chờ xác nhận/)).toBeInTheDocument()
+  })
+
+  it('requires explicit death confirmation and a reason, locks repeated submits, then removes only the calf', async () => {
+    let resolve!: (value: unknown) => void
+    state.markDied.mockImplementation(() => new Promise(done => { resolve = done }))
+    const user = userEvent.setup(); renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Đánh dấu chết trước đăng ký' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Đánh dấu bê chết trước khi đăng ký' }))
+    expect(dialog.getByText(/Không hoàn tác được/)).toBeInTheDocument()
+    const confirm = dialog.getByRole('button', { name: 'Xác nhận' })
+    expect(confirm).toBeDisabled()
+    await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), '  Bê chết trước đăng ký  ')
+    await user.dblClick(confirm)
+    expect(state.markDied).toHaveBeenCalledOnce()
+    expect(state.markDied).toHaveBeenCalledWith(17, 'Bê chết trước đăng ký')
+    expect(confirm).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Đánh dấu bê chết trước khi đăng ký' })).toBeInTheDocument()
+    resolve({});
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByRole('checkbox', { name: 'Chọn CALF-0007' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Đã đánh dấu bê chết trước khi đăng ký/)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['MSG-FE06-04', 'Chỉ bê sống mới được đăng ký.'],
+    ['MSG-FE06-02', 'Bê đã được đăng ký.'],
+    ['MSG-COM-05', 'Bản ghi đã thay đổi.'],
+  ])('keeps backend %s in the modal and preserves the entered reason for retry', async (code, message) => {
+    state.markDied.mockRejectedValue(new BackendError(code === 'MSG-FE06-04' ? 422 : 409, { code, message }))
+    const user = userEvent.setup(); renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Đánh dấu chết trước đăng ký' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Đánh dấu bê chết trước khi đăng ký' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Kiểm tra lỗi trạng thái')
+    await user.click(dialog.getByRole('button', { name: 'Xác nhận' }))
+    expect(await dialog.findByText(message)).toBeInTheDocument()
+    expect(dialog.getByRole('textbox', { name: 'Lý do' })).toHaveValue('Kiểm tra lỗi trạng thái')
+    await user.click(dialog.getByRole('button', { name: 'Hủy' }))
+    expect(screen.getByRole('checkbox', { name: 'Chọn CALF-0007' })).toBeInTheDocument()
+  })
   it('loads a pending calf, keeps purchase UI hidden, and maps selected calf identifiers', async () => {
     const user = userEvent.setup()
     renderPage()

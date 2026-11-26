@@ -1,6 +1,7 @@
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import {
   ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
-  validateReproductionCommand,
+  reproductionIssues,
 } from '../domain/reproductionRules'
 import type {
   CalfOutcome,
@@ -13,10 +14,11 @@ import type {
   ReproductionRevision,
   ReproductionRole,
 } from '../types'
-import { REPRODUCTION_DEMO, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
-import { reproductionNow } from '../domain/reproductionClock'
+import { REPRODUCTION_DEMO, REPRODUCTION_DEMO_NOW, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
 
 export interface ReproductionDemoStore {
+  /** Đồng hồ của dữ liệu mẫu (yyyy-mm-ddTHH:mm). */
+  now(): string
   list(): Promise<ReproductionFemale[]>
   get(cattleCode: string): Promise<ReproductionFemale>
   recordEvent(cattleCode: string, command: ReproductionCommand, role: ReproductionRole): Promise<ReproductionFemale>
@@ -31,21 +33,22 @@ export interface ReproductionDemoStore {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 // Local date-times are plain strings; shift them in UTC arithmetic so the machine time zone never changes them.
-const shift = (value: string, ms: number): string => new Date(Date.parse(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
+const shift = (value: string, ms: number): string => new Date(parseBusinessTime(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
 const addDays = (value: string, days: number): string => shift(value, days * 86_400_000)
 const addHours = (value: string, hours: number): string => shift(value, hours * 3_600_000)
 const makeId = (kind: string, n: number) => `${kind}-${Date.now().toString(36)}-${n.toString(36)}`
+/** GBR-08, D41: the Owner or a Manager records, corrects and voids; same message as the backend COM-01 mapping. */
 const requireManager = (role: ReproductionRole) => {
-  if (role !== 'MANAGER') throw new Error('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
+  if (role !== 'OWNER' && role !== 'MANAGER') throw new Error('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 }
+/** D69: ghi chú khi sửa / xóa không bắt buộc, chỉ giới hạn 500 ký tự. */
 const requiredReason = (reason: string) => {
-  if (!reason.trim()) throw new Error('Nhập lý do sửa hoặc hủy.')
-  if (reason.length > 500) throw new Error('Lý do tối đa 500 ký tự.')
+  if (reason.length > 500) throw new Error('Ghi chú tối đa 500 ký tự.')
 }
 
 const calculateExpectedDate = expectedCalvingDate
 const RESULT_TEXT = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' } as const
-const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OTHER: 'Khác' }
+const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OBSERVATION: 'Quan sát – không lên giống lại', OTHER: 'Khác' }
 const UPDATE_TEXT = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' } as const
 /** "Có thai · Siêu âm · BS Trần Văn Bình" */
 const checkDetails = (event: ReproductionEvent) => [event.result ? RESULT_TEXT[event.result] : null, event.method ? CHECK_METHOD_TEXT[event.method] ?? event.method : null, event.examiner].filter(Boolean).join(' · ')
@@ -80,7 +83,7 @@ function makeOpenPregnancy(event: ReproductionEvent, profile: ReproductionFemale
   }
 }
 
-function deriveState(profile: ReproductionFemale, parityBaseline: number): void {
+function deriveState(profile: ReproductionFemale, parityBaseline: number, now: string): void {
   const validCalvings = profile.calvings.filter((item) => item.status === 'VALID')
   profile.parity = parityBaseline + validCalvings.length
   syncCalvingEvents(profile)
@@ -121,6 +124,11 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
   profile.openPregnancy = openPregnancy
   profile.lastCalvingAt = profile.calvings.filter((item) => item.status === 'VALID').sort((a, b) => b.birthAt.localeCompare(a.birthAt))[0]?.birthAt ?? null
   const lastCalvingAt = profile.lastCalvingAt
+  // D67: tiêu chí sau đẻ của điều kiện phối (tham số Sau sinh 45 ngày của dữ liệu mẫu).
+  if (profile.eligibility && lastCalvingAt) {
+    const days = Math.floor((Date.parse(now.slice(0, 10)) - Date.parse(lastCalvingAt.slice(0, 10))) / 86_400_000)
+    Object.assign(profile.eligibility, { postpartumMet: days >= 45, requiredPostpartumDays: 45, daysSinceCalving: days })
+  }
   profile.servicesInCurrentCycle = history.filter((item) => item.type === 'BREEDING' && (!lastCalvingAt || item.occurredAt > lastCalvingAt)).length
   const latestEstrus = history.filter((item) => item.type === 'ESTRUS').slice(-1)[0]
   const latestBreeding = history.filter((item) => item.type === 'BREEDING').slice(-1)[0]
@@ -134,7 +142,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = addDays(latestBreeding.occurredAt, 30)
   } else if (status === 'PREGNANT') {
     profile.breedingWindow = null
-    profile.nextAction = isDueSoon(profile, reproductionNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
+    profile.nextAction = isDueSoon(profile, now) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
     profile.dueAt = profile.openPregnancy?.expectedCalvingAt ?? null
   } else if (status === 'POST_CALVING' && profile.lastCalvingAt) {
     profile.breedingWindow = null
@@ -146,7 +154,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = null
   }
   profile.indicators.daysSinceLastCalving = profile.lastCalvingAt && status !== 'PREGNANT'
-    ? Math.max(0, Math.floor((Date.parse(reproductionNow()) - new Date(profile.lastCalvingAt).getTime()) / 86_400_000))
+    ? Math.max(0, Math.floor((parseBusinessTime(now) - parseBusinessTime(profile.lastCalvingAt)) / 86_400_000))
     : null
   profile.events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   profile.calvings.sort((a, b) => b.birthAt.localeCompare(a.birthAt))
@@ -163,14 +171,14 @@ function actionFor(command: ReproductionCommand): 'RECORD_ESTRUS' | 'RECORD_BREE
 
 export function createReproductionDemoStore(
   seed: readonly ReproductionFemale[] = REPRODUCTION_DEMO,
-  clock: () => string = reproductionNow,
+  clock: () => string = () => REPRODUCTION_DEMO_NOW,
 ): ReproductionDemoStore {
   let rows = clone([...seed])
   const parityBaselines = new Map(rows.map((profile) => [
     profile.cattleCode,
     profile.parity - profile.calvings.filter((item) => item.status === 'VALID').length,
   ]))
-  rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity))
+  rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock()))
   let sequence = 0
   let revisionSequence = 0
 
@@ -212,6 +220,7 @@ export function createReproductionDemoStore(
   }
 
   return {
+    now: () => clock(),
     async list() { return clone(rows) },
     async get(cattleCode) { return copy(find(cattleCode)) },
     async recordEvent(cattleCode, command, role) {
@@ -221,8 +230,8 @@ export function createReproductionDemoStore(
       const moreAction = command.type === 'PREGNANCY_CHECK' && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
       if (!available.includes(actionFor(command)) && !moreAction) throw new Error('Hành động này không phù hợp với trạng thái sinh sản hiện tại.')
       const now = clock()
-      const errors = validateReproductionCommand(command, { today: now, profile })
-      if (errors.length) throw new Error(errors[0])
+      const issues = reproductionIssues(command, { today: now, profile })
+      if (issues.length) throw new ReproductionValidationError(issues)
 
       const id = makeId('repro', ++sequence)
       const base: ReproductionEvent = {
@@ -287,7 +296,7 @@ export function createReproductionDemoStore(
       profile.statusAt = base.occurredAt
       if (command.type === 'PREGNANCY_CHECK' && command.result === 'PREGNANT') profile.openPregnancy = makeOpenPregnancy(base, profile)
       if ((command.type === 'PREGNANCY_CHECK' && command.result === 'NOT_PREGNANT') || (command.type === 'PREGNANCY_UPDATE' && command.updateType === 'LOSS')) profile.openPregnancy = null
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -305,13 +314,17 @@ export function createReproductionDemoStore(
       if (issues.length) throw new ReproductionValidationError(issues)
       const now = clock()
       const id = makeId('calving', ++sequence)
+      // Q5 / D36: bê đăng ký ngay không có thẻ được cấp mã như khi backend ghi sổ phiếu FARM_BORN.
+      let lastCode = Math.max(0, ...Object.keys(usage).concat(rows.map((row) => row.cattleCode.toLocaleLowerCase('vi')))
+        .map((tag) => /^bc-(\d+)$/.exec(tag)?.[1]).filter(Boolean).map(Number))
       const calves: CalfOutcome[] = command.calves.map((calf, index): CalfOutcome => {
         const live = calf.outcome === 'LIVE'
         const choice = live ? calf.registration ?? 'DRAFT' : null
+        const tag = calf.earTag?.trim() || (choice === 'REGISTER_NOW' ? `BC-${String(++lastCode).padStart(6, '0')}` : null)
         return {
           id: makeId('calf', ++sequence), number: index + 1, outcome: calf.outcome, sex: calf.sex,
           weightKg: calf.weightKg ?? null, weightBasis: calf.weightBasis ?? null,
-          earTag: calf.earTag?.trim() || null, penId: live ? calf.penId ?? null : null,
+          earTag: tag, cattleCode: choice === 'REGISTER_NOW' ? tag : null, penId: live ? calf.penId ?? null : null,
           penCode: live ? calf.penCode ?? null : null, breed: live ? calf.breed ?? null : null,
           registrationChoice: choice,
           registrationStatus: choice === 'REGISTER_NOW' ? 'REGISTERED' : choice === 'DRAFT' ? 'PENDING_CONFIRMATION' : null,
@@ -335,7 +348,7 @@ export function createReproductionDemoStore(
       profile.status = 'POST_CALVING'
       profile.statusAt = command.birthAt
       profile.lastCalvingAt = command.birthAt
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -346,7 +359,7 @@ export function createReproductionDemoStore(
       const item = profile.events.find((event) => event.id === eventId)
       if (!item) throw new Error('Không tìm thấy sự kiện cần sửa.')
       if (item.status !== 'VALID') throw new Error('Sự kiện đã hủy, không thể sửa.')
-      if (patch.occurredAt && (Number.isNaN(Date.parse(patch.occurredAt)) || patch.occurredAt > clock())) throw new Error('Thời điểm sự kiện không được ở tương lai.')
+      if (patch.occurredAt && (Number.isNaN(parseBusinessTime(patch.occurredAt)) || patch.occurredAt > clock())) throw new Error('Thời điểm sự kiện không được ở tương lai.')
       if (item.type === 'BREEDING' && profile.events.some((event) => event.type === 'PREGNANCY_CHECK' && event.status === 'VALID' && event.linkedBreedingId === eventId)) {
         throw new Error('Không thể sửa vì đã có khám thai liên quan.')
       }
@@ -387,7 +400,7 @@ export function createReproductionDemoStore(
         item.details = updateDetails(item)
       }
       addRevision(profile, eventId, before, clone(item), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -412,7 +425,7 @@ export function createReproductionDemoStore(
       item.version++
       if (calving) { calving.status = 'VOIDED'; calving.voidReason = reason.trim(); calving.version++ }
       addRevision(profile, eventId, before, calving ? clone(calving) : clone(item), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -427,7 +440,7 @@ export function createReproductionDemoStore(
         throw new Error('Không thể sửa kết quả bê đã đăng ký thành bò.')
       }
       const nextBirthAt = patch.birthAt ?? calving.birthAt
-      if (Number.isNaN(Date.parse(nextBirthAt)) || nextBirthAt > clock()) throw new Error('Thời điểm đẻ không được ở tương lai.')
+      if (Number.isNaN(parseBusinessTime(nextBirthAt)) || nextBirthAt > clock()) throw new Error('Thời điểm đẻ không được ở tương lai.')
       const pregnancyCheck = calving.pregnancyId
         ? profile.events.find((event) => event.type === 'PREGNANCY_CHECK' && event.status === 'VALID' && event.pregnancyId === calving.pregnancyId && event.result === 'PREGNANT')
         : undefined
@@ -468,7 +481,7 @@ export function createReproductionDemoStore(
         timeline.version++
       }
       addRevision(profile, calvingId, before, clone(calving), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -490,13 +503,13 @@ export function createReproductionDemoStore(
       calf.voidReason = reason.trim()
       calving.version++
       addRevision(profile, calvingId, before, clone(calving), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
     async reset() {
       rows = clone([...seed])
-      rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity))
+      rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock()))
       sequence = 0
       revisionSequence = 0
       return clone(rows)

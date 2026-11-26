@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Instant;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +18,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.session.SessionRegistry;
@@ -31,6 +31,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.filter.OncePerRequestFilter;
 import tech.jhipster.config.JHipsterProperties;
 import vn.edu.fpt.beefcare.security.AuthoritiesConstants;
+import vn.edu.fpt.beefcare.security.MigratingPasswordEncoder;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmAccessService;
 import vn.edu.fpt.beefcare.web.filter.SpaWebFilter;
@@ -42,8 +43,17 @@ public class SecurityConfiguration {
     @Value("${beefcare.security.cookie-secure:false}")
     private boolean secureCookies;
 
+    @Value("${beefcare.security.cookie-same-site:Lax}")
+    private String cookieSameSite;
+
     @Value("${beefcare.security.google.enabled:false}")
     private boolean googleLoginEnabled;
+
+    /** Placeholder client id of the local profile while Google login is off (application-local.yml). */
+    static final String GOOGLE_DISABLED_CLIENT_ID = "google-login-disabled";
+
+    @Value("${spring.security.oauth2.client.registration.google.client-id:}")
+    private String googleClientId;
 
     private final JHipsterProperties jHipsterProperties;
 
@@ -53,7 +63,7 @@ public class SecurityConfiguration {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new MigratingPasswordEncoder();
     }
 
     @Bean
@@ -76,15 +86,17 @@ public class SecurityConfiguration {
         HttpSecurity http,
         FarmAccessService farmAccessService,
         SessionRegistry sessionRegistry,
-        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler
+        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler,
+        vn.edu.fpt.beefcare.security.GoogleOidcFailureHandler googleFailureHandler
     ) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
-        csrfRepository.setCookieCustomizer(cookie -> cookie.secure(secureCookies).sameSite("Lax"));
+        csrfRepository.setCookieCustomizer(cookie -> cookie.secure(secureCookies).sameSite(cookieSameSite));
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
 
         http.cors(withDefaults())
-            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler).ignoringRequestMatchers("/api/webhooks/sepay"))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler)
+                .ignoringRequestMatchers("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook"))
             .addFilterAfter(new SpaWebFilter(), AnonymousAuthenticationFilter.class)
             .addFilterAfter(new ActiveAccountFilter(farmAccessService, sessionRegistry), AnonymousAuthenticationFilter.class)
             .headers(headers ->
@@ -119,7 +131,7 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/api/platform/subscriptions", "/api/platform/subscriptions/*").authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/public/prices").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay", "/api/v1/payments/sepay/webhook").permitAll()
                     .requestMatchers("/api/dev/sepay/**").authenticated()
                     .requestMatchers("/api/support/tickets/**", "/api/platform/support/tickets/**", "/api/platform/support/recipients", "/api/platform/internal-requests/**").authenticated()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
@@ -140,7 +152,10 @@ public class SecurityConfiguration {
             )
             .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> response.sendError(401)));
 
-        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler));
+        if (googleLoginEnabled && GOOGLE_DISABLED_CLIENT_ID.equals(googleClientId)) {
+            throw new IllegalStateException("BEEFCARE_GOOGLE_ENABLED=true needs SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID and _CLIENT_SECRET");
+        }
+        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler).failureHandler(googleFailureHandler));
 
         return http.build();
     }
@@ -173,9 +188,23 @@ public class SecurityConfiguration {
                         response.sendError(401);
                         return;
                     }
+                    Object absoluteExpiry = session.getAttribute(vn.edu.fpt.beefcare.web.rest.AuthenticateController.REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE);
+                    if (absoluteExpiry instanceof Instant deadline && !Instant.now().isBefore(deadline)) {
+                        if (sessionInformation != null) sessionInformation.expireNow();
+                        session.invalidate();
+                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                        response.sendError(401);
+                        return;
+                    }
                 }
                 try {
-                    access.currentActiveUser();
+                    var user = access.currentActiveUser();
+                    if (user.getGoogleSubject() != null && !user.isTermsAccepted() && !allowsTermsAcceptance(request)) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"code\":\"MSG-FE01-14\",\"params\":{\"field\":\"termsAccepted\"}}");
+                        return;
+                    }
                 } catch (DomainException ex) {
                     if (session != null) {
                         var sessionInformation = sessionRegistry.getSessionInformation(session.getId());
@@ -185,11 +214,23 @@ public class SecurityConfiguration {
                         session.invalidate();
                     }
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                    response.sendError(ex.getStatus().value());
+                    response.setStatus(ex.getStatus().value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"code\":\"" + ex.getCode() + "\"}");
                     return;
                 }
             }
             chain.doFilter(request, response);
+        }
+
+        private boolean allowsTermsAcceptance(HttpServletRequest request) {
+            String path = request.getRequestURI().substring(request.getContextPath().length());
+            return path.equals("/api/csrf") ||
+                path.equals("/api/authenticate") ||
+                path.equals("/api/logout") ||
+                path.equals("/api/account/profile") ||
+                path.equals("/api/account/terms-acceptance") ||
+                path.equals("/api/account/owner-registration");
         }
     }
 }

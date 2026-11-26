@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, inputCls, Radio } from '../../../components/ui'
-import { useSession } from '../../authorization'
-import { ENTRY_LABEL, HEALTH_STATE_LABEL, OUTCOME_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtDate, fmtDateTime, fmtTemp } from '../domain/healthFormat'
-import { HealthValidationError } from '../domain/healthRules'
-import type { CaseOutcome, CaseStatus, HealthCattle, HealthState, HealthTimelineRow, Severity } from '../types'
+import { useSession } from '../../../app/session/sessionContext'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Badge, inputCls, Modal, ModalButton, ModalFooter, Radio, Select } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useCanRecordCare } from '../../authorization'
+import { ENTRY_LABEL, HEALTH_STATE_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtTemp, statusText } from '../domain/healthFormat'
+import { MSG } from '../domain/healthRules'
+import { HealthValidationError, temperatureNeedsCheck } from '../validation/healthValidation'
+import type { CaseOutcome, CaseStatus, HealthCattle, HealthMember, HealthState, HealthTimelineRow, Severity } from '../types'
 
-/** Chỉ Quản lý ghi nhận (GBR-08); Chủ trại và Kỹ thuật viên chỉ xem. Không có phiên được coi là Quản lý. */
+/** Chủ trại và Quản lý ghi nhận (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
 export function useCanRecord() {
+  return useCanRecordCare()
+}
+
+/** Chủ trại (D62: mở lại ca Chết / Mất tích vì phải bác phiếu xuất); không có phiên thì không áp quyền theo vai trò. */
+export function useIsFarmOwner() {
   const session = useSession()
-  return (session?.role ?? 'MANAGER') === 'MANAGER'
+  return session == null || session.role === 'OWNER'
 }
 
 /** Hộp thoại mở bằng `?m=<tên>`; `case` / `entry` chọn ca hoặc bản ghi cần thao tác. */
@@ -46,7 +52,10 @@ export function useToast() {
   return [node, show] as const
 }
 
-/** Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô, lỗi khác hiện một dòng trên chân hộp thoại. */
+/**
+ * Gọi API trong hộp thoại: lỗi theo trường hiện dưới ô; lỗi điều kiện nghiệp vụ (formError) hiện popup NoticeDialog
+ * và đóng bằng {@code clearFormError} (D51).
+ */
 export function useDialogSave() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState('')
@@ -58,33 +67,61 @@ export function useDialogSave() {
       else setFormError(userFacingError(e, 'Không lưu được. Vui lòng thử lại.'))
     } finally { setSaving(false) }
   }
-  return { errors, setErrors, formError, saving, run }
+  // Sửa ô thì bỏ lỗi cũ của ô đó, để lỗi đỏ không còn khi ô đã xóa trống.
+  const clearError = (key: string) => setErrors((e) => {
+    if (!(key in e)) return e
+    const next = { ...e }
+    delete next[key]
+    return next
+  })
+  return { errors, setErrors, clearError, formError, clearFormError: () => setFormError(''), saving, run }
+}
+
+/**
+ * D61: thân nhiệt ngoài 35–43 °C chưa chặn, mà hỏi xác nhận trước khi lưu. {@code guard} gọi {@code save} ngay khi số đo
+ * bình thường hoặc để trống; ngược lại giữ lệnh lưu đến khi người dùng bấm "Xác nhận lưu".
+ */
+export function useTemperatureCheck() {
+  const [pending, setPending] = useState<null | (() => void)>(null)
+  const guard = (value: number | null, save: () => void) => (temperatureNeedsCheck(value) ? setPending(() => save) : save())
+  const dialog = pending && (
+    <Modal title="Kiểm tra lại thân nhiệt" width={560} onClose={() => setPending(null)}>
+      <div role="alert" className="m-0 text-sm leading-relaxed text-ink">{MSG.temperatureCheck}</div>
+      <ModalFooter>
+        <ModalButton onClick={() => setPending(null)}>Kiểm tra lại</ModalButton>
+        <ModalButton variant="primary" onClick={() => { const save = pending; setPending(null); save() }}>Xác nhận lưu</ModalButton>
+      </ModalFooter>
+    </Modal>
+  )
+  return { guard, dialog }
+}
+
+/**
+ * Thành viên ứng với người đang đăng nhập (theo id, rồi email). Không có phiên hoặc người đăng nhập không có trong danh sách
+ * → undefined để ô người thực hiện / quan sát để trống, không gán nhầm cho thành viên khác.
+ */
+export function useCurrentMember(members: HealthMember[]): HealthMember | undefined {
+  const session = useSession()
+  return members.find((m) => session != null && ((session.id != null && m.id === session.id) || (!!m.email && m.email === session.email)))
+}
+
+/** Ô chọn thành viên: giá trị là id, nhãn là họ tên. */
+export function MemberSelect({ id, value, members, onChange, keepLabel, label }: { id: string; value: number | null; members: HealthMember[]; onChange: (id: number | null) => void; keepLabel?: string; label?: string }) {
+  return (
+    <Select id={id} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+      {(keepLabel !== undefined || value == null) && <option value="">{keepLabel ?? 'Chọn người'}</option>}
+      {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+    </Select>
+  )
 }
 
 export const hint = (error?: string, text?: ReactNode) => (error ? <span role="alert" className="text-err-fg">{error}</span> : text)
 
-/** Ô ngày giờ dd/mm/yyyy hh:mm như Figma, không phụ thuộc ngôn ngữ trình duyệt; giá trị ra là 'yyyy-mm-ddThh:mm' hoặc '' khi chưa hợp lệ. */
-export function DateTimeInput({ id, value, onChange }: { id?: string; value: string; onChange: (value: string) => void }) {
-  const [text, setText] = useState(() => (value ? fmtDateTime(value) : ''))
-  const edit = (next: string) => {
-    setText(next)
-    const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(next.trim())
-    const iso = m ? `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}` : ''
-    onChange(iso && !Number.isNaN(Date.parse(iso)) ? iso : '')
-  }
-  return (
-    <div className="relative">
-      <input id={id} value={text} onChange={(e) => edit(e.target.value)} placeholder="dd/mm/yyyy hh:mm" inputMode="numeric" autoComplete="off" className={`${inputCls} pr-9`} />
-      <Icon name="calendar-event" size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
-    </div>
-  )
-}
-
 export const ReadonlyBox = ({ id, value }: { id?: string; value: string }) => <input id={id} readOnly value={value} className={inputCls} />
 
-export function RadioGroup<T extends string>({ name, value, options, onChange }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
+export function RadioGroup<T extends string>({ name, value, options, onChange, ariaLabel }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; ariaLabel?: string }) {
   return (
-    <div role="radiogroup" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap items-center gap-x-6 gap-y-2">
       {options.map((o) => <Radio key={o.value} name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="text-[13px]">{o.label}</Radio>)}
     </div>
   )
@@ -92,7 +129,8 @@ export function RadioGroup<T extends string>({ name, value, options, onChange }:
 
 export const Meta = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex min-w-0 flex-col gap-0.5">
-    <span className="text-[11px] text-faint">{label}</span>
+    {/* #5b6a60: ≥ 4,9:1 trên nền trắng và các nền nhạt của khối Bento (#8f8f8f cũ chỉ 3,2:1). */}
+    <span className="text-[11px] text-label">{label}</span>
     <span className="text-[13px] font-medium text-ink">{children}</span>
   </div>
 )
@@ -114,10 +152,10 @@ const STATE_VIEW: Record<HealthState, { tone: 'ok' | 'info' | 'err'; icon: 'hear
 export const HealthStateBadge = ({ state }: { state: HealthState }) => <Badge tone={STATE_VIEW[state].tone} icon={STATE_VIEW[state].icon}>{HEALTH_STATE_LABEL[state]}</Badge>
 
 export function CaseStatusBadge({ status, day, chronicSince, outcome }: { status: CaseStatus; day: number; chronicSince?: string; outcome?: CaseOutcome }) {
-  if (status === 'OPEN') return <Badge tone="warn" icon="clock">OPEN · ngày {day}</Badge>
-  if (status === 'CHRONIC') return <Badge tone="info" icon="clock">CHRONIC · từ {fmtDate(chronicSince)}</Badge>
-  const label = outcome ? OUTCOME_LABEL[outcome] : '—'
-  return <Badge tone={outcome === 'RECOVERED' ? 'ok' : outcome === 'DIED' || outcome === 'MISSING' ? 'err' : 'outline'}>CLOSED · {label}</Badge>
+  const text = statusText(status, day, chronicSince, outcome)
+  if (status === 'OPEN') return <Badge tone="warn" icon="clock">{text}</Badge>
+  if (status === 'CHRONIC') return <Badge tone="info" icon="clock">{text}</Badge>
+  return <Badge tone={outcome === 'RECOVERED' ? 'ok' : outcome === 'DIED' || outcome === 'MISSING' ? 'err' : 'outline'}>{text}</Badge>
 }
 
 const PROGRESS_TONE = { IMPROVED: 'ok', UNCHANGED: 'outline', WORSENED: 'err' } as const

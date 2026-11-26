@@ -15,6 +15,7 @@ import vn.edu.fpt.beefcare.domain.Subscription;
 import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.MailService;
 import vn.edu.fpt.beefcare.service.NotificationService;
@@ -67,7 +68,7 @@ public class SubscriptionNoticeJob {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(cron = "${beefcare.jobs.subscription-notice-cron:0 0 7 * * *}", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "${beefcare.jobs.subscription-notice-cron:0 0 7 * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void generateNotices() {
         int created = run();
         if (created > 0) LOG.info("JOB-05 created {} subscription notices", created);

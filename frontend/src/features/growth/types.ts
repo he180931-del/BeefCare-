@@ -19,6 +19,8 @@ export interface GrowthCattle {
   herdEntryDate: string // yyyy-mm-dd
   targetWeightKg?: number
   status: 'ACTIVE' | 'EXITED'
+  /** Bò trên phiếu chết / mất PENDING (R-08-10, MSG-COM-17): không ghi mới, vẫn sửa / loại trừ bản ghi cũ. */
+  exitPending?: boolean
 }
 
 export interface GrowthRevision {
@@ -67,7 +69,8 @@ export interface RecordGrowthCommand {
 export interface CorrectGrowthCommand {
   action: 'CORRECT' | 'EXCLUDE'
   values?: Partial<Pick<RecordGrowthCommand, 'measuredAt' | 'method' | 'weightKg' | 'heartGirthCm' | 'bodyLengthCm' | 'bcs'>>
-  reason: string
+  /** Ghi chú, không bắt buộc (D43); gửi lên API ở trường `reason`. */
+  reason?: string
   expectedVersion: number
 }
 
@@ -80,9 +83,12 @@ export interface GrowthFilters {
   page?: number
   size?: number
   dir?: 'asc' | 'desc' // sắp xếp theo ngày cân
+  flag?: GrowthHerdFlag // D74: chỉ lấy bò có cờ này; trống là tất cả
 }
 
 export type GrowthHerdStatus = 'OVERDUE' | 'LOW_ADG' | 'LOW_BCS' | 'NORMAL'
+/** Cờ tình trạng của một con bò (một con có thể có nhiều cờ); trùng giá trị tham số `flag` của API (D74). */
+export type GrowthHerdFlag = 'WEIGHING_OVERDUE' | 'LOW_ADG' | 'LOW_BCS'
 
 export interface GrowthHerdRow {
   code: string
@@ -97,6 +103,7 @@ export interface GrowthHerdRow {
   adg?: number
   bcs?: number
   status: GrowthHerdStatus
+  flags: GrowthHerdFlag[]
 }
 
 export interface GrowthHerdPage {
@@ -130,6 +137,8 @@ export interface GrowthProfile {
   count: number
   correctedCount: number
   nextWeighingDate?: string
+  /** Ngày nghiệp vụ hiện tại của trại (yyyy-mm-dd), để biết lần cân tới đã quá hạn chưa. */
+  today: string
   projection?: GrowthProjection
   chart: GrowthChartPoint[]
 }

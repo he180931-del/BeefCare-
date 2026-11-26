@@ -1,32 +1,32 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { Facts, ICON_BTN, ServiceBadge, type Fact } from '../components/shared'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { subscriptionApi } from '../api/subscriptionApi'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Panel, Table, Td, Th } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Facts, ServiceBadge, type Fact } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
-import { fmtDate, fmtEndDay, fmtPeriod, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
+import { useFarmScope } from '../hooks/useFarmScope'
+import { fmtDate, fmtPeriod, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { PeriodStatus, SubscriptionOverview } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Gói dịch vụ của trại'
-const PERIOD_BADGE: Record<PeriodStatus, ['ok' | 'info' | 'outline', string]> = { CURRENT: ['ok', 'Hiện tại'], FUTURE: ['info', 'Sắp tới'], PAST: ['outline', 'Đã qua'] }
+const PERIOD_BADGE: Record<PeriodStatus, ['ok' | 'info' | 'outline', string]> = { CURRENT: ['ok', 'Hiện tại'], FUTURE: ['info', 'Tương lai'], PAST: ['outline', 'Đã qua'] }
 
 function ServiceFacts({ o, openHref }: { o: SubscriptionOverview; openHref: string }) {
   const price = o.currentPrices
   const items: Fact[] = [
-    ['Kỳ hiện tại', o.currentPeriod ? fmtPeriod(o.currentPeriod.start, o.currentPeriod.end) : 'Chưa có'],
+    ['Kỳ hiện tại', o.currentPeriod ? fmtPeriod(o.currentPeriod.start, o.currentPeriod.end) : '—'],
     ['Còn lại', o.daysRemaining !== null ? `${o.daysRemaining} ngày` : '—'],
-    ['Ngày kết thúc đã xác nhận', o.latestEnd ? fmtEndDay(o.latestEnd) : '—'],
+    ['Ngày kết thúc đã xác nhận', o.latestEnd ? fmtDate(o.latestEnd) : '—'],
     ['Mở gia hạn từ', o.renewalOpensAt ? fmtDate(o.renewalOpensAt) : '—'],
     ['Tạm ngưng', o.suspended ? `Có (từ ${o.suspendedSince ? fmtDate(o.suspendedSince) : '—'})` : 'Không', o.suspended ? 'warn' : undefined],
-    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-brand" to={openHref}>Mở hướng dẫn</Link></span> : 'Không'],
+    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-white underline focus-visible:outline-white" to={openHref}>Mở hướng dẫn</Link></span> : '—'],
     ['Bảng giá hiện hành', price ? `${versionLabel(price.id)} · từ ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
     ['Kỳ tương lai', o.futurePeriods.length ? o.futurePeriods.map((p) => fmtPeriod(p.start, p.end)).join(', ') : '—'],
   ]
-  return <Facts items={items} cols={4} />
+  return <Facts items={items} cols={4} onDark />
 }
 
 export default function SubscriptionHomePage() {
@@ -42,37 +42,37 @@ export default function SubscriptionHomePage() {
   const elig = data.eligibility
   const periods = [...data.periods].sort((a, b) => toMs(b.start) - toMs(a.start))
   const notice = !elig.ok && elig.reason === 'SUSPENDED'
-    ? <Note tone="warn">{data.farmName} đang tạm ngưng dịch vụ. Hiện chưa thể tạo yêu cầu thanh toán; hãy gửi yêu cầu hỗ trợ.</Note>
+    ? <Note tone="warn">{data.farmName} đang tạm ngưng dịch vụ. Hiện chưa thể tạo yêu cầu thanh toán. <Link className="font-semibold underline" to={to('/ho-tro')}>Gửi yêu cầu hỗ trợ</Link></Note>
     : !elig.ok && elig.reason === 'OUTSIDE_WINDOW'
-      ? <Note tone="info">Gia hạn mở từ {fmtDate(elig.opensAt)}, trước ngày kết thúc đã xác nhận {data.latestEnd ? fmtEndDay(data.latestEnd) : ''} 90 ngày.</Note>
+      ? <Note tone="info">Gia hạn mở từ {fmtDate(elig.opensAt)}, trước ngày kết thúc đã xác nhận {data.latestEnd ? fmtDate(data.latestEnd) : ''} 90 ngày.</Note>
       : null
 
   return (
     <Layout title={TITLE}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 @min-[1024px]:gap-6">
         <PageHeader title={TITLE} sub={data.farmName}>
-          <Button className={ICON_BTN} onClick={() => navigate(to('/goi-dich-vu/lich-su'))}><Icon name="history" size={16} /> Lịch sử thanh toán</Button>
-          <Button variant="primary" disabled={!elig.ok} onClick={() => navigate(to('/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
+          <Button size="bento" onClick={() => navigate(to('/goi-dich-vu/lich-su'))}><Icon name="history" size={16} /> Lịch sử thanh toán</Button>
+          <Button variant="primary" size="bento" disabled={!elig.ok} onClick={() => navigate(to(first ? '/dang-ky-goi' : '/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
         </PageHeader>
         {notice}
-        <Card title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
-          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment?.quoteRef ?? ''}`, { from: 'subscription' })} />
-        </Card>
-        <Card title="Bảng giá gói BeefCare">
+        <Panel tone="emphasis" title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
+          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment ? subscriptionApi.paymentRouteId(data.pendingPayment) : ''}`, { from: 'subscription' })} />
+        </Panel>
+        <Card variant="panel" title="Bảng giá gói BeefCare">
           {data.currentPrices ? (
             <TermCards prices={data.currentPrices} />
           ) : (
             <Note tone="warn">
               <span className="flex flex-wrap items-center justify-between gap-2">
                 Hiện chưa lấy được bảng giá gói.
-                <Button size="sm" className={ICON_BTN} onClick={refetch}><Icon name="refresh" size={14} /> Thử lại</Button>
+                <Button size="sm" onClick={refetch}><Icon name="refresh" size={14} /> Thử lại</Button>
               </span>
             </Note>
           )}
         </Card>
-        <Card title="Các kỳ đã mua">
+        <Card variant="panel" title="Các kỳ đã mua">
           {periods.length ? (
-            <Table>
+            <Table variant="panel">
               <thead><tr><Th>Kỳ dịch vụ</Th><Th>Mã thanh toán</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Trạng thái</Th></tr></thead>
               <tbody>
                 {periods.map((p) => (
@@ -90,7 +90,6 @@ export default function SubscriptionHomePage() {
             <EmptyBlock title="Chưa có kỳ dịch vụ nào" sub="Kỳ dịch vụ xuất hiện sau khi thanh toán đầu tiên được xác nhận." />
           )}
         </Card>
-        <Foot>Xem thời hạn hiện tại, ngày hết hạn, bảng giá áp dụng và yêu cầu chuyển khoản đang chờ; lịch sử thanh toán luôn mở được từ đây.</Foot>
       </div>
       {dialog.element}
     </Layout>

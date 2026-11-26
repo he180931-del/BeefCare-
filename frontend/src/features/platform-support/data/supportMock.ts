@@ -1,5 +1,5 @@
 import type {
-  Actor, ContextRef, DomainResult, InternalView, StaffMember, SupportNotification, Ticket, TicketCategory, TicketPriority, TicketStatus,
+  Actor, ContextRef, InternalView, StaffMember, SupportNotification, Ticket, TicketCategory, TicketPriority, TicketStatus,
 } from '../types'
 
 export const CS_ME: Actor = { id: 1, name: 'Phạm Thu Hà', role: 'CS' }
@@ -68,7 +68,7 @@ const tk1042 = ticket(1042, 'Đã chuyển khoản gia hạn nhưng chưa thấy
   ],
   contextOptions: {
     PM: [{ type: 'PAYMENT', id: 843, label: 'Thanh toán BCF7K2Q9 · Trại Yên Bài' }, { type: 'FARM', id: 1, label: 'Trại bò Yên Bài – Ba Vì' }],
-    SA: [{ type: 'ACCOUNT', id: 1042, label: 'User USR-1042 · email được che; không có chứng từ ngân hàng' }],
+  SA: [{ type: 'ACCOUNT', id: 1042, label: 'Người dùng USR-1042 · email được che; không có chứng từ ngân hàng' }],
   },
 })
 
@@ -117,36 +117,33 @@ export const TICKETS_SEED: Ticket[] = [
   ticket(1009, 'Lỗi vẫn xảy ra trên máy thứ hai', 'yenBai', 'SYSTEM_USAGE', 'NORMAL', 'CLOSED', HA, '2026-10-08T09:00:00'),
 ]
 
-type IrSeed = Pick<InternalView, 'code' | 'title' | 'ticketCode' | 'targetRole' | 'recipientId' | 'recipient' | 'from' | 'fromId' | 'createdAt' | 'question' | 'status'> & Partial<InternalView>
+type IrSeed = Pick<InternalView, 'code' | 'title' | 'ticketCode' | 'targetRole' | 'recipientId' | 'recipient' | 'from' | 'fromId' | 'createdAt' | 'status'> & { question: string; context?: ContextRef[] } & Partial<InternalView>
 function ir(seed: IrSeed, farm: FarmKey): InternalView {
   const f = FARMS[farm]
   const n = Number(seed.code.slice(3))
+  const ticket = TICKETS_SEED.find((item) => item.code === seed.ticketCode)
+  const { question, context: _context, ...target } = seed
   return {
-    id: n, ticketId: Number(seed.ticketCode.slice(3)), farmId: f.id, farmName: f.name, context: [], version: 1,
+    id: n, ticketId: Number(seed.ticketCode.slice(3)), ticketSubject: ticket?.subject ?? seed.title, ticketCategory: ticket?.category ?? 'OTHER', ticketRequester: ticket?.requester ?? f.owner, farmId: f.id, farmName: f.name, version: 1,
     history: [{ at: seed.createdAt, actor: seed.from, text: `Tạo yêu cầu ${seed.code} gửi ${seed.recipient}.` }],
-    ...seed,
+    ...target, requestText: seed.requestText ?? question,
   }
 }
 const PAY_CTX: ContextRef[] = [{ type: 'PAYMENT', id: 843, label: 'Thanh toán BCF7K2Q9' }]
-const done = { status: 'DONE' as const, outcome: 'PERFORMED' as const, completedAt: '2026-10-12T15:00:00', result: 'Đã xử lý trong phạm vi.', version: 2 }
+const done = { status: 'DONE' as const, outcome: 'CONFIRMED' as const, completedAt: '2026-10-12T15:00:00', resultNote: 'Đã xử lý trong phạm vi.', version: 2 }
 
 export const IR_SEED: InternalView[] = [
   ir({ code: 'IR-077', title: 'Kiểm tra giao dịch SePay 09:05 18/10', ticketCode: 'TK-1042', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-18T09:55:00', status: 'OPEN', context: PAY_CTX, question: 'Khách chuyển 1.200.000đ lúc 09:05; mã nội dung không khớp chính xác. Kiểm tra trong miền thanh toán, không bỏ qua kiểm tra mã.' }, 'yenBai'),
+  ir({ code: 'IR-082', title: 'Bổ sung mã giao dịch và chứng từ', ticketCode: 'TK-1019', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-18T10:05:00', status: 'WAITING_CS', outcome: 'NEED_MORE_INFO', resultNote: 'Thiếu mã giao dịch và ảnh chứng từ.', context: PAY_CTX, question: 'Cần bổ sung mã giao dịch và ảnh chứng từ để tiếp tục đối soát.', history: [{ at: '2026-10-18T10:05:00', actor: 'Đỗ Minh Quân', text: 'Yêu cầu nhân viên hỗ trợ bổ sung thông tin.' }] }, 'yenBai'),
   ir({ code: 'IR-079', title: 'Lý do tạm ngừng Trại Suối Hai', ticketCode: 'TK-1027', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Ngô Minh Khang', fromId: 2, createdAt: '2026-10-17T15:50:00', status: 'OPEN', context: [{ type: 'FARM', id: 3, label: 'Trại Suối Hai' }], question: 'Chủ trại hỏi vì sao dịch vụ bị tạm ngừng và điều kiện khôi phục. Nhờ PM xác nhận lý do trong miền dịch vụ trại.' }, 'suoiHai'),
-  ir({ code: 'IR-081', title: 'Kiểm tra quyền đăng nhập của tài khoản', ticketCode: 'TK-1025', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-18T08:40:00', status: 'OPEN', context: [{ type: 'ACCOUNT', id: 1025, label: 'User USR-1025 · h***@gmail.com' }], question: 'Chủ trại Trần Thị Hoa muốn đổi Gmail đăng nhập. Nhờ kiểm tra tài khoản có đang bị khóa hay trùng định danh Google không.' }, 'tongBat'),
+  ir({ code: 'IR-081', title: 'Kiểm tra quyền đăng nhập của tài khoản', ticketCode: 'TK-1025', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-18T08:40:00', status: 'OPEN', context: [{ type: 'ACCOUNT', id: 1025, label: 'Người dùng USR-1025 · h***@gmail.com' }], question: 'Chủ trại Trần Thị Hoa muốn đổi Gmail đăng nhập. Nhờ kiểm tra tài khoản có đang bị khóa hay trùng định danh Google không.' }, 'tongBat'),
   ir({ code: 'IR-073', title: 'Kiểm tra tài khoản bị khóa đăng nhập', ticketCode: 'TK-1011', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Ngô Minh Khang', fromId: 2, createdAt: '2026-10-12T09:10:00', question: 'Tài khoản chủ trại không đăng nhập được, nhờ SA kiểm tra trạng thái.', ...done, completedBy: 'Vũ Hoàng Nam' }, 'vanHoa'),
-  ir({ code: 'IR-076', title: 'Xác minh định danh Google trùng', ticketCode: 'TK-1016', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Lê Thanh Tâm', fromId: 3, createdAt: '2026-10-14T10:30:00', question: 'Hai tài khoản cùng email Google, nhờ SA kiểm tra trùng định danh.', ...done, outcome: 'UNABLE', result: 'Không phát hiện định danh trùng.', completedAt: '2026-10-14T14:00:00', completedBy: 'Vũ Hoàng Nam' }, 'tongBat'),
+  ir({ code: 'IR-076', title: 'Xác minh định danh Google trùng', ticketCode: 'TK-1016', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Lê Thanh Tâm', fromId: 3, createdAt: '2026-10-14T10:30:00', question: 'Hai tài khoản cùng email Google, nhờ SA kiểm tra trùng định danh.', ...done, outcome: 'NOT_CONFIRMED', resultNote: 'Không phát hiện định danh trùng.', completedAt: '2026-10-14T14:00:00', completedBy: 'Vũ Hoàng Nam' }, 'tongBat'),
   ir({ code: 'IR-078', title: 'Mở khóa tài khoản thành viên', ticketCode: 'TK-1020', targetRole: 'SA', recipientId: 31, recipient: 'Vũ Hoàng Nam', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-15T08:00:00', status: 'CANCELLED', question: 'Mở khóa tài khoản thành viên của trại.', history: [{ at: '2026-10-15T08:00:00', actor: 'Phạm Thu Hà', text: 'Tạo yêu cầu IR-078 gửi Vũ Hoàng Nam.' }, { at: '2026-10-15T08:30:00', actor: 'Phạm Thu Hà', text: 'Hủy yêu cầu. Lý do: Chủ trại tự xử lý được.' }] }, 'yenBai'),
   ir({ code: 'IR-072', title: 'Đối soát thanh toán BCF3A1', ticketCode: 'TK-1010', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Phạm Thu Hà', fromId: 1, createdAt: '2026-10-11T09:00:00', question: 'Kiểm tra thanh toán BCF3A1 đã khớp chưa.', ...done, completedBy: 'Đỗ Minh Quân' }, 'yenBai'),
-  ir({ code: 'IR-075', title: 'Kiểm tra kỳ dịch vụ Trại Vân Hòa', ticketCode: 'TK-1018', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Ngô Minh Khang', fromId: 2, createdAt: '2026-10-14T13:00:00', question: 'Kỳ dịch vụ sau gia hạn chưa đúng ngày.', ...done, outcome: 'OUTSIDE_DOMAIN', result: 'Thuộc phạm vi SA.', completedBy: 'Đỗ Minh Quân' }, 'vanHoa'),
+  ir({ code: 'IR-075', title: 'Kiểm tra kỳ dịch vụ Trại Vân Hòa', ticketCode: 'TK-1018', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Ngô Minh Khang', fromId: 2, createdAt: '2026-10-14T13:00:00', question: 'Kỳ dịch vụ sau gia hạn chưa đúng ngày.', ...done, outcome: 'OUT_OF_SCOPE', resultNote: 'Thuộc phạm vi SA.', completedBy: 'Đỗ Minh Quân' }, 'vanHoa'),
   ir({ code: 'IR-080', title: 'Hủy yêu cầu gửi nhầm vai trò', ticketCode: 'TK-1024', targetRole: 'PM', recipientId: 21, recipient: 'Đỗ Minh Quân', from: 'Lê Thanh Tâm', fromId: 3, createdAt: '2026-10-16T09:00:00', status: 'CANCELLED', question: 'Gửi nhầm vai trò.' }, 'suoiHai'),
 ]
-
-export const DOMAIN_RESULTS_SEED: Record<string, DomainResult[]> = {
-  'IR-077': [{ id: 843, label: 'OP-Chấp nhận-0843 · Thanh toán BCF7K2Q9 · Đã thanh toán' }],
-  'IR-079': [{ id: 850, label: 'AUD-0850 · Trại Suối Hai · Lý do tạm ngừng đã ghi' }],
-  'IR-081': [{ id: 911, label: 'AUD-0911 · Tài khoản USR-1025 · Kiểm tra trạng thái' }],
-}
 
 export const NOTIFICATIONS_SEED: SupportNotification[] = [
   { id: 1, title: 'Ticket mới TK-1044 · ưu tiên Cao', body: 'Lê Văn Bình · Trại Vân Hòa · chưa có người nhận', at: '2 phút trước', read: false, actionLabel: 'Nhận ticket', ticketCode: 'TK-1044' },

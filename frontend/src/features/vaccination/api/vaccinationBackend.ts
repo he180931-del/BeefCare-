@@ -1,0 +1,468 @@
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
+import { addMonths } from '../domain/vaccinationFormat'
+import { CONFLICT_MESSAGE, DEFAULT_LEAD_DAYS, VaccinationValidationError, doseTextOf, dueStateOf, hasErrors, matchesDoseFilters, plannedDoseRows, resolveTarget, selectableOf, type FieldErrors } from '../domain/vaccinationRules'
+import { validateNote, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
+import type {
+  CattleVaccination, CorrectVaccinationCommand, DoseFilters, DosePage, DoseRow, DoseTab,
+  HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
+  ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions, VaccineItem,
+  VaccinationRecord, VoidRecordCommand,
+} from '../types'
+import { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, routeOut, toFarmTime, toInstant, type CattleRef, type ScheduleView } from './vaccinationMapper'
+import { mapVaccinationError } from './vaccinationError'
+import { toVaccinationTargetDto } from './vaccinationDto'
+
+// Compatibility exports: existing callers keep importing the public adapter helpers.
+export { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, mapRevision, toFarmTime, toInstant, toRoute } from './vaccinationMapper'
+export { mapVaccinationError } from './vaccinationError'
+
+/**
+ * Adapter FE-09 cho chế độ backend (không bao giờ đọc mock).
+ * Route dùng: GET /vaccines, /members, /pens, /cattle, /cattle/resolve, /vaccination-schedules, /vaccinations/history;
+ * POST /vaccination-schedules, PUT /vaccination-schedules/{id}, POST /vaccination-schedules/{id}/stop,
+ * GET /parameters/versions (số ngày nhắc tiêm), POST /vaccinations, POST /vaccinations/{id}/correction, POST /vaccinations/{id}/void.
+ * Phần backend chưa có route riêng (danh sách mũi theo tab, xem trước đối tượng, tab tiêm của một con) được ghép ở đây
+ * từ các route trên, theo đúng quy tắc trong domain/vaccinationRules (GBR-41, GBR-43).
+ */
+export const DOSE_PAGE_SIZE = 6
+/** D46: lịch không còn mũi chờ tiêm thì khóa, không sửa được. */
+const SCHEDULE_COMPLETED_MESSAGE = 'Lịch đã tiêm xong hết nên đã khóa. Tạo lịch mới để tiêm cho bò khác.'
+const CATTLE_PAGE = 200
+
+const num = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value)
+  return undefined
+}
+const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() !== '' ? value : undefined)
+const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+
+const query = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value))
+  const s = search.toString()
+  return s ? `?${s}` : ''
+}
+
+/**
+ * Đối tượng gửi lên backend (A3 / A4). Có chuồng / nhóm / giai đoạn: gửi điều kiện + bò thêm / bỏ từng con.
+ * Không có điều kiện nào: màn hình xem trước là cả đàn còn nuôi, nên gửi đúng danh sách bò đã chốt (cattleIds),
+ * vì backend chỉ lấy bò được chọn khi không có điều kiện.
+ */
+const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
+const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
+  sameList(a.penCodes, b.penCodes) && sameList(a.herdGroups, b.herdGroups) && sameList(a.lifeStages, b.lifeStages) && sameList(a.excluded, b.excluded) && sameList(a.added, b.added)
+
+export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
+  const path = (suffix: string) => transport.farmPath(farmId, suffix)
+  const now = () => toFarmTime(clock().toISOString())
+  const today = () => now().slice(0, 10)
+  const records = new Map<number, VaccinationRecord>()
+
+  async function run<T>(action: () => Promise<T>): Promise<T> {
+    try {
+      return await action()
+    } catch (error) {
+      throw mapVaccinationError(error)
+    }
+  }
+
+  const vaccines = async () => asRows(await transport.get(path('/vaccines'))).map(mapVaccine)
+  const pens = async () => {
+    const response = await transport.get(path('/pens'))
+    const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).pens)
+    return rows.map((p) => ({ id: num(p.id) ?? 0, code: textValue(p.code), name: textValue(p.name, textValue(p.code)) }))
+  }
+  const members = async () => {
+    const response = await transport.get(path('/members'))
+    const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).members ?? asRecord(response).items)
+    return rows.filter((m) => m.status === undefined || m.status === 'ACTIVE').map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)) }))
+  }
+  /** Mọi bò của trại (kể cả đã rời đàn, để dòng mũi cũ vẫn có tên); đọc theo trang 200 con. */
+  const cattle = async (): Promise<CattleRef[]> => {
+    const all: CattleRef[] = []
+    for (let page = 0; page < 500; page++) {
+      const body = asRecord(await transport.get(path(`/cattle${query({ herdStatus: 'ALL', page, size: CATTLE_PAGE })}`)))
+      const items = asRows(body.items).map(mapCattle)
+      all.push(...items)
+      if (items.length < CATTLE_PAGE || all.length >= (num(body.total) ?? 0)) break
+    }
+    return all
+  }
+  const schedules = async () => asRows(await transport.get(path('/vaccination-schedules'))).map(mapSchedule)
+  /**
+   * Số ngày nhắc tiêm (VACCINATION_LEAD_DAYS) của phiên bản tham số đang có hiệu lực – tab "Đến hạn trong N ngày" (D46).
+   * Trại chưa có phiên bản nào thì dùng giá trị mặc định khởi tạo.
+   */
+  const leadDays = async (): Promise<number> => {
+    const versions = asRows(await transport.get(path('/parameters/versions')))
+    const current = versions
+      .filter((v) => textValue(v.effectiveFrom) <= today())
+      .sort((a, b) => cmp(textValue(b.effectiveFrom), textValue(a.effectiveFrom)) || (num(b.versionNo) ?? 0) - (num(a.versionNo) ?? 0))[0]
+    return num(asRecord(current?.parameters).VACCINATION_LEAD_DAYS) ?? DEFAULT_LEAD_DAYS
+  }
+
+  const placeholder = (code: string): VaccCattle => ({ code, breed: '', sex: 'Cái', penCode: '', penName: '', herdGroup: 'OTHER', lifeStage: 'ADULT', herdEntryDate: '', status: 'EXITED' })
+
+  /** Ngữ cảnh đọc: lịch, mũi, bò và vắc-xin cần cho các màn suy ra. */
+  async function snapshot() {
+    const [views, herd, catalogue, lead] = await Promise.all([schedules(), cattle(), vaccines(), leadDays()])
+    const byCode = new Map(herd.map((c) => [c.code, c]))
+    const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
+    const allDoses = views.flatMap((v) => v.doses)
+    const rowOf = (d: ScheduledDose): DoseRow => {
+      const view = scheduleOf(d.scheduleId)!
+      const s = view.schedule
+      const c = byCode.get(d.cattleCode) ?? placeholder(d.cattleCode)
+      const state = dueStateOf(d, today(), lead)
+      return {
+        id: d.id, cattleCode: c.code, cattleName: c.name, breed: c.breed, sex: c.sex, penCode: c.penCode, penName: c.penName, herdGroup: c.herdGroup,
+        scheduleId: s.id, vaccineId: s.vaccineId, scheduleName: s.name, scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind,
+        doseText: doseTextOf(d.kind, d.doseNo, s.doseCount), dueDate: d.dueDate,
+        state, daysOverdue: state === 'OVERDUE' ? Math.round((Date.parse(today()) - Date.parse(d.dueDate)) / 86_400_000) : 0,
+        rawStatus: d.status, version: d.version,
+      }
+    }
+    const vaccineOf = (view: ScheduleView): VaccineItem =>
+      catalogue.find((v) => v.id === view.schedule.vaccineId)
+      ?? { id: view.schedule.vaccineId, name: view.vaccineName, shortName: view.vaccineName, disease: '', referenceDose: 0, doseUnit: 'ml', route: 'OTHER', withdrawalDays: 0, active: false }
+    const open = (d: ScheduledDose) => d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE'
+    return { views, herd, byCode, catalogue, scheduleOf, allDoses, rowOf, vaccineOf, open, lead }
+  }
+
+  /** Mỗi (lịch, bò) một dòng: mũi đang cần tiêm, hoặc mũi cuối đã tiêm; mũi nhắc lại chỉ chen vào khi đã đến hạn. */
+  const headDoses = (list: ScheduledDose[], lead: number): ScheduledDose[] => {
+    const groups = new Map<string, ScheduledDose[]>()
+    list.forEach((d) => groups.set(`${d.scheduleId}|${d.cattleCode}`, [...(groups.get(`${d.scheduleId}|${d.cattleCode}`) ?? []), d]))
+    const heads: ScheduledDose[] = []
+    groups.forEach((own) => {
+      const regular = own.filter((d) => d.kind === 'DOSE').sort((a, b) => a.doseNo - b.doseNo)
+      const boosters = own.filter((d) => d.kind === 'BOOSTER' && d.status !== 'DONE').sort((a, b) => a.doseNo - b.doseNo)
+      const pending = regular.find((d) => d.status !== 'DONE')
+      const dueBooster = boosters.find((d) => ['OVERDUE', 'DUE'].includes(dueStateOf(d, today(), lead)))
+      const head = pending ?? dueBooster ?? regular[regular.length - 1] ?? boosters[0]
+      if (head) heads.push(head)
+    })
+    return heads
+  }
+
+  const targetCountOf = (view: ScheduleView) => new Set(view.doses.filter((d) => d.status !== 'CANCELLED').map((d) => d.cattleCode)).size
+
+  const api = {
+    async options(): Promise<VaccinationOptions> {
+      const [catalogue, people, pensList] = await Promise.all([vaccines(), members(), pens()])
+      return {
+        vaccines: catalogue.filter((v) => v.active),
+        members: people,
+        pens: pensList.map((p) => ({ code: p.code, label: p.name })),
+        herdGroups: structuredClone(VACCINATION_HERD_GROUPS),
+        lifeStages: structuredClone(VACCINATION_LIFE_STAGES),
+        now: now(),
+      }
+    },
+
+    async listSchedules(): Promise<ScheduleCard[]> {
+      const snap = await snapshot()
+      return snap.views.filter((v) => v.schedule.status === 'ACTIVE').map((v) => {
+        const live = v.doses.filter((d) => d.status !== 'CANCELLED')
+        const byCattle = new Map<string, ScheduledDose[]>()
+        live.filter((d) => d.kind === 'DOSE').forEach((d) => byCattle.set(d.cattleCode, [...(byCattle.get(d.cattleCode) ?? []), d]))
+        return {
+          schedule: v.schedule, vaccine: snap.vaccineOf(v), targetCount: byCattle.size,
+          doneCount: [...byCattle.values()].filter((list) => list.find((d) => d.doseNo === v.schedule.doseCount)?.status === 'DONE').length,
+          overdueCount: live.filter((d) => dueStateOf(d, today(), snap.lead) === 'OVERDUE').length,
+        }
+      })
+    },
+
+    async listDoses(filters: DoseFilters = {}): Promise<DosePage> {
+      const snap = await snapshot()
+      // D48: chưa chọn lịch thì chỉ lấy lịch đang chạy; lịch đã hoàn thành xem bằng cách chọn đúng lịch đó.
+      const inScope = (d: ScheduledDose) => {
+        const s = snap.scheduleOf(d.scheduleId)?.schedule
+        return s?.status === 'ACTIVE' && (filters.scheduleId ? d.scheduleId === filters.scheduleId : !s.completed)
+      }
+      const live = snap.allDoses.filter((d) => d.status !== 'CANCELLED' && inScope(d))
+      const all = headDoses(live, snap.lead).map(snap.rowOf).filter((r) => matchesDoseFilters(r, filters))
+      const count = (state: DoseRow['state']) => all.filter((r) => r.state === state).length
+      const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), done: count('DONE') }
+      const tab = filters.tab ?? 'all'
+      const stateOf: Record<Exclude<DoseTab, 'all'>, DoseRow['state']> = { overdue: 'OVERDUE', due: 'DUE', done: 'DONE' }
+      const sign = filters.dir === 'desc' ? -1 : 1
+      const rows = all.filter((r) => tab === 'all' || r.state === stateOf[tab]).sort((a, b) => sign * cmp(a.dueDate, b.dueDate) || cmp(a.cattleCode, b.cattleCode))
+      const size = filters.size ?? DOSE_PAGE_SIZE
+      const page = Math.min(Math.max(1, filters.page ?? 1), Math.max(1, Math.ceil(rows.length / size)))
+      return { rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts, leadDays: snap.lead, selectable: selectableOf(rows) }
+    },
+
+    async getDose(id: number): Promise<DoseRow> {
+      const snap = await snapshot()
+      const dose = snap.allDoses.find((d) => d.id === id)
+      if (!dose) throw new Error('Không tìm thấy mũi tiêm.')
+      return snap.rowOf(dose)
+    },
+
+    async getSchedule(id: number): Promise<ScheduleDetail> {
+      const snap = await snapshot()
+      const view = snap.scheduleOf(id)
+      if (!view) throw new Error('Không tìm thấy lịch tiêm.')
+      const targetCount = targetCountOf(view)
+      return {
+        schedule: view.schedule, vaccine: snap.vaccineOf(view), targetCount, plannedRows: plannedDoseRows(view.schedule, view.doses, targetCount, today()),
+        hasDoneDoses: view.doses.some((d) => d.status === 'DONE'),
+      }
+    },
+
+    async previewTarget(target: ScheduleTarget): Promise<VaccCattle[]> {
+      return resolveTarget(await cattle(), target).map(stripId)
+    },
+
+    async previewPlan(cmd: ScheduleCommand, targetCount: number) {
+      return plannedDoseRows({ firstDueDate: cmd.firstDueDate || today(), intervalDays: cmd.intervalDays, doseCount: cmd.doseCount ?? 0, boosterIntervalMonths: cmd.boosterIntervalMonths }, [], targetCount, today())
+    },
+
+    async createSchedule(cmd: ScheduleCommand): Promise<ScheduleResult> {
+      return run(async () => {
+        const [views, herd, catalogue, pensList] = await Promise.all([schedules(), cattle(), vaccines(), pens()])
+        const errors = validateSchedule(cmd, { activeNames: views.filter((v) => v.schedule.status === 'ACTIVE').map((v) => v.schedule.name), vaccine: catalogue.find((v) => v.id === cmd.vaccineId) })
+        if (cmd.firstDueDate && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày tiêm không được trước hôm nay.'
+        if (!hasErrors(errors) && resolveTarget(herd, cmd.target).length === 0) errors.form = 'Không có bò đang nuôi nào khớp với nhóm đã chọn.'
+        if (hasErrors(errors)) throw new VaccinationValidationError(errors)
+        const body = {
+          name: cmd.name.trim(), vaccineId: cmd.vaccineId, firstDueDate: cmd.firstDueDate, doseCount: cmd.doseCount,
+          // Backend bắt buộc intervalDays kể cả lịch 1 mũi; khi đó giá trị không dùng tới.
+          intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : cmd.intervalDays ?? 1,
+          boosterIntervalMonths: cmd.boosterIntervalMonths ?? null,
+          ...toVaccinationTargetDto(cmd.target, herd, pensList),
+        }
+        const result = asRecord(await transport.command(path('/vaccination-schedules'), body))
+        // MSG-FE09-07: backend xác nhận lại đối tượng; số bò lấy theo kết quả lưu.
+        const targetCount = num(result.targetCount) ?? 0
+        const planned = num(result.plannedDoseCount) ?? 0
+        const schedule: Schedule = {
+          id: num(result.id) ?? 0, name: textValue(result.name, body.name), vaccineId: cmd.vaccineId!, firstDueDate: cmd.firstDueDate, doseCount: cmd.doseCount!,
+          intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : undefined, boosterIntervalMonths: cmd.boosterIntervalMonths,
+          status: 'ACTIVE', completed: false, version: num(result.version) ?? 0, target: structuredClone(cmd.target),
+        }
+        return { schedule, targetCount, plannedDoseCount: planned, message: `Đã lưu lịch ${schedule.name}: ${planned} mũi dự kiến cho ${targetCount} bò.` }
+      })
+    },
+
+    async updateSchedule(id: number, cmd: ScheduleCommand): Promise<ScheduleResult> {
+      return run(async () => {
+        const [views, catalogue] = await Promise.all([schedules(), vaccines()])
+        const view = views.find((v) => v.schedule.id === id)
+        if (!view) throw new Error('Không tìm thấy lịch tiêm.')
+        const s = view.schedule
+        if (s.status !== 'ACTIVE' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== s.version)) throw new Error(CONFLICT_MESSAGE)
+        if (s.completed) throw new Error(SCHEDULE_COMPLETED_MESSAGE)
+        const errors = validateSchedule(cmd, { activeNames: views.filter((v) => v.schedule.status === 'ACTIVE' && v.schedule.id !== id).map((v) => v.schedule.name), vaccine: catalogue.find((v) => v.id === cmd.vaccineId) })
+        const changed = {
+          name: cmd.name.trim() !== s.name, vaccine: cmd.vaccineId !== s.vaccineId, start: cmd.firstDueDate !== s.firstDueDate,
+          interval: (cmd.intervalDays ?? undefined) !== s.intervalDays, booster: (cmd.boosterIntervalMonths ?? undefined) !== s.boosterIntervalMonths,
+        }
+        if (changed.start && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày tiêm không được trước hôm nay.'
+        // FE-09 Q3 (D13) và D46: lịch đã có mũi tiêm thì giữ vắc-xin, ngày tiêm và khoảng cách giữa mũi.
+        const anyDone = view.doses.some((d) => d.status === 'DONE')
+        if (changed.vaccine && anyDone) errors.vaccineId = 'Lịch đã có mũi được tiêm: hãy dừng lịch này và tạo lịch mới để đổi vắc-xin.'
+        if (changed.start && anyDone) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày tiêm.'
+        if (changed.interval && anyDone) errors.intervalDays = 'Lịch đã có mũi được tiêm: không đổi được khoảng cách giữa mũi.'
+        // GAP-FE09-01 / R-09-05: đổi số mũi, đối tượng hoặc bỏ nhắc lại chỉ ảnh hưởng mũi chưa tiêm.
+        const doseCountChanged = cmd.doseCount !== s.doseCount
+        const targetChanged = !sameTarget(cmd.target, s.target)
+        const [herd, pensList] = targetChanged ? await Promise.all([cattle(), pens()]) : [[], []]
+        if (targetChanged && !hasErrors(errors) && resolveTarget(herd, cmd.target).length === 0) errors.form = 'Không có bò đang nuôi nào khớp với nhóm đã chọn.'
+        if (hasErrors(errors)) throw new VaccinationValidationError(errors)
+        const body = {
+          expectedVersion: s.version,
+          name: changed.name ? cmd.name.trim() : null,
+          vaccineId: changed.vaccine ? cmd.vaccineId : null,
+          firstDueDate: changed.start ? cmd.firstDueDate : null,
+          intervalDays: changed.interval ? cmd.intervalDays ?? null : null,
+          boosterIntervalMonths: changed.booster ? cmd.boosterIntervalMonths ?? null : null,
+          doseCount: doseCountChanged ? cmd.doseCount ?? null : null,
+          removeBooster: changed.booster && cmd.boosterIntervalMonths === undefined ? true : null,
+          target: targetChanged ? toVaccinationTargetDto(cmd.target, herd, pensList) : null,
+        }
+        const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}`), body, { method: 'PUT' }))
+        const targetCount = num(result.targetCount) ?? targetCountOf(view)
+        const planned = num(result.plannedDoseCount) ?? 0
+        const doseCount = cmd.doseCount ?? s.doseCount
+        const schedule: Schedule = {
+          ...s, name: textValue(result.name, cmd.name.trim()), vaccineId: cmd.vaccineId ?? s.vaccineId, firstDueDate: cmd.firstDueDate, doseCount,
+          intervalDays: doseCount > 1 ? cmd.intervalDays : undefined, boosterIntervalMonths: cmd.boosterIntervalMonths, version: num(result.version) ?? s.version + 1,
+          target: structuredClone(cmd.target),
+        }
+        return { schedule, targetCount, plannedDoseCount: planned, message: `Đã lưu lịch ${schedule.name}: còn ${planned} mũi dự kiến cho ${targetCount} bò.` }
+      })
+    },
+
+    async stopSchedule(id: number, cmd: { reason: string; expectedVersion: number }): Promise<ScheduleResult> {
+      const errors = validateReason(cmd.reason)
+      if (hasErrors(errors)) throw new VaccinationValidationError(errors)
+      return run(async () => {
+        // A5: phiên bản đi qua If-Match, lý do trong body (R-09-06); backend lưu lý do vào lịch (stopReason).
+        const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}/stop`), { reason: cmd.reason.trim() }, { headers: { 'If-Match': String(cmd.expectedVersion) } }))
+        const name = textValue(result.name)
+        const schedule: Schedule = {
+          id, name, vaccineId: 0, firstDueDate: '', doseCount: 0, status: 'STOPPED', completed: false, version: num(result.version) ?? cmd.expectedVersion + 1,
+          target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: [] }, stopReason: cmd.reason.trim(),
+        }
+        return { schedule, targetCount: num(result.targetCount) ?? 0, plannedDoseCount: 0, message: `Đã dừng lịch ${name}.` }
+      })
+    },
+
+    async recordContext(input: { doseIds?: number[]; cattleCodes?: string[] }): Promise<RecordContext> {
+      const [snap, options] = await Promise.all([snapshot(), api.options()])
+      const rows: RecordContext['rows'] = []
+      ;(input.doseIds ?? []).forEach((id) => {
+        const d = snap.allDoses.find((x) => x.id === id)
+        const c = d && snap.byCode.get(d.cattleCode)
+        if (d && c && snap.open(d)) rows.push({ cattle: c, dose: snap.rowOf(d) })
+      })
+      ;(input.cattleCodes ?? []).forEach((code) => {
+        const c = snap.byCode.get(code)
+        if (!c || rows.some((r) => r.cattle.code === code)) return
+        const next = snap.allDoses.filter((d) => d.cattleCode === code && snap.open(d)).sort((a, b) => cmp(a.dueDate, b.dueDate))[0]
+        rows.push({ cattle: c, dose: next && snap.rowOf(next) })
+      })
+      const doseRows = rows.map((r) => r.dose)
+      const same = doseRows.length > 0 && doseRows.every((d) => d && d.scheduleId === doseRows[0]!.scheduleId && d.doseText === doseRows[0]!.doseText)
+      const title = same ? `Ghi nhận tiêm – ${doseRows[0]!.scheduleShort} · ${doseRows[0]!.doseText}` : rows.length === 1 ? `Ghi nhận tiêm – ${rows[0].cattle.code}` : 'Ghi nhận tiêm'
+      const firstDose = doseRows.find(Boolean)
+      return { rows: rows.map((r) => ({ ...r, cattle: stripId(r.cattle) })), options, title, vaccineId: firstDose ? snap.scheduleOf(firstDose.scheduleId)?.schedule.vaccineId : undefined }
+    },
+
+    async recordVaccinations(cmd: RecordVaccinationsCommand): Promise<VaccinationBatchResult> {
+      if (!cmd.animals.length) throw new VaccinationValidationError({ form: 'Chưa chọn bò nào để ghi nhận.' })
+      return run(async () => {
+        const [herd, catalogue] = await Promise.all([cattle(), vaccines()])
+        const byCode = new Map(herd.map((c) => [c.code, c]))
+        const herdEntryDate = cmd.animals.map((a) => byCode.get(a.cattleCode)?.herdEntryDate ?? '').sort().pop() || undefined
+        const fields = validateRecordFields(cmd, { now: now(), vaccine: catalogue.find((v) => v.id === cmd.vaccineId), herdEntryDate })
+        const rowErrors: FieldErrors = {}
+        cmd.animals.forEach((a) => {
+          if (!byCode.get(a.cattleCode)) rowErrors[a.cattleCode] = `Không tìm thấy bò ${a.cattleCode}.`
+        })
+        if (hasErrors(fields) || hasErrors(rowErrors)) throw new VaccinationValidationError(fields, rowErrors)
+        const onFarm = cmd.source === 'ON_FARM'
+        const result = asRecord(await transport.command(path('/vaccinations'), {
+          vaccineId: cmd.vaccineId,
+          source: cmd.source,
+          vaccinationDate: cmd.administeredAt.slice(0, 10),
+          administeredAt: onFarm ? toInstant(cmd.administeredAt) : null,
+          dose: cmd.dose?.trim() || null,
+          route: routeOut(cmd.route, cmd.routeOther),
+          withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : 0,
+          vaccinator: cmd.vaccinator?.trim() || null,
+          animals: cmd.animals.map((a) => ({
+            cattleId: byCode.get(a.cattleCode)!.id,
+            // Bản ghi tiêm cũ (HISTORICAL) không đóng mũi theo lịch.
+            scheduledDoseId: onFarm ? a.scheduledDoseId ?? null : null,
+            expectedDoseVersion: a.expectedDoseVersion ?? null,
+          })),
+        }))
+        const vaccinatedCount = num(result.vaccinatedCount) ?? 0
+        return {
+          vaccinatedCount, vaccinationIds: (Array.isArray(result.vaccinationIds) ? result.vaccinationIds : []).map((v) => num(v) ?? 0),
+          // R-09-10 / TC-09-17: bò đã tiêm mũi đó (MSG-FE09-09) hoặc đã rời đàn (MSG-COM-13) được bỏ qua, các con khác vẫn ghi.
+          skipped: asRows(result.skipped).map(mapSkipped),
+          message: `Đã ghi nhận ${vaccinatedCount} mũi tiêm.`,
+        }
+      })
+    },
+
+    async listHistory(filters: HistoryFilters = {}): Promise<HistoryPage> {
+      const from = filters.from || addMonths(today(), -3)
+      const to = filters.to || today()
+      const rows = asRows(await transport.get(path(`/vaccinations/history${query({ search: filters.q?.trim(), vaccineId: filters.vaccineId, source: filters.source, from, to })}`)))
+        .map((r) => mapRecord(r))
+        .sort((a, b) => cmp(b.administeredAt, a.administeredAt) || cmp(a.cattleCode, b.cattleCode))
+      rows.forEach((r) => records.set(r.id, r))
+      const size = filters.size ?? DOSE_PAGE_SIZE
+      const page = Math.min(Math.max(1, filters.page ?? 1), Math.max(1, Math.ceil(rows.length / size)))
+      return { rows: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, from, to }
+    },
+
+    async getCattleVaccination(code: string): Promise<CattleVaccination> {
+      const resolved = asRecord(await transport.get(path(`/cattle/resolve${query({ code })}`)))
+      const cattleId = num(resolved.cattleId)
+      if (cattleId === undefined) throw new Error(`Không tìm thấy bò ${code}.`)
+      const c = mapCattle(resolved.cattle)
+      const [views, history, lead] = await Promise.all([
+        schedules(),
+        // Tab của một con lấy toàn bộ lịch sử, không giới hạn 3 tháng như màn lịch sử đàn.
+        transport.get(path(`/vaccinations/history${query({ cattleId, from: '1970-01-01', to: today() })}`)),
+        leadDays(),
+      ])
+      const list = asRows(history).map((r) => mapRecord(r)).sort((a, b) => cmp(b.administeredAt, a.administeredAt))
+      list.forEach((r) => records.set(r.id, r))
+      const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
+      const doses = views.flatMap((v) => v.doses).filter((d) => d.cattleCode === code && d.status === 'PLANNED' && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE')
+      const rowOf = (d: ScheduledDose): DoseRow => {
+        const s = scheduleOf(d.scheduleId)!.schedule
+        const state = dueStateOf(d, today(), lead)
+        return {
+          id: d.id, cattleCode: code, cattleName: c.name, breed: c.breed, sex: c.sex, penCode: c.penCode, penName: c.penName, herdGroup: c.herdGroup,
+          scheduleId: s.id, vaccineId: s.vaccineId, scheduleName: s.name,
+          scheduleShort: s.name.split(' – ')[0], doseNo: d.doseNo, doseCount: s.doseCount, kind: d.kind, doseText: doseTextOf(d.kind, d.doseNo, s.doseCount),
+          dueDate: d.dueDate, state,
+          daysOverdue: state === 'OVERDUE' ? Math.round((Date.parse(today()) - Date.parse(d.dueDate)) / 86_400_000) : 0, rawStatus: d.status, version: d.version,
+        }
+      }
+      return {
+        cattle: stripId(c),
+        doses: doses.map(rowOf).sort((a, b) => cmp(a.dueDate, b.dueDate)),
+        records: list.map(({ penCode: _pen, ...r }) => r),
+      }
+    },
+
+    async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
+      const before = records.get(id)
+      const noteErrors = validateNote(cmd.note)
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...noteErrors }
+      if (hasErrors(fields)) throw new VaccinationValidationError(fields)
+      // TC-09-27: bản ghi tại trại sửa được số ngày ngưng; bản ghi lịch sử không có ngưng thịt (R-09-08).
+      const onFarm = (before?.source ?? 'ON_FARM') === 'ON_FARM'
+      return run(async () => {
+        const r = asRecord(await transport.command(path(`/vaccinations/${id}/correction`), {
+          expectedVersion: cmd.expectedVersion, vaccineId: cmd.vaccineId ?? null,
+          vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt),
+          dose: cmd.dose?.trim() || null, route: routeOut(cmd.route, cmd.routeOther),
+          vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.note?.trim() || null,
+          withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : null,
+        }))
+        const updated: VaccinationRecord = {
+          ...(before ?? emptyRecord(id)),
+          vaccineId: cmd.vaccineId ?? before?.vaccineId, administeredAt: cmd.administeredAt, dose: cmd.dose, route: cmd.route, routeText: cmd.route === 'OTHER' ? cmd.routeOther?.trim() : undefined,
+          vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: num(r.withdrawalDays) ?? (onFarm ? cmd.withdrawalDays : undefined) ?? before?.withdrawalDays ?? 0,
+          withdrawalEndDate: text(r.withdrawalEndDate), status: 'VALID', corrected: r.corrected !== false,
+          version: num(r.version) ?? cmd.expectedVersion + 1, precision: 'EXACT',
+        }
+        records.set(id, updated)
+        return updated
+      })
+    },
+
+    async voidRecord(id: number, cmd: VoidRecordCommand): Promise<VaccinationRecord> {
+      return run(async () => {
+        const r = asRecord(await transport.command(path(`/vaccinations/${id}/void`), { expectedVersion: cmd.expectedVersion }))
+        const updated: VaccinationRecord = { ...(records.get(id) ?? emptyRecord(id)), status: 'VOIDED', withdrawalEndDate: text(r.withdrawalEndDate), version: num(r.version) ?? cmd.expectedVersion + 1 }
+        records.set(id, updated)
+        return updated
+      })
+    },
+  }
+  return api
+}
+
+function stripId(c: VaccCattle & { id?: number }): VaccCattle {
+  const { id: _id, ...rest } = c
+  return rest
+}
+
+function emptyRecord(id: number): VaccinationRecord {
+  return { id, cattleCode: '', vaccineLabel: '', administeredAt: '', precision: 'EXACT', source: 'ON_FARM', withdrawalDays: 0, status: 'VALID', corrected: false, version: 0, revisions: [] }
+}

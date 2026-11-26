@@ -11,6 +11,7 @@ export type TicketTab = 'ALL' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' 
 export type MessageKind = 'DESCRIPTION' | 'REPLY' | 'ACKNOWLEDGMENT' | 'REOPEN'
 
 export interface TicketMessage {
+  id?: number
   code: string
   params: Record<string, unknown>
   text: string
@@ -60,8 +61,16 @@ export interface Ticket {
   updatedAt: string
   version: number
   messages: TicketMessage[]
+  messagesBeforeId?: number | null
+  messagesHasMore?: boolean
   resolutions: ResolutionView[]
   history: HistoryEntry[]
+}
+
+export interface MessagePage {
+  items: TicketMessage[]
+  nextBeforeId: number | null
+  hasMore: boolean
 }
 
 export interface OwnedFarm {

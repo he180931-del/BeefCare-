@@ -26,8 +26,8 @@ Trang "Quản lý thức ăn" trong menu Chăm sóc, các tab: Tồn kho, Phiế
 | UC-FE23-05 | Xem khẩu phần | Owner, Manager, Technician | SCR-81, SCR-86 |
 | UC-FE23-06 | Tạo / sửa khẩu phần (phiên bản) | Owner, Manager | SCR-82 |
 | UC-FE23-07 | Xem nhật ký cho ăn | Owner, Manager, Technician | SCR-83, SCR-86 |
-| UC-FE23-08 | Ghi bữa ăn | **Manager** | Popup Ghi bữa ăn |
-| UC-FE23-09 | Sửa / hủy bản ghi cho ăn | **Manager** | Popup Sửa / Hủy bản ghi cho ăn |
+| UC-FE23-08 | Ghi bữa ăn | Owner, Manager | Popup Ghi bữa ăn |
+| UC-FE23-09 | Sửa / hủy bản ghi cho ăn | Owner, Manager | Popup Sửa / Hủy bản ghi cho ăn |
 | UC-FE23-10 | Danh mục thức ăn và nhà cung cấp | Owner, Manager | SCR-84 |
 | UC-FE23-11 | Báo cáo tiêu thụ và chi phí | Owner, Manager | SCR-85 |
 
@@ -41,7 +41,7 @@ Trang "Quản lý thức ăn" trong menu Chăm sóc, các tab: Tồn kho, Phiế
 |---|---|---|---|
 | Tồn kho, phiếu nhập, trả NCC, kiểm kho, khẩu phần, danh mục, báo cáo | Có | Có | — |
 | Xem khẩu phần (SCR-81 / SCR-86), nhật ký cho ăn | Có | Có | Có (chỉ xem) |
-| Ghi / sửa / hủy bản ghi cho ăn | — (chỉ xem) | **Chỉ Manager** | — (có thể là "người cho ăn") |
+| Ghi / sửa / hủy bản ghi cho ăn | Có (D41) | Có | — (có thể là "người cho ăn") |
 
 Cần trại ACTIVE (GBR-14, GBR-103).
 
@@ -81,7 +81,7 @@ Danh mục mẫu khi tạo trại: TA-01 → TA-09 (FE-18 §3.6), ACTIVE, không
 | Ghi chú | Không | ≤ 1.000 |
 | Dòng: mặt hàng | Có | ACTIVE |
 | Dòng: số lô · hạn dùng | Không | ≤ 30 · sau ngày nhập (MSG-FE23-03) |
-| Dòng: số lượng | Có | > 0 |
+| Dòng: số lượng | Có | > 0. Điều khiển tăng / giảm trên form đi theo bước 0,1 đơn vị mua. Nhập tay theo độ chính xác của dữ liệu hiện có (D85). |
 | Dòng: đơn vị | Có | Đơn vị mua hoặc kg |
 | Dòng: quy đổi kg | Suy ra | Số lượng × kg / đơn vị mua |
 | Dòng: đơn giá | Có | Số nguyên VND ≥ 0 / đơn vị mua |
@@ -129,7 +129,7 @@ Danh mục mẫu khi tạo trại: TA-01 → TA-09 (FE-18 §3.6), ACTIVE, không
 | Số con lúc cho ăn | Hệ thống | — |
 | Dòng: mặt hàng, kế hoạch kg (= kg / con × số con), thực tế kg (≥ 0, ≤ tồn), trong khẩu phần (cờ), đơn giá + chi phí theo giá vốn BQ | — | 1 dòng / mặt hàng |
 | Thừa (kg) | Không | ≥ 0 |
-| Người cho ăn | Không | Thành viên (Manager / Technician), mặc định người dùng |
+| Người cho ăn | Không | Thành viên (Owner / Manager / Technician), mặc định người dùng |
 | Ghi chú | Không | ≤ 500 |
 | Trạng thái | — | `VALID` → `VOIDED` (lý do); sửa giữ VALID + "Đã sửa" + Record Revision |
 
@@ -152,9 +152,9 @@ Mặt hàng, thời điểm, loại (`RECEIPT` / `RECEIPT_VOID` / `ADJUSTMENT` /
 | R-23-08 | Khẩu phần: kg / con / mặt hàng / bữa (1–3 bữa). Sửa = phiên bản mới hiệu lực từ ngày mai trở đi; phiên bản trước kết thúc ngày hôm trước; mỗi chuồng tối đa 1 phiên bản hiệu lực / ngày (MSG-FE23-11 nếu không tự kết thúc được). SCHEDULED hủy được; EFFECTIVE dừng từ ngày mai trở đi. Không đổi bản ghi cho ăn đã có. | GBR-101, BR-D38 |
 | R-23-09 | Cảnh báo mặt hàng không đủ 1 ngày khi lưu khẩu phần – **không chặn**. | UC-06 AF3 |
 | R-23-10 | Cho ăn: 1 bản ghi / chuồng / ngày / bữa (MSG-FE23-13); không tương lai; kế hoạch = kg / con × số con lúc ghi; thực tế ≥ 0, ≤ tồn (MSG-FE23-14); lưu trừ kho theo giá vốn BQ; giải quyết REM-11; đánh giá REM-10. | GBR-102, BR-D37 |
-| R-23-11 | Sửa / hủy bản ghi cho ăn: chỉ Manager, có lý do, giữ giá trị cũ (Record Revision), điều chỉnh tồn theo chênh lệch; hủy trả toàn bộ về kho; REM-11 đánh giá lại. | GBR-102, BR-D15 |
+| R-23-11 | Sửa / hủy bản ghi cho ăn: Owner hoặc Manager (D41), có lý do, giữ giá trị cũ (Record Revision), điều chỉnh tồn theo chênh lệch; hủy trả toàn bộ về kho; REM-11 đánh giá lại. | GBR-102, BR-D15 |
 | R-23-12 | Không có khẩu phần hiệu lực → MSG-FE23-20, chỉ nhập thực tế. Hết hàng → thực tế 0 + lý do trong ghi chú. | UC-08 AF1, AF2 |
-| R-23-13 | REM-10: mặt hàng ACTIVE tồn ≤ mức tối thiểu, cho Owner + Manager. REM-11: bữa của khẩu phần hiệu lực hôm nay của chuồng có bò chưa có bản ghi VALID sau giờ bữa + 2 giờ, cho Manager + Technician. | GBR-104 |
+| R-23-13 | REM-10: mặt hàng ACTIVE tồn ≤ mức tối thiểu, cho Owner + Manager. REM-11: bữa của khẩu phần hiệu lực hôm nay của chuồng có bò chưa có bản ghi VALID sau giờ bữa + 2 giờ, cho Owner + Manager + Technician (D41). | GBR-104 |
 | R-23-14 | Công thức: chi phí bản ghi = Σ kg thực tế × giá vốn BQ lúc ghi; số ngày đủ dùng = tồn ÷ dùng BQ 7 ngày; giá trị tồn = Σ tồn × giá vốn BQ; đầu con BQ = số con BQ / ngày từ phân chuồng; chênh lệch so khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch trên bữa đã ghi; hao hụt điều chỉnh tách riêng, không phân bổ nhóm đàn; khẩu phần hiện chi phí ước tính theo giá vốn hiện tại. | GBR-105 |
 | R-23-15 | Lệnh có Idempotency-Key; cập nhật có version → MSG-COM-05. | GBR-88, GBR-89 |
 
@@ -237,14 +237,14 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 2 | Receipt date / Ngày nhập | Ngày | * | Không tương lai | MSG-COM-06, MSG-COM-07 |
 | 3 | Supplier / Nhà cung cấp | Dropdown có tìm | * | NCC ACTIVE + SĐT; "+ Thêm NCC" | MSG-COM-06 |
 | 4 | Invoice / delivery note no. | Ô chữ | — | ≤ 50 | MSG-COM-10 |
-| 5 | Received by / Người nhận | Chọn / chữ | — | ≤ 100 | MSG-COM-10 |
+| 5 | Received by / Người nhận hàng | Ô chữ có danh sách gợi ý | — | Chọn người trong danh sách thành viên được phép xem hoặc nhập tên tự do; lưu tên dạng chữ, tối đa 100 ký tự (D85) | MSG-COM-10 |
 | 6 | Storage location / Nơi lưu | Ô chữ | — | ≤ 100 | MSG-COM-10 |
 | 7 | Note | Ô chữ dài | — | ≤ 1.000 | MSG-COM-10 |
 | 8 | + Add item | Nút | — | Thêm dòng | — |
 | 9 | Feed / Mặt hàng | Dropdown | * | ACTIVE (tên, nhóm, mã) | MSG-COM-06, MSG-COM-08 |
 | 10 | Lot no. · Expiry date | Chữ · ngày | — | ≤ 30 · > ngày nhập | MSG-FE23-03 |
-| 11 | Quantity / Số lượng | Số | * | > 0 | MSG-COM-10 |
-| 12 | Unit / Đơn vị | Chọn | * | Đơn vị mua hoặc kg | — |
+| 11 | Quantity / Số lượng | Số | * | > 0; mỗi thao tác tăng hoặc giảm đi 0,1 đơn vị, giảm dừng ở mức dương; số đã nhập vẫn dùng để tính quy đổi và tiền hàng | MSG-COM-10 |
+| 12 | Unit / Đơn vị | Chọn | * | Đơn vị mua hoặc kg. Tên đơn vị đã chọn hiện trong ô và dùng cho quy đổi, đơn giá (D85) | — |
 | 13 | Conversion / Quy đổi | Chỉ đọc | — | kg | — |
 | 14 | Unit price / Đơn giá | Số nguyên | * | ≥ 0 / đơn vị mua | MSG-COM-10 |
 | 15 | Line amount, Totals row | Tính | — | Số mặt hàng, tổng kg, tiền hàng | — |
@@ -253,6 +253,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 18 | Summary panel | Chỉ đọc | — | Số mặt hàng, tổng kg, tồn trước → sau, trạng thái; báo khi mặt hàng thoát Sắp hết | — |
 | 19 | Checks before saving | Bảng | — | ACTIVE; SL > 0, giá ≥ 0; hạn > ngày nhập; ngày không tương lai | — |
 | 20 | Save & add to stock / Save draft / Cancel | Nút | — | Sau lưu → SCR-78 | MSG-FE23-01 / MSG-FE23-02 / MSG-COM-14 |
+| 21 | In phiếu | Nút | — | In dữ liệu phiếu đã lưu, gồm header, các dòng, thanh toán, lịch sử và chỗ ký; bản in theo D85 | — |
 
 ### SCR-80 Kiểm kho / điều chỉnh
 
@@ -288,6 +289,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 10 | Status | Lên lịch / Hiệu lực / Đã kết thúc |
 | 11 | Actions | "Sửa" (phiên bản mới), "Hủy phiên bản" (Lên lịch), "Dừng" (Hiệu lực, ngày kết thúc ≥ ngày mai) |
 | 12 | Note | Mỗi chuồng 1 khẩu phần / ngày; kế hoạch bữa = khẩu phần × số con |
+| 13 | In khẩu phần | Mở bản in của đúng phiên bản đã lưu. Hiện chuồng, thời gian hiệu lực, cữ và thành phần. Phân biệt sắp áp dụng / đang áp dụng / đã kết thúc / đã hủy theo dữ liệu phiên bản (D85). |
 
 ### SCR-82 Soạn khẩu phần
 
@@ -323,7 +325,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 
 | # | Trường | Nội dung |
 |---|---|---|
-| 1 | Record feeding session | Nút (Manager) → popup; "Điền nhanh theo khẩu phần" cho các bữa trống đã chọn để xem lại |
+| 1 | Record feeding session | Nút (Owner, Manager) → popup; "Điền nhanh theo khẩu phần" cho các bữa trống đã chọn để xem lại |
 | 2 | Date | Chọn ngày, mặc định hôm nay; xem Theo ngày / Theo tuần |
 | 3 | Session, Pen | Lọc |
 | 4 | Summary tiles | Thực tế hôm nay / kế hoạch (kg); bữa đã ghi / dự kiến + chuồng chưa ghi (REM-11); chênh lệch bữa đã ghi (%); giá trị đã trừ kho hôm nay |
@@ -331,10 +333,13 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 6 | Session columns | Kế hoạch → thực tế kg, giờ + người cho ăn, hoặc "Chưa ghi"; ghi chú (ví dụ hết hàng) |
 | 7 | Whole day | Thực tế / kế hoạch kg |
 | 8 | Recorded by | Tên |
-| 9 | ⋯ | Manager: "Sửa" / "Hủy" (popup) |
+| 9 | ⋯ | Owner, Manager: "Sửa" / "Hủy" (popup) |
 | 10 | Totals row | Chuồng, số con, thực tế / kế hoạch |
 | 11 | Consumption by feed today | Mặt hàng, kg thực tế, tồn còn, trạng thái |
-| 12 | Notices | REM-11; REM-10 + link SCR-79; "Thuốc trộn thức ăn ghi trong ca sức khỏe (FE-10). Chủ trại và Kỹ thuật viên chỉ xem." |
+| 12 | Notices | REM-11; REM-10 + link SCR-79; "Thuốc trộn thức ăn ghi trong ca sức khỏe (FE-10). Kỹ thuật viên chỉ xem." |
+| 13 | In nhật ký | In ngày đã chọn hoặc cữ đã lưu, thể hiện giờ, chuồng, thức ăn, kế hoạch, thực tế và trạng thái theo dữ liệu đã ghi. Cữ không có khẩu phần vẫn in được khi có bản ghi (D85). |
+
+Khi chuồng chưa có khẩu phần hiệu lực, Chủ trại hoặc Quản lý dùng nút **Ghi cữ cho ăn**, chọn chuồng / cữ, **Thêm thức ăn ngoài khẩu phần**, nhập lượng thực tế rồi **Lưu & trừ kho**. Cách ghi này áp dụng cho hôm nay hoặc ngày đã qua đủ điều kiện; khẩu phần tạo mới vẫn có hiệu lực từ ngày mai theo R-23-08. Xem cữ ở chế độ **Tuần** nếu cột cữ trong chế độ Ngày chưa hiển thị do thiếu khẩu phần.
 
 ### Popup Ghi bữa ăn
 
@@ -345,7 +350,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 3 | Session / Bữa | Dropdown | * | Sáng / Chiều / Tối (bữa của khẩu phần) | MSG-COM-06, MSG-FE23-13 |
 | 4 | Feeding time / Giờ cho ăn | Giờ | — | Mặc định giờ bữa | — |
 | 5 | Effective ration / Khẩu phần | Chỉ đọc | — | Mã + tên, hoặc MSG-FE23-20 | — |
-| 6 | Fed by / Người cho ăn | Dropdown | — | Manager / Technician; mặc định người dùng | — |
+| 6 | Fed by / Người cho ăn | Dropdown | — | Owner / Manager / Technician; mặc định người dùng | — |
 | 7 | Feed / Mặt hàng | Chỉ đọc | — | Tên, mã, kg / con | — |
 | 8 | Planned / Kế hoạch | Chỉ đọc | — | kg = kg / con × số con | — |
 | 9 | Actual / Thực tế | Số | * | ≥ 0, ≤ tồn | MSG-FE23-14 |
@@ -393,7 +398,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 |---|---|---|
 | 1 | Period * / Kỳ | Mặc định đầu tháng → hôm nay (GBR-66); MSG-COM-11 |
 | 2 | Group by / Nhóm theo | Nhóm đàn (mặc định) / Chuồng / Mặt hàng |
-| 3 | Print report / In | Bố cục in của kết quả đang hiển thị |
+| 3 | Print report / In báo cáo | In qua trình duyệt, có thể lưu PDF. Bản in thể hiện trại, kỳ, kiểu nhóm, thời điểm tính, chỉ số và bảng kết quả đang hiển thị, kể cả khi vừa chuyển từ Báo cáo quản lý trong cùng tab (D85). |
 | 4 | Summary tiles | Tổng tiêu thụ (kg, ngày, con-ngày); chi phí (đ); BQ đ và kg / con / ngày; nhập trong kỳ (kg, phiếu, tiền) |
 | 5 | Group | Nhóm đàn / chuồng / mặt hàng |
 | 6 | Average head | Số con BQ / ngày |
@@ -403,6 +408,8 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 10 | Totals row | — |
 | 11 | Cost by feed | Mặt hàng + chi phí |
 | 12 | Calculation notes | Định nghĩa GBR-105; hao hụt điều chỉnh tách riêng |
+
+**Bố cục in FE-23 (D85).** Khổ A4 dọc, lề bốn phía đủ để nội dung cách mép giấy. Báo cáo tiêu thụ có khoảng đệm in khi trình điều khiển máy in đặt lề bằng 0. Ẩn điều khiển và thanh điều hướng, lặp tiêu đề cột nếu bảng qua trang, giữ các trang có nội dung.
 
 ---
 
@@ -421,7 +428,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | A9 | Khẩu phần: danh sách / lưu phiên bản | `status?` / `SaveRationRequest {rationId?, name, herdGroup?, penIds[], effectiveFrom, basis?, sessions[{key, time}], components[{feedId, kgPerSession[]}], baseVersion?}` + `Idempotency-Key` | `[RationView]` / `RationView {code, version, prevEndsOn?, perHeadDayKg, perHeadDayCost, dailyKg, dailyCost, coverWarnings[]}` | FE23-10, FE23-11, COM-06, COM-10, COM-05 | `GET` / `POST /api/farms/{farmId}/feed/rations` |
 | A10 | Hủy phiên bản lên lịch / dừng khẩu phần | `{version}` / `{endDate, version}` + `Idempotency-Key` | `RationView` | FE23-10, COM-05 | Chưa có – đề xuất `POST …/feed/rations/{rationId}/versions/{v}/cancel` · `POST …/feed/rations/{rationId}/stop` |
 | A11 | Nhật ký cho ăn | `from*, to*, session?, penId?` | `[FeedingView]` + tiles + kế hoạch các bữa chưa ghi | — | `GET …/feed/feeding-records` |
-| A12 | Dữ liệu mở popup (kế hoạch theo chuồng, bữa) | `penId, date, session` | `{ration?{code, name, version}, headcount, lines[{feedId, kgPerHead, plannedKg, stockKg}], existingRecordId?}` | FE23-20 | Chưa có riêng – đề xuất `GET …/feed/feeding-records/plan` |
+| A12 | Dữ liệu mở popup (kế hoạch theo chuồng, cữ) | `penId, date, sessionNo` | `FeedingPlanView`: chuồng, ngày, cữ, giờ, số con, khẩu phần, các dòng kế hoạch và mã cữ đã ghi nếu có. Thiếu khẩu phần trả `ration: null` và `lines: []` để ghi thực tế. | Thiếu khẩu phần: MSG-FE23-20 trên giao diện | `GET /api/farms/{farmId}/feed/feeding-records/plan` |
 | A13 | Ghi bữa ăn | `RecordFeedingRequest {penId, date, session, time?, fedBy?, lines[{feedId, actualKg}], leftoverKg?, note?}` + `Idempotency-Key` | `FeedingView` | FE23-13, FE23-14, COM-07, COM-06, COM-02 | `POST …/feed/feeding-records` |
 | A14 | Sửa / hủy bản ghi | `FeedingCorrectionRequest {lines[{feedId, newKg}], reason, version}` / `FeedingVoidRequest {reason, version}` + `Idempotency-Key` | `FeedingView` | FE23-14, COM-06, COM-05 | `POST …/feeding-records/{recordId}/correct` · `…/void` |
 | A15 | Danh mục: danh sách / tạo / sửa | — / `FeedItemRequest {code, name, group, stockUnit, purchaseUnit?, kgPerPurchaseUnit?, minKg?, nutritionNote?, active, version?}` + `Idempotency-Key` | `[FeedItemView]` / `FeedItemView` | FE23-18, COM-06, COM-10, COM-05 | `GET` / `POST …/feed/catalogue` · `PUT …/catalogue/{feedId}` |
@@ -463,7 +470,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | Mã | Given | When | Then | Tầng | Nguồn |
 |---|---|---|---|---|---|
 | TC-23-01 | Technician | Gọi tạo phiếu nhập / khẩu phần / ghi bữa | 403 | H | R-23-01 |
-| TC-23-02 | Owner | Gọi ghi bữa ăn | 403 | H | R-23-01 |
+| TC-23-02 | Owner | Ghi bữa ăn, rồi sửa / hủy | Thành công như Manager; trừ / trả kho theo chênh lệch | H, I | R-23-01, R-23-11, D41 |
 | TC-23-03 | Mặt hàng có phát sinh | Đổi mã / đơn vị tồn | MSG-FE23-18 | I | R-23-02 |
 | TC-23-04 | Mặt hàng INACTIVE | Chọn trong phiếu nhập | MSG-COM-08 | I | R-23-02 |
 | TC-23-05 | Phiếu DRAFT 500 kg | Lưu nháp | Tồn không đổi | I | R-23-03 |
@@ -488,12 +495,16 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | TC-23-24 | Bản ghi 60 kg sửa thành 50 kg | Lưu có lý do | FEEDING_CORRECTION +10 kg; Record Revision; "Đã sửa" | I | R-23-11 |
 | TC-23-25 | Sửa thành số làm tồn âm | Lưu | MSG-FE23-14 | I | R-23-11 |
 | TC-23-26 | Hủy bản ghi 60 kg | Xác nhận | VOIDED; FEEDING_VOID +60 kg; REM-11 đánh giá lại | I | R-23-11 |
-| TC-23-27 | Bữa 06:30 chưa ghi | 08:31 | REM-11 cho Manager, Technician | I | R-23-13 |
+| TC-23-27 | Bữa 06:30 chưa ghi | 08:31 | REM-11 cho Owner, Manager, Technician | I | R-23-13 |
 | TC-23-28 | Tồn 300 kg, dùng 7 ngày 420 kg | Xem SCR-77 | BQ 60 kg / ngày; đủ 5 ngày | U | R-23-14 |
 | TC-23-29 | Chuồng 4 con, 10 ngày, có 1 phiếu điều chỉnh hao hụt | Báo cáo theo nhóm đàn | Con-ngày 40; hao hụt hiện riêng, không phân bổ | I | R-23-14 |
 | TC-23-30 | Kế hoạch 60, thực tế 54 | Báo cáo | Chênh lệch −10 % | U | R-23-14 |
 | TC-23-31 | 2 Manager cùng sửa 1 bản ghi | Đồng thời | Người sau MSG-COM-05 | I | R-23-15 |
 | TC-23-32 | Technician mở SCR-86 | Xem | Chỉ đọc; thẻ chuồng "Chưa ghi"/"Đã ghi hh:mm"; không có nút ghi | E | §6 |
+| TC-23-33 | Phiếu nhập đang sửa | Chọn người nhận từ danh sách rồi thử nhập tên ngoài danh sách | Cả hai cách đều lưu đúng tên, giới hạn 100 ký tự | E | D85, SCR-79 |
+| TC-23-34 | Dòng phiếu có 10 đơn vị, mặt hàng có đơn vị mua khác kg | Tăng, giảm và đổi đơn vị | 10 → 10,1 → 10; tên đơn vị vẫn hiện trong ô, số kg và đơn giá theo đơn vị đang chọn | U, E | D85, SCR-79 |
+| TC-23-35 | Đã mở Báo cáo quản lý rồi vào Báo cáo tiêu thụ trong cùng tab | In báo cáo, gồm thử cấu hình lề bằng 0 | A4 dọc, nội dung cách mép, có dữ liệu và không có trang trắng | E | D85, SCR-85 |
+| TC-23-36 | Có phiếu, phiên bản khẩu phần và cữ đã lưu | In từng chứng từ | Đúng dữ liệu bản đã lưu; ngắt trang giữ tiêu đề cột nếu bảng dài | E | D85, SCR-79, SCR-81, SCR-83 |
 
 ---
 
@@ -503,7 +514,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 |---|---|---|
 | Q1 | Mã lỗi khi trùng mã TA-nn | Dùng nội dung như MSG-FE18-02 |
 | Q2 | Bỏ nháp phiếu nhập / điều chỉnh, hủy phiên bản khẩu phần, dừng khẩu phần chưa có route | Thêm A5, A10 |
-| Q3 | API kế hoạch khi mở popup ghi bữa | Thêm A12 |
+| Q3 | API kế hoạch khi mở popup ghi bữa | Đã có A12; không có khẩu phần vẫn trả được dữ liệu ngữ cảnh để ghi thực tế. |
 | Q4 | "Điền nhanh theo khẩu phần" cho nhiều bữa: lưu 1 lần hay từng bữa? | Mở lần lượt từng popup đã điền sẵn để Manager xác nhận |
 | Q5 | UC-FE23-01, 03, 04, 05, 07, 10, 11 không có đặc tả Part II | Theo Part III + GBR |
 | Q6 | Giá vốn khi tồn về 0 rồi nhập lại | Giá vốn BQ = đơn giá của lần nhập mới |
@@ -516,3 +527,4 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TaiDX duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 26/11/2026 | 28/10/2026 | D85: người nhận, bước số lượng và đơn vị trên phiếu; in chứng từ và báo cáo; làm rõ ghi cữ không có khẩu phần | TaiDX |

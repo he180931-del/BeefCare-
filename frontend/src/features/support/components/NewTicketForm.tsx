@@ -1,29 +1,34 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Card, Field, inputCls, Note, Segmented, Select, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { DESCRIPTION_MAX, SUBJECT_MAX, TICKET_CATEGORIES, validateCreate } from '../domain/ticketRules'
-import type { CreateTicketCommand, OwnedFarm, TicketCategory } from '../types'
+import { Button, Field, Icon, inputCls, Note, Panel, Select, Textarea } from '../../../shared/ui'
+import { TICKET_CATEGORIES } from '../domain/ticketRules'
+import { DESCRIPTION_MAX, SUBJECT_MAX, validateCreate } from '../validation/ticketValidation'
+import type { CreateTicketCommand, TicketCategory } from '../types'
 import { FieldError } from './FieldError'
 
 interface Props {
-  farms: OwnedFarm[]
-  initial: { category: TicketCategory | ''; farmId: number | null }
+  activeFarmId: number | null
+  initialCategory?: TicketCategory | ''
   /** Trả lỗi theo trường (khóa `_form` cho lỗi chung) hoặc null khi đã gửi được. */
   onSubmit: (cmd: CreateTicketCommand) => Promise<Record<string, string> | null>
   onCancel: () => void
 }
 
-/** SCR-65: nội dung yêu cầu. Ưu tiên chỉ đọc vì do bộ phận hỗ trợ gán (GBR-76). */
-export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
-  const [form, setForm] = useState<CreateTicketCommand>({ category: initial.category, scope: 'FARM', farmId: initial.farmId, subject: '', description: '' })
+/** SCR-65: nội dung yêu cầu. Ưu tiên NORMAL được hệ thống gán mặc định; CS chỉnh sau khi nhận. */
+export function NewTicketForm({ activeFarmId, initialCategory = '', onSubmit, onCancel }: Props) {
+  const [form, setForm] = useState<CreateTicketCommand>({
+    category: initialCategory,
+    scope: 'FARM',
+    farmId: activeFarmId,
+    subject: '',
+    description: '',
+  })
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sending, setSending] = useState(false)
   const set = (patch: Partial<CreateTicketCommand>) => setForm((f) => ({ ...f, ...patch }))
-  const isFarm = form.scope === 'FARM'
-
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const local = validateCreate(form, farms.map((f) => f.id))
+    const local = validateCreate(form, activeFarmId == null ? [] : [activeFarmId])
     setErrors(local)
     if (Object.keys(local).length > 0) return
     setSending(true)
@@ -34,62 +39,42 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={submit} noValidate>
-      <Card title="Nội dung yêu cầu">
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Danh mục *" id="tk-category">
-            <Select id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
-              <option value="">Chọn danh mục</option>
-              {TICKET_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-            <FieldError>{errors.category}</FieldError>
-          </Field>
-          <Field label="Ưu tiên" id="tk-priority">
-            <Select id="tk-priority" value="NORMAL" disabled>
-              <option value="NORMAL">Bình thường</option>
-            </Select>
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Phạm vi *">
-              <Segmented
-                options={[
-                  { value: 'FARM', label: 'Trang trại' },
-                  { value: 'ACCOUNT', label: 'Vấn đề tài khoản (không gắn trại)' },
-                ]}
-                value={form.scope}
-                onChange={(scope) => set({ scope: scope as CreateTicketCommand['scope'] })}
-              />
-              <FieldError>{errors.scope}</FieldError>
-            </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Field label="Trang trại liên quan" id="tk-farm">
-              <Select id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
-                {!isFarm && <option value="">Không gắn trang trại</option>}
-                {isFarm && <option value="">Chọn trang trại</option>}
-                {farms.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
+      <Panel title="Nội dung yêu cầu">
+        <div className="flex flex-col gap-4">
+          <div>
+            <Field label="Danh mục *" id="tk-category">
+              <Select id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
+                <option value="">Danh mục</option>
+                {TICKET_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
                   </option>
                 ))}
               </Select>
-              <FieldError>{errors.farmId}</FieldError>
+              <FieldError>{errors.category}</FieldError>
             </Field>
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <Field label="Tiêu đề *" id="tk-subject" hint={`Tối đa ${SUBJECT_MAX} ký tự`}>
               <input id="tk-subject" className={inputCls} value={form.subject} onChange={(e) => set({ subject: e.target.value })} />
               <FieldError>{errors.subject}</FieldError>
             </Field>
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <Field label="Mô tả chi tiết *" id="tk-description" hint={`Tối đa ${DESCRIPTION_MAX.toLocaleString('vi-VN')} ký tự`}>
               <Textarea id="tk-description" rows={5} value={form.description} onChange={(e) => set({ description: e.target.value })} />
               <FieldError>{errors.description}</FieldError>
             </Field>
+          </div>
+          <div>
+            <label htmlFor="tk-evidence" className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-field bg-white px-3 py-2 text-xs font-semibold text-ink"><Icon name="upload" size={14} /> Đính kèm tệp
+              <input id="tk-evidence" aria-label="Đính kèm tệp" type="file" accept="application/pdf,image/jpeg,image/png" multiple className="sr-only" onChange={(event) => setEvidenceFiles(Array.from(event.target.files ?? []))} />
+            </label>
+            {evidenceFiles.length > 0 && (
+              <ul className="m-0 mt-2 flex list-none flex-col gap-1.5 p-0" aria-label="Tệp bằng chứng đã chọn">
+                {evidenceFiles.map((file) => <li key={`${file.name}${file.lastModified}`} className="flex items-center gap-2 rounded-md bg-page px-3 py-2 text-xs text-ink"><Icon name="upload" size={14} /><span>{file.name}</span><span className="text-muted">· {Math.ceil(file.size / 1024)} KB</span></li>)}
+              </ul>
+            )}
           </div>
         </div>
         {errors._form && (
@@ -97,15 +82,15 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
             <Note tone="err">{errors._form}</Note>
           </div>
         )}
-        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&>button]:w-full sm:[&>button]:w-auto">
-          <Button type="button" onClick={onCancel}>
+        <div className="flex flex-wrap justify-end gap-2 [&>button]:w-full @min-[440px]:[&>button]:w-auto">
+          <Button type="button" size="bento" onClick={onCancel}>
             Hủy
           </Button>
-          <Button type="submit" variant="primary" disabled={sending}>
+          <Button type="submit" variant="primary" size="bento" disabled={sending}>
             <Icon name="send" size={16} /> Gửi yêu cầu
           </Button>
         </div>
-      </Card>
+      </Panel>
     </form>
   )
 }

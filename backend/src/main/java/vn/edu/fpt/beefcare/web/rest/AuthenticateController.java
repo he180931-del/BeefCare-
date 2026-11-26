@@ -33,6 +33,9 @@ import vn.edu.fpt.beefcare.web.rest.vm.LoginVM;
 @RestController
 public class AuthenticateController {
 
+    public static final String REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE = "beefcare.security.session.absolute-expiry";
+    private static final long REMEMBERED_SESSION_ABSOLUTE_CAP_SECONDS = 30L * 24 * 3600;
+
     private final AuthenticationManager authenticationManager;
     private final FarmAccessService farmAccessService;
     private final SessionRegistry sessionRegistry;
@@ -47,6 +50,9 @@ public class AuthenticateController {
 
     @Value("${beefcare.security.cookie-secure:false}")
     private boolean secureCookies;
+
+    @Value("${beefcare.security.cookie-same-site:Lax}")
+    private String cookieSameSite;
 
     public AuthenticateController(
         AuthenticationManager authenticationManager,
@@ -79,7 +85,8 @@ public class AuthenticateController {
             if (ex instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException || ex.getCause() instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException) {
                 throw new DomainException(MessageCodes.FE01_11, DomainException.params("email", loginVM.getUsername().trim()), HttpStatus.UNAUTHORIZED);
             }
-            identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            java.util.Optional<java.time.Instant> lockedUntil = identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            if (lockedUntil.isPresent()) throw IdentityService.locked(lockedUntil.orElseThrow());
             throw new DomainException(MessageCodes.FE01_01, null, HttpStatus.UNAUTHORIZED);
         }
         identityService.clearFailedPasswordAttempts(loginVM.getUsername());
@@ -92,6 +99,12 @@ public class AuthenticateController {
         }
         HttpSession session = request.getSession(true);
         session.setMaxInactiveInterval(loginVM.isRememberMe() ? rememberMeTimeoutSeconds : standardTimeoutSeconds);
+        if (loginVM.isRememberMe()) {
+            session.setAttribute(
+                REMEMBERED_SESSION_ABSOLUTE_EXPIRY_ATTRIBUTE,
+                java.time.Instant.now().plusSeconds(REMEMBERED_SESSION_ABSOLUTE_CAP_SECONDS)
+            );
+        }
         try {
             farmAccessService.currentActiveUser();
         } catch (DomainException ex) {
@@ -107,7 +120,7 @@ public class AuthenticateController {
                 ResponseCookie.from("JSESSIONID", session.getId())
                     .httpOnly(true)
                     .secure(secureCookies)
-                    .sameSite("Lax")
+                    .sameSite(cookieSameSite)
                     .path("/")
                     .maxAge(rememberMeTimeoutSeconds)
                     .build()

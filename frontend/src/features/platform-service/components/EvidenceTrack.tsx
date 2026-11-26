@@ -1,6 +1,6 @@
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, Radio, Segmented, Table, Td, Th } from '../../../components/ui'
+import { activateTableRow, activateTableRowByKey, Badge, Button, Card, Icon, interactiveRowClass, Radio, Segmented, Table, Td, Th } from '../../../shared/ui'
 import type { Evidence, PlatformPayment } from '../types'
 import { fmtDateTime, fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { candidateSummary, checkAcceptance, evidenceCode } from '../domain/reconciliation'
@@ -25,7 +25,7 @@ export default function EvidenceTrack({ ev, candidates, cand, explicit, payments
   return (
     <Card
       title={`Theo dõi chứng từ ${ev.transactionId}`}
-      sub={`Ngân hàng trả tiền ${fmtDateTime(ev.bankPaidAt)} · hệ thống nhận lần đầu ${ev.receivedAt.slice(11, 19)} · ${allocated ? 'đã xác nhận' : 'chưa xác nhận'}`}
+      sub={`Ngân hàng trả tiền ${fmtDateTime(ev.bankPaidAt)} · hệ thống nhận lần đầu ${toBusinessTime(ev.receivedAt).slice(11, 19)} · ${allocated ? 'đã xác nhận' : 'chưa xác nhận'}`}
       actions={
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={[{ value: 'candidates', label: 'Chọn yêu cầu ứng viên' }, { value: 'history', label: 'Lịch sử xử lý' }, { value: 'checks', label: 'Kiểm tra chấp nhận' }]} />
       }
@@ -40,7 +40,15 @@ export default function EvidenceTrack({ ev, candidates, cand, explicit, payments
               {candidates.map((p) => {
                 const s = candidateSummary(checkAcceptance(ev, p, false))
                 return (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    tabIndex={0}
+                    aria-label={`Chọn yêu cầu ứng viên ${p.code}`}
+                    aria-selected={cand?.id === p.id && explicit}
+                    className={interactiveRowClass}
+                    onClick={(event) => activateTableRow(event, () => onChoose(p.id))}
+                    onKeyDown={(event) => activateTableRowByKey(event, () => onChoose(p.id))}
+                  >
                     <Td><Radio name="candidate" checked={cand?.id === p.id && explicit} onChange={() => onChoose(p.id)}>{' '}</Radio></Td>
                     <Td><span className="font-medium text-ink">{p.code}</span></Td>
                     <Td>{p.farmName}</Td>

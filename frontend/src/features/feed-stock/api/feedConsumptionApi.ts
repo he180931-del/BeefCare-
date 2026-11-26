@@ -1,4 +1,8 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows } from '../../../shared/api/parse'
+import { businessDate } from '../../../shared/lib/date/farmTime'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { createFeedFeedingApi } from './feedFeedingApi'
 import { createFeedReceiptApi } from './feedReceiptApi'
 import { createFeedRationApi } from './feedRationApi'
@@ -8,8 +12,10 @@ import type {
   FeedConsumptionApiResult,
   FeedConsumptionBackendReport,
   FeedConsumptionBackendRow,
+  FeedConsumptionReportGroupedRow,
   FeedConsumptionRange,
   FeedConsumptionSupportingData,
+  FeedConsumptionGroupBy,
 } from '../types/feedConsumption'
 
 export type FeedConsumptionDataLoader = (range: FeedConsumptionRange) => Promise<FeedConsumptionSupportingData>
@@ -18,10 +24,12 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === 'nu
 
 function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   const body = asRecord(value)
-  if (typeof body.from !== 'string' || typeof body.to !== 'string' || !Array.isArray(body.rows)) {
+  if (typeof body.from !== 'string' || typeof body.to !== 'string' || !['HERD_GROUP', 'PEN', 'FEED'].includes(String(body.groupBy))
+    || !asRecord(body.tiles) || !asRecord(body.total) || !Array.isArray(body.rows) || !Array.isArray(body.rawRows) || !Array.isArray(body.costByFeed)
+    || !asRecord(body.adjustmentLosses)) {
     throw new Error('Dữ liệu báo cáo tiêu thụ từ máy chủ không hợp lệ.')
   }
-  const rows: FeedConsumptionBackendRow[] = asRows(body.rows).map((row) => {
+  const rawRows: FeedConsumptionBackendRow[] = asRows(body.rawRows).map((row) => {
     if (!isFiniteNumber(row.penId) || typeof row.penCode !== 'string' || typeof row.herdGroup !== 'string'
       || !isFiniteNumber(row.feedItemId) || typeof row.feedCode !== 'string'
       || !isFiniteNumber(row.plannedKg) || !isFiniteNumber(row.actualKg)
@@ -41,10 +49,19 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
       totalCost: row.totalCost as number | null,
     }
   })
-  const adjustmentLossKg = body.adjustmentLossKg === null || body.adjustmentLossKg === undefined
-    ? null : isFiniteNumber(body.adjustmentLossKg) ? body.adjustmentLossKg : NaN
-  const adjustmentLossValue = body.adjustmentLossValue === null || body.adjustmentLossValue === undefined
-    ? null : isFiniteNumber(body.adjustmentLossValue) ? body.adjustmentLossValue : NaN
+  const groupedRows: FeedConsumptionReportGroupedRow[] = asRows(body.rows).map((row) => {
+    if (typeof row.group !== 'string' || !isFiniteNumber(row.avgHead) || !isFiniteNumber(row.kg) || !isFiniteNumber(row.kgPerHeadDay)
+      || !isFiniteNumber(row.cost) || !isFiniteNumber(row.costPerHeadDay) || (row.variancePct !== null && !isFiniteNumber(row.variancePct))
+      || !Array.isArray(row.notes) || row.notes.some((note) => typeof note !== 'string')) throw new Error('Một dòng nhóm báo cáo tiêu thụ từ máy chủ không hợp lệ.')
+    return { group: row.group, avgHead: row.avgHead, kg: row.kg, kgPerHeadDay: row.kgPerHeadDay, cost: row.cost, costPerHeadDay: row.costPerHeadDay, variancePct: row.variancePct as number | null, notes: row.notes as string[] }
+  })
+  const numberFields = ['kg', 'cost', 'averageKgPerHeadDay', 'averageCostPerHeadDay', 'days', 'headDays', 'receivedKg', 'receiptCount', 'receivedAmount']
+  const tiles = asRecord(body.tiles); const total = asRecord(body.total)
+  if (numberFields.some((field) => !isFiniteNumber(tiles[field])) || ['kg', 'cost', 'kgPerHeadDay', 'costPerHeadDay', 'days', 'headDays'].some((field) => !isFiniteNumber(total[field]))) throw new Error('Tổng hợp báo cáo tiêu thụ từ máy chủ không hợp lệ.')
+  const costByFeed = asRows(body.costByFeed).map((row) => { if (typeof row.feedCode !== 'string' || typeof row.feedName !== 'string' || !isFiniteNumber(row.kg) || !isFiniteNumber(row.cost)) throw new Error('Chi phí theo thức ăn từ máy chủ không hợp lệ.'); return { feedCode: row.feedCode, feedName: row.feedName, kg: row.kg, cost: row.cost } })
+  const adjustmentLosses = asRecord(body.adjustmentLosses)
+  const adjustmentLossKg = adjustmentLosses.kg == null ? null : isFiniteNumber(adjustmentLosses.kg) ? adjustmentLosses.kg : NaN
+  const adjustmentLossValue = adjustmentLosses.value == null ? null : isFiniteNumber(adjustmentLosses.value) ? adjustmentLosses.value : NaN
   if ((adjustmentLossKg !== null && !Number.isFinite(adjustmentLossKg))
     || (adjustmentLossValue !== null && !Number.isFinite(adjustmentLossValue))) {
     throw new Error('Dữ liệu tổn thất trong báo cáo không hợp lệ.')
@@ -52,14 +69,20 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   return {
     from: body.from,
     to: body.to,
-    rows,
+    groupBy: body.groupBy as FeedConsumptionBackendReport['groupBy'],
+    tiles: tiles as FeedConsumptionBackendReport['tiles'],
+    rows: groupedRows,
+    total: total as FeedConsumptionBackendReport['total'],
+    costByFeed,
+    adjustmentLosses: { kg: adjustmentLossKg, value: adjustmentLossValue },
+    rawRows,
     adjustmentLossKg,
     adjustmentLossValue,
     generatedAt: typeof body.generatedAt === 'string' ? body.generatedAt : null,
   }
 }
 
-function createSupportingDataLoader(mode: BackendMode, farmId: string | number, transport: BackendTransport): FeedConsumptionDataLoader {
+function createSupportingDataLoader(mode: BackendMode, farmId: string | number | null, transport: BackendTransport): FeedConsumptionDataLoader {
   const feedingApi = createFeedFeedingApi({ mode, farmId, transport })
   const receiptApi = createFeedReceiptApi({ mode, farmId, transport })
   const adjustmentApi = createFeedStockAdjustmentApi({ mode, farmId, transport })
@@ -85,7 +108,7 @@ export function createFeedConsumptionApi({
   loadBackendData,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   loadDemoData?: FeedConsumptionDataLoader
   loadBackendData?: FeedConsumptionDataLoader
@@ -94,11 +117,12 @@ export function createFeedConsumptionApi({
   const readBackendData = loadBackendData ?? createSupportingDataLoader('backend', farmId, transport)
 
   return {
-    async load(range: FeedConsumptionRange): Promise<FeedConsumptionApiResult> {
+    async load(range: FeedConsumptionRange & { groupBy?: FeedConsumptionGroupBy }): Promise<FeedConsumptionApiResult> {
       if (mode === 'backend') {
         const path = transport.farmPath(farmId, '/feed/reports/consumption')
+        const request = { from: range.from, to: range.to, groupBy: range.groupBy ?? 'HERD_GROUP' }
         const [report, supporting] = await Promise.all([
-          transport.command(path, range, { method: 'POST' }),
+          transport.command(path, request, { method: 'POST' }),
           readBackendData(range),
         ])
         return { ...supporting, source: 'backend', backendReport: parseConsumptionReport(report) }
@@ -109,6 +133,15 @@ export function createFeedConsumptionApi({
   }
 }
 
-const api = createFeedConsumptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const api = createFeedConsumptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
-export const loadFeedConsumptionReport = (range: FeedConsumptionRange) => api.load(range)
+export const loadFeedConsumptionReport = (range: FeedConsumptionRange & { groupBy?: FeedConsumptionGroupBy }) => api.load(range)
+
+/** Một số chỉ số của máy chủ có thể thiếu nguồn số liệu; bản mô phỏng luôn đủ. */
+export const feedConsumptionMayLackSources = backendMode === 'backend'
+
+/** Kỳ mở đầu của báo cáo: SRS GBR-66 quy định từ đầu tháng đến hôm nay. */
+export function defaultFeedConsumptionPeriod(): { from: string; to: string } {
+  const today = businessDate()
+  return { from: today.slice(0, 7) + '-01', to: today }
+}

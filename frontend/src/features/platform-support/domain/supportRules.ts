@@ -1,4 +1,5 @@
-import type { InternalStatus, QueueFilters, QueueTab, Ticket, TicketCategory, TicketPriority, TicketRow, TicketStatus, TargetRole, InternalView, Actor } from '../types'
+import { businessDateTime, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
+import type { InternalOutcome, InternalStatus, QueueFilters, QueueTab, Ticket, TicketCategory, TicketPriority, TicketRow, TicketStatus, TargetRole, InternalView, Actor } from '../types'
 
 export type SupportErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'VALIDATION' | 'SAVE_FAILED_AFTER_DOMAIN'
 
@@ -25,31 +26,51 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
   SYSTEM_USAGE: 'Sử dụng hệ thống',
   OTHER: 'Khác',
 }
-export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
-export const OUTCOME_LABEL = { PERFORMED: 'Đã thực hiện', UNABLE: 'Không thể thực hiện', OUTSIDE_DOMAIN: 'Ngoài phạm vi' } as const
-export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Platform Manager', SA: 'System Admin' }
+
+/** D58: category controls which specialist roles CS may target for an IR. */
+export function internalRequestRoles(category: TicketCategory): TargetRole[] {
+  switch (category) {
+    case 'ACCOUNT_ACCESS': return ['SA']
+    case 'PAYMENT':
+    case 'FARM_SERVICE': return ['PM']
+    case 'SYSTEM_USAGE':
+    case 'OTHER': return ['PM', 'SA']
+  }
+}
+
+export const defaultInternalRequestRole = (category: TicketCategory): TargetRole => internalRequestRoles(category)[0]
+export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', WAITING_CS: 'Chờ CS bổ sung', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
+export const INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON = 'Hiện không có chăm sóc khách hàng hỗ trợ yêu cầu này.'
+export const OUTCOME_LABEL: Record<InternalOutcome, string> = {
+  CONFIRMED: 'Đã xác nhận', NOT_CONFIRMED: 'Không xác nhận', NEED_MORE_INFO: 'Cần bổ sung thông tin', OUT_OF_SCOPE: 'Ngoài phạm vi',
+}
+export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
+export const PLATFORM_ROLE_LABEL: Record<'CS' | TargetRole, string> = { CS: 'Nhân viên hỗ trợ', PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { HIGH: 0, NORMAL: 1, LOW: 2 }
 
-/** "2026-10-18T09:40:00" -> "18/10 09:40" (cắt chuỗi, không phụ thuộc múi giờ). */
+/** Formats backend instants in the business timezone; timezone-less demo values are already local. */
 export function formatStamp(iso: string, withYear = false): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
   if (!m) return iso
-  return `${m[3]}/${m[2]}${withYear ? `/${m[1]}` : ''} ${m[4]}:${m[5]}`
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)) return `${m[3]}/${m[2]}${withYear ? `/${m[1]}` : ''} ${m[4]}:${m[5]}`
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: DEFAULT_FARM_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(parseBusinessTime(iso))).map(({ type, value }) => [type, value]))
+  return `${parts.day}/${parts.month}${withYear ? `/${parts.year}` : ''} ${parts.hour}:${parts.minute}`
 }
 
 export function nowIso(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`
+  return businessDateTime().slice(0, 16) + ':00'
 }
 
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase()
 
 export const isClosed = (t: Pick<Ticket, 'status'>) => t.status === 'CLOSED'
 export const openIrOf = (t: Pick<Ticket, 'internalRequests'>, role?: TargetRole): InternalView | undefined =>
-  t.internalRequests.find((r) => r.status === 'OPEN' && (!role || r.targetRole === role))
-export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions[t.resolutions.length - 1]
+  t.internalRequests.find((r) => (r.status === 'OPEN' || r.status === 'WAITING_CS') && (!role || r.targetRole === role))
+/** Backend trả resolution mới nhất trước; luôn chọn theo version để không phụ thuộc thứ tự API. */
+export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions.reduce((latest, current) => !latest || current.version > latest.version ? current : latest, undefined as Ticket['resolutions'][number] | undefined)
 
 export function isAssignedTo(t: Pick<Ticket, 'assignedCsId' | 'assignedAvailable'>, actor: Pick<Actor, 'id'>) {
   return t.assignedCsId === actor.id && t.assignedAvailable
@@ -78,7 +99,7 @@ export function closeConditions(t: Ticket) {
 
 export function toRow(t: Ticket): TicketRow {
   return {
-    id: t.id, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
+    id: t.id, version: t.version, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
     farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs,
     assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt,
   }
@@ -94,7 +115,7 @@ const matchesTab = (t: Ticket, tab: QueueTab, actorId: number) => {
   }
 }
 
-/** Hàng đợi không chứa ticket đã đóng; sắp theo ưu tiên rồi thời gian tạo mới nhất trước. */
+/** Hàng đợi không chứa ticket đã đóng; ticket chưa có người xử lý luôn đứng trước. */
 export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ticket[] {
   const q = (f.q ?? '').trim().toLowerCase()
   return all
@@ -111,7 +132,11 @@ export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ti
       if (a === 'unavailable') return t.assignedCsId !== null && !t.assignedAvailable
       return String(t.assignedCsId) === a
     })
-    .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => {
+      const aNeedsHandling = a.assignedCsId === null || !a.assignedAvailable ? 0 : 1
+      const bNeedsHandling = b.assignedCsId === null || !b.assignedAvailable ? 0 : 1
+      return aNeedsHandling - bNeedsHandling || PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt)
+    })
 }
 
 export function queueCounts(all: Ticket[], actorId: number) {

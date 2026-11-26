@@ -23,6 +23,20 @@ public interface AccountLinkTokenRepository extends JpaRepository<AccountLinkTok
 
     long countByUserIdAndTokenTypeAndCreatedAtAfter(Long userId, String tokenType, Instant since);
 
+    Optional<AccountLinkToken> findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(Long userId, String tokenType);
+
+    Optional<AccountLinkToken> findFirstByUserIdAndTokenTypeAndCreatedAtAfterOrderByCreatedAtAsc(Long userId, String tokenType, Instant since);
+
+    /** Atomically claims one valid link; PostgreSQL row-count semantics make concurrent losers return zero. */
+    @Modifying
+    @Query("update AccountLinkToken t set t.usedAt = :now " +
+        "where t.tokenHash = :tokenHash and t.tokenType = :tokenType and t.usedAt is null and t.expiresAt > :now")
+    int consumeIfValid(
+        @Param("tokenHash") String tokenHash,
+        @Param("tokenType") String tokenType,
+        @Param("now") Instant now
+    );
+
     @Modifying
     @Query("update AccountLinkToken t set t.usedAt = :now where t.user.id = :userId and t.tokenType = :type and t.usedAt is null")
     int invalidateUnused(@Param("userId") Long userId, @Param("type") String type, @Param("now") Instant now);

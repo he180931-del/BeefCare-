@@ -16,12 +16,16 @@ public class CattleProfileService {
     private final EntityManager em;private final FarmAccessService access;private final CattleGuardService guard;private final FarmClock clock;
     private final PenAssignmentService assignments;private final GrowthAssessmentService growth;private final CattleStateService state;
     private final AuditService audit;private final CodeSequenceService codes;private final CattleQrTagRepository tags;private final OutboxService outbox;
-    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;private final EntryDeclarationReadService declarations;
     public CattleProfileService(EntityManager em,FarmAccessService access,CattleGuardService guard,FarmClock clock,PenAssignmentService assignments,
-        GrowthAssessmentService growth,CattleStateService state,AuditService audit,CodeSequenceService codes,CattleQrTagRepository tags,OutboxService outbox,com.fasterxml.jackson.databind.ObjectMapper mapper){
-        this.em=em;this.access=access;this.guard=guard;this.clock=clock;this.assignments=assignments;this.growth=growth;this.state=state;this.audit=audit;this.codes=codes;this.tags=tags;this.outbox=outbox;this.mapper=mapper;
+        GrowthAssessmentService growth,CattleStateService state,AuditService audit,CodeSequenceService codes,CattleQrTagRepository tags,OutboxService outbox,com.fasterxml.jackson.databind.ObjectMapper mapper,
+        EntryDeclarationReadService declarations){
+        this.em=em;this.access=access;this.guard=guard;this.clock=clock;this.assignments=assignments;this.growth=growth;this.state=state;this.audit=audit;this.codes=codes;this.tags=tags;this.outbox=outbox;this.mapper=mapper;this.declarations=declarations;
     }
     @Transactional(readOnly=true) public CattleDtos.Page list(Long farmId,String q,String herdStatus,Long breedId,Sex sex,Long penId,Long purposeId,LifeStage lifeStage,String health,String herdGroup,int page,int size,String sort) {
+        return list(farmId,q,herdStatus,breedId,sex,penId,purposeId,lifeStage,health,herdGroup,page,size,sort,null);
+    }
+    @Transactional(readOnly=true) public CattleDtos.Page list(Long farmId,String q,String herdStatus,Long breedId,Sex sex,Long penId,Long purposeId,LifeStage lifeStage,String health,String herdGroup,int page,int size,String sort,Boolean hasWeight) {
         FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);
         if(page<0 || page>100000 || size<1 || size>200)throw DomainException.invalid("page");
         if(herdStatus!=null&&!Set.of("ACTIVE","EXITED","VOIDED","EXIT_PENDING","ALL").contains(herdStatus))throw DomainException.invalid("herdStatus");
@@ -38,19 +42,27 @@ public class CattleProfileService {
             else if(!"ALL".equals(wanted)&&!wanted.equals(c.getHerdStatus().name()))continue;
             if(penId!=null&&!penId.equals(row.get("penId")))continue;
             if(herdGroup!=null&&!herdGroup.equals(row.get("herdGroup")))continue;
+            if(hasWeight!=null && hasWeight!=(row.get("latestWeightKg")!=null))continue;
             if(health!=null&&!health.isBlank()){
                 if("MEAT_WITHDRAWAL".equals(health)){if(!Boolean.TRUE.equals(row.get("withdrawalActive")))continue;}
                 else if(!health.equals(row.get("healthState")))continue;
             }
             rows.add(row);
         }
-        Set<String> sortable=Set.of("displayCode","name","latestWeightKg","birthDate");String key=sort==null?"displayCode":sort.replaceFirst("^-","");
+        Set<String> sortable=Set.of("displayCode","name","latestWeightKg","birthDate","breedName","penCode","purposeName");String key=sort==null?"displayCode":sort.replaceFirst("^-","");
         if(!sortable.contains(key))throw DomainException.invalid("sort");
-        Comparator<Map<String,Object>> comparator=(a,b)->compare(a.get(key),b.get(key));if(sort!=null&&sort.startsWith("-"))comparator=comparator.reversed();rows.sort(comparator);
+        boolean descending = sort != null && sort.startsWith("-");
+        Comparator<Map<String,Object>> comparator = Comparator.comparing(
+            row -> row.get(key), Comparator.nullsLast(descending ? (a,b) -> compare(b,a) : this::compare)
+        );
+        rows.sort(comparator.thenComparing(row -> (String) row.get("displayCode")));
         int from=Math.min(rows.size(),Math.multiplyExact(page,size)),to=Math.min(rows.size(),from+size);
         return new CattleDtos.Page(rows.subList(from,to).stream().map(this::dto).toList(),rows.size(),page,size,counts);
     }
-    @SuppressWarnings({"unchecked","rawtypes"}) private int compare(Object a,Object b){if(a==null)return b==null?0:1;if(b==null)return -1;return ((Comparable)a).compareTo(b);}
+    @SuppressWarnings({"unchecked","rawtypes"}) private int compare(Object a,Object b){
+        if(a instanceof String left && b instanceof String right)return String.CASE_INSENSITIVE_ORDER.compare(left,right);
+        return ((Comparable)a).compareTo(b);
+    }
     @Transactional(readOnly=true) public CattleDtos.Profile get(Long farmId,Long cattleId){FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);return dto(projection(find(farmId,cattleId),ctx,true));}
     @Transactional public CattleDtos.Profile update(Long farmId,Long cattleId,CattleDtos.ProfileUpdate request){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_CATTLE);Cattle c=guard.lockWritable(farmId,cattleId);VersionGuard.requireExpected(c.getVersion(),request.expectedVersion());
@@ -59,9 +71,9 @@ public class CattleProfileService {
         ProductionPurpose purpose=c.getPurpose();if(request.productionPurposeId()!=null&&!request.productionPurposeId().equals(purpose.getId())){
             if(!ctx.isOwner())throw DomainException.forbidden("MSG-FE05-03");purpose=em.find(ProductionPurpose.class,request.productionPurposeId());
             if(purpose==null||!farmId.equals(purpose.getFarm().getId())||!Boolean.TRUE.equals(purpose.getAvailable()))throw DomainException.invalid("productionPurposeId");
+            // R-05-04 (GBR-25): only SIRE is male-only and BREEDING female-only; FATTENING / UNDECIDED fit both sexes.
             if((purpose.getPurposeType()==PurposeType.SIRE&&c.getSex()!=Sex.MALE)
-                || (purpose.getPurposeType()==PurposeType.BREEDING&&c.getSex()!=Sex.FEMALE)
-                || (purpose.getPurposeType()==PurposeType.FATTENING&&c.getSex()!=Sex.MALE))
+                || (purpose.getPurposeType()==PurposeType.BREEDING&&c.getSex()!=Sex.FEMALE))
                 throw DomainException.unprocessable("MSG-FE05-12","purpose",purpose.getName(),"purpose_type",purpose.getPurposeType(),"sex",c.getSex());
         }
         LifeStage stage=request.lifeStage()==null?c.getLifeStage():request.lifeStage();
@@ -74,7 +86,7 @@ public class CattleProfileService {
             if(count>0)throw DomainException.unprocessable("MSG-FE05-02","ear_tag",tag);
         }
         if(purpose!=c.getPurpose()){history(ctx,c,ProfileFieldGroup.PURPOSE,c.getPurpose().getId().toString(),purpose.getId().toString(),request);c.setPurpose(purpose);}
-        if(stage!=c.getLifeStage()){history(ctx,c,ProfileFieldGroup.LIFE_STAGE,c.getLifeStage().name(),stage.name(),request);c.setLifeStage(stage);}
+        if(stage!=c.getLifeStage()){history(ctx,c,ProfileFieldGroup.LIFE_STAGE,c.getLifeStage().name(),stage.name(),request);c.setLifeStage(stage);resolveStageSuggestions(farmId,cattleId);}
         if(!Objects.equals(tag,c.getEarTagNumber()))history(ctx,c,ProfileFieldGroup.EAR_TAG,c.getEarTagNumber(),Objects.toString(tag,""),request);
         Map<String,Object> before=description(c);c.setEarTagNumber(tag);c.setName(clean(request.name()));c.setColourMarkings(clean(request.colourMarkings()));c.setNotes(clean(request.notes()));
         if(!before.equals(description(c)))history(ctx,c,ProfileFieldGroup.DESCRIPTIVE,JsonSupport.toJson(before),JsonSupport.toJson(description(c)),request);
@@ -97,12 +109,23 @@ public class CattleProfileService {
         CattleQrTag tag=tags.findByTagCode(code).orElse(null);
         if(tag!=null){Long targetFarm=tag.getFarm().getId();if(!farmId.equals(targetFarm)){
             try{access.require(targetFarm,FarmAction.VIEW_CATTLE);}catch(DomainException error){throw DomainException.notFound("MSG-FE05-09");}
-            return new CattleDtos.Resolved(targetFarm,null,true,tag.getStatus()==QrTagStatus.REPLACED,null,"MSG-FE05-06");
-        }return new CattleDtos.Resolved(farmId,tag.getCattle().getId(),false,tag.getStatus()==QrTagStatus.REPLACED,dto(projection(tag.getCattle(),ctx,false)),tag.getStatus()==QrTagStatus.REPLACED?"MSG-FE05-05":null);}
-        List<Cattle> rows=em.createQuery("select c from Cattle c where c.farm.id=:f and (lower(c.displayCode)=:code or lower(c.earTagNumber)=:code)",Cattle.class).setParameter("f",farmId).setParameter("code",code.toLowerCase(Locale.ROOT)).getResultList();
-        if(!rows.isEmpty()){Cattle c=rows.get(0);return new CattleDtos.Resolved(farmId,c.getId(),false,false,dto(projection(c,ctx,false)),null);}
+            return new CattleDtos.Resolved(targetFarm,null,true,tag.getStatus()==QrTagStatus.REPLACED,null,"MSG-FE05-06",null,null);
+        }
+        boolean replaced=tag.getStatus()==QrTagStatus.REPLACED;
+        String current=replaced?tags.findFirstByCattleIdAndStatus(tag.getCattle().getId(),QrTagStatus.ACTIVE).map(CattleQrTag::getTagCode).orElse(null):null;
+        return new CattleDtos.Resolved(farmId,tag.getCattle().getId(),false,replaced,dto(projection(tag.getCattle(),ctx,false)),replaced?"MSG-FE05-05":null,current,replaced?tag.getClosedAt():null);}
+        // UC-05 AF1: display code first, then ear tag; an ear tag is unique among ACTIVE cattle only and may be reused after an exit.
+        String needle=code.toLowerCase(Locale.ROOT);
+        List<Cattle> rows=em.createQuery("select c from Cattle c where c.farm.id=:f and (lower(c.displayCode)=:code or lower(c.earTagNumber)=:code)",Cattle.class).setParameter("f",farmId).setParameter("code",needle).getResultList()
+            .stream().sorted(Comparator.comparing((Cattle c)->!needle.equals(c.getDisplayCode().toLowerCase(Locale.ROOT))).thenComparing(c->c.getHerdStatus()!=HerdStatus.ACTIVE).thenComparing(Cattle::getId,Comparator.reverseOrder())).toList();
+        if(!rows.isEmpty()){Cattle c=rows.get(0);return new CattleDtos.Resolved(farmId,c.getId(),false,false,dto(projection(c,ctx,false)),null,null,null);}
         Long draft=em.createQuery("select count(o) from CalfOutcome o where o.calving.dam.farm.id=:f and o.tagCode=:code and o.registrationState='PENDING_CONFIRMATION'",Long.class).setParameter("f",farmId).setParameter("code",code).getSingleResult();
         throw DomainException.notFound(draft>0?"MSG-FE05-10":"MSG-FE05-09");
+    }
+    /** R-05-09: saving a new life stage resolves the pending REM-08 life-stage suggestions of the cattle (pen suggestions stay). */
+    private void resolveStageSuggestions(Long farmId,Long cattleId){
+        em.createQuery("select r from Reminder r where r.farm.id=:f and r.cattle.id=:c and r.ruleType='REM-08' and r.status='ACTIVE' and r.sourceId like 'STAGE:%'",Reminder.class)
+            .setParameter("f",farmId).setParameter("c",cattleId).getResultList().forEach(r->r.setStatus("RESOLVED"));
     }
     public String herdGroup(Cattle c){if(c.getLifeStage()==LifeStage.UNWEANED_CALF||c.getLifeStage()==LifeStage.WEANED_CALF)return "CALVES";if(c.getPurpose().getPurposeType()==PurposeType.FATTENING)return "FATTENING";if(c.getSex()==Sex.MALE&&c.getPurpose().getPurposeType()==PurposeType.SIRE)return "BREEDING_BULLS";if(c.getSex()==Sex.FEMALE&&c.getLifeStage()==LifeStage.ADULT&&c.getPurpose().getPurposeType()==PurposeType.BREEDING)return "BREEDING_FEMALES";if(c.getLifeStage()==LifeStage.YOUNG_STOCK)return "YOUNG_STOCK";return "OTHER";}
     private Cattle find(Long farmId,Long id){Cattle c=em.find(Cattle.class,id);if(c==null||!farmId.equals(c.getFarm().getId()))throw DomainException.notFound(MessageCodes.COM_08);return c;}
@@ -112,18 +135,30 @@ public class CattleProfileService {
         Map<String,Object> p=new LinkedHashMap<>();p.put("id",c.getId());p.put("displayCode",c.getDisplayCode());p.put("earTagNumber",c.getEarTagNumber());p.put("name",c.getName());p.put("sex",c.getSex());p.put("birthDate",c.getBirthDate());p.put("birthDateAccuracy",c.getBirthDateAccuracy());p.put("breedId",c.getBreed().getId());p.put("breedName",c.getBreed().getName());p.put("purposeId",c.getPurpose().getId());p.put("purposeName",c.getPurpose().getName());p.put("purposeType",c.getPurpose().getPurposeType());p.put("lifeStage",c.getLifeStage());p.put("herdStatus",c.getHerdStatus());p.put("exitType",c.getExitType());p.put("exitDate",c.getExitDate());p.put("herdGroup",herdGroup(c));p.put("version",c.getVersion());p.put("photoUrl",c.getPhotoAttachment()==null?c.getPhotoUrl():"/api/farms/"+ctx.farmId()+"/attachments/"+c.getPhotoAttachment().getId());
         assignments.findOpen(c.getId()).ifPresent(a->{p.put("penId",a.getPen().getId());p.put("penCode",a.getPen().getCode());p.put("penName",a.getPen().getName());p.put("penSince",a.getFromDate());});
         boolean pending=guard.isExitPending(c.getId());p.put("exitPending",ctx.role()!=FarmRole.TECHNICIAN&&pending);
-        GrowthDtosProjection(p,growth.summary(c,90));if(c.getHerdStatus()==HerdStatus.ACTIVE)p.putAll(state.state(c));
-        Object withdrawal=p.get("withdrawalEndDate");p.put("withdrawalActive",withdrawal instanceof LocalDate date&&!date.isBefore(LocalDate.ofInstant(clock.now(),ZoneId.of(c.getFarm().getTimeZone()))));
-        if(detail){p.put("colourMarkings",c.getColourMarkings());p.put("notes",c.getNotes());p.put("damId",c.getDam()==null?null:c.getDam().getId());p.put("sireId",c.getSire()==null?null:c.getSire().getId());p.put("externalSireCode",c.getExternalSireCode());p.put("canUpdate",c.getHerdStatus()==HerdStatus.ACTIVE&&!pending&&ctx.role()!=FarmRole.TECHNICIAN);p.put("canChangePurpose",ctx.isOwner());
+        growthProjection(p,growth.summary(c,90));if(c.getHerdStatus()==HerdStatus.ACTIVE)p.putAll(state.state(c));
+        Object withdrawal=p.get("withdrawalEndDate");p.put("withdrawalActive",withdrawal instanceof LocalDate date&&!date.isBefore(clock.today()));
+        if(detail){p.put("colourMarkings",c.getColourMarkings());p.put("notes",c.getNotes());p.put("damId",c.getDam()==null?null:c.getDam().getId());p.put("sireId",c.getSire()==null?null:c.getSire().getId());
+            // SCR-19 #15 links dam / sire by display code; the internal id is never shown (GBR-23).
+            p.put("damCode",c.getDam()==null?null:c.getDam().getDisplayCode());p.put("sireCode",c.getSire()==null?null:c.getSire().getDisplayCode());p.put("externalSireCode",c.getExternalSireCode());p.put("canUpdate",c.getHerdStatus()==HerdStatus.ACTIVE&&!pending&&ctx.role()!=FarmRole.TECHNICIAN);p.put("canChangePurpose",ctx.isOwner());
             entry(c.getId()).ifPresent(e->{Map<String,Object> entry=new LinkedHashMap<>();entry.put("source",e.getSource());entry.put("entryDate",e.getEntryDate());entry.put("weightKg",e.getEntryWeightKg());entry.put("weightBasis",e.getWeightBasis());
                 if(ctx.role()!=FarmRole.TECHNICIAN){entry.put("id",e.getId());entry.put("voucherId",e.getVoucher().getId());entry.put("voucherCode",e.getVoucher().getCode());entry.put("seller",e.getVoucher().getSeller()==null?null:e.getVoucher().getSeller().getName());}
+                // D82, SCR-19 #11: mọi vai trò xem được khai báo khi nhập; bò đã hủy nhập (VOIDED) không hiện.
+                if(c.getHerdStatus()!=HerdStatus.VOIDED)entry.put("declarations",declarations.forEntry(e));
                 p.put("entry",entry);p.put("quarantineUntil",e.getQuarantineUntil());});}
         return p;
     }
-    private void GrowthDtosProjection(Map<String,Object> p,vn.edu.fpt.beefcare.service.dto.GrowthDtos.Summary growth){p.put("latestWeightKg",growth.currentWeight()==null?null:growth.currentWeight().weightKg());p.put("weightBasis",growth.currentWeight()==null?null:growth.currentWeight().basis());p.put("latestBcs",growth.latestBcs());p.put("adg90",growth.adg());}
+    /** SCR-18 #15, SCR-19 #17: cân gần nhất kèm cơ sở và ngày cân (giờ trại), BCS và ADG 90 ngày. */
+    private void growthProjection(Map<String,Object> p,vn.edu.fpt.beefcare.service.dto.GrowthDtos.Summary growth){
+        var current=growth.currentWeight();
+        p.put("latestWeightKg",current==null?null:current.weightKg());
+        p.put("weightBasis",current==null?null:current.basis());
+        p.put("latestWeightDate",current==null||current.measuredAt()==null?null:LocalDate.ofInstant(current.measuredAt(),clock.zone()));
+        p.put("latestBcs",growth.latestBcs());
+        p.put("adg90",growth.adg());
+    }
     private Optional<HerdEntry> entry(Long id){return em.createQuery("select h from HerdEntry h where h.cattle.id=:c order by h.id",HerdEntry.class).setParameter("c",id).setMaxResults(1).getResultStream().findFirst();}
     private Map<String,Object> description(Cattle c){Map<String,Object> m=new LinkedHashMap<>();m.put("name",c.getName());m.put("colourMarkings",c.getColourMarkings());m.put("notes",c.getNotes());return m;}
     private void history(FarmContext ctx,Cattle c,ProfileFieldGroup group,String old,String value,CattleDtos.ProfileUpdate r){CattleProfileChange h=new CattleProfileChange();h.setFarm(ctx.farm());h.setCattle(c);h.setFieldGroup(group);h.setOldValue(old);h.setNewValue(value);h.setEffectiveDate(r.effectiveDate());h.setReason(r.reason());h.setChangedBy(ctx.user());h.setChangedAt(clock.now());em.persist(h);}
-    private CattleDtos.Tag tagDto(CattleQrTag t){return new CattleDtos.Tag(t.getId(),t.getTagCode(),t.getStatus().name(),t.getCattle().getDisplayCode(),"/tags/"+t.getTagCode(),t.getIssuedAt(),t.getClosedAt(),t.getReplacementReason()==null?null:t.getReplacementReason().name(),t.getVersion());}
+    private CattleDtos.Tag tagDto(CattleQrTag t){return new CattleDtos.Tag(t.getId(),t.getTagCode(),t.getStatus().name(),t.getCattle().getDisplayCode(),"/tags/"+t.getTagCode(),t.getIssuedAt(),t.getClosedAt(),t.getReplacementReason()==null?null:t.getReplacementReason().name(),t.getVersion(),t.getIssuedBy()==null?null:t.getIssuedBy().getFullName(),t.getNote());}
     private String clean(String text){return text==null||text.isBlank()?null:text.trim();}
 }

@@ -33,10 +33,12 @@ public class PlatformSubscriptionResource {
         @RequestParam(required = false) String serviceStatus,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endFrom,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endTo,
+        @RequestParam(defaultValue = "confirmedUntil") String sort,
+        @RequestParam(defaultValue = "desc") String dir,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "25") int size
+        @RequestParam(defaultValue = "20") int size
     ) {
-        return queries.subscriptions(q, coverage, serviceStatus, endFrom, endTo, page, size);
+        return queries.subscriptions(q, coverage, serviceStatus, endFrom, endTo, sort, dir, page, size);
     }
 
     @GetMapping("/subscriptions/{farmId}")

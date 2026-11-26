@@ -1,8 +1,8 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, EmptyBlock, inputCls } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, EmptyBlock, inputCls } from '../../../shared/ui'
+import { useCanRecordCare } from '../../authorization'
 import { fmtDayMonth } from '../domain/vaccinationFormat'
 import type { DoseRow, VaccinationSource, VaccineRoute } from '../types'
 
@@ -12,8 +12,8 @@ export const healthCasePath = (code: string) => `/cattle/${code}?tab=health`
 export const profilePath = (code: string) => `/cattle/${code}?tab=vaccine`
 export const recordPath = (params: Record<string, string>) => `/tiem-phong/ghi-nhan?${new URLSearchParams(params).toString()}`
 
-/** Quản lý ghi nhận và sửa; Chủ trại, Kỹ thuật viên chỉ xem. Không có phiên thì coi là Quản lý. */
-export const useCanWrite = () => (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+/** Chủ trại và Quản lý ghi nhận và sửa (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
+export const useCanWrite = () => useCanRecordCare()
 
 /** Thông báo thành công truyền qua router state sau khi lưu ở màn khác. */
 export function useNotice() {
@@ -32,6 +32,16 @@ export function UnitInput({ unit, className = '', ...props }: { unit: string } &
   )
 }
 
+/**
+ * Đọc ô số nguyên một cách nghiêm (D50): để trống → undefined (không nhập); gõ đúng số nguyên không âm → số;
+ * gõ sai (chữ, số thập phân, số âm, ký tự lạ) → NaN để bước kiểm tra báo lỗi dưới ô thay vì âm thầm coi là trống.
+ */
+export const parseIntField = (s: string): number | undefined => {
+  const t = s.trim()
+  if (!t) return undefined
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
 export const parseNum = (s: string): number | undefined => {
   const t = s.trim()
   if (!t) return undefined
@@ -39,27 +49,44 @@ export const parseNum = (s: string): number | undefined => {
   return Number.isNaN(n) ? undefined : n
 }
 
+/**
+ * Ô Liều (không bắt buộc – spec FE-09 §3.3): nhận "100", "1,5", "100ml", "100 ml" (đơn vị trùng đơn vị của vắc-xin).
+ * Trống → không gửi liều; không đọc được → `invalid` để báo "Liều không hợp lệ." thay vì âm thầm bỏ giá trị.
+ */
+export function parseDoseAmount(text: string, unit: string): { amount?: string; invalid: boolean } {
+  const t = text.trim()
+  if (!t) return { invalid: false }
+  const stripped = t.toLocaleLowerCase('vi').endsWith(unit.toLocaleLowerCase('vi')) ? t.slice(0, t.length - unit.length).trim() : t
+  const value = parseNum(stripped)
+  return value === undefined || value <= 0 || !/^[\d.,]+$/.test(stripped) ? { invalid: true } : { amount: stripped.replace(',', '.'), invalid: false }
+}
+export const DOSE_INVALID = 'Liều không hợp lệ.'
+
+/** Nhãn đường tiêm để hiển thị: với "Khác" thì hiện đúng mô tả người dùng đã nhập (D45). */
+export const routeLabelOf = (route: VaccineRoute | undefined, routeText?: string): string =>
+  !route ? '—' : route === 'OTHER' && routeText ? routeText : ROUTE_LABEL[route]
+
 /** Tách "2 ml" thành số và đơn vị. */
 export function splitDose(dose: string | undefined, fallbackUnit = 'ml'): { amount: string; unit: string } {
   const m = /^\s*([\d.,]+)\s*(.*)$/.exec(dose ?? '')
   return m ? { amount: m[1], unit: m[2] || fallbackUnit } : { amount: '', unit: fallbackUnit }
 }
 
-export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'effectiveDate' | 'newExpectedDate' | 'doneAt'> }) {
+export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOverdue' | 'dueDate' | 'doneAt'> }) {
   switch (row.state) {
     case 'OVERDUE': return <Badge tone="err" icon="alert-triangle">Quá hạn {row.daysOverdue} ngày</Badge>
-    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.effectiveDate)}</Badge>
+    case 'DUE': return <Badge tone="warn" icon="clock">Đến hạn {fmtDayMonth(row.dueDate)}</Badge>
     case 'UPCOMING': return <Badge tone="outline" icon="clock">Sắp tới</Badge>
-    case 'DEFERRED': return <Badge tone="warn">{row.newExpectedDate ? `Hoãn đến ${fmtDayMonth(row.newExpectedDate)}` : 'Đã hoãn'}</Badge>
     default: return <Badge tone="ok" icon="circle-check">Đã tiêm{row.doneAt ? ` ${fmtDayMonth(row.doneAt)}` : ''}</Badge>
   }
 }
 
-export function ManagerOnly({ title, children }: { title: string; children: ReactNode }) {
+/** Màn ghi tiêm và quản lý lịch: chỉ Chủ trại và Quản lý (GBR-08, D41). */
+export function CareWriterOnly({ title, children }: { title: string; children: ReactNode }) {
   if (useCanWrite()) return <>{children}</>
   return (
     <Layout title={title}>
-      <EmptyBlock title="Chỉ Quản lý mới thực hiện được thao tác này" sub="Chủ trại và Kỹ thuật viên chỉ xem lịch và lịch sử tiêm." action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
+      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
     </Layout>
   )
 }

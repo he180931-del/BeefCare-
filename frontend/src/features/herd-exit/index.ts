@@ -1,6 +1,4 @@
-// Public feature boundary consumed by the router. Internal pages and API
-// modules are intentionally not imported from the application shell directly.
-export const loadExportListPage = () => import('./pages/ExportList')
-export const loadExportNewPage = () => import('./pages/ExportNew')
-export const loadExportDetailPage = () => import('./pages/ExportDetail')
-export { herdExitApi, getExitDraftState, saveHerdExit, cancelHerdExit } from './api/index'
+// Exit implementation details are consumed through route-facing modules and
+// feature-local API imports. Keep the feature boundary closed until a stable
+// cross-feature contract is explicitly approved.
+export {}

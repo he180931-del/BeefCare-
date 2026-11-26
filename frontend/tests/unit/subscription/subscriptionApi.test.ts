@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { createSubscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import { DEMO_START, SUBSCRIPTION_SEED } from '../../../src/features/subscription/data/subscriptionMock'
-import { addYears, fmtClock, fmtPeriod, fmtVnd, planPeriod, renewalOpensAt, toIso, vnTime } from '../../../src/features/subscription/domain/subscriptionRules'
+import { addYears, daysUntil, fmtClock, fmtPeriod, fmtVnd, periodStatus, planPeriod, renewalOpensAt, requestEligibility, toIso, vnTime } from '../../../src/features/subscription/domain/subscriptionRules'
 import { SubscriptionError } from '../../../src/features/subscription/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
@@ -27,6 +27,34 @@ describe('quy tắc kỳ dịch vụ (GBR-71, GBR-73)', () => {
   })
   it('29/02 về 28/02 ở năm không nhuận', () => {
     expect(toIso(addYears(vnTime(2028, 2, 29), 1))).toBe(toIso(vnTime(2029, 2, 28)))
+  })
+
+  it('TC-19-05/37: opens renewal exactly 90 days before confirmed expiry and blocks only before that boundary', () => {
+    // The confirmed period boundary is exclusive, so a displayed 31/12 end is stored as 01/01.
+    const latestEnd = vnTime(2027, 1, 1)
+    const opensAt = vnTime(2026, 10, 2)
+    expect(toIso(renewalOpensAt(latestEnd))).toBe(toIso(opensAt))
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt - 1, pricesAvailable: true }))
+      .toMatchObject({ ok: false, reason: 'OUTSIDE_WINDOW', opensAt: toIso(opensAt) })
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt, pricesAvailable: true })).toEqual({ ok: true })
+    expect(requestEligibility({ suspended: false, latestEnd: toIso(latestEnd), now: opensAt + 1, pricesAvailable: true })).toEqual({ ok: true })
+    expect(requestEligibility({ suspended: true, latestEnd: toIso(latestEnd), now: opensAt, pricesAvailable: true })).toEqual({ ok: false, reason: 'SUSPENDED' })
+  })
+
+  it('TC-19-14/16: starts the next subscription period at the later of confirmation and prior expiry', () => {
+    const continuous = planPeriod(vnTime(2027, 2, 1), vnTime(2027, 3, 15), 1)
+    expect(toIso(continuous.start)).toBe(toIso(vnTime(2027, 3, 15)))
+    expect(toIso(continuous.end)).toBe(toIso(vnTime(2028, 3, 15)))
+    const afterExpiry = planPeriod(vnTime(2027, 2, 10), vnTime(2027, 1, 1), 1)
+    expect(toIso(afterExpiry.start)).toBe(toIso(vnTime(2027, 2, 10)))
+  })
+
+  it('TC-19-36: counts 24 hours as one day, 23 hours as zero, and marks the exact end past', () => {
+    const end = toIso(vnTime(2026, 11, 30, 12))
+    expect(daysUntil(end, vnTime(2026, 11, 29, 12))).toBe(1)
+    expect(daysUntil(end, vnTime(2026, 11, 29, 13))).toBe(0)
+    expect(periodStatus('2026-11-01T00:00:00+07:00', end, vnTime(2026, 11, 30, 11, 59))).toBe('CURRENT')
+    expect(periodStatus('2026-11-01T00:00:00+07:00', end, vnTime(2026, 11, 30, 12))).toBe('PAST')
   })
   it('định dạng tiền và bộ đếm', () => {
     expect(fmtVnd(1_200_000)).toBe('1.200.000 đ')
@@ -60,7 +88,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(p).toMatchObject({ state: 'PENDING', durationYears: 2, amountVnd: 2_160_000, priceVersionId: 3, bankCode: 'MB' })
     expect(Date.parse(p.expiresAt) - Date.parse(p.requestedAt)).toBe(24 * 3_600_000)
     const list = await api.listPayments(1)
-    expect(list.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
+    expect(list.content.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
   })
 
   it('giá đổi giữa lúc xem và lúc tạo thì báo giá cũ và giá mới, chưa tạo yêu cầu (AF2)', async () => {
@@ -70,7 +98,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(e.code).toBe('PRICE_CHANGED')
     expect(e.detail.seen).toMatchObject({ version: 3, amountVnd: 1_200_000 })
     expect(e.detail.current).toMatchObject({ version: 4, amountVnd: 1_320_000 })
-    expect(await api.listPayments(2)).toHaveLength(0)
+    expect((await api.listPayments(2)).content).toHaveLength(0)
     const ok = await api.createPayment(2, { durationYears: 1, expectedPriceVersionId: 4 })
     expect(ok.amountVnd).toBe(1_320_000)
     expect(ok.quoteRef).toBe('BCK4M7R2')
@@ -124,12 +152,12 @@ describe('subscriptionApi (store demo)', () => {
 
   it('lịch sử lọc theo mã, trạng thái, ngày và sắp xếp', async () => {
     const { api } = setup()
-    expect((await api.listPayments(1)).map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
-    expect((await api.listPayments(1, { q: 'e3p' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { state: 'PAID' }))).toHaveLength(2)
-    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' }))[0].quoteRef).toBe('BC77QK30')
-    expect(await api.listPayments(2)).toEqual([])
+    expect((await api.listPayments(1)).content.map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
+    expect((await api.listPayments(1, { q: 'e3p' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { state: 'PAID' })).content).toHaveLength(2)
+    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' })).content[0].quoteRef).toBe('BC77QK30')
+    expect((await api.listPayments(2)).content).toEqual([])
   })
 
   it('kiểm tra lại: lỗi tra cứu giữ nguyên yêu cầu cũ; trạng thái chờ thì trả lại như cũ', async () => {
@@ -142,12 +170,43 @@ describe('subscriptionApi (store demo)', () => {
     expect((await rejects(api.getPayment(1, 'KHONGCO'))).code).toBe('NOT_FOUND')
   })
 
-  it('chế độ backend từ chối và không chạm store', async () => {
+  it('backend không dùng store khi API lỗi; lệnh tạo yêu cầu chưa tích hợp vẫn bị chặn', async () => {
     const store = { getOverview: vi.fn(), createPayment: vi.fn(), now: vi.fn() }
-    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: transport(), store: store as never })
-    await expect(api.getOverview(1)).rejects.toThrow(/Chưa tích hợp/)
+    const http = transport()
+    const unavailable = new Error('API unavailable')
+    http.get.mockRejectedValue(unavailable)
+    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: http, store: store as never })
+    await expect(api.getOverview(1)).rejects.toBe(unavailable)
     await expect(api.createPayment(1, { durationYears: 1 })).rejects.toThrow()
     expect(store.getOverview).not.toHaveBeenCalled()
     expect(store.createPayment).not.toHaveBeenCalled()
+  })
+})
+
+describe('D38 hủy yêu cầu (store demo, cùng quy tắc backend)', () => {
+  it('hủy yêu cầu đang chờ và tạo được yêu cầu mới; tiền trước lúc hủy vẫn xác nhận, từ lúc hủy thì không', async () => {
+    const { api, store, advance } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    advance(1000)
+    const cancelled = await api.cancelPayment(1, pending, '  Đổi ý ', 'key')
+    expect(cancelled).toMatchObject({ state: 'CANCELLED', cancelReason: 'Đổi ý' })
+    expect((await rejects(api.cancelPayment(1, pending, '', 'key-2'))).code).toBe('STALE')
+    expect((await api.createPayment(1, { durationYears: 1 })).state).toBe('PENDING')
+    const at = Date.parse(cancelled.cancelledAt!)
+    const late = await store.receiveBankTransfer({ transactionId: 'D38-late', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at) })
+    expect(late.status).toBe('WINDOW_MISSED')
+    const early = await store.receiveBankTransfer({ transactionId: 'D38-early', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at - 1) })
+    expect(early.status).toBe('CONFIRMED')
+    expect(early.payment).toMatchObject({ state: 'PAID', cancelledAt: cancelled.cancelledAt })
+  })
+
+  it('đã nhận giao dịch đúng mã (kể cả sai số tiền) thì không hủy được', async () => {
+    const { api, store } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    await store.receiveBankTransfer({ transactionId: 'D38-wrong', direction: 'IN', amountVnd: 1000, content: pending.quoteRef, paidAt: toIso(DEMO_START) })
+    const e = await rejects(api.cancelPayment(1, pending, '', 'key'))
+    expect(e.code).toBe('CANCEL_BLOCKED')
+    expect(e.detail.code).toBe(pending.quoteRef)
+    expect((await api.getPayment(1, pending.quoteRef)).state).toBe('PENDING')
   })
 })

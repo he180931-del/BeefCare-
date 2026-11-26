@@ -5,8 +5,8 @@ import UpdateModal from '../../../src/features/cattle/components/UpdateModal'
 import QrReissueModal from '../../../src/features/cattle/components/QrReissueModal'
 import MoveModal from '../../../src/features/cattle/components/MoveModal'
 import * as cattleApi from '../../../src/features/cattle/api/cattleApi'
-import { initialCows } from '../../../src/data/cowsData'
-import type { Pen } from '../../../src/types'
+import { initialCows } from '../../../src/demo/data/cowsData'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const testCow = initialCows[0] // BC-000125
 const testCow142 = initialCows[1] // BC-000142
@@ -57,8 +57,8 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
 
       render(<UpdateModal cow={testCow} onClose={onClose} onSaved={onSaved} />)
 
-      // Chuyển sang tab "Mục đích nuôi"
-      const purposeTab = screen.getByRole('button', { name: /Mục đích nuôi/i })
+      // Chuyển sang tab "Mục đích sản xuất"
+      const purposeTab = screen.getByRole('button', { name: /Mục đích sản xuất/i })
       await user.click(purposeTab)
 
       // Kiểm tra select Mục đích mới bị disabled
@@ -67,7 +67,7 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
       expect(purposeSelect).toBeDisabled()
 
       // Kiểm tra ghi chú phân quyền
-      expect(screen.getByText(/Mục đích nuôi chỉ Chủ trại được đổi/i)).toBeInTheDocument()
+      expect(screen.getByText('Chỉ Chủ trại mới đổi được mục đích sản xuất.')).toBeInTheDocument()
     })
 
     it('TC-CAT-U02: Validates stage update requires different stage and mandatory reason (MSG-FE05-04, MSG-FE05-05)', async () => {
@@ -83,8 +83,8 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
       await user.click(saveButton)
 
       // Lỗi: Chưa chọn giai đoạn khác và chưa nhập lý do
-      expect(screen.getByText('Chọn giai đoạn khác giai đoạn hiện tại.')).toBeInTheDocument()
-      expect(screen.getByText('Nhập lý do.')).toBeInTheDocument()
+      expect(screen.getByText('Chọn giá trị khác giá trị hiện tại.')).toBeInTheDocument()
+      expect(screen.getByText('Vui lòng nhập Lý do.')).toBeInTheDocument()
       expect(onSaved).not.toHaveBeenCalled()
 
       // Chọn giai đoạn mới khác: 'Vỗ béo'
@@ -138,12 +138,16 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
 
       // Chọn lý do thay thẻ
       const reasonSelect = screen.getByRole('combobox')
-      await user.selectOptions(reasonSelect, 'Thẻ bị mất')
+      await user.selectOptions(reasonSelect, 'LOST')
 
-      const confirmButton = screen.getByRole('button', { name: /Xác nhận cấp thẻ mới/i })
+      const confirmButton = screen.getByRole('button', { name: /Xác nhận thẻ mới/i })
       await user.click(confirmButton)
 
-      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      const qr = await screen.findByRole('img', { name: /^Mã QR thẻ QR-[0-9A-F]{24}$/ })
+      expect(qr).toBeVisible()
+      expect(onSaved).not.toHaveBeenCalled()
+      await user.click(screen.getByText('Đóng', { selector: 'button' }))
+      expect(onSaved).toHaveBeenCalled()
     })
   })
 

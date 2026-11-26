@@ -19,7 +19,8 @@ public class HerdCatalogueCommandService {
     private final FarmAccessService access;
     private final AuditService audit;
     private final FarmClock clock;
-    public HerdCatalogueCommandService(EntityManager em,FarmAccessService access,AuditService audit,FarmClock clock) { this.em=em;this.access=access;this.audit=audit;this.clock=clock; }
+    private final CatalogueReferenceService references;
+    public HerdCatalogueCommandService(EntityManager em,FarmAccessService access,AuditService audit,FarmClock clock,CatalogueReferenceService references) { this.em=em;this.access=access;this.audit=audit;this.clock=clock;this.references=references; }
     @Transactional(readOnly=true)
     public List<BreedView> breeds(Long farmId,String q,String status) {
         access.require(farmId,FarmAction.VIEW_CATALOGUES); validateStatus(status);
@@ -37,8 +38,8 @@ public class HerdCatalogueCommandService {
         Breed b=id==null?new Breed():em.find(Breed.class,id,LockModeType.PESSIMISTIC_WRITE);
         if(b==null||id!=null&&!farmId.equals(b.getFarm().getId()))throw DomainException.notFound(MessageCodes.COM_08);
         if(id!=null)VersionGuard.requireExpected(b.getVersion(),r.expectedVersion());
-        boolean referenced=id!=null&&breedReferenced(id);String code=code(r.code());
-        if(referenced&&!code.equals(b.getCode()))throw DomainException.unprocessable("MSG-FE18-04","field","code");
+        boolean referenced=id!=null&&breedReferences(farmId,id)>0;String code=code(r.code());
+        if(referenced&&!code.equals(b.getCode()))throw DomainException.invalid("code"); // R-18-01: read-only once referenced
         unique("Breed",farmId,id,code); b.setFarm(ctx.farm()); b.setCode(code); b.setName(required(r.name(),100,"name"));
         b.setBreedGroup(optional(r.group(),50,"group")); b.setDescription(optional(r.description(),500,"description")); b.setAvailable(r.available());
         if(id==null)em.persist(b); em.flush();
@@ -51,8 +52,8 @@ public class HerdCatalogueCommandService {
         if(p==null||id!=null&&!farmId.equals(p.getFarm().getId()))throw DomainException.notFound(MessageCodes.COM_08);
         if(id!=null)VersionGuard.requireExpected(p.getVersion(),r.expectedVersion());
         boolean referenced=id!=null&&purposeReferenced(p);String code=code(r.code());
-        if(referenced&&!code.equals(p.getCode()))throw DomainException.unprocessable("MSG-FE18-04","field","code");
-        if(referenced&&r.purposeType()!=p.getPurposeType())throw DomainException.unprocessable("MSG-FE18-09");
+        if(referenced&&!code.equals(p.getCode()))throw DomainException.invalid("code"); // R-18-01: read-only once referenced
+        if(referenced&&r.purposeType()!=p.getPurposeType())throw DomainException.unprocessable(MessageCodes.FE18_09,"count",purposeReferences(p));
         if(r.purposeType()==null)throw DomainException.required("purposeType");
         unique("ProductionPurpose",farmId,id,code);p.setFarm(ctx.farm());p.setCode(code);p.setName(required(r.name(),100,"name"));
         p.setPurposeType(r.purposeType());p.setDescription(optional(r.description(),500,"description"));p.setAvailable(r.available());
@@ -61,29 +62,39 @@ public class HerdCatalogueCommandService {
         return purposeView(p,referenced&&!r.available()?List.of("MSG-FE18-03"):List.of());
     }
     private BreedView breedView(Breed b,List<String> messages) {
-        return new BreedView(b.getId(),b.getCode(),b.getName(),b.getBreedGroup(),b.getDescription(),b.getAvailable(),activeCattle("breed",b.getId()),breedReferenced(b.getId()),b.getVersion(),messages);
+        long references=breedReferences(b.getFarm().getId(),b.getId());
+        return new BreedView(b.getId(),b.getCode(),b.getName(),b.getBreedGroup(),b.getDescription(),b.getAvailable(),activeCattle("breed",b.getId()),references>0,b.getVersion(),messages,references);
     }
     private PurposeView purposeView(ProductionPurpose p,List<String> messages) {
         List<ReceivingPen> pens=em.createQuery("select c from PenCriteriaVersion c join fetch c.pen where c.farm.id=:f and c.effectiveFrom<=:d order by c.effectiveFrom desc,c.versionNo desc",PenCriteriaVersion.class)
-            .setParameter("f",p.getFarm().getId()).setParameter("d",java.time.LocalDate.ofInstant(clock.now(),java.time.ZoneId.of(p.getFarm().getTimeZone()))).getResultList().stream().collect(java.util.stream.Collectors.toMap(c->c.getPen().getId(),c->c,(a,b)->a))
+            .setParameter("f",p.getFarm().getId()).setParameter("d",clock.today()).getResultList().stream().collect(java.util.stream.Collectors.toMap(c->c.getPen().getId(),c->c,(a,b)->a))
             .values().stream().filter(c->c.getPurposeTypes()!=null&&c.getPurposeTypes().contains(p.getPurposeType())).map(c->new ReceivingPen(c.getPen().getId(),c.getPen().getCode(),c.getPen().getName()))
             .sorted(java.util.Comparator.comparing(ReceivingPen::code)).toList();
-        return new PurposeView(p.getId(),p.getCode(),p.getName(),p.getPurposeType(),p.getDescription(),p.getAvailable(),activeCattle("purpose",p.getId()),purposeReferenced(p),pens,p.getVersion(),messages);
+        long references=purposeReferences(p);
+        return new PurposeView(p.getId(),p.getCode(),p.getName(),p.getPurposeType(),p.getDescription(),p.getAvailable(),activeCattle("purpose",p.getId()),references>0,pens,p.getVersion(),messages,references);
     }
     private long activeCattle(String field,Long id) { return em.createQuery("select count(c) from Cattle c where c."+field+".id=:id and c.herdStatus=:s",Long.class).setParameter("id",id).setParameter("s",HerdStatus.ACTIVE).getSingleResult(); }
-    private boolean breedReferenced(Long id) {
-        return count("select count(c) from Cattle c where c.breed.id=:id",id)>0||count("select count(c) from CalfOutcome c where c.breed.id=:id",id)>0||count("select count(r) from ReproductionEvent r where r.sireBreed.id=:id",id)>0||
-            count("select count(f) from Farm f join f.mainBreeds b where b.id=:id",id)>0;
+    /** Cattle (any herd status), calf outcomes, sire breeds and the farm's main breeds that use the breed. */
+    private long breedReferences(Long farmId,Long id) {
+        return count("select count(c) from Cattle c where c.breed.id=:id",id)+count("select count(c) from CalfOutcome c where c.breed.id=:id",id)+count("select count(r) from ReproductionEvent r where r.sireBreed.id=:id",id)+
+            count("select count(f) from Farm f join f.mainBreeds b where b.id=:id",id)
+            +references.entryDeclarations(farmId,"breedId",id)+references.revisedSources(farmId,"HerdEntry","breedId",id).size();
     }
-    private boolean purposeReferenced(ProductionPurpose p) {
-        return count("select count(c) from Cattle c where c.purpose.id=:id",p.getId())>0||count("select count(c) from CalfOutcome c where c.proposedPurpose.id=:id",p.getId())>0||
+    private boolean purposeReferenced(ProductionPurpose p) { return purposeReferences(p)>0; }
+    /** Cattle, calf outcomes and pen criteria versions that accept the purpose type (BR-D32). */
+    private long purposeReferences(ProductionPurpose p) {
+        return count("select count(c) from Cattle c where c.purpose.id=:id",p.getId())+count("select count(c) from CalfOutcome c where c.proposedPurpose.id=:id",p.getId())+
             em.createQuery("select c from PenCriteriaVersion c where c.farm.id=:f",PenCriteriaVersion.class)
-                .setParameter("f",p.getFarm().getId()).getResultList().stream().anyMatch(c->c.getPurposeTypes()!=null&&c.getPurposeTypes().contains(p.getPurposeType()));
+                .setParameter("f",p.getFarm().getId()).getResultList().stream().filter(c->c.getPurposeTypes()!=null&&c.getPurposeTypes().contains(p.getPurposeType())).count()
+            +references.entryDeclarations(p.getFarm().getId(),"purposeId",p.getId())
+            +em.createQuery("select count(h) from CattleProfileChange h where h.farm.id=:f and h.fieldGroup=vn.edu.fpt.beefcare.domain.enumeration.ProfileFieldGroup.PURPOSE and (h.oldValue=:id or h.newValue=:id)",Long.class)
+                .setParameter("f",p.getFarm().getId()).setParameter("id",p.getId().toString()).getSingleResult();
     }
+
     private long count(String jpql,Long id){return em.createQuery(jpql,Long.class).setParameter("id",id).getSingleResult();}
     private void unique(String entity,Long farmId,Long id,String code) {
         if(em.createQuery("select count(x) from "+entity+" x where x.farm.id=:f and upper(x.code)=:c and x.id<>:id",Long.class)
-            .setParameter("f",farmId).setParameter("c",code).setParameter("id",id==null?-1L:id).getSingleResult()>0)throw DomainException.unprocessable("MSG-FE18-02","code",code);
+            .setParameter("f",farmId).setParameter("c",code).setParameter("id",id==null?-1L:id).getSingleResult()>0)throw DomainException.unprocessable(MessageCodes.FE18_02,"code",code);
     }
     private String code(String value){String code=required(value,20,"code");if(!code.matches("[A-Z0-9-]{2,20}"))throw DomainException.invalid("code");return code;}
     private String required(String value,int max,String field){return SupportTicketCommandService.text(value,max,field);}

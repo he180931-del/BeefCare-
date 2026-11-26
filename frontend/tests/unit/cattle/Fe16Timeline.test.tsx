@@ -1,0 +1,329 @@
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { mapTimeline, timelineMeta, TIMELINE_FILTERS } from '../../../src/features/cattle/api/cattleTimeline'
+import { backendTransport } from '../../../src/shared/api/backendTransport'
+import TimelineTab, { defaultTimelineChip, timelineGroups } from '../../../src/features/cattle/components/TimelineTab'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
+import { initialCows } from '../../../src/demo/data/cowsData'
+import type { CattleViewModel as CowSeed } from '../../../src/features/cattle/types'
+import { reproductionApi, resetReproductionDemo } from '../../../src/features/reproduction/api/reproductionApi'
+import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
+import HealthTechnicianTab from '../../../src/features/health/components/HealthTechnicianTab'
+import { healthApi } from '../../../src/features/health/api/healthApi'
+
+const ev = (over: Record<string, unknown>, i = 0) => mapTimeline({ recorder: 'Quản lý A', ...over }, i)
+
+const events = [
+  ev({ category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 1, occurredAt: '2026-10-01T03:00:00Z', recordedAt: '2026-10-05T03:00:00Z', status: 'CORRECTED', corrected: true, values: { weightKg: 324, basis: 'MEASURED', method: 'SCALE', reason: 'Gõ nhầm' } }, 0),
+  ev({ category: 'VACCINATION', type: 'VACCINATION_RECORD', sourceId: 2, occurredAt: '2026-10-03T03:00:00Z', recordedAt: '2026-10-03T03:00:00Z', status: 'VOIDED', values: { vaccine: 'LMLM', source: 'ON_FARM' } }, 1),
+  ev({ category: 'GROWTH', type: 'REVISION', sourceId: 9, occurredAt: '2026-10-01T03:00:00Z', recordedAt: '2026-10-06T03:00:00Z', status: 'CORRECT', values: { original: { weightKg: 342, basis: 'MEASURED' } }, correction: { reason: 'Gõ nhầm', sourceType: 'GROWTH_ASSESSMENT', sourceId: 1 } }, 2),
+  ev({ category: 'PEN', type: 'PEN_ASSIGNMENT', sourceId: 3, occurredAt: '2026-09-20T00:00:00+07:00', recordedAt: '2026-09-20T03:00:00Z', status: 'VALID', values: { penCode: 'A1', reason: 'Nhập đàn' } }, 3),
+  ev({ category: 'ENTRY_EXIT', type: 'HERD_ENTRY', sourceId: 4, occurredAt: '2026-09-20T00:00:00+07:00', recordedAt: '2026-09-20T02:00:00Z', status: 'VALID', values: { source: 'EXTERNAL', weight: 300, basis: 'ESTIMATED', voucherCode: 'PN-2026-0011' } }, 4),
+]
+
+const cow = (list = events): CowSeed => ({ ...initialCows[0], status: 'ACTIVE', events: list })
+const session = (role: Session['role']): Session => ({ role, fullName: 'X', email: 'x@x', farmId: 1, farmName: 'A', logout: async () => undefined })
+const renderTab = (role: Session['role'], list = events) => render(
+  <SessionContext.Provider value={session(role)}><MemoryRouter><TimelineTab cow={cow(list)} /></MemoryRouter></SessionContext.Provider>,
+)
+function Location() {
+  return <output>{useLocation().search}</output>
+}
+
+describe('FE-16 timeline mapping', () => {
+  it('maps titles, basis and correction markers in Vietnamese (R-16-03, SCR-50 #4–6)', () => {
+    expect(events[0]).toMatchObject({ title: 'Cân 324 kg', basis: 'Đo', status: 'CORRECTED', marker: 'Đã sửa', reason: 'Gõ nhầm', tab: 'growth', correctable: true })
+    expect(events[1]).toMatchObject({ title: 'Tiêm LMLM', basis: 'Tại trại', status: 'VOIDED', marker: 'Đã hủy', correctable: false })
+    expect(events[2]).toMatchObject({ status: 'REVISION', title: 'Giá trị trước khi sửa: Cân 342 kg', reason: 'Gõ nhầm' })
+    expect(events[4]).toMatchObject({ title: 'Nhập đàn – mua ngoài', basis: 'Ước tính', voucher: { kind: 'entry', code: 'PN-2026-0011' } })
+    expect(TIMELINE_FILTERS.map(([, label]) => label)).toContain('Nhập & xuất')
+  })
+
+  it('writes "Xảy ra … · ghi … · bởi …" (SCR-50 #8)', () => {
+    expect(timelineMeta('2026-10-01', '2026-10-05', 'Quản lý A')).toBe('Xảy ra 01/10/2026 · ghi 05/10/2026 · bởi Quản lý A')
+  })
+
+  it('TC-16-02 / 04: newest occurrence first; voided, excluded and originals hidden until "Hiện chỉnh sửa"', () => {
+    const hidden = timelineGroups(events, 'all', false).flatMap((g) => g.items.map((e) => e.title))
+    expect(hidden).toEqual(['Cân 324 kg', 'Vào chuồng A1', 'Nhập đàn – mua ngoài'])
+    expect(hidden).not.toContain('Tiêm LMLM')
+    const all = timelineGroups(events, 'all', true).flatMap((g) => g.items.map((e) => e.title))
+    expect(all.indexOf('Tiêm LMLM')).toBeLessThan(all.indexOf('Cân 324 kg'))
+    expect(all).toContain('Giá trị trước khi sửa: Cân 342 kg')
+    expect(timelineGroups(events, 'all', true).map((g) => g.label)).toEqual(['THÁNG 10 2026', 'THÁNG 9 2026'])
+  })
+
+  it('TC-16-02: sorts ordinary valid events by occurrence date without enabling correction history', () => {
+    const ordinary = [
+      ev({ category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 31, occurredAt: '2026-10-01T03:00:00Z', recordedAt: '2026-10-05T03:00:00Z', status: 'VALID', values: { weightKg: 324 } }),
+      ev({ category: 'VACCINATION', type: 'VACCINATION_RECORD', sourceId: 32, occurredAt: '2026-10-03T03:00:00Z', recordedAt: '2026-10-03T03:00:00Z', status: 'VALID', values: { vaccine: 'LMLM', source: 'ON_FARM' } }),
+    ]
+    const visible = timelineGroups(ordinary, 'all', false).flatMap((group) => group.items)
+    expect(visible.map((event) => event.title)).toEqual(['Tiêm LMLM', 'Cân 324 kg'])
+    expect(visible.map((event) => event.status)).toEqual(['VALID', 'VALID'])
+  })
+})
+
+describe('FE-16 chip Chăm sóc và dòng thu gọn (D79)', () => {
+  it('"Chăm sóc" gom cân, tiêm, sức khỏe, sinh sản; không gồm chuồng hay nhập xuất', () => {
+    const titles = timelineGroups(events, 'care', false).flatMap((g) => g.items.map((e) => e.title))
+    expect(titles).toEqual(['Cân 324 kg'])
+    expect(TIMELINE_FILTERS[0]).toEqual(['care', 'Chăm sóc'])
+  })
+
+  it('mặc định "Chăm sóc" khi có sự kiện chăm sóc, "Tất cả" khi chưa có', () => {
+    expect(defaultTimelineChip(events, false)).toBe('care')
+    expect(defaultTimelineChip([events[3], events[4]], false)).toBe('all')
+    // Bản ghi tiêm đã hủy chỉ hiện khi bật "Hiện chỉnh sửa".
+    expect(defaultTimelineChip([events[1], events[3]], false)).toBe('all')
+    expect(defaultTimelineChip([events[1], events[3]], true)).toBe('care')
+  })
+
+  it('mở tab: chỉ thấy sự kiện chăm sóc, mỗi dòng gọn; bấm "Tất cả" thấy đủ', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER')
+    expect(screen.getByText('Cân 324 kg')).toBeInTheDocument()
+    expect(screen.queryByText('Vào chuồng A1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Xảy ra/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Lý do: Gõ nhầm')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cân 324 kg' }))
+    expect(screen.getByText('Lý do: Gõ nhầm')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cân 324 kg' })).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'Tất cả' }))
+    expect(screen.getByText('Vào chuồng A1')).toBeInTheDocument()
+  })
+
+  it('"Mở rộng tất cả" và "Hiện chỉnh sửa" mở mọi dòng', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER')
+    await user.click(screen.getByRole('button', { name: 'Mở rộng tất cả' }))
+    expect(screen.getByText('Lý do: Gõ nhầm')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Thu gọn tất cả' }))
+    expect(screen.queryByText('Lý do: Gõ nhầm')).not.toBeInTheDocument()
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.getAllByText('Lý do: Gõ nhầm').length).toBeGreaterThan(0)
+  })
+})
+
+describe('FE-16 timeline tab', () => {
+  it('uses fixed UTC+7 for both timestamps and the month heading', async () => {
+    const get = vi.spyOn(backendTransport, 'get').mockImplementation(async (path) =>
+      path.endsWith('/context') ? { timeZone: 'America/New_York' } : [{
+        category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 21,
+        occurredAt: '2026-10-31T17:15:00Z', recordedAt: '2026-11-01T17:00:00Z',
+        recorder: 'Quản lý A', values: { weightKg: 320 },
+      }],
+    )
+    try {
+      render(<MemoryRouter><TimelineTab cow={{ ...cow([]), backendId: 45 }} /></MemoryRouter>)
+      expect(await screen.findByText('THÁNG 11 2026')).toBeInTheDocument()
+      // D79: dòng thu gọn chỉ có ngày theo giờ trại; mở dòng mới thấy đủ thời điểm xảy ra / ghi.
+      expect(screen.getByText('01/11')).toBeInTheDocument()
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Cân 320 kg' }))
+      expect(screen.getByText('Xảy ra 01/11/2026 00:15 · ghi 02/11/2026 00:00 · bởi Quản lý A')).toBeInTheDocument()
+      expect(get).not.toHaveBeenCalledWith(expect.stringMatching(/\/context$/))
+    } finally {
+      get.mockRestore()
+    }
+  })
+
+  it('requests backend revisions only while the toggle is on', async () => {
+    const user = userEvent.setup()
+    const requests: string[] = []
+    const get = vi.spyOn(backendTransport, 'get').mockImplementation(async (path) => {
+      const url = new URL(path, 'http://localhost')
+      requests.push(url.searchParams.get('showCorrections') ?? '')
+      return url.searchParams.get('showCorrections') === 'true'
+        ? [{ category: 'GROWTH', type: 'REVISION', status: 'EXCLUDE', sourceId: 9, occurredAt: '2026-10-01T03:00:00Z', correction: { reason: 'Sai số', sourceType: 'GROWTH_ASSESSMENT' } }]
+        : []
+    })
+    try {
+      render(<SessionContext.Provider value={session('TECHNICIAN')}><MemoryRouter><TimelineTab cow={{ ...cow([]), backendId: 45 }} /></MemoryRouter></SessionContext.Provider>)
+      await screen.findByText('Chưa có sự kiện')
+      expect(requests).toEqual(['false'])
+      await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+      expect(await screen.findByText('Lý do: Sai số')).toBeInTheDocument()
+      expect(requests).toEqual(['false', 'true'])
+      await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+      await waitFor(() => expect(requests).toEqual(['false', 'true', 'false']))
+      expect(screen.queryByText('Lý do: Sai số')).not.toBeInTheDocument()
+    } finally {
+      get.mockRestore()
+    }
+  })
+
+  it('shows the exact selected event when the source has no connected detail tab', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER', [events[3]])
+    await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Vào chuồng A1')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Nhập đàn/)).toBeInTheDocument()
+  })
+
+  it('TC-16-09: the Manager sees Sửa / Hủy on care records only with "Hiện chỉnh sửa" on', async () => {
+    const user = userEvent.setup()
+    renderTab('MANAGER')
+    expect(screen.queryByRole('button', { name: 'Sửa / Hủy' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Tiêm LMLM')).not.toBeInTheDocument()
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.getByText('Tiêm LMLM')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sửa / Hủy' })).toHaveLength(1)
+  })
+
+  it('TC-16-17 (D41): the Owner sees Sửa / Hủy like the Manager', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER')
+    expect(screen.queryByRole('button', { name: 'Sửa / Hủy' })).not.toBeInTheDocument()
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.getAllByRole('button', { name: 'Sửa / Hủy' })).toHaveLength(1)
+  })
+
+  it('TC-16-10: the Technician never sees Sửa / Hủy', async () => {
+    const user = userEvent.setup()
+    renderTab('TECHNICIAN')
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.queryByRole('button', { name: 'Sửa / Hủy' })).not.toBeInTheDocument()
+  })
+
+  it('TC-16-06: the Nhập & xuất chip shows only entry / exit events; empty state', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER')
+    await user.click(screen.getByRole('button', { name: 'Nhập & xuất' }))
+    expect(screen.getByText('Nhập đàn – mua ngoài')).toBeInTheDocument()
+    expect(screen.queryByText('Vào chuồng A1')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sức khỏe' }))
+    expect(screen.getByText('Chưa có sự kiện')).toBeInTheDocument()
+  })
+
+  it('TC-16-07 / 08: an entry event without a voucher (Technician) cannot be opened — MSG-FE16-01', async () => {
+    const user = userEvent.setup()
+    const techEntry = ev({ category: 'ENTRY_EXIT', type: 'HERD_ENTRY', sourceId: null, occurredAt: '2026-09-20T00:00:00+07:00', status: 'VALID', values: { source: 'EXTERNAL', weight: 300 } })
+    renderTab('TECHNICIAN', [techEntry])
+    const row = screen.getByText('Nhập đàn – mua ngoài').closest('li')!
+    await user.click(within(row).getByRole('button', { name: 'Xem chi tiết' }))
+    expect(screen.getByText('Vai trò của bạn không được xem chi tiết sự kiện này.')).toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+})
+
+describe('FE-16 opens the source correction popup (R-16-07)', () => {
+  const growth = (canCorrect: boolean) => ev({ category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 77, occurredAt: '2026-10-01T03:00:00Z', status: 'VALID', values: { weightKg: 320 }, canOpen: true, canCorrect })
+
+  it('uses the backend canCorrect and passes the record id to the source tab', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={session('MANAGER')}><MemoryRouter initialEntries={['/timeline']}>
+      <Routes>
+        <Route path="/timeline" element={<TimelineTab cow={cow([growth(true), { ...growth(false), id: 'other', title: 'Cân 321 kg' }])} />} />
+        <Route path="/cattle/:code" element={<Location />} />
+      </Routes>
+    </MemoryRouter></SessionContext.Provider>)
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.getAllByRole('button', { name: 'Sửa / Hủy' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Sửa / Hủy' }))
+    expect(screen.getByRole('status')).toHaveTextContent('?tab=growth&r=77&type=GROWTH_ASSESSMENT&m=correct&from=timeline')
+  })
+
+  it('opens the chosen growth record without opening a write modal', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={session('OWNER')}><MemoryRouter initialEntries={['/timeline']}>
+      <Routes>
+        <Route path="/timeline" element={<TimelineTab cow={cow([growth(true)])} />} />
+        <Route path="/cattle/:code" element={<Location />} />
+      </Routes>
+    </MemoryRouter></SessionContext.Provider>)
+    await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+    expect(screen.getByRole('status')).toHaveTextContent('?tab=growth&r=77&type=GROWTH_ASSESSMENT')
+  })
+
+  it('opens the selected health record inside the Technician profile with case and source type', async () => {
+    const user = userEvent.setup()
+    const source = ev({ category: 'HEALTH', type: 'TREATMENT', sourceId: 77, occurredAt: '2026-10-01T03:00:00Z',
+      canOpen: true, values: { healthCaseId: 31 } })
+    const profile = await healthApi.getProfile('BC-000203')
+    const record = { id: 77, caseId: 31, caseCode: 'HC-0031', occurredAt: '2026-10-01T10:00', status: 'VALID',
+      recordedBy: 'Quản lý A', version: 1, corrected: false, temperatureC: null } as const
+    const getProfile = vi.spyOn(healthApi, 'getProfile').mockResolvedValue({
+      ...profile, activeCases: [], timeline: [
+        { ...record, type: 'FOLLOW_UP', details: 'Quan sát có trùng ID' },
+        { ...record, type: 'TREATMENT', details: 'Điều trị đúng bản ghi' },
+      ],
+    })
+    try {
+      render(<SessionContext.Provider value={session('TECHNICIAN')}><MemoryRouter initialEntries={['/timeline']}>
+        <Routes>
+          <Route path="/timeline" element={<TimelineTab cow={cow([source])} />} />
+          <Route path="/kt/dan-bo/:code" element={<><Location /><HealthTechnicianTab cattleCode="BC-000203" /></>} />
+        </Routes>
+      </MemoryRouter></SessionContext.Provider>)
+      await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+      expect(screen.getByRole('status')).toHaveTextContent('?tab=health&r=77&type=TREATMENT&case=31')
+      expect(await screen.findByText('Điều trị đúng bản ghi')).toBeInTheDocument()
+      expect(screen.queryByText('Quan sát có trùng ID')).not.toBeInTheDocument()
+      expect(getProfile).toHaveBeenCalledWith('BC-000203', '31')
+    } finally {
+      getProfile.mockRestore()
+    }
+  })
+
+  it('TC-16-16: opens and saves a month-boundary correction in fixed UTC+7', async () => {
+    const user = userEvent.setup()
+    const source = {
+      category: 'REPRODUCTION', type: 'BREEDING', status: 'VALID', sourceId: 77, occurredAt: '2026-10-31T17:15:00Z',
+      canCorrect: true, canOpen: true, values: { version: 2, method: 'AI', performedBy: 'Người cũ' },
+    }
+    const get = vi.spyOn(backendTransport, 'get').mockResolvedValue([source])
+    const command = vi.spyOn(backendTransport, 'command').mockResolvedValue({})
+    try {
+      render(<SessionContext.Provider value={session('MANAGER')}><MemoryRouter><TimelineTab cow={{ ...cow([]), backendId: 45 }} /></MemoryRouter></SessionContext.Provider>)
+      await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+      await user.click(await screen.findByRole('button', { name: 'Sửa / Hủy' }))
+      const dialog = within(screen.getByRole('dialog'))
+      const time = dialog.getByLabelText('Thời điểm xảy ra')
+      expect(time).toHaveValue('2026-11-01T00:15')
+      fireEvent.change(time, { target: { value: '2026-11-01T01:15' } })
+      await user.clear(dialog.getByLabelText('Người thực hiện'))
+      await user.type(dialog.getByLabelText('Người thực hiện'), 'Người mới')
+      await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Sửa tên')
+      const reads = get.mock.calls.length
+      await user.click(dialog.getByRole('button', { name: 'Lưu chỉnh sửa' }))
+      await waitFor(() => expect(command).toHaveBeenCalledWith(
+        expect.stringMatching(/\/reproduction-events\/77\/correction$/),
+        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới', occurredAt: '2026-11-01T01:15:00+07:00' },
+        { key: expect.any(String) },
+      ))
+      await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(reads))
+    } finally {
+      get.mockRestore()
+      command.mockRestore()
+    }
+  })
+
+  it('backend canOpen=false answers MSG-FE16-01', async () => {
+    const user = userEvent.setup()
+    const denied = ev({ category: 'ENTRY_EXIT', type: 'HERD_EXIT', sourceId: null, occurredAt: '2026-10-01T03:00:00Z', status: 'CONFIRMED', values: { exitType: 'SALE' }, canOpen: false, canCorrect: false })
+    renderTab('TECHNICIAN', [denied])
+    await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+    expect(screen.getByText('Vai trò của bạn không được xem chi tiết sự kiện này.')).toBeInTheDocument()
+  })
+
+  it('the reproduction tab opens its revise dialog from ?m=correct&r=<id> for the Owner or a Manager only', async () => {
+    await resetReproductionDemo()
+    const profile = await reproductionApi.getProfile('BC-000142')
+    const target = profile.events.find((e) => e.type !== 'CALVING')!
+    const at = (role: 'OWNER' | 'MANAGER' | 'TECHNICIAN') => render(
+      <MemoryRouter initialEntries={[`/cattle/BC-000142?tab=repro&m=correct&r=${target.id}`]}><ReproductionProfileTab cattleCode="BC-000142" role={role} /></MemoryRouter>,
+    )
+    const manager = at('MANAGER')
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
+    manager.unmount()
+    const owner = at('OWNER') // D41
+    expect(await screen.findByRole('dialog', { name: /^Sửa / })).toBeInTheDocument() // D69: popup Sửa riêng
+    owner.unmount()
+    at('TECHNICIAN')
+    expect(await screen.findByText('Chế độ chỉ xem.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /^Sửa / })).not.toBeInTheDocument()
+  })
+})

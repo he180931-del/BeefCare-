@@ -68,6 +68,27 @@ describe('SCR-77 Feed Stock page', () => {
     expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
   })
 
+  it('makes the low / out of stock tile the prominent first block, red only when a feed has run out', async () => {
+    const tileOf = async () => {
+      const tiles = within(await screen.findByRole('region', { name: 'Chỉ số tồn kho' }))
+      const low = tiles.getByText('Sắp hết / hết').closest('div.rounded-2xl') as HTMLElement
+      return { low, first: (await screen.findByRole('region', { name: 'Chỉ số tồn kho' })).firstElementChild }
+    }
+    const rows = FEED_STOCK_MOCK.map((row) => ({ ...row }))
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'OUT_OF_STOCK' as const : 'SUFFICIENT' as const })))
+    const { unmount } = renderPage()
+    let tile = await tileOf()
+    expect(tile.first).toBe(tile.low)
+    expect(tile.low.className).toContain('bg-err-bg')
+    unmount()
+
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'LOW' as const : 'SUFFICIENT' as const })))
+    renderPage()
+    tile = await tileOf()
+    expect(tile.low.className).toContain('bg-warn-bg')
+    expect(within(tile.low).getByText('1')).toBeInTheDocument()
+  })
+
   it('combines text, group, and status filters', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -80,6 +101,34 @@ describe('SCR-77 Feed Stock page', () => {
     expect(screen.getByRole('row', { name: /TA-06 Cám ngô/i })).toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /TA-01/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /TA-05/i })).not.toBeInTheDocument()
+  })
+
+  it('shows REM-10 affected item names, statuses, and prefilled receipt actions', async () => {
+    listFeedStockMock.mockResolvedValueOnce([
+      { ...FEED_STOCK_MOCK[0], status: 'LOW' },
+      { ...FEED_STOCK_MOCK[7], status: 'OUT_OF_STOCK' },
+      { ...FEED_STOCK_MOCK[1], status: 'SUFFICIENT' },
+    ])
+
+    renderPage()
+
+    const banner = await screen.findByRole('alert', { name: 'Cảnh báo tồn kho thấp' })
+    expect(banner).toHaveTextContent('2 mặt hàng đang ở mức tối thiểu hoặc thấp hơn')
+    expect(within(banner).getByText('Cỏ voi')).toBeInTheDocument()
+    expect(within(banner).getByText('Sắp hết')).toBeInTheDocument()
+    expect(within(banner).getByText('Sữa thay thế')).toBeInTheDocument()
+    expect(within(banner).getByText('Hết hàng')).toBeInTheDocument()
+    expect(within(banner).getByRole('link', { name: 'Tạo phiếu nhập kho' })).toHaveAttribute('href', '/thuc-an/phieu-nhap/moi?feedItemId=101')
+    expect(within(banner).getByRole('link', { name: 'Nhập Sữa thay thế' })).toHaveAttribute('href', '/thuc-an/phieu-nhap/moi?feedItemId=108')
+  })
+
+  it('does not show REM-10 when all active items are sufficient', async () => {
+    listFeedStockMock.mockResolvedValueOnce(FEED_STOCK_MOCK.map((row) => ({ ...row, status: 'SUFFICIENT' as const })))
+
+    renderPage()
+
+    await screen.findByRole('table')
+    expect(screen.queryByRole('alert', { name: 'Cảnh báo tồn kho thấp' })).not.toBeInTheDocument()
   })
 
   it('opens the stock movement history of a feed from the Xem action and closes it', async () => {
@@ -124,6 +173,40 @@ describe('SCR-77 Feed Stock page', () => {
     expect(await screen.findByRole('row', { name: /TA-01/i })).toBeInTheDocument()
   })
 
+  it('does not present an unavailable zero consumption estimate as a measurement', async () => {
+    const insufficientHistory = {
+      ...FEED_STOCK_MOCK[0],
+      code: 'TA-00',
+      name: 'Chưa ghi cữ',
+      onHandKg: 120,
+      averageDailyUseKg: 0,
+      daysOfCover: null,
+      status: 'SUFFICIENT' as const,
+    }
+    const realZeroStock = {
+      ...FEED_STOCK_MOCK[7],
+      averageDailyUseKg: 0,
+      daysOfCover: null,
+      status: 'OUT_OF_STOCK' as const,
+    }
+    listFeedStockMock.mockResolvedValueOnce([insufficientHistory, realZeroStock])
+
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    const insufficientRow = within(table).getByRole('row', { name: /TA-00 Chưa ghi cữ/i }) as HTMLTableRowElement
+    const zeroStockRow = within(table).getByRole('row', { name: /TA-08 Sữa thay thế/i }) as HTMLTableRowElement
+    expect(insufficientRow.cells[4]).toHaveTextContent('—')
+    expect(zeroStockRow.cells[2]).toHaveTextContent('0 kg')
+    expect(within(zeroStockRow).getByText('Hết')).toBeInTheDocument()
+
+    const consumptionTile = screen.getByText('Tiêu thụ TB 7 ngày').closest('div.rounded-2xl') as HTMLElement
+    expect(within(consumptionTile).getByText('—')).toBeInTheDocument()
+    expect(within(consumptionTile).getByText('Chưa đủ dữ liệu tiêu thụ')).toBeInTheDocument()
+    expect(screen.queryByText('0 kg/ngày')).not.toBeInTheDocument()
+    expect(screen.queryByText(/0 kg\/con\/ngày/)).not.toBeInTheDocument()
+  })
+
   it('offers retry after backend error and shows recovered rows only after retry succeeds', async () => {
     const user = userEvent.setup()
     listFeedStockMock.mockRejectedValueOnce(new Error('Không thể kết nối máy chủ.'))
@@ -149,5 +232,22 @@ describe('SCR-77 Feed Stock page', () => {
 
     expect(screen.getByText('NEW_GROUP')).toBeInTheDocument()
     expect(screen.getByText('FUTURE_STATUS')).toBeInTheDocument()
+  })
+
+  it('labels the expiry warning as a date recorded on a posted receipt, not as per-lot stock', () => {
+    const row = {
+      ...FEED_STOCK_MOCK[0],
+      nearestLotNumber: 'LOT-NEAR',
+      nearestLotExpiryDate: '2026-11-20',
+    }
+
+    render(<MemoryRouter><FeedStockTable rows={[row]} /></MemoryRouter>)
+
+    expect(screen.getByRole('columnheader', { name: /Lô gần hạn theo phiếu nhập/ })).toHaveAttribute(
+      'title',
+      'Hạn gần nhất trong 30 ngày theo phiếu nhập đã ghi sổ; không thể hiện số dư riêng của lô.',
+    )
+    expect(screen.getByText('LOT-NEAR')).toBeInTheDocument()
+    expect(screen.getByText(/Hạn trên phiếu đã ghi:/)).toBeInTheDocument()
   })
 })

@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Checkbox, inputCls } from '../../../components/ui'
+import { Checkbox, Icon, inputCls } from '../../../shared/ui'
 
 /** Ô chọn nhiều giá trị: nút hiện các nhãn đã chọn, bấm mở danh sách có ô tick. */
 export default function MultiSelect<T extends string>({ id, label, options, value, onChange }: { id: string; label: string; options: Array<{ value: T; label: string }>; value: T[]; onChange: (next: T[]) => void }) {

@@ -24,6 +24,7 @@ import vn.edu.fpt.beefcare.domain.PenAssignment;
 import vn.edu.fpt.beefcare.domain.PreEntryHistoryDeclaration;
 import vn.edu.fpt.beefcare.domain.TradingPartner;
 import vn.edu.fpt.beefcare.domain.VoucherPayment;
+import vn.edu.fpt.beefcare.domain.Vaccination;
 import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.AssignmentSource;
 import vn.edu.fpt.beefcare.domain.enumeration.BirthDateAccuracy;
@@ -325,6 +326,11 @@ public class HerdEntryCorrectionService {
         }
 
         EntryLineRequest current = EntryVoucherRules.dataOf(entry);
+        LocalDate previousEntryDate = entry.getEntryDate();
+        Sex effectiveSex = ch.sex() != null ? ch.sex() : cattle.getSex();
+        if (purchase && effectiveSex == Sex.MALE && ch.reproduction() != null) {
+            throw DomainException.invalid("reproduction");
+        }
         LocalDate newEntryDate = dateChange ? ch.entryDate() : v.getEntryDate();
         if (dateChange) {
             checkEntryDateChange(v, validLines, locked, newEntryDate, cattle, ch);
@@ -348,7 +354,7 @@ public class HerdEntryCorrectionService {
             res = result.resolved();
         }
 
-        // sex change only without reproductive events and without a declared reproduction history
+        // R-06-13: reproductive events block a sex change; entry declarations are cleared for a male.
         if (purchase && res.sex() != cattle.getSex()) {
             List<String> repro = probe.events(cattle.getId()).stream().map(CattleEventProbe.Event::type).filter(t -> List.of("REPRODUCTION", "PREGNANCY", "CALVING", "OFFSPRING").contains(t)).distinct().toList();
             if (!repro.isEmpty()) {
@@ -458,7 +464,7 @@ public class HerdEntryCorrectionService {
             cattle.setBirthDate(res.birthDate());
             cattle.setBirthDateAccuracy(res.accuracy());
             if (after.containsKey("history")) {
-                replaceHistory(ctx, entry, cattle, res);
+                replaceHistory(ctx, entry, cattle, current, previousEntryDate, res, reason);
                 int newEarlier = res.sex() == Sex.FEMALE && res.data().reproduction().status() == DeclarationStatus.KNOWN && res.data().reproduction().earlierCalvings() != null ? res.data().reproduction().earlierCalvings() : 0;
                 int parity = (cattle.getDeclaredParity() == null ? 0 : cattle.getDeclaredParity()) - (oldSex == Sex.FEMALE ? oldEarlier : 0) + newEarlier;
                 cattle.setDeclaredParity(Math.max(0, parity));
@@ -522,7 +528,8 @@ public class HerdEntryCorrectionService {
             current.warningReason(),
             ch.vaccination() != null ? ch.vaccination() : current.vaccination(),
             ch.disease() != null ? ch.disease() : current.disease(),
-            ch.reproduction() != null ? ch.reproduction() : current.reproduction(),
+            ch.reproduction() != null ? ch.reproduction() : (ch.sex() == Sex.MALE || cattle.getSex() == Sex.MALE
+                ? new EntryLineRequest.ReproductionDeclaration(DeclarationStatus.UNKNOWN, null, null, null, null) : current.reproduction()),
             null
         );
     }
@@ -584,12 +591,57 @@ public class HerdEntryCorrectionService {
             .sum();
     }
 
-    /** Replaces the declarations and the HISTORICAL vaccinations of the entry by the corrected ones (the old values stay in the revision). */
-    private void replaceHistory(FarmContext ctx, HerdEntry entry, Cattle cattle, Resolved res) {
+    /** Only a changed vaccination block replaces its own unmodified care records; independent FE-09 history survives. */
+    private void replaceHistory(FarmContext ctx, HerdEntry entry, Cattle cattle, EntryLineRequest current, LocalDate previousEntryDate, Resolved res, String reason) {
+        boolean vaccinationChanged = !Objects.equals(current.vaccination(), res.data().vaccination());
+        if (vaccinationChanged) {
+            for (Vaccination vaccination : declaredVaccinations(cattle, current.vaccination(), previousEntryDate)) {
+                Map<String, Object> before = VaccinationCommandService.vaccinationSnapshot(vaccination);
+                vaccination.setStatus("VOIDED");
+                vaccination.setStatusReason(reason);
+                revisions.record(ctx, "Vaccination", vaccination.getId(), RecordRevisionService.VOID, reason,
+                    before, VaccinationCommandService.vaccinationSnapshot(vaccination));
+            }
+        }
         declarationRepository.deleteAll(declarationRepository.findAllByHerdEntryId(entry.getId()));
         declarationRepository.flush();
-        em.createQuery("delete from Vaccination v where v.cattle.id = :id and v.source = 'HISTORICAL'").setParameter("id", cattle.getId()).executeUpdate();
-        posting.createDeclarations(ctx, entry, cattle, res);
+        posting.createDeclarations(ctx, entry, cattle, res, vaccinationChanged);
+    }
+
+    /** One old item consumes one candidate, including duplicate declarations and undated rows after a date correction. */
+    List<Vaccination> declaredVaccinations(Cattle cattle, EntryLineRequest.VaccinationDeclaration oldDeclaration, LocalDate previousEntryDate) {
+        if (oldDeclaration == null || oldDeclaration.status() != DeclarationStatus.KNOWN || oldDeclaration.items() == null) return List.of();
+        List<Vaccination> candidates = new ArrayList<>(em.createQuery("""
+            select v from Vaccination v where v.cattle.id=:c and v.source='HISTORICAL' and v.vaccinator=:recorder
+            and upper(v.status)<>'VOIDED' and (v.corrected=false or v.corrected is null) order by v.id
+            """, Vaccination.class).setParameter("c", cattle.getId()).setParameter("recorder", HerdEntryPostingService.PRE_ENTRY_VACCINATOR).getResultList());
+        List<Vaccination> matched = new ArrayList<>();
+        for (EntryLineRequest.VaccinationItem item : oldDeclaration.items()) {
+            LocalDate expectedDate = item.date() == null ? previousEntryDate : item.date();
+            for (int index = 0; index < candidates.size(); index++) {
+                Vaccination candidate = candidates.get(index);
+                if (!sameVaccine(item, candidate)) continue;
+                boolean dateMatches = item.date() != null ? Objects.equals(expectedDate, candidate.getVaccinationDate())
+                    : candidate.getInformationSource() != null && candidate.getInformationSource().endsWith(HerdEntryPostingService.UNKNOWN_VACCINATION_DATE);
+                if (!dateMatches) continue;
+                matched.add(candidate);
+                candidates.remove(index);
+                break;
+            }
+        }
+        return matched;
+    }
+
+    /**
+     * Mũi khai báo khớp bản ghi "Nhập lịch sử": cùng vắc-xin danh mục, hoặc (D82) cùng tên với mũi gõ tự do không có
+     * vắc-xin danh mục – so tên không phân biệt hoa thường, bỏ khoảng trắng hai đầu.
+     */
+    static boolean sameVaccine(EntryLineRequest.VaccinationItem item, Vaccination candidate) {
+        if (candidate.getVaccine() != null) {
+            return candidate.getVaccine().getId().equals(item.vaccineId());
+        }
+        String name = item.vaccineName() == null ? null : item.vaccineName().trim();
+        return name != null && !name.isEmpty() && candidate.getVaccineNameSnapshot() != null && name.equalsIgnoreCase(candidate.getVaccineNameSnapshot().trim());
     }
 
     // ------------------------------------------------------------------ helpers

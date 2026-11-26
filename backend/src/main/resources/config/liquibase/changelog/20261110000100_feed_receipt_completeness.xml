@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261110000100-feed-receipt-completeness" author="beefcare">
+        <addColumn tableName="feed_item">
+            <column name="nutrition_note" type="varchar(500)"/>
+        </addColumn>
+
+        <addColumn tableName="feed_receipt">
+            <column name="payment_revision" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="initial_payment_amount" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="initial_payment_method" type="varchar(30)"/>
+            <column name="initial_payment_date" type="date"/>
+            <column name="payment_due_date" type="date"/>
+            <column name="posted_by_id" type="bigint"/>
+            <column name="voided_by_id" type="bigint"/>
+            <column name="voided_at" type="${datetimeType}"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="feed_receipt" baseColumnNames="posted_by_id"
+            constraintName="fk_feed_receipt_poster" referencedTableName="app_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="feed_receipt" baseColumnNames="voided_by_id"
+            constraintName="fk_feed_receipt_voider" referencedTableName="app_user" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

@@ -2,9 +2,13 @@ package vn.edu.fpt.beefcare.service.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentState;
 
 public final class FeedManagementDtos {
     private FeedManagementDtos() {}
@@ -14,15 +18,33 @@ public final class FeedManagementDtos {
         @NotNull @PositiveOrZero Long unitPrice) {}
     public record CreateReceiptRequest(@NotNull LocalDate receiptDate, @NotNull Long supplierId,
         @Size(max=50) String invoiceNumber, @Size(max=100) String receivedBy, @Size(max=100) String storageLocation,
-        @Size(max=1000) String note, @PositiveOrZero Long transportFee,
-        @NotEmpty List<@Valid ReceiptLineRequest> lines, boolean postNow) {}
+        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @PositiveOrZero Long amountPaid,
+        PaymentMethod method, LocalDate paymentDate, LocalDate paymentDueDate,
+        @NotEmpty List<@Valid ReceiptLineRequest> lines, boolean postNow) {
+        public CreateReceiptRequest(LocalDate receiptDate, Long supplierId, String invoiceNumber, String receivedBy,
+            String storageLocation, String note, Long transportFee, List<ReceiptLineRequest> lines, boolean postNow) {
+            this(receiptDate, supplierId, invoiceNumber, receivedBy, storageLocation, note, transportFee, null, null, null, null, lines, postNow);
+        }
+    }
     public record UpdateDraftReceiptRequest(@NotNull Integer expectedVersion, @NotNull LocalDate receiptDate, @NotNull Long supplierId,
         @Size(max=50) String invoiceNumber, @Size(max=100) String receivedBy, @Size(max=100) String storageLocation,
-        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @NotEmpty List<@Valid ReceiptLineRequest> lines) {}
+        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @PositiveOrZero Long amountPaid,
+        PaymentMethod method, LocalDate paymentDate, LocalDate paymentDueDate, @NotEmpty List<@Valid ReceiptLineRequest> lines) {
+        public UpdateDraftReceiptRequest(Integer expectedVersion, LocalDate receiptDate, Long supplierId, String invoiceNumber,
+            String receivedBy, String storageLocation, String note, Long transportFee, List<ReceiptLineRequest> lines) {
+            this(expectedVersion, receiptDate, supplierId, invoiceNumber, receivedBy, storageLocation, note, transportFee,
+                null, null, null, null, lines);
+        }
+    }
     public record ReceiptLineView(Long id, Long feedItemId, String feedCode, String feedName, String lotNumber,
         LocalDate expiryDate, BigDecimal quantityPurchase, String purchaseUnit, BigDecimal kgReceived, Long unitPrice, Long lineAmount) {}
     public record ReceiptView(Long id, String code, LocalDate receiptDate, Long supplierId, String supplierName,
-        String status, long goodsAmount, long transportFee, long totalPayable, Integer version, List<ReceiptLineView> lines) {}
+        String invoiceNumber, String receivedBy, String storageLocation, String note, String status,
+        long goodsAmount, long transportFee, long totalPayable, long amountPaid, long outstandingAmount,
+        Long initialPaymentAmount, PaymentMethod initialPaymentMethod, LocalDate initialPaymentDate, LocalDate paymentDueDate,
+        PaymentState paymentState, Integer version, Long createdById, String createdByName, java.time.Instant createdAt,
+        Long postedById, String postedByName, java.time.Instant postedAt, String voidReason,
+        Long voidedById, String voidedByName, java.time.Instant voidedAt, List<ReceiptLineView> lines) {}
     public record VoidReceiptRequest(@NotBlank @Size(max=500) String reason, @NotNull Integer expectedVersion) {}
     public record StockAdjustmentLine(@NotNull Long feedItemId, @NotNull @DecimalMin("0.0") BigDecimal countedKg,
         @Size(max=500) String reason) {}
@@ -46,33 +68,68 @@ public final class FeedManagementDtos {
     public record SaveRationRequest(@Size(max=30) String rationCode,@NotBlank @Size(max=100) String name,
         @Size(max=30) String herdGroup,@Size(max=500) String basis,@NotNull LocalDate effectiveFrom,
         @NotNull @Min(1) @Max(3) Integer sessionsPerDay,@NotEmpty List<@NotBlank String> sessionTimes,
-        @NotEmpty List<@NotNull Long> penIds,@NotEmpty List<@Valid RationComponentRequest> components) {}
+        @NotEmpty List<@NotNull Long> penIds,@NotEmpty List<@Valid RationComponentRequest> components,Integer baseVersion) {
+        public SaveRationRequest(String rationCode,String name,String herdGroup,String basis,LocalDate effectiveFrom,
+            Integer sessionsPerDay,List<String> sessionTimes,List<Long> penIds,List<RationComponentRequest> components) {
+            this(rationCode,name,herdGroup,basis,effectiveFrom,sessionsPerDay,sessionTimes,penIds,components,null);
+        }
+    }
+    /** `version` is the optimistic concurrency token; versionNo remains the public ration revision number. */
+    public record RationVersionRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token, distinct from versionNo") @NotNull @Min(0) Integer version) {}
+    public record StopRationRequest(@NotNull LocalDate endDate,@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token, distinct from versionNo") @NotNull @Min(0) Integer version) {}
     public record RationComponentView(Long feedItemId,String feedCode,String feedName,BigDecimal session1Kg,
-        BigDecimal session2Kg,BigDecimal session3Kg,BigDecimal dailyKg,BigDecimal estimatedDailyCost) {}
+        BigDecimal session2Kg,BigDecimal session3Kg,BigDecimal dailyKg,BigDecimal estimatedDailyCost,boolean outOfStock) {}
     public record RationView(Long id,String rationCode,Integer versionNo,String name,String herdGroup,String basis,
-        LocalDate effectiveFrom,LocalDate effectiveTo,String status,Integer sessionsPerDay,List<Long> penIds,
+        LocalDate effectiveFrom,LocalDate effectiveTo,String status,@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token; versionNo is the business ration version") Integer version,Integer sessionsPerDay,List<String> sessionTimes,List<Long> penIds,
         List<RationComponentView> components) {}
     public record FeedingLineRequest(@NotNull Long feedItemId,@NotNull @DecimalMin("0.0") BigDecimal actualKg) {}
     public record RecordFeedingRequest(@NotNull Long penId,@NotNull LocalDate feedingDate,@NotNull @Min(1) @Max(3) Integer sessionNo,
-        @Size(max=100) String fedBy,@NotEmpty List<@Valid FeedingLineRequest> lines) {}
-    public record FeedingLineView(Long feedItemId,String feedCode,BigDecimal plannedKg,BigDecimal actualKg,BigDecimal unitCost,Long totalCost) {}
-    public record FeedingView(Long id,Long penId,LocalDate feedingDate,Integer sessionNo,Integer headCount,String status,
-        Integer version,Long rationVersionId,List<FeedingLineView> lines) {}
-    public record FeedingVoidRequest(@NotBlank @Size(max=500) String reason,@NotNull Integer expectedVersion) {}
-    public record FeedingCorrectionRequest(@NotBlank @Size(max=500) String reason,@NotNull Integer expectedVersion,
-        @Size(max=100) String fedBy,@NotEmpty List<@Valid FeedingLineRequest> lines) {}
+        LocalTime feedingTime,@Size(max=100) String fedBy,@DecimalMin("0.0") @Digits(integer=11,fraction=1) BigDecimal leftoverKg,
+        @Size(max=500) String note,@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least one feeding line") @NotEmpty List<@Valid FeedingLineRequest> lines) {}
+    public record FeedingPlanRationView(Long id,String rationCode,Integer versionNo,String name,Integer sessionsPerDay) {}
+    public record FeedingPlanLineView(Long feedItemId,String feedCode,String feedName,BigDecimal kgPerHead,
+        BigDecimal plannedKg,BigDecimal stockKg,boolean available) {}
+    public record FeedingPlanView(Long penId,String penCode,LocalDate feedingDate,Integer sessionNo,LocalTime feedingTime,
+        FeedingPlanRationView ration,Integer headCount,List<FeedingPlanLineView> lines,Long existingRecordId) {}
+    public record FeedingLineView(Long feedItemId,String feedCode,String feedName,BigDecimal plannedKg,BigDecimal actualKg,
+        boolean inRation,BigDecimal unitCost,Long totalCost) {}
+    public record FeedingRevisionView(String action,String reason,java.time.Instant changedAt,String actorName) {}
+    public record FeedingView(Long id,Long penId,String penCode,String penName,LocalDate feedingDate,Integer sessionNo,
+        LocalTime time,Integer headCount,String status,Integer version,Long rationVersionId,String rationCode,Integer rationVersion,
+        String fedBy,String recordedBy,java.time.Instant recordedAt,BigDecimal leftoverKg,String note,String voidReason,
+        BigDecimal plannedTotalKg,BigDecimal actualTotalKg,List<FeedingLineView> lines,List<FeedingRevisionView> revisions) {}
+    public record FeedingVoidRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least five non-whitespace characters") @NotBlank @Size(min=5,max=500) String reason,@NotNull Integer expectedVersion) {}
+    public record FeedingCorrectionRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least five non-whitespace characters") @NotBlank @Size(min=5,max=500) String reason,@NotNull Integer expectedVersion,
+        @Size(max=100) String fedBy,@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least one feeding line") @NotEmpty List<@Valid FeedingLineRequest> lines) {}
     public record FeedReminderView(String ruleType,Long sourceId,Long feedItemId,Long penId,String code,String title,
         java.time.Instant dueTime,String status) {}
     public record ConsumptionRow(Long penId,String penCode,String herdGroup,Long feedItemId,String feedCode,
         BigDecimal plannedKg,BigDecimal actualKg,BigDecimal varianceRatio,Long totalCost) {}
-    public record ConsumptionReport(LocalDate from,LocalDate to,List<ConsumptionRow> rows,BigDecimal adjustmentLossKg,
+    public record ConsumptionReportTile(BigDecimal kg,Long cost,BigDecimal averageKgPerHeadDay,Long averageCostPerHeadDay,
+        BigDecimal days,BigDecimal headDays,BigDecimal receivedKg,Long receiptCount,Long receivedAmount) {}
+    public record ConsumptionReportGroupedRow(String group,BigDecimal avgHead,BigDecimal kg,BigDecimal kgPerHeadDay,
+        Long cost,Long costPerHeadDay,BigDecimal variancePct,List<String> notes) {}
+    public record ConsumptionReportTotal(BigDecimal kg,Long cost,BigDecimal kgPerHeadDay,Long costPerHeadDay,
+        BigDecimal days,BigDecimal headDays) {}
+    public record ConsumptionReportCostByFeed(String feedCode,String feedName,BigDecimal kg,Long cost) {}
+    public record ConsumptionReportAdjustmentLosses(BigDecimal kg,Long value) {}
+    public record ConsumptionReport(LocalDate from,LocalDate to,String groupBy,ConsumptionReportTile tiles,
+        List<ConsumptionReportGroupedRow> rows,ConsumptionReportTotal total,List<ConsumptionReportCostByFeed> costByFeed,
+        ConsumptionReportAdjustmentLosses adjustmentLosses,List<ConsumptionRow> rawRows,BigDecimal adjustmentLossKg,
         Long adjustmentLossValue,java.time.Instant generatedAt) {}
-    public record ConsumptionReportRequest(@NotNull LocalDate from,@NotNull LocalDate to) {}
+    public record ConsumptionReportRequest(@NotNull LocalDate from,@NotNull LocalDate to,
+        @NotBlank @Pattern(regexp="HERD_GROUP|PEN|FEED") String groupBy) {}
     public record FeedItemRequest(@NotBlank @Size(max=50) @Pattern(regexp="TA-[0-9]{2,}") String code,@NotBlank @Size(max=150) String name,
-        @NotBlank @Size(max=30) String feedGroup,@Size(max=30) String purchaseUnit,
+        @NotBlank @Pattern(regexp="GREEN_ROUGHAGE|DRY_ROUGHAGE|CONCENTRATE|TMR|MINERAL_ADDITIVE|CALF_FEED") String feedGroup,@Size(max=30) String purchaseUnit,
         @DecimalMin(value="0.001") BigDecimal kgPerPurchaseUnit,@DecimalMin("0.0") BigDecimal minimumStockKg,
-        @NotNull Boolean available,Integer expectedVersion) {}
-    public record FeedItemView(Long id,String code,String name,String feedGroup,String purchaseUnit,
+        @Size(max=500) String nutritionNote,
+        @NotNull Boolean available,Integer expectedVersion) {
+        public FeedItemRequest(String code, String name, String feedGroup, String purchaseUnit,
+            BigDecimal kgPerPurchaseUnit, BigDecimal minimumStockKg, Boolean available, Integer expectedVersion) {
+            this(code, name, feedGroup, purchaseUnit, kgPerPurchaseUnit, minimumStockKg, null, available, expectedVersion);
+        }
+    }
+    public record FeedItemView(Long id,String code,String name,String feedGroup,String nutritionNote,String purchaseUnit,
         BigDecimal kgPerPurchaseUnit,String stockUnit,BigDecimal onHandKg,BigDecimal averageUnitCost,
         BigDecimal minimumStockKg,Boolean available,Integer version) {}
 }

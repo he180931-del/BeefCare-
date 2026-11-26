@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import { financeDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
 import ReceiptRoutes from '../../../src/features/platform-finance/pages/ReceiptRoutes'
 import ManualFinanceRoutes from '../../../src/features/platform-finance/pages/ManualFinanceRoutes'
@@ -30,6 +30,14 @@ const renderAt = (path: string) =>
 beforeEach(async () => { await financeDemoStore.reset() })
 
 describe('SCR-70 biên nhận gói', () => {
+  it('chọn dòng biên nhận hiện chi tiết ở cột bên phải (không popup)', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/bien-nhan')
+    const receiptRow = (await screen.findByRole('button', { name: 'RC-26-0412' })).closest('tr') as HTMLElement
+    await user.click(receiptRow)
+    expect(await screen.findByText('15/11/2026 → 14/11/2027')).toBeInTheDocument()
+  })
+
   it('hiện số liệu tháng, chọn dòng đổi chi tiết, mở hộp thoại chỉ đọc', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/bien-nhan')
@@ -38,8 +46,7 @@ describe('SCR-70 biên nhận gói', () => {
     await user.click(screen.getByRole('button', { name: 'Trại Vân Hòa' }))
     expect(screen.getAllByText('BCA9X2M1').length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'RC-26-0412' }))
-    expect((await screen.findAllByText('Biên nhận RC-26-0412 · Chỉ đọc')).length).toBeGreaterThan(0)
-    expect(screen.getByDisplayValue('15/11/2026 – 14/11/2027')).toBeInTheDocument()
+    expect(await screen.findByText('15/11/2026 → 14/11/2027')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /sửa|xóa|hủy bỏ/i })).toBeNull()
   })
   it('tìm không thấy thì hiện trạng thái rỗng và xóa bộ lọc', async () => {
@@ -53,6 +60,14 @@ describe('SCR-70 biên nhận gói', () => {
 })
 
 describe('SCR-71/72 thu chi khác', () => {
+  it('mở khoản thu chi khi bấm vào vùng trống của dòng', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/thu-chi')
+    const recordRow = (await screen.findByRole('button', { name: 'FR-0104' })).closest('tr') as HTMLElement
+    await user.click(recordRow)
+    expect((await screen.findAllByText('Khoản FR-0104 đã ghi sổ')).length).toBeGreaterThan(0)
+  })
+
   it('tab đếm đúng và lọc theo trạng thái', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/thu-chi')
@@ -86,11 +101,11 @@ describe('SCR-71/72 thu chi khác', () => {
   it('tạo khoản mới: báo lỗi số tiền, rồi lưu nháp', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/thu-chi/moi')
-    await user.click(await screen.findByRole('button', { name: 'Lưu nháp' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Lưu nháp' }))[0])
     expect(await screen.findByText('Số tiền phải là số nguyên đồng lớn hơn 0.')).toBeInTheDocument()
-    await user.selectOptions(document.getElementById('fr-cat') as HTMLSelectElement, 'Phí nhắn tin SMS')
+    await user.selectOptions(document.getElementById('fr-cat') as HTMLSelectElement, 'EMAIL_NOTIFICATIONS')
     await user.type(document.getElementById('fr-amount') as HTMLInputElement, '500000')
-    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await user.click(screen.getAllByRole('button', { name: 'Lưu nháp' })[0])
     expect(await screen.findByText(/đã được lưu ở trạng thái nháp/)).toBeInTheDocument()
     expect((await financeDemoStore.listRecords({})).total).toBe(25)
   })
@@ -116,17 +131,59 @@ describe('SCR-73 báo cáo dòng tiền', () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/bao-cao-dong-tien')
     expect(await screen.findByText('100.140.000 đ')).toBeInTheDocument()
-    expect(screen.getByText(/SNAP-20261019-001/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Chạy \/ làm mới báo cáo/ }))
-    expect((await screen.findAllByText('Đã làm mới báo cáo')).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/SNAP-20261019-002/).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('heading', { name: 'Phạm vi tính' })).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Nguồn'), 'RECEIPTS')
+    expect(screen.queryByText(/Bộ lọc đã đổi/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Chạy báo cáo/ }))
+    expect((await screen.findAllByText(/Đã làm mới báo cáo/)).length).toBeGreaterThan(0)
+  })
+  it('không hiện nút xem chi tiết giao dịch trong bản chốt đang xem', async () => {
+    renderAt('/nen-tang/bao-cao-dong-tien')
+    await screen.findByText('100.140.000 đ')
+    expect(screen.queryByText('Kết quả đang xem', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Xem chi tiết giao dịch' })).not.toBeInTheDocument()
+  })
+  it('bỏ ghi chú diễn giải khoản nháp và chi chung khi xem riêng một trại', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/bao-cao-dong-tien')
+    await user.click(await screen.findByRole('button', { name: 'Trại bò Yên Bài – Ba Vì' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByText(/Khoản còn Nháp ở bản chốt này nên chưa tính/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Không phân bổ chi Chung nền tảng vào trại/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Bấm một giao dịch để xem chi tiết/)).not.toBeInTheDocument()
+  })
+  it('bấm trại mở danh sách giao dịch của trại; bấm một dòng mở chi tiết giao dịch', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/bao-cao-dong-tien')
+    await user.click(await screen.findByRole('button', { name: 'Trại bò Yên Bài – Ba Vì' }))
+    const list = await screen.findByRole('dialog')
+    expect(within(list).getByText('Giao dịch của Trại bò Yên Bài – Ba Vì')).toBeInTheDocument()
+    await user.click(within(list).getAllByRole('row', { name: /Xem giao dịch/ })[0])
+    expect(await screen.findByText('Loại giao dịch')).toBeInTheDocument()
+    expect(screen.getByText('Ngày dòng tiền')).toBeInTheDocument()
+  })
+  it('popup trại: lọc một dòng, chỉ áp dụng khi bấm Tìm', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/bao-cao-dong-tien')
+    await user.click(await screen.findByRole('button', { name: 'Trại bò Yên Bài – Ba Vì' }))
+    const dialog = await screen.findByRole('dialog')
+    const before = within(dialog).getAllByRole('row', { name: /Xem giao dịch/ }).length
+    await user.selectOptions(within(dialog).getByLabelText('Loại giao dịch'), 'OUT')
+    expect(within(dialog).getAllByRole('row', { name: /Xem giao dịch/ }).length).toBe(before)
+    await user.click(within(dialog).getByRole('button', { name: 'Tìm' }))
+    expect(within(dialog).queryAllByRole('row', { name: /Xem giao dịch/ }).every((r) => /−/.test(r.textContent ?? ''))).toBe(true)
   })
   it('xuất XLSX đúng bản chốt đang xem', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/bao-cao-dong-tien')
-    await user.click(await screen.findByRole('button', { name: /Xuất XLSX/ }))
+    await user.click(await screen.findByRole('button', { name: /Xuất báo cáo/ }))
     const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: /Xuất XLSX/ }))
+    expect(within(dialog).getByText('Xem trước báo cáo')).toBeInTheDocument()
+    expect(within(dialog).getByRole('tab', { name: 'Thu' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('table', { name: 'Bản xem trước sheet Tổng hợp' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('tab', { name: 'Thu' }))
+    expect(within(dialog).getByRole('table', { name: 'Bản xem trước sheet Thu' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /Tải xuống XLSX/ }))
     expect(await screen.findByText(/dong-tien-nen-tang-SNAP-20261019-001\.xlsx/)).toBeInTheDocument()
   })
   it('bản chốt hết hạn: xuất báo hộp thoại không còn khả dụng', async () => {
@@ -135,7 +192,7 @@ describe('SCR-73 báo cáo dòng tiền', () => {
     renderAt('/nen-tang/bao-cao-dong-tien?m=xuat')
     expect(await screen.findByText(/đã hết hạn/)).toBeInTheDocument()
     const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: /Xuất XLSX/ }))
+    await user.click(within(dialog).getByRole('button', { name: /Tải xuống XLSX/ }))
     expect((await screen.findAllByText('Kết quả báo cáo không còn khả dụng')).length).toBeGreaterThan(0)
   })
 })

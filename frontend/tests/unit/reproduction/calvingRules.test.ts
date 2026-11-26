@@ -36,14 +36,24 @@ describe('calving rules (GBR-57, GBR-58, MSG-FE12-06/07/08, MSG-FE05-12)', () =>
     expect(issues.map((issue) => [issue.calf, issue.field])).toEqual([[1, 'earTag']])
   })
 
-  it('needs a tag only when the live calf is registered now, not for a draft', () => {
-    expect(calvingIssues(command([{ ...live, earTag: '' }]), context)[0]).toMatchObject({ calf: 0, field: 'earTag' })
+  it('FE-12 Q5 / D36: a tag is optional even when the live calf is registered now, but still at most 50 characters', () => {
+    expect(calvingIssues(command([{ ...live, earTag: '' }]), context)).toEqual([])
     expect(calvingIssues(command([{ ...live, earTag: '', registration: 'DRAFT' }]), context)).toEqual([])
+    expect(calvingIssues(command([{ ...live, earTag: 'T'.repeat(51) }]), context)[0]).toMatchObject({ calf: 0, field: 'earTag' })
   })
 
   it('needs a weight basis with a weight and keeps the weight between 1 and 80 kg', () => {
     expect(calvingIssues(command([{ ...live, weightBasis: null }]), context)[0]).toMatchObject({ field: 'weightBasis' })
     expect(calvingIssues(command([{ ...live, weightKg: 81 }]), context)[0]).toMatchObject({ field: 'weight' })
+  })
+
+  it('TC-12-12: reports out-of-range live-calf weights and missing weight basis', () => {
+    for (const weightKg of [0.5, 80.1]) {
+      expect(calvingIssues(command([{ ...live, weightKg }]), context)[0])
+        .toMatchObject({ field: 'weight', message: 'Bê số 1: cân nặng phải từ 1 đến 80 kg.' })
+    }
+    expect(calvingIssues(command([{ ...live, weightKg: 25, weightBasis: null }]), context)[0])
+      .toMatchObject({ field: 'weightBasis', message: 'Bê số 1: chọn cơ sở cân.' })
   })
 
   it('refuses a SIRE purpose for a female calf and a BREEDING purpose for a male calf', () => {
@@ -79,5 +89,6 @@ describe('breeding eligibility and expected date', () => {
 
   it('adds the 283 day gestation length to a breeding time', () => {
     expect(expectedCalvingDate('2026-10-20T15:10')).toBe('2027-07-30T15:10')
+    expect(expectedCalvingDate('2026-11-01T09:00')).toBe('2027-08-11T09:00')
   })
 })
