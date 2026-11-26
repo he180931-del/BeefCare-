@@ -43,7 +43,7 @@ export default function InvitationsPage() {
         </tbody>
       </Table>}
       <Pagination page={page + 1} pageCount={pageCount} onChange={next => { if (busy === null) changeList(selectedStatus, dir, next - 1) }} summary={invitations.total ? `Hiển thị ${page * invitations.size + 1}–${Math.min((page + 1) * invitations.size, invitations.total)} trong ${invitations.total} lời mời` : '0 lời mời'} />
-      <Foot>Chỉ lời mời đang chờ, chưa hết hạn mới được gửi lại hoặc hủy. Cập nhật lúc {formatDateTime(invitations.asOf, farm.timeZone)}.</Foot>
+      <Foot>Cập nhật lúc {formatDateTime(invitations.asOf, farm.timeZone)}</Foot>
       {confirmCancel && (
         // MSG-FE03-06 is a confirmation dialog (SRS V.2, D27): centred whichever row was chosen; it keeps the version seen when opened.
         <Modal title="Hủy lời mời" width={560} onClose={closeCancel}>

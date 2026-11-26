@@ -88,7 +88,9 @@ public final class ReproductionDtos {
     public record Due(LocalDate date, Instant windowFrom, Instant windowTo) {}
     public record WorklistItem(Long cattleId, String code, String name, String earTag, Integer ageMonths, BigDecimal latestWeightKg, Ref breed, Ref pen, String status, Instant statusSince,
                                Eligibility eligibility, LatestEvent latestEvent, String nextAction, Due due,
-                               LocalDate expectedCalvingDate, String expectedBasis, Integer version) {}
+                               LocalDate expectedCalvingDate, String expectedBasis, Integer version, DeclaredPregnancy declaredPregnancy) {}
+    /** D82, SCR-39 #3: khai báo "mang thai ~n tháng" lúc nhập, chưa có khám thai / lần đẻ sau ngày nhập; estMonths null khi không rõ số tháng. */
+    public record DeclaredPregnancy(Integer estMonths, LocalDate entryDate) {}
     public record Tiles(int inEstrus, int inWindow, int checkDue, int calving30, int postCalvingReady, int notEligible) {}
     public record Counts(int awaitingBreeding, int inEstrus, int bred, int pregnant, int dueSoon, int postCalving, int all) {}
     public record Worklist(Tiles tiles, Counts counts, List<WorklistItem> items) {}
@@ -124,7 +126,7 @@ public final class ReproductionDtos {
     public record Profile(Long cattleId, String code, String name, String earTag, Integer ageMonths, String sex, String lifeStage, String purposeType,
                           String herdStatus, Ref breed, Ref pen, Integer version, boolean applicable, String notApplicableReason,
                           String status, Instant statusSince, int servicesInCycle, int parity, LastCalving lastCalving,
-                          LatestWeight latestWeight, Integer declaredPregnancyMonths, Indicators indicators,
+                          LatestWeight latestWeight, DeclaredPregnancy declaredPregnancy, Indicators indicators,
                           boolean canManage, List<String> allowedActions, List<String> otherActions,
                           EligibilityDetail eligibility, EstrusWindow window, LatestBreeding latestBreeding,
                           CurrentPregnancy currentPregnancy, List<TimelineRow> timeline, List<CalvingRow> calvings) {}

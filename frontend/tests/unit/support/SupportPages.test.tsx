@@ -35,6 +35,7 @@ describe('SCR-64 danh sách ticket', () => {
     const user = userEvent.setup()
     renderAt('/ho-tro')
     expect(await screen.findByText('TK-1042')).toBeInTheDocument()
+    expect(screen.getByTitle('Đã chuyển khoản gia hạn nhưng chưa thấy xác nhận')).toHaveClass('truncate')
     expect(screen.getByText('Tất cả (5)')).toBeInTheDocument()
     expect(screen.getByText('Chờ bạn xác nhận')).toBeInTheDocument()
     expect(screen.queryByText('TK-1043')).not.toBeInTheDocument()
@@ -84,11 +85,12 @@ describe('SCR-65 gửi yêu cầu', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/ho-tro/1045')
   })
 
-  it('phạm vi tài khoản không gắn trại', async () => {
-    const user = userEvent.setup()
+  it('không hiển thị điều khiển gán trại vì ticket luôn dùng trại đang mở', async () => {
     renderAt('/ho-tro/moi')
-    await user.click(await screen.findByRole('button', { name: 'Không gắn trại' }))
-    expect(screen.getByLabelText('Trang trại liên quan', { selector: 'select' })).toBeDisabled()
+    expect(await screen.findByRole('heading', { name: /Gửi yêu cầu/ })).toBeInTheDocument()
+    expect(screen.queryByText('Tự động gắn với trại bạn đang mở.')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Trang trại liên quan', { selector: 'select' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Danh mục hỗ trợ' })).not.toBeInTheDocument()
   })
 })
 
@@ -96,13 +98,18 @@ describe('SCR-66 chi tiết ticket', () => {
   it('xác nhận kết quả: hiện hộp thoại, giữ Đã giải quyết và bỏ nút xác nhận', async () => {
     const user = userEvent.setup()
     renderAt('/ho-tro/1031')
-    expect(await screen.findByText('Kết quả giải quyết · phiên bản 2')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Kết quả giải quyết' }))
+    const results = await screen.findByRole('dialog', { name: 'Kết quả giải quyết' })
+    expect(within(results).getByText('Người xử lý')).toBeInTheDocument()
+    expect(within(results).getByText('Ghi chú xác nhận')).toBeInTheDocument()
+    expect(screen.queryByText('Ưu tiên')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Xác nhận đã giải quyết' }))
     const dialog = await screen.findByRole('dialog', { name: 'Bạn đã xác nhận kết quả' })
     expect(within(dialog).getByText('Kết quả phiên bản 2')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: /Về yêu cầu/ }))
     expect(screen.queryByRole('button', { name: 'Xác nhận đã giải quyết' })).not.toBeInTheDocument()
-    expect(screen.getByText(/Bạn đã xác nhận kết quả này lúc/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Kết quả giải quyết' }))
+    expect(await screen.findByText(/Bạn đã xác nhận kết quả này lúc/)).toBeInTheDocument()
   })
 
   it('mở lại bắt buộc lý do, rồi hiện ticket đã mở lại và xem được kết quả trước', async () => {
@@ -123,12 +130,13 @@ describe('SCR-66 chi tiết ticket', () => {
   it('kết quả mới hơn khi đang xem: báo đã thay đổi và tải lại phiên bản 3', async () => {
     const user = userEvent.setup()
     renderAt('/ho-tro/1031')
-    await screen.findByText('Kết quả giải quyết · phiên bản 2')
+    await user.click(await screen.findByRole('button', { name: 'Kết quả giải quyết' }))
     await supportDemoStore.simulateCsResolve(1031, 'Đã cấu hình lại bộ đọc thẻ cho máy này.')
     await user.click(screen.getByRole('button', { name: 'Xác nhận đã giải quyết' }))
     const dialog = await screen.findByRole('dialog', { name: 'Kết quả đã thay đổi' })
     await user.click(within(dialog).getByRole('button', { name: /Tải lại yêu cầu/ }))
-    expect(await screen.findByText('Kết quả giải quyết · phiên bản 3')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Kết quả giải quyết' }))
+    expect(await screen.findByText('Đã cấu hình lại bộ đọc thẻ cho máy này.')).toBeInTheDocument()
   })
 
   it('gửi phản hồi: bắt buộc nội dung, cập nhật trạng thái khi đang chờ chủ trại', async () => {
@@ -151,7 +159,7 @@ describe('SCR-66 chi tiết ticket', () => {
     closed.unmount()
 
     renderAt('/ho-tro/1031')
-    await screen.findByText('Kết quả giải quyết · phiên bản 2')
+    expect(await screen.findByRole('button', { name: 'Kết quả giải quyết' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Phản hồi công khai'), 'Cảm ơn bộ phận hỗ trợ.')
     const t = await supportApi.getTicket(1031)
     await supportApi.acknowledge(1031, { resolutionVersion: 2, expectedVersion: t.version })

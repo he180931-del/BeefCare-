@@ -3,7 +3,7 @@ import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { breedingDetails, calvingSummary } from '../domain/reproductionRules'
 import { SIGN_CODE } from './reproductionDto'
 import type {
-  BreedingEligibility, CalfOutcome, CalvingRecord, DataSource, OpenPregnancy, ReproductionEvent,
+  BreedingEligibility, CalfOutcome, CalvingRecord, DataSource, DeclaredPregnancy, OpenPregnancy, ReproductionEvent,
   ReproductionEventType, ReproductionFemale, ReproductiveStatus,
 } from '../types'
 const ID = { event: 'e', update: 'u', calving: 'c', calf: 'f', episode: 'p' } as const
@@ -173,6 +173,7 @@ export function mapProfile(raw: unknown): ReproductionFemale {
   const status = pickStatus(p.status)
   const eligibility = mapEligibility(p.eligibility)
   const latestBreeding = asRecord(p.latestBreeding)
+  const declaredPregnancy = mapDeclaredPregnancy(p.declaredPregnancy)
   return {
     cattleId: String(num(p.cattleId) ?? ''), cattleCode: textValue(p.code), name: text(p.name) ?? '—', earTag: textValue(p.earTag), sex: 'FEMALE',
     breed: textValue(breed.name), penId: num(pen.id) === undefined ? '' : String(num(pen.id)), penCode: textValue(pen.code), penName: textValue(pen.name),
@@ -182,7 +183,8 @@ export function mapProfile(raw: unknown): ReproductionFemale {
     earlierCalvings: Math.max(0, (num(p.parity) ?? 0) - calvings.filter((c) => c.status === 'VALID').length),
     servicesInCurrentCycle: num(p.servicesInCycle) ?? 0, lastCalvingAt: text(asRecord(p.lastCalving).at) ? toFarmLocal(asRecord(p.lastCalving).at) : null,
     breedingWindow: window.configured === true ? { from: toFarmLocal(window.from), to: toFarmLocal(window.to) } : null,
-    nextAction: status === 'IN_ESTRUS' || status === 'AWAITING_BREEDING' || status === 'POST_CALVING' ? NEXT_ACTION_TEXT.CONSIDER_BREEDING
+    nextAction: declaredPregnancy ? NEXT_ACTION_TEXT.PREGNANCY_CHECK
+      : status === 'IN_ESTRUS' || status === 'AWAITING_BREEDING' || status === 'POST_CALVING' ? NEXT_ACTION_TEXT.CONSIDER_BREEDING
       : status === 'BRED' ? NEXT_ACTION_TEXT.PREGNANCY_CHECK : status === 'PREGNANT' ? NEXT_ACTION_TEXT.PREPARE_CALVING_PEN : '',
     dueAt: status === 'BRED' ? dateTime(latestBreeding.checkFrom) : status === 'PREGNANT' ? openPregnancy?.expectedCalvingAt ?? null : null,
     eligibility, openHealthCase: eligibility ? !eligibility.noOpenHealthCase : false, openPregnancy,
@@ -193,8 +195,15 @@ export function mapProfile(raw: unknown): ReproductionFemale {
       daysSinceLastCalving: num(ind.daysSinceCalving) ?? null, daysOpen: num(ind.daysOpen) ?? null,
       conceptionSummary: `${num(ind.conceptions) ?? 0} lần có thai / ${num(ind.services) ?? 0} lần phối`, overdueForConception: ind.overdue === true,
     },
-    declaredPregnancyAtEntryMonths: num(p.declaredPregnancyMonths) ?? null, version: num(p.version) ?? 0,
+    declaredPregnancy, version: num(p.version) ?? 0,
   }
+}
+
+/** D82: khai báo mang thai lúc nhập (`declaredPregnancy` của A1 / A2); thiếu ngày nhập coi như không có. */
+export function mapDeclaredPregnancy(raw: unknown): DeclaredPregnancy | null {
+  const d = asRecord(raw)
+  const entryDate = dateTime(d.entryDate)
+  return entryDate ? { months: num(d.estMonths) ?? null, entryDate } : null
 }
 
 /** Một dòng A1 → dòng SCR-38 (đủ trường cho lọc, tab, ô thống kê và cột của màn danh sách). */
@@ -224,6 +233,6 @@ export function mapWorklistItem(raw: unknown): ReproductionFemale {
     }] : [],
     calvings: [], revisions: [],
     indicators: { ageAtFirstCalvingMonths: null, lastCalvingIntervalDays: null, daysSinceLastCalving: null, daysOpen: null, conceptionSummary: '', overdueForConception: false },
-    declaredPregnancyAtEntryMonths: null, version: num(i.version) ?? 0,
+    declaredPregnancy: mapDeclaredPregnancy(i.declaredPregnancy), version: num(i.version) ?? 0,
   }
 }

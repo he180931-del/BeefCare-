@@ -23,6 +23,37 @@ export class VaccinationValidationError extends Error {
 }
 
 export const hasErrors = (e: FieldErrors) => Object.keys(e).length > 0
+
+/** SCR-34 (D78): tóm tắt tiêm phòng của một con bò, đặt đầu tab Tiêm phòng. */
+export interface CattleVaccinationSummary {
+  /** Mũi theo lịch còn phải tiêm. */
+  scheduled: number
+  /** Trong số đó, bao nhiêu mũi đã quá hạn. */
+  overdue: number
+  /** Số lần đã tiêm còn hiệu lực, kể cả mũi lẻ và mũi nhập lịch sử. */
+  done: number
+  /** Ngày hết ngưng sử dụng thịt muộn nhất còn hiệu lực, nếu có. */
+  withdrawalEnd?: string
+}
+
+/**
+ * Tính tóm tắt từ dữ liệu tab đang hiển thị: mũi theo lịch lấy từ {@code doses}, số lần đã tiêm và ngày ngưng thịt
+ * lấy từ {@code records} còn hiệu lực. Không gọi thêm API.
+ */
+export function cattleVaccinationSummary(
+  doses: ReadonlyArray<Pick<DoseRow, 'state'>>,
+  records: ReadonlyArray<{ status: string; withdrawalEndDate?: string }>,
+  today: string,
+): CattleVaccinationSummary {
+  const valid = records.filter((r) => r.status === 'VALID')
+  const ends = valid.map((r) => r.withdrawalEndDate).filter((end): end is string => !!end && end >= today)
+  return {
+    scheduled: doses.length,
+    overdue: doses.filter((d) => d.state === 'OVERDUE').length,
+    done: valid.length,
+    withdrawalEnd: ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : undefined,
+  }
+}
 export const CONFLICT_MESSAGE = 'Bản ghi đã thay đổi hoặc không còn ở trạng thái cho phép thao tác. Vui lòng tải lại và kiểm tra trước khi thử lại.'
 
 /**

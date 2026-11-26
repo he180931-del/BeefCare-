@@ -20,6 +20,7 @@ import vn.edu.fpt.beefcare.domain.HerdEntry;
 import vn.edu.fpt.beefcare.domain.HerdEntryVoucher;
 import vn.edu.fpt.beefcare.domain.PreEntryHistoryDeclaration;
 import vn.edu.fpt.beefcare.domain.Vaccination;
+import vn.edu.fpt.beefcare.domain.Vaccine;
 import vn.edu.fpt.beefcare.domain.VaccinationSchedule;
 import vn.edu.fpt.beefcare.domain.enumeration.AssignmentSource;
 import vn.edu.fpt.beefcare.domain.enumeration.DeclarationCategory;
@@ -326,25 +327,33 @@ public class HerdEntryPostingService {
         declarationRepository.save(p);
     }
 
+    /**
+     * Ghi một mũi khai báo thành bản ghi "Nhập lịch sử" (FE-06 §3.3, R-09-08): không gắn mũi theo lịch, không tính ngưng
+     * thịt. D82: mũi chọn từ danh mục gắn vắc-xin; mũi gõ tên tự do (hoặc vắc-xin không còn trong danh mục) chỉ lưu tên.
+     * Dòng không có cả vắc-xin lẫn tên thì bỏ qua.
+     */
     void recordHistoricalVaccination(Cattle cattle, EntryLineRequest.VaccinationItem item, String declarationSource, LocalDate entryDate) {
-        if (item.vaccineId() == null) {
-            return;
-        }
-        var vaccine = catalog.vaccine(cattle.getFarm().getId(), item.vaccineId()).orElse(null);
-        if (vaccine == null) {
+        Vaccine vaccine = item.vaccineId() == null ? null : catalog.vaccine(cattle.getFarm().getId(), item.vaccineId()).orElse(null);
+        String name = vaccine != null ? vaccine.getName() : trimToNull(item.vaccineName());
+        if (name == null) {
             return;
         }
         Vaccination vac = new Vaccination();
         vac.setCattle(cattle);
         vac.setVaccine(vaccine);
+        vac.setVaccineNameSnapshot(name);
         vac.setVaccinationDate(item.date() != null ? item.date() : entryDate);
         vac.setEntryTime(clock.now());
-        vac.setDose(vaccine.getDose());
+        vac.setDose(vaccine == null ? null : vaccine.getDose());
         vac.setSource("HISTORICAL");
         vac.setVaccinator(PRE_ENTRY_VACCINATOR);
         String info = item.informationSource() != null ? item.informationSource() : declarationSource;
         vac.setInformationSource(item.date() == null ? (info == null ? "" : info + "; ") + UNKNOWN_VACCINATION_DATE : info);
         vaccinationRepository.save(vac);
+    }
+
+    private static String trimToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private void issueQrTag(FarmContext ctx, Cattle cattle, Resolved r) {

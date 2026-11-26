@@ -100,7 +100,7 @@ export default function FarmDashboardPage() {
           )}
           <div className="col-span-full">
             <Foot>
-              {`Số liệu tính lúc ${formatDateTime((metrics ?? overview).generatedAt, overview.timeZone)} theo múi giờ của trại. Kỳ áp dụng cho mức tăng cân bình quân; các chỉ số còn lại tính đến thời điểm hiện tại.`}
+              {`Số liệu tính lúc ${formatDateTime((metrics ?? overview).generatedAt, overview.timeZone)}`}
             </Foot>
           </div>
         </div>

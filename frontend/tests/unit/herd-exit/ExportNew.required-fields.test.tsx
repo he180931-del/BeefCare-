@@ -66,4 +66,22 @@ describe('herd-exit required-field validation', () => {
     expect(screen.getByLabelText('Nguyên nhân mất tích')).toBeInTheDocument()
     expect(screen.queryByLabelText('Phương án xử lý xác')).not.toBeInTheDocument()
   })
+  it('keeps destination and note separate for an Other voucher (SCR-42 #5)', async () => {
+    const user = userEvent.setup()
+    const { default: ExportNew } = await import('../../../src/features/herd-exit/pages/ExportNew')
+    render(<MemoryRouter initialEntries={['/herd-exit/new']}><Routes><Route path="/herd-exit/new" element={<ExportNew />} /></Routes></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Khác' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(screen.getByText('Vui lòng nhập nơi đến.')).toBeInTheDocument()
+    expect(saveHerdExit).not.toHaveBeenCalled()
+
+    await user.type(screen.getByLabelText('Nơi đến'), 'Trại bạn')
+    await user.type(screen.getByLabelText('Ghi chú'), 'Chuyển nuôi hộ 3 tháng')
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(saveHerdExit).toHaveBeenCalledTimes(1)
+    const record = saveHerdExit.mock.calls[0][0].record
+    expect(record.who).toBe('Trại bạn')
+    expect(record.draft).toMatchObject({ destination: 'Trại bạn', note: 'Chuyển nuôi hộ 3 tháng' })
+  })
 })

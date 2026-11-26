@@ -62,7 +62,7 @@ it('price is enabled before weight or basis and calculates from the entered weig
  await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).toHaveBeenCalledWith(expect.objectContaining({weight:236,weightBasis:'MEASURED',unitPrice:85000}))
 })
 it('per-head uses one editable price and keeps weight optional', async () => {
- const {input,onSave}=renderModal(vi.fn(),{unitPrice:8500000},'con');expect(screen.getByText('Theo con – áp cho cả phiếu')).toBeInTheDocument();
+ const {input,onSave}=renderModal(vi.fn(),{unitPrice:8500000},'con');expect(screen.getByText('Số tiền mua con này')).toBeInTheDocument();
  expect(document.querySelector('#entry-cow-total-amount')).not.toBeInTheDocument();expect(document.querySelector('#entry-cow-unit-price')).toBeEnabled();
  await userEvent.clear(input);await userEvent.type(input,'250');await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));
  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({pricing:'con',weight:250,weightBasis:'MEASURED',unitPrice:8500000}))

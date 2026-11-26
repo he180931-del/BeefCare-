@@ -1,7 +1,11 @@
 import type { PasswordChangeInput, PasswordErrors, ProfileErrors, ProfileUpdateInput } from '../types'
 
-export const PASSWORD_RULE_MESSAGE = 'Mật khẩu cần từ 8 đến 128 ký tự và không được trùng với email.'
+export const PASSWORD_RULE_MESSAGE = 'Mật khẩu cần từ 8 đến 128 điểm mã Unicode và không được trùng với email.'
 const PHONE = /^(0\d{9}|\+84\d{9})$/
+
+function passwordCodePointLength(value: string): number {
+  return Array.from(value).length
+}
 
 export const compactPhone = (value: string) => value.replace(/[\s.-]/g, '')
 
@@ -22,7 +26,7 @@ export function validatePasswordChange(input: PasswordChangeInput, ctx: { email:
   if (ctx.requireCurrent && !input.currentPassword) errors.currentPassword = 'Mật khẩu hiện tại là bắt buộc.'
   const next = input.newPassword
   if (!next) errors.newPassword = 'Mật khẩu mới là bắt buộc.'
-  else if (next.length < 8 || next.length > 128 || next.toLowerCase() === ctx.email.trim().toLowerCase()) errors.newPassword = PASSWORD_RULE_MESSAGE
+  else if (passwordCodePointLength(next) < 8 || passwordCodePointLength(next) > 128 || next.toLowerCase() === ctx.email.trim().toLowerCase()) errors.newPassword = PASSWORD_RULE_MESSAGE
   if (!input.confirmPassword) errors.confirmPassword = 'Vui lòng nhập lại mật khẩu mới.'
   else if (input.confirmPassword !== next) errors.confirmPassword = 'Mật khẩu xác nhận chưa khớp.'
   return errors

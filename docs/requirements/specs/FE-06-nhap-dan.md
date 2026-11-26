@@ -96,7 +96,7 @@ Cần trại ACTIVE, có ít nhất 1 giống, 1 mục đích, 1 chuồng ACTIVE
 
 | Nhóm | Trạng thái (bắt buộc) | Chi tiết khi Có thông tin | Ghi khi ghi sổ |
 |---|---|---|---|
-| Tiêm phòng | Có / Không / Không rõ (mặc định Không rõ) | Dòng: vắc-xin (vắc-xin ACTIVE hoặc chữ tự do), ngày (ngày hoặc tháng, tùy chọn), nguồn thông tin | Bản ghi tiêm nguồn `HISTORICAL`, **không** tạo mũi theo lịch |
+| Tiêm phòng | Có / Không / Không rõ (mặc định Không rõ) | Dòng: vắc-xin (vắc-xin ACTIVE hoặc chữ tự do), ngày (ngày hoặc tháng, tùy chọn), nguồn thông tin | Bản ghi tiêm nguồn `HISTORICAL`, **không** tạo mũi theo lịch. D82: mũi gõ chữ tự do cũng thành bản ghi, chỉ lưu tên (không gắn vắc-xin danh mục) |
 | Bệnh đã biết | Có / Không / Không rõ | Mô tả ≤ 1.000 | — |
 | Sinh sản (chỉ bò cái) | Có / Không / Không rõ | Số lứa đã đẻ 0–15; mang thai lúc nhập Có / Không / Không rõ; số tháng mang thai ước tính 1–9 (khi Có); mô tả ≤ 1.000 | Số lứa cộng vào số lứa của bò; mang thai khai báo → hiện "Khai báo mang thai ~n tháng (chưa khám)", tạo REM-03, **không** mở giai đoạn mang thai |
 
@@ -440,6 +440,7 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 | TC-06-12 | Đã trả 1.000.000, không chọn hình thức | Lưu | MSG-COM-06 | U, H | R-06-10 |
 | TC-06-13 | Có 2 lịch tiêm khớp bò mới | Ghi sổ | MSG-FE06-05 với 2 lịch; bò **chưa** thuộc lịch nào | I | R-06-11 |
 | TC-06-14 | Khai báo tiêm Có (LMLM, 03/2026) | Ghi sổ | 1 bản ghi tiêm HISTORICAL, không có mũi theo lịch | I | §3.3 |
+| TC-06-14a | Khai báo tiêm Có: 1 mũi danh mục + 1 mũi gõ tên tự do (D82) | Ghi sổ; sửa dòng nhập đổi tên mũi tự do | 2 bản ghi HISTORICAL, mũi tự do mang đúng tên đã gõ; sau khi sửa, bản ghi cũ bị hủy và chỉ còn 1 bản ghi tên mới | I | §3.3 |
 | TC-06-15 | Bò cái khai báo mang thai ~4 tháng, 2 lứa đã đẻ | Ghi sổ | Hồ sơ "Khai báo mang thai ~4 tháng (chưa khám)"; REM-03 được tạo; không có giai đoạn mang thai; số lứa = 2 | I | §3.3 |
 | TC-06-16 | Khai báo Không rõ | Mở hồ sơ | Hiện "Không rõ", không hiện "Không" | E | GBR-30 |
 | TC-06-17 | Bò đực | Popup Dòng bò | Không có nhóm Sinh sản | E | Popup |
@@ -472,9 +473,9 @@ SCR-75 → **Hủy phiếu** → popup hiện từng con: sự kiện sau nhập
 
 - Phiếu mới: **Phiếu nhập bò mới**; mở lại nháp: **Sửa phiếu nháp {code}**. Popup **Thêm con #N** / **Sửa con #N**; con mới chỉ thêm sau lưu, hủy bỏ dữ liệu tạm. Xóa con trong bảng hoặc popup cần xác nhận và cập nhật lại tổng / sức chứa; không phụ thuộc mã bò.
 - Thẻ tai không bắt buộc, tối đa 30 ký tự; thiếu cả thẻ và đặc điểm chỉ nhắc nhẹ.
-- Một ô tháng sinh ước tính, giới hạn tháng ngày nhập, hiển thị tuổi suy ra. Có tháng -> YYYY-MM-01 / ESTIMATED; trống -> UNKNOWN. Không đổi tháng thì bảo toàn ngày EXACT cũ. Gợi ý giai đoạn vẫn chỉnh được.
+- Tháng sinh ước tính chọn bằng ô Năm + ô Tháng (D76), giới hạn tháng ngày nhập, hiển thị tuổi suy ra. Có tháng -> YYYY-MM-01 / ESTIMATED; trống -> UNKNOWN. Không đổi tháng thì bảo toàn ngày EXACT cũ. Gợi ý giai đoạn vẫn chỉnh được.
 - Một ô cân nhập, có cân -> MEASURED, không cân -> null; giữ ESTIMATED cũ nếu không đổi số cân. Theo kg vẫn bắt buộc cân trước ghi sổ; theo con không bắt buộc. Excel giữ nguyên cơ sở cân, dòng ESTIMATED vẫn đánh dấu UT.
-- Theo kg: đơn giá nhập và thành tiền chỉ đọc; theo con: một giá con lưu unitPrice. Giá không phụ thuộc chọn cơ sở cân. Con mới không có giá / tháng sinh gán cứng. Đổi cách tính giá đặt lại giá các dòng về 0 và cảnh báo.
+- Phiếu mới mặc định Theo con (D76). Theo kg: đơn giá nhập và thành tiền chỉ đọc; theo con: một ô Thành tiền lưu unitPrice. Chi tiết tiêm phòng chỉ một ô Tên vaccine (gợi ý danh mục, không hiện mã). Giá không phụ thuộc chọn cơ sở cân. Con mới không có giá / tháng sinh gán cứng. Đổi cách tính giá đặt lại giá các dòng về 0 và cảnh báo.
 - Danh mục mục đích ACTIVE theo ID thật, hiển thị tên và loại; SIRE chỉ đực, BREEDING chỉ cái. Chưa chọn giai đoạn / mục đích không được báo tiêu chí Đạt.
 - Cách ly nhập đàn tùy chọn, không trước ngày nhập, +14/+21 ngày từ ngày nhập; kiểm lại khi đổi ngày phiếu. Giữ ngày cách ly / màu lông / lý do cảnh báo qua vòng lưu nháp; hồ sơ mua ngoài hiện ngày cách ly đến hết hạn.
 - Cảnh báo SCR-24 màu đỏ nhưng không chặn lưu; không đổi Note toàn hệ thống. Lỗi field phải focus / cuộn tới field lỗi. Ô số không giữ số 0 đầu; giữ số thập phân và cho xóa trống khi nhập.

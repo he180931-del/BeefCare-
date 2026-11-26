@@ -5,7 +5,7 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import type { VoucherSnapshot } from '../../../shared/api/snapshotVersion'
-import type { HerdExit } from '../types'
+import type { ExitVoidOutcome, HerdExit } from '../types'
 import type { Pen } from '../../pen-management'
 
 type Choices = {
@@ -36,14 +36,14 @@ function reconcile(previous: Choices, check: ExitVoidCheck, pens: Pen[]): Choice
   }
 }
 
-export function useExitVoid(row: HerdExit, onCancelled: () => void) {
+export function useExitVoid(row: HerdExit, onCancelled: (outcome: ExitVoidOutcome) => void) {
   const [cancelReason, setCancelReason] = useState(() => exitCancelDefaults().reason)
   const [choices, setChoices] = useState<Choices>({ pens: {}, reasons: {}, criteria: {}, invalidCodes: [], selectionNotice: '' })
   const query = useQuery(async () => {
     const [check, pens] = await Promise.all([exitVoidCheck(row.id, row.backendId), listExitCancelPens()])
     return { check, pens }
   }, [row.id, row.backendId])
-  const command = useMutation<VoucherSnapshot & ExitVoidSelections, HerdExit>((snapshot) => cancelHerdExit(
+  const command = useMutation<VoucherSnapshot & ExitVoidSelections, ExitVoidOutcome>((snapshot) => cancelHerdExit(
     row.id, row.detail?.cows ?? [], { status: 'Đã hủy', cancelReason: cancelReason.trim(), detail: { ...row.detail } }, snapshot,
   ))
   const check = query.data?.check ?? null
@@ -88,8 +88,7 @@ export function useExitVoid(row: HerdExit, onCancelled: () => void) {
     const warnings = Object.fromEntries(required.filter((cow) => choices.criteria[cow.cattleId] !== undefined)
       .map((cow) => [cow.cattleId, choices.reasons[cow.cattleId].trim()]))
     try {
-      await command.mutate({ expectedVersion: row.version, backendId: row.backendId, penOverrides: overrides, warningReasons: warnings })
-      onCancelled()
+      onCancelled(await command.mutate({ expectedVersion: row.version, backendId: row.backendId, penOverrides: overrides, warningReasons: warnings }))
     } catch (error) {
       if (!(error instanceof BackendError)) return
       if (error.code === 'MSG-FE04-06') {

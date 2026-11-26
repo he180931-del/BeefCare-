@@ -424,7 +424,7 @@ class PlatformAuditResourceTest extends DomainTestSupport {
         t = tickets.process(t.id(), new SupportDtos.Processing("CLAIM", null, null, null, null, null, t.version()));
         SupportDtos.InternalView request = internalRequests.create(t.id(), new SupportDtos.InternalCreate(PlatformRole.PM, pm.getId(), "Câu hỏi nội bộ riêng", List.of(), t.version()));
         actAs(pm);
-        internalRequests.complete(request.id(), new SupportDtos.Complete("UNABLE", "Kết quả nội bộ riêng", null, versionOf(vn.edu.fpt.beefcare.domain.InternalRequest.class, request.id())));
+        internalRequests.complete(request.id(), new SupportDtos.Complete("NOT_CONFIRMED", "Kết quả nội bộ riêng", versionOf(vn.edu.fpt.beefcare.domain.InternalRequest.class, request.id())));
         actAs(cs);
         t = tickets.get(t.id(), true);
         t = tickets.resolve(t.id(), new SupportDtos.Resolution("Nội dung giải quyết riêng", t.version()));

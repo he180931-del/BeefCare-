@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { DateInput, EmptyBlock, ErrorBlock, FilterSelect, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { SOURCE_LABEL, healthCasePath, profilePath } from '../components/vaccinationParts'
 import { fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
@@ -57,7 +57,6 @@ export default function HistoryPage() {
             <Pagination page={data.page} pageCount={Math.max(1, Math.ceil(data.total / data.size))} onChange={setPage} summary={`Hiển thị ${first}–${first + data.rows.length - 1} / ${data.total} mũi tiêm`} />
           </div>
         )}
-        <Foot>Màn tra cứu lịch sử tiêm của cả đàn, mọi vai trò đều xem được. Bản ghi nhập lịch sử hiện "Không rõ" cho thông tin người bán không cung cấp. Nhấn mã ca ở cột Phản ứng để mở ca sức khỏe.</Foot>
       </div>
     </Layout>
   )

@@ -63,12 +63,12 @@ describe('supportApi: gửi yêu cầu (SCR-65)', () => {
     expect((await api.listTickets({ tab: 'IN_PROGRESS' })).total).toBe(3)
   })
 
-  it('phạm vi tài khoản không gắn trại; trại không thuộc sở hữu bị từ chối; quá dài bị từ chối', async () => {
+  it('mọi danh mục đều gắn trại hiện hành; trại không thuộc sở hữu và dữ liệu quá dài bị từ chối', async () => {
     const { api } = setup()
-    const acct = await api.createTicket({ category: 'ACCOUNT_ACCESS', scope: 'ACCOUNT', farmId: null, subject: 'Không đăng nhập được', description: 'x' })
-    expect(acct.farmId).toBeNull()
+    const acct = await api.createTicket({ category: 'ACCOUNT_ACCESS', scope: 'FARM', farmId: 1, subject: 'Không đăng nhập được', description: 'x' })
+    expect(acct.farmId).toBe(1)
     expect(await code(api.createTicket({ category: 'OTHER', scope: 'FARM', farmId: 77, subject: 'a', description: 'b' }))).toBe('VALIDATION')
-    expect(await code(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a'.repeat(151), description: 'b' }))).toBe('VALIDATION')
+    expect(await code(api.createTicket({ category: 'OTHER', scope: 'FARM', farmId: 1, subject: 'a'.repeat(151), description: 'b' }))).toBe('VALIDATION')
   })
 })
 

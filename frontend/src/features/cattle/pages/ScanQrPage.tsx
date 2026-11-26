@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
-import { Button, Foot, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
+import { Button, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
 import { cattleError } from '../api/cattleError'
 import { enterFarm } from '../../farm-workspace'
 import { scanCode, scanSampleNotice, type ScanOutcome } from '../api/scanApi'
 import { Chip, chipIcon } from '../components/parts'
 import { scanImage } from '../domain/scanImage'
+import { useSession } from '../../../app/session/sessionContext'
 
 type Phase = { kind: 'idle' } | { kind: 'busy' } | ScanOutcome
 
@@ -21,6 +22,7 @@ const cattlePath = (code: string, technician: boolean) => `${technician ? '/kt/d
 export default function ScanQrPage() {
   const nav = useNavigate()
   const technician = useLocation().pathname.startsWith('/kt')
+  const farms = useSession()?.farms
   const [code, setCode] = useState('')
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [camera, setCamera] = useState(false)
@@ -115,7 +117,7 @@ export default function ScanQrPage() {
       {phase.kind === 'rejected' && <p role="alert" className="m-0 rounded-xl bg-err-bg p-3 text-xs text-err-fg">{REJECTED[phase.code]}</p>}
       {phase.kind === 'otherFarm' && (
         <div role="alert" className="flex flex-col gap-2 rounded-xl bg-warn-bg p-3 text-xs text-warn-fg">
-          <span>Bò này thuộc một trại khác mà bạn là thành viên{phase.farmId != null ? ` (trại #${phase.farmId})` : ''}.</span>
+          <span>{`Bò này thuộc ${farms?.find((farm) => farm.id === phase.farmId)?.name || 'một trại khác của bạn'}. Chuyển sang trại đó để mở?`}</span>
           <div className="flex gap-2">
             {phase.farmId != null && <Button small variant="primary" disabled={switching} onClick={() => void switchFarm()}>Chuyển trại và mở hồ sơ</Button>}
             <Button small disabled={switching} onClick={reset}>Hủy</Button>
@@ -128,7 +130,7 @@ export default function ScanQrPage() {
 
   return technician
     ? <TechnicianLayout title="Quét thẻ tai QR" back>{body}</TechnicianLayout>
-    : <Layout title="Quét QR"><div className="flex flex-col gap-4">{body}<Foot>Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot></div></Layout>
+    : <Layout title="Quét QR"><div className="flex flex-col gap-4">{body}</div></Layout>
 }
 
 function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { kind: 'found' }>; onOpen: (code: string) => void; onReset: () => void }) {
@@ -141,7 +143,7 @@ function Found({ outcome, onOpen, onReset }: { outcome: Extract<ScanOutcome, { k
       <div className="text-base font-semibold text-[#212121]">{cow.code}{cow.name ? ` · “${cow.name}”` : ''}</div>
       <div className="text-xs text-muted">{[cow.tag ? `Số tai ${cow.tag}` : 'Gắn tai sau', cow.breed, cow.sex, cow.ageLong, cow.barn && `Chuồng ${cow.barn}`].filter(Boolean).join(' · ')}</div>
       <div className="flex flex-wrap gap-1.5">
-        {active ? <Chip tone="ok" icon="circle-check">Đang hoạt động</Chip> : <Chip tone={cow.status === 'VOIDED' ? 'err' : 'grey'}>{cow.status === 'VOIDED' ? 'Nhập nhầm – đã hủy' : cow.exitStatusLabel ?? (cow.status === 'EXIT_PENDING' ? 'Chờ xuất đàn' : 'Đã xuất đàn')}</Chip>}
+        {active ? <Chip tone="ok" icon="circle-check">Đang nuôi</Chip> : <Chip tone={cow.status === 'VOIDED' ? 'err' : 'grey'}>{cow.status === 'VOIDED' ? 'Nhập nhầm – đã hủy' : cow.exitStatusLabel ?? (cow.status === 'EXIT_PENDING' ? 'Chờ xuất đàn' : 'Đã xuất đàn')}</Chip>}
         {active && cow.health && <Chip tone={cow.health.tone} icon={chipIcon(cow.health.label)}>{cow.health.label}</Chip>}
         {active && cow.repro && <Chip tone={cow.repro.tone} icon={chipIcon(cow.repro.label)}>{cow.repro.label}</Chip>}
       </div>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { usePlatformServiceDemoMode, useReconciliationQueries } from '../hooks/usePlatformServiceUseCase'
 import EvidencePanel from '../components/EvidencePanel'
@@ -173,7 +173,6 @@ function ReconciliationPage() {
           ) : null}
         </div>
       )}
-      <Foot>Thanh toán & đối soát (PM). Bảng trái liệt kê chứng từ ngân hàng theo ngày; chọn một dòng để xem xét ở khung phải. "Chấp nhận" chỉ mở khi mã, số tiền, tài khoản và thời gian đều khớp; các quyết định khác cần lý do và bằng chứng. Khung dưới theo dõi ứng viên và lịch sử xử lý của chứng từ.</Foot>
       {ev && m ? (
         <ReconcileDialogs
           m={m}

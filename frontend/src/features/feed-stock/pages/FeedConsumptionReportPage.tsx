@@ -1,12 +1,11 @@
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, Foot, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, DateInput, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatKg, formatNumber, formatVnd } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { useFeedConsumptionReport } from '../hooks/useFeedConsumptionReport'
 import type { FeedConsumptionGroupBy } from '../types/feedConsumption'
 
-const FOOT = 'Báo cáo tiêu thụ và chi phí thức ăn theo kỳ (Chủ trại, Quản lý). Đổi cách xem theo nhóm đàn, chuồng hoặc thức ăn; nhóm lệch khẩu phần nhiều được tô đỏ kèm lý do. “In báo cáo” xuất bản in PDF.'
 
 
 const currency = (value: number | null) => value === null ? '—' : formatNumber(value, 0)
@@ -132,7 +131,6 @@ export default function FeedConsumptionReportPage() {
           )}
           {mayLackSources && !loaded && <Note tone="grey">Một số trường hợp thiếu nguồn số liệu sẽ hiển thị “—”.</Note>}
         </section>
-        <Foot>{FOOT}</Foot>
       </div>
     </Layout>
   )

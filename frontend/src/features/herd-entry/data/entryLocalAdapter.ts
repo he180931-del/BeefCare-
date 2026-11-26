@@ -112,7 +112,15 @@ export function markCalfDied(calfOutcomeId: number): EntryCalf {
   return structuredClone(calf)
 }
 
-export const sellers = () => structuredClone(SOURCES)
+let localSellers = SOURCES.map((seller) => ({ ...seller, area: '', active: true }))
+export const sellers = () => structuredClone(localSellers)
+export function saveSeller(input: { name: string; phone: string; area: string }) {
+  const name = input.name.trim()
+  if (!name) throw new Error('Tên người bán là bắt buộc.')
+  const seller = { id: `s${localSellers.length + 1}`, name, phone: input.phone.trim(), area: input.area.trim(), active: true }
+  localSellers = [...localSellers, seller]
+  return structuredClone(seller)
+}
 export const vaccines = (): EntryVaccineOption[] => [{ id: 1, code: 'LMLM', name: 'LMLM', available: true }, { id: 2, code: 'THT', name: 'Tụ huyết trùng', available: true }]
 export const breeds = (): EntryBreedOption[] => BREEDS.map((name, index) => ({ id: index + 1, code: name, name, available: true }))
 export const parentCattle = (): Promise<EntryParentOption[]> => cattle.list().then((rows) => rows

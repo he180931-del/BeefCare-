@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Icon, Info, inputCls, KV, Note, SearchSelect, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
@@ -16,13 +16,14 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import CalfDeathModal from '../components/CalfDeathModal'
 import ExcelModal from '../components/ExcelModal'
+import AddSellerModal from '../components/AddSellerModal'
 import PayModal from '../components/PayModal'
 import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
-import { herdEntryApi } from '../api'
+import { entryReceiverEditable, herdEntryApi, saveEntrySeller, type EntrySeller, type EntrySellerInput } from '../api'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -40,6 +41,7 @@ export default function ImportNew() {
   const draftId = params.get('id')
   const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdEntry } | null>(null)
   const [reloadRevision, setReloadRevision] = useState(0)
+  const [addedSellers, setAddedSellers] = useState<EntrySeller[]>([])
   const { data, detailedDraft, draftError, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults } = useEntryNewQueries({ draftId: draftId ?? undefined })
   if (!data || !canonicalPens || !pendingCalves || !sellers || (draftId && !detailedDraft && !draftError)) {
     return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
@@ -62,10 +64,19 @@ export default function ImportNew() {
   // value used to produce the misleading 0/0 state and hide source birth facts.
   const currentDraftBackendId = Number(activeDraft?.backendId)
   const availablePendingCalves = pendingCalves.filter((calf) => calf.draftVoucherId == null || (Number.isFinite(currentDraftBackendId) && calf.draftVoucherId === currentDraftBackendId))
-  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
+  // FE-06 field 4 lists ACTIVE sellers; a draft keeps showing the seller it already references.
+  const draftSourceId = activeDraft?.draft?.sourceId
+  const loadedSellers = sellers.filter((seller) => seller.active !== false || seller.id === draftSourceId)
+  const sellerOptions = [...loadedSellers, ...addedSellers.filter((added) => !loadedSellers.some((seller) => seller.id === added.id))]
+  const addSeller = async (input: EntrySellerInput, options: { key: string }) => {
+    const seller = await saveEntrySeller(input, options)
+    setAddedSellers((current) => current.some((row) => row.id === seller.id) ? current : [...current, seller])
+    return seller
+  }
+  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellerOptions} onAddSeller={addSeller} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
 }
 
-function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
+function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, onAddSeller, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: EntrySeller[]; onAddSeller: (input: EntrySellerInput, options: { key: string }) => Promise<EntrySeller>; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
   const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
@@ -100,7 +111,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
     setParams(query)
   }
 
-  const editor = useEntryEditor({ draft, defaults, pendingCalves, sellers, pens: importBarns, isBuy })
+  const editor = useEntryEditor({ draft, defaults, pendingCalves, pens: importBarns, isBuy })
   const { sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
     cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue,
     printQr, setPrintQr, patchCow, patchCalf, purchase, pensAfter: barnAfter, overflow, calfPen: calfBarn, calvesSummary } = editor
@@ -122,7 +133,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
-  const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
+  const source = sellers.find((s) => s.id === sourceId) ?? { id: '', name: '', phone: '', area: '' }
   const { cattleAmount: cowsMoney, totalWeight, total, debt, estimatedCount } = purchase
 
   const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
@@ -166,7 +177,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         date,
         type: kind,
         sourceId,
-        receiver,
+        // Máy chủ tự ghi người tạo / ghi sổ theo phiên; chỉ bản mô phỏng bắt nhập tay.
+        receiver: entryReceiverEditable ? receiver : undefined,
         cows: isBuy ? cows : inputs as EntryCow[],
         pricing: isBuy ? pricing : 'kg',
         paid: isBuy ? paid : 0,
@@ -323,10 +335,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                   <Field id="entry-type" label="Loại nhập"><input id="entry-type" className={inputCls} value={kind} readOnly /></Field>
                   {isBuy && (
                     <>
-                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={`${source.phone} · + Thêm nguồn mới`}>
-                        <Select id="entry-source" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-                          {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </Select>
+                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={<>{source.phone ? `${source.phone} · ` : ''}<button type="button" onClick={() => openModal('seller')} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] font-semibold text-brand">+ Thêm nguồn mới</button></>}>
+                        <SearchSelect
+                          id="entry-source"
+                          aria-label="Nguồn / chủ bò cũ"
+                          value={sourceId}
+                          onChange={setSourceId}
+                          clearable={false}
+                          allLabel="Chọn người bán"
+                          options={sellers.map((s) => ({ value: s.id, label: s.name, hint: [s.phone, s.area].filter(Boolean).join(' · ') }))}
+                          className="w-full"
+                        />
                       </Field>
                       <Field id="entry-quarantine" label="Số giấy kiểm dịch">
                         <input id="entry-quarantine" maxLength={50} className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} />
@@ -336,7 +355,9 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập" hint={entryReceiverEditable ? undefined : 'Tự ghi theo người đang đăng nhập'}>
+                    <input id="entry-receiver" className={inputCls} value={entryReceiverEditable ? receiver : sessionName} readOnly={!entryReceiverEditable} onChange={entryReceiverEditable ? (e) => setReceiver(e.target.value) : undefined} />
+                  </Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -373,23 +394,26 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       <Th className={`${TH} w-[60px]`}>Tuổi</Th>
                       <Th className={`${TH} w-[70px]`}>Cân nặng</Th>
                       <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                      <Th className={`${TH} w-[90px]`}>{`Đơn giá/${pricing === 'con' ? 'con' : 'kg'}`}</Th>
+                      {pricing === 'kg' && <Th className={`${TH} w-[90px]`}>Đơn giá/kg</Th>}
                       <Th className={`${TH} w-[80px]`}>Thành tiền</Th>
                       <Th className={`${TH} w-[20px]`} />
                     </tr>
                   </thead>
                   <tbody>
+                    {cows.length === 0 && (
+                      <tr><Td colSpan={pricing === 'kg' ? 9 : 8} className={`${TH} py-6 text-center text-muted`}>Trống</Td></tr>
+                    )}
                     {cows.map((c, i) => (
                       <tr key={i}>
                         <Td className={TH}>{i + 1}</Td>
                         <Td className={TH}>{c.tag || <span className="text-muted">Gắn sau</span>}</Td>
                         <Td className={TH}>{`${c.breed || '—'} · ${c.sex} · ${c.stage}`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : '—'}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : c.ageMonths != null ? `~${c.ageMonths} th` : '—'}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
+                        {pricing === 'kg' && <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>}
                         <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
@@ -398,17 +422,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
+                  {cows.length > 0 && <tfoot>
                     <tr className="font-semibold">
                       <Td className={TH} />
                       <Td className={TH}>{cows.length} con</Td>
                       <Td className={TH} /><Td className={TH} />
                       <Td className={`${TH} whitespace-nowrap`}>{`${money(totalWeight)} kg`}</Td>
-                      <Td className={TH} /><Td className={TH} />
+                      <Td className={TH} />{pricing === 'kg' && <Td className={TH} />}
                       <Td className={`${TH} whitespace-nowrap`}>{money(cowsMoney)}</Td>
                       <Td className={TH} />
                     </tr>
-                  </tfoot>
+                  </tfoot>}
                 </Table>
                 <p className="m-0 text-[11px] text-muted">
                   UT = cân nặng ước tính. Con chưa có thẻ tai vẫn được tạo hồ sơ & QR, gắn thẻ sau. Mỗi dòng được kiểm tra tiêu chí và sức chứa của chuồng nhận.
@@ -575,11 +599,6 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           </section>
         </div>
 
-        <Foot>
-          {isBuy
-            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã bò, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
-            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.'}
-        </Foot>
       </div>
 
       {deathCalf && <CalfDeathModal calf={deathCalf} onClose={() => setDeathCalf(null)} onConfirm={async reason => {
@@ -638,6 +657,17 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           onClose={() => setPaymentModalOpen(false)}
         />
       )}
+      {isBuy && m === 'seller' && (
+        <AddSellerModal
+          onClose={closeModal}
+          onSave={async (input, options) => {
+            const seller = await onAddSeller(input, options)
+            setSourceId(seller.id)
+            closeModal()
+            return seller
+          }}
+        />
+      )}
       {isBuy && m === 'excel' && (
         <ExcelModal
           commandError={commandError ?? saveError}
@@ -647,7 +677,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           onBackendCommit={entryExcelBackendEnabled ? commitBackendExcel : undefined}
           onDownloadTemplate={entryExcelBackendEnabled ? downloadEntryImportTemplate : undefined}
           onAdd={(added) => {
-            const mapped = added.map((cow) => ({
+            // Backend mode: the lines come back from the server already mapped (ids, age, markings, quarantine); keep them whole.
+            const mapped = entryExcelBackendEnabled ? added.map((cow) => ({ ...cow, pricing })) : added.map((cow) => ({
               tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '',
               dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0,
               estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,

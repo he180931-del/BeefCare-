@@ -30,9 +30,10 @@ public class ReproductionReadService {
     private final FarmAccessService access;
     private final FarmClock clock;
     private final CattleStateService cattleState;
+    private final EntryDeclarationReadService declarations;
 
-    public ReproductionReadService(FarmAccessService access, FarmClock clock, CattleStateService cattleState) {
-        this.access = access; this.clock = clock; this.cattleState = cattleState;
+    public ReproductionReadService(FarmAccessService access, FarmClock clock, CattleStateService cattleState, EntryDeclarationReadService declarations) {
+        this.access = access; this.clock = clock; this.cattleState = cattleState; this.declarations = declarations;
     }
 
     // ------------------------------------------------------------------ A1
@@ -47,6 +48,7 @@ public class ReproductionReadService {
         Integer windowStart = intParam(params, "BREEDING_WINDOW_START_HOURS"), windowEnd = intParam(params, "BREEDING_WINDOW_END_HOURS");
         Map<Long, PenAssignment> pens = currentPens(farmId, today);
         Map<Long, List<Reminder>> reminders = activeReminders(farmId);
+        Map<Long, DeclaredPregnancy> declared = declarations.pendingPregnancies(farmId);
         List<Cattle> females = em.createQuery("select c from Cattle c where c.farm.id=:farm and c.herdStatus=:status and c.sex=:sex order by c.displayCode", Cattle.class)
             .setParameter("farm", farmId).setParameter("status", HerdStatus.ACTIVE).setParameter("sex", Sex.FEMALE).getResultList();
 
@@ -80,6 +82,12 @@ public class ReproductionReadService {
                 case "POST_CALVING" -> { nextAction = "CONSIDER_BREEDING"; due = new Due(dueOf(rem, zone, "REM-07"), null, null); }
                 default -> { nextAction = failed.contains("MINIMUM_WEIGHT") ? "MONITOR_WEIGHT" : "CONSIDER_BREEDING"; due = null; }
             }
+            // D82: bò khai mang thai lúc nhập, chưa khám – việc cần làm là khám thai (REM-03), không phải phối.
+            DeclaredPregnancy declaredPregnancy = ELIGIBILITY_STATUSES.contains(status) ? declared.get(c.getId()) : null;
+            if (declaredPregnancy != null) {
+                nextAction = "PREGNANCY_CHECK";
+                due = new Due(dueOf(rem, zone, "REM-03"), null, null);
+            }
             PenAssignment pa = pens.get(c.getId());
             LatestEvent latest = latestOfAll(c.getId(), zone, today);
             Eligibility eligibilityRow = ELIGIBILITY_STATUSES.contains(status) ? new Eligibility(eligible, failed,
@@ -87,7 +95,7 @@ public class ReproductionReadService {
             all.add(new WorklistItem(c.getId(), c.getDisplayCode(), c.getName(), c.getEarTagNumber(), ageMonths(c, today), latestWeight(c.getId()),
                 ref(c.getBreed()), pa == null ? null : ref(pa.getPen()), status,
                 statusSince(c, status, latest), eligibilityRow, latest, nextAction, due,
-                expected, (String) state.get("expectedBasis"), c.getVersion()));
+                expected, (String) state.get("expectedBasis"), c.getVersion(), declaredPregnancy));
         }
         Tiles tiles = new Tiles(inEstrus, inWindow, checkDue, calving30, postReady, notEligible);
 
@@ -214,7 +222,8 @@ public class ReproductionReadService {
             "NOT_APPLICABLE".equals(status) ? null : status, statusSince(c, status, latestOfAll(cattleId, zone, today)), servicesInCycle, parity,
             lastCalving == null ? null : new LastCalving(lastCalving.getId(), lastCalving.getBirthTime()),
             weight == null ? null : new LatestWeight(weight.getWeightKg(), weight.getCheckDate()),
-            null, // declared pregnancy at entry: not stored by herd entry yet (FE-05), see FE-11-12-progress.md
+            // D82, SCR-39 #3: khai báo mang thai lúc nhập chỉ hiện khi chưa có khám thai / lần đẻ sau ngày nhập và bò chưa phối, chưa mang thai.
+            applicable && ELIGIBILITY_STATUSES.contains(status) ? declarations.pendingPregnancy(farmId, cattleId).orElse(null) : null,
             indicators, canManage, allowed, other, eligibility, window, latestBreeding, pregnancy, timeline, calvingRows);
     }
 

@@ -71,7 +71,7 @@ Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING
 | Thuộc tính | Kiểu | Bắt buộc | Ràng buộc | Nguồn |
 |---|---|---|---|---|
 | Bò | Tham chiếu | Có | Mỗi bò một bản ghi | GBR-42 |
-| Vắc-xin + tên snapshot | Danh mục | Có | ACTIVE; tên lưu snapshot (sửa danh mục sau không đổi) | §3.2 |
+| Vắc-xin + tên snapshot | Danh mục | Có | ACTIVE; tên lưu snapshot (sửa danh mục sau không đổi). D82: riêng HISTORICAL khai lúc nhập đàn bằng tên tự do chỉ có tên, không có vắc-xin danh mục (`vaccineId` null ở A8 / A9) | §3.2, D82 |
 | Thời điểm tiêm | Ngày giờ | Có (ON_FARM) | Không tương lai, không trước ngày nhập đàn (trừ HISTORICAL) | BR-D14 |
 | ~~Số lô~~ | — | — | Bỏ khỏi giao diện (D44); cột `batch_no` giữ dữ liệu cũ, API nhận tùy chọn ≤ 50 | — |
 | Liều | Số + đơn vị (ml hoặc liều) | Không | Điền sẵn từ vắc-xin | SCR-33 |
@@ -98,7 +98,7 @@ Cần trại ACTIVE (GBR-08). Bò EXITED / VOIDED / trên phiếu chết PENDING
 | R-09-05 | Sửa lịch chỉ ảnh hưởng mũi **chưa tiêm** (PLANNED); mũi DONE không bao giờ đổi. Khóa (D46): lịch **đã hoàn thành** (ACTIVE nhưng không còn mũi PLANNED) hoặc STOPPED không sửa được gì; lịch đã có mũi DONE không đổi vắc-xin, ngày bắt đầu, khoảng cách giữa mũi; số mũi không giảm dưới mũi đã tiêm. Bò thêm vào lịch có ngày bắt đầu đã qua: mũi 1 hạn hôm nay. | GBR-41, D46 |
 | R-09-06 | Dừng lịch: bắt buộc lý do, xác nhận MSG-FE09-02; mọi mũi PLANNED → CANCELLED; mũi DONE giữ nguyên; lịch STOPPED. | GBR-41, SCR-32 |
 | R-09-07 | Nhắc lại: khi ghi mũi cuối của loạt (hoặc một mũi nhắc lại) và lịch còn ACTIVE → tạo mũi nhắc lại tiếp theo vào ngày tiêm + số tháng nhắc lại. | UC-02 AF3 |
-| R-09-08 | Ghi tiêm ON_FARM bắt buộc vắc-xin, thời điểm (không có số lô – D44); HISTORICAL có thể thiếu thời điểm chính xác, **không** đóng mũi theo lịch và **không** tính ngưng thịt. | GBR-42, UC-05 AF2, D44 |
+| R-09-08 | Ghi tiêm ON_FARM bắt buộc vắc-xin, thời điểm (không có số lô – D44); HISTORICAL có thể thiếu thời điểm chính xác, **không** đóng mũi theo lịch và **không** tính ngưng thịt. D82: riêng mũi HISTORICAL khai lúc nhập đàn bằng tên tự do được thiếu vắc-xin danh mục (chỉ có tên); sửa bản ghi mặc định "Giữ" tên đó, chỉ đổi khi người dùng chọn vắc-xin. | GBR-42, UC-05 AF2, D44, D82 |
 | R-09-09 | Ghi theo lô: mỗi bò được chọn một bản ghi (không còn lựa chọn "Hoãn" – D46). Tất cả lưu trong **một transaction**: bản ghi, mũi DONE, tính lại ngày mũi kế, ngày hết ngưng thịt, dòng thời gian. Lỗi → không lưu gì. | GBR-42, UC-05 bước 7, E6 |
 | R-09-10 | Mũi đã DONE cho một bò → MSG-FE09-09, bỏ qua bò đó; bò đã EXITED trong lúc đó → MSG-COM-13, bỏ qua. | UC-05 E3, E5 |
 | R-09-11 | Ghi từ hồ sơ một con: bò có mũi PLANNED khớp vắc-xin → tự liên kết. | UC-05 AF1 |
@@ -204,16 +204,17 @@ SCR-31 (thẻ lịch, tab mũi theo tình trạng hạn, danh sách mũi) · SCR
 
 | # | Trường | Nội dung |
 |---|---|---|
-| 1 | Record vaccination / Ghi nhận tiêm | Nút (Owner, Manager) → SCR-33 cho bò này |
-| 2 | Scheduled doses / Mũi theo lịch | Lịch, mũi, hạn tiêm, tình trạng (như SCR-31); "Ghi" (Owner, Manager) |
-| 3 | Administered at / Thời điểm tiêm | dd/mm/yyyy HH:mm, sắp xếp được |
-| 4 | Vaccine · dose / Vắc-xin · mũi | Tên snapshot và số mũi |
-| 5 | Amount / Liều | — |
-| 6 | Withdrawal until / Ngưng thịt đến | Ngày hết của bản ghi ON_FARM, hoặc "—" |
-| 7 | Source / Nguồn | Tại trại / Lịch sử |
-| 8 | Vaccinator / Người tiêm | Tên |
-| 9 | Reaction / Phản ứng | Mã ca sức khỏe liên kết, hoặc "—" |
-| 10 | Actions / Thao tác | Hai nút "Sửa" và "Xóa" (Owner, Manager), như lịch sử đo FE-08; bản ghi đã xóa không hiện (D53) |
+| 1 | Vaccination state / Tình trạng tiêm phòng | Khối đầu tab (D78): Đã tiêm (số lần còn hiệu lực), Còn theo lịch, Quá hạn; dải cảnh báo "Ngưng sử dụng thịt đến dd/mm/yyyy" khi còn hiệu lực. Chỉ đổi nền khi có mũi quá hạn |
+| 2 | Record vaccination / Ghi nhận tiêm | Nút (Owner, Manager) → SCR-33 cho bò này |
+| 3 | Scheduled doses / Mũi theo lịch | Lịch, mũi, hạn tiêm, tình trạng (như SCR-31); "Ghi" (Owner, Manager) |
+| 4 | Administered at / Thời điểm tiêm | dd/mm/yyyy HH:mm, sắp xếp được |
+| 5 | Vaccine · dose / Vắc-xin · mũi | Tên snapshot và số mũi |
+| 6 | Amount / Liều | — |
+| 7 | Withdrawal until / Ngưng thịt đến | Ngày hết của bản ghi ON_FARM, hoặc "—" |
+| 8 | Source / Nguồn | Tại trại / Lịch sử |
+| 9 | Vaccinator / Người tiêm | Tên |
+| 10 | Reaction / Phản ứng | Mã ca sức khỏe liên kết, hoặc "—" |
+| 11 | Actions / Thao tác | Hai nút "Sửa" và "Xóa" (Owner, Manager), như lịch sử đo FE-08; bản ghi đã xóa không hiện (D53) |
 
 ### ~~Popup Hoãn mũi~~
 
@@ -233,7 +234,7 @@ Bỏ theo D46.
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | 1 | Record / Bản ghi | Chỉ đọc | — | Bò, vắc-xin, thời điểm, người tiêm | — |
-| 2 | Field / Current / New | Bảng | — | (ràng buộc Liều, Đường dùng, Ngưng thịt như popup ghi – D45) Vắc-xin, Thời điểm tiêm, Liều, Đường dùng, Ngưng thịt (ngày), Người tiêm; lưu xong tính lại ngày hết ngưng thịt | MSG-COM-07 |
+| 2 | Field / Current / New | Bảng | — | (ràng buộc Liều, Đường dùng, Ngưng thịt như popup ghi – D45) Vắc-xin, Thời điểm tiêm, Liều, Đường dùng, Ngưng thịt (ngày), Người tiêm; lưu xong tính lại ngày hết ngưng thịt. D82: mũi tên tự do có thêm lựa chọn "Giữ: <tên>" (mặc định) – chỉ đổi vắc-xin khi người dùng chọn | MSG-COM-07 |
 | 3 | Note / Ghi chú | Ô chữ dài | — | ≤ 500; điền sẵn ghi chú của lần sửa gần nhất | MSG-COM-10 |
 | 4 | Cancel / Save | Nút | — | — | MSG-COM-05, MSG-COM-02 (popup – D49); thành công MSG-FE09-08 |
 
@@ -347,3 +348,4 @@ Bỏ theo D46.
 | 23/11/2026 | 28/10/2026 | D48: lịch đã hoàn thành rời hàng thẻ SCR-31, gom vào mục "Lịch đã hoàn thành"; SCR-32 tách nhóm Đang chạy / Đã hoàn thành | Tuấn |
 | 23/11/2026 | 28/10/2026 | D50: SCR-32 "Ngày bắt đầu" → "Ngày tiêm"; ô số (Số mũi, Cách giữa mũi, Nhắc lại sau, Ngưng thịt) gõ sai báo lỗi dưới ô, không coi là trống | Tuấn |
 | 24/11/2026 | 28/10/2026 | D66: SCR-31 giữ phần thẻ lịch; khối danh sách mũi gom tab, bộ lọc, thanh ghi nhận và bảng trong một khối Bento; cột Chuồng gộp vào dòng phụ của Bò; vạch màu đầu dòng theo hạn tiêm | Tuấn |
+| 26/11/2026 | 28/10/2026 | D78: SCR-34 thêm khối Tình trạng tiêm phòng (đã tiêm, còn theo lịch, quá hạn, ngưng thịt) và chuyển sang khung Bento | Tuấn |

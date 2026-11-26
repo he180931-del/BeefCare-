@@ -200,7 +200,7 @@ Nếu tiến trình bị kill cưỡng bức hoặc máy mất điện, shutdown
 
 ## 7. Đăng nhập Google
 
-Mặc định tắt. Bật bằng `BEEFCARE_GOOGLE_ENABLED=true` cùng `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID` và `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET` trong kho secret. Scope `openid`, `email`, `profile`. Đăng ký đúng callback `https://<backend-host>/login/oauth2/code/google` với Google, không nhận host tùy ý. Backend yêu cầu email đã xác minh, liên kết theo Google subject đã có hoặc theo email trùng, tạo session BeefCare phía server và không nhận hay lưu mật khẩu Google. Không commit client secret.
+Mặc định tắt. Bật bằng `BEEFCARE_GOOGLE_ENABLED=true` cùng `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID` và `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET` trong kho secret. Ở local, khi Google tắt thì để hai biến client id/secret dạng chú thích (như `.env.example`): giá trị rỗng làm backend không khởi động; thiếu biến thì profile `local` dùng giá trị giữ chỗ `google-login-disabled`, và backend từ chối khởi động nếu bật Google mà vẫn là giá trị này. Scope `openid`, `email`, `profile`. Đăng ký đúng callback `https://<backend-host>/login/oauth2/code/google` với Google, không nhận host tùy ý. Backend yêu cầu email đã xác minh, liên kết theo Google subject đã có hoặc theo email trùng, tạo session BeefCare phía server và không nhận hay lưu mật khẩu Google. Không commit client secret.
 
 ## 8. SePay và VietQR
 

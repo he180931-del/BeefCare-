@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
 import { useAdminNotices } from '../hooks/useAdminNotices'
 import { ICON_BUTTON, SaPage, Toast, errorMessage } from '../components/common'
 import { formatNoticeTime, noticeActionLabel } from '../domain/platformRules'
@@ -82,7 +82,6 @@ function NoticeContent() {
           </ul>
         </Card>
       )}
-      <Foot>Thông báo của quản trị hệ thống: yêu cầu nội bộ do nhân viên hỗ trợ giao đích danh và nhắc việc khi chưa có kết quả sau 4 giờ.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

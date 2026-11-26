@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ExitDraft, ExitType, LossKind } from '../types'
 
-type EditorSeed<T> = Pick<ExitDraft, 'date' | 'buyerId' | 'quarantine' | 'plate' | 'note' | 'pricing' | 'deduction' | 'collected' | 'method' | 'dueDate'> & {
+type EditorSeed<T> = Pick<ExitDraft, 'date' | 'buyerId' | 'quarantine' | 'plate' | 'destination' | 'note' | 'pricing' | 'deduction' | 'collected' | 'method' | 'dueDate'> & {
   type: ExitType
   lossKind: LossKind
   deathCause: string
@@ -17,6 +17,7 @@ export function useExitEditor<T extends { code: string }>(seed: EditorSeed<T>) {
   const [buyerId, setBuyerId] = useState(seed.buyerId ?? '')
   const [quarantine, setQuarantine] = useState(seed.quarantine ?? '')
   const [plate, setPlate] = useState(seed.plate ?? '')
+  const [destination, setDestination] = useState(seed.destination ?? '')
   const [note, setNote] = useState(seed.note ?? '')
   const [deathCause, setDeathCause] = useState(seed.deathCause)
   const [carcassDisposal, setCarcassDisposal] = useState(seed.carcassDisposal)
@@ -33,13 +34,13 @@ export function useExitEditor<T extends { code: string }>(seed: EditorSeed<T>) {
   }, [])
 
   const formSnapshot = useCallback(() => JSON.stringify({
-    date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate,
+    date, type, lossKind, pricing, buyerId, quarantine, plate, destination, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate,
     documents: documents.map((file) => ({ name: file.name, size: file.size, type: file.type })), removedAttachmentIds,
-  }), [date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
+  }), [date, type, lossKind, pricing, buyerId, quarantine, plate, destination, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
 
   return {
     type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId,
-    quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal,
+    quarantine, setQuarantine, plate, setPlate, destination, setDestination, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal,
     picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate,
     documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot,
   }

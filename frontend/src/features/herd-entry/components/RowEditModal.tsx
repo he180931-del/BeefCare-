@@ -12,6 +12,9 @@ import type { EntryBreedOption, EntryPurposeOption, EntryVaccineOption } from '.
 
 const compactInputCls = 'box-border h-[34px] min-w-0 w-full rounded-lg border border-field bg-white px-2 text-[12px] text-ink outline-none focus:border-brand aria-invalid:border-err-fg read-only:bg-page read-only:text-muted'
 const compactSelectCls = '[&_select]:h-[34px] [&_select]:min-w-0 [&_select]:rounded-lg [&_select]:px-2 [&_select]:py-1 [&_select]:text-[12px]'
+const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+/** Backend accepts ages up to 240 months, so the year list covers 20 years before the entry year. */
+const MAX_BIRTH_YEARS_BACK = 20
 type EditCow = EntryCow & { colourMarkings?: string; quarantineUntil?: string }
 
 /**
@@ -53,6 +56,10 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
   const [invalidField, setInvalidField] = useState('')
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [stageEdited, setStageEdited] = useState(false)
+  // Year and month are picked separately so an old year is one click away; only a full pair becomes a date.
+  const [dobYear, setDobYear] = useState(cow.dob.slice(0, 4))
+  const [dobMonthPart, setDobMonthPart] = useState(cow.dob.slice(5, 7))
+  const dobIncomplete = Boolean(dobYear) !== Boolean(dobMonthPart)
   const form = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!invalidField) return
@@ -92,6 +99,25 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
   const ok = !c.barn || !receptionError
   const weightBasis = c.weight > 0 ? c.weight === cow.weight && initialWeightBasis === 'ESTIMATED' ? 'ESTIMATED' : 'MEASURED' : null
   const amount = pricing === 'con' ? c.unitPrice : c.weight * c.unitPrice
+  const entryYear = Number(dateIso.slice(0, 4))
+  const birthYears = useMemo(() => {
+    const years = Array.from({ length: MAX_BIRTH_YEARS_BACK + 1 }, (_, back) => String(entryYear - back))
+    return cow.dob && !years.includes(cow.dob.slice(0, 4)) ? [...years, cow.dob.slice(0, 4)] : years
+  }, [entryYear, cow.dob])
+  const changeDob = (year: string, monthPart: string) => {
+    setDobYear(year); setDobMonthPart(monthPart)
+    if (Boolean(year) !== Boolean(monthPart)) { setInvalidField(''); setValidationError(null); return }
+    const month = year ? `${year}-${monthPart}` : ''
+    // Same 6/12/24 month boundaries as EntryLineValidator.proposeLifeStage (GBR-25).
+    const monthChanged = month !== c.dob.slice(0, 7)
+    // Clearing the birth date keeps the chosen stage: there is no age left to propose from.
+    const stage = stageEdited || !monthChanged || !month ? c.stage : proposeStage(ageOf(month, dateIso), c.sex)
+    if (month === cow.dob.slice(0, 7)) {
+      set({ stage, dob: cow.dob, dobAccuracy: cow.dobAccuracy })
+    } else {
+      set({ stage, dob: month ? `${month}-01` : '', dobAccuracy: month ? 'ESTIMATED' : 'UNKNOWN', ageMonths: undefined })
+    }
+  }
   const quarantineShortcut = (days: number) => {
     if (!dateIso) return
     const next = new Date(`${dateIso}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + days)
@@ -105,7 +131,8 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
     if (!c.purpose.trim() || c.purpose === 'Chưa xác định') return fail('entry-cow-purpose', 'Vui lòng chọn mục đích nuôi.')
     if (!c.barn.trim()) return fail('entry-cow-barn', 'Vui lòng chọn chuồng nhận.')
     if ((pricing === 'kg' || c.weight !== 0) && (!Number.isFinite(c.weight) || c.weight < 1 || c.weight > 1500)) return fail('entry-cow-weight', 'Cân nhập phải từ 1 đến 1.500 kg.')
-    if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return fail('entry-cow-unit-price', pricing === 'con' ? 'Giá con phải lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
+    if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return fail('entry-cow-unit-price', pricing === 'con' ? 'Thành tiền phải lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
+    if (dobIncomplete) return fail('entry-cow-dob', 'Chọn đủ tháng và năm sinh, hoặc để trống cả hai.')
     if (c.dob && (c.dob.slice(0,7) > dateIso.slice(0,7) || c.dob < '1900-01')) return fail('entry-cow-dob', 'Tháng sinh không hợp lệ hoặc sau tháng nhập.')
     if (c.quarantineUntil && c.quarantineUntil < dateIso) return fail('entry-cow-quarantine', 'Cách ly nhập đàn đến không được trước ngày nhập.')
     if (receptionError) return fail('entry-cow-barn', receptionError)
@@ -167,18 +194,17 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
                     : null)
               }} />
           </div>
-          <Field id="entry-cow-dob" label="Tháng sinh (ước tính)" hint={c.dob ? `≈ ${ageMonths} tháng tuổi khi nhập` : 'Chưa rõ tháng sinh'}>
-            <input id="entry-cow-dob" aria-invalid={invalidField === 'entry-cow-dob'} type="month" aria-label="Tháng sinh (ước tính)" min="1900-01" max={dateIso.slice(0,7)} value={c.dob.slice(0,7)} className={compactInputCls} onChange={e => {
-              const month = e.target.value
-              // Same 6/12/24 month boundaries as EntryLineValidator.proposeLifeStage (GBR-25).
-              const monthChanged = month !== c.dob.slice(0, 7)
-              const stage = stageEdited || !monthChanged ? c.stage : month ? proposeStage(ageOf(month, dateIso), c.sex) : ''
-              if (month === cow.dob.slice(0, 7)) {
-                set({ stage, dob: cow.dob, dobAccuracy: cow.dobAccuracy })
-              } else {
-                set({ stage, dob: month ? `${month}-01` : '', dobAccuracy: month ? 'ESTIMATED' : 'UNKNOWN', ageMonths: undefined })
-              }
-            }} />
+          <Field id="entry-cow-dob" label="Tháng sinh (ước tính)" hint={dobIncomplete ? 'Chọn đủ tháng và năm, hoặc để trống cả hai' : c.dob ? `≈ ${ageMonths} tháng tuổi khi nhập` : 'Chưa rõ tháng sinh'}>
+            <div role="group" aria-label="Tháng sinh (ước tính)" aria-invalid={invalidField === 'entry-cow-dob'} className="grid grid-cols-2 gap-2 rounded-lg aria-invalid:ring-1 aria-invalid:ring-err-fg">
+              <Select className={compactSelectCls} id="entry-cow-dob" aria-label="Năm sinh" value={dobYear} onChange={(e) => changeDob(e.target.value, dobMonthPart)}>
+                <option value="">Năm</option>
+                {birthYears.map((year) => <option key={year} value={year}>{year}</option>)}
+              </Select>
+              <Select className={compactSelectCls} id="entry-cow-dob-month" aria-label="Tháng sinh" value={dobMonthPart} onChange={(e) => changeDob(dobYear, e.target.value)}>
+                <option value="">Tháng</option>
+                {MONTHS.map((month) => <option key={month} value={month} disabled={Boolean(dobYear) && `${dobYear}-${month}` > dateIso.slice(0, 7)}>{`Tháng ${Number(month)}`}</option>)}
+              </Select>
+            </div>
           </Field>
           <Field id="entry-cow-stage" label="Giai đoạn sống *" hint={proposedStage ? `Gợi ý theo tuổi: ${proposedStage}` : 'Đề xuất theo tuổi, sửa được'}>
             <Select className={compactSelectCls} id="entry-cow-stage" aria-invalid={invalidField === 'entry-cow-stage'} value={c.stage} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => { setStageEdited(Boolean(e.target.value)); set({ stage: e.target.value }) }}>
@@ -207,8 +233,8 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
               {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
             </Select>
           </Field>
-          <Field id="entry-cow-unit-price" label={pricing === 'con' ? 'Giá con (đ) *' : 'Đơn giá (đ/kg) *'} hint={`${pricing === 'con' ? 'Theo con' : 'Theo kg'} – áp cho cả phiếu`}>
-            <MoneyInput id="entry-cow-unit-price" aria-invalid={invalidField === 'entry-cow-unit-price'} aria-label={pricing === 'con' ? 'Giá con' : 'Đơn giá (đ/kg)'} value={c.unitPrice} onChange={unitPrice => set({unitPrice})} inputClassName={compactInputCls} />
+          <Field id="entry-cow-unit-price" label={pricing === 'con' ? 'Thành tiền (đ) *' : 'Đơn giá (đ/kg) *'} hint={pricing === 'con' ? 'Số tiền mua con này' : 'Theo kg – áp cho cả phiếu'}>
+            <MoneyInput id="entry-cow-unit-price" aria-invalid={invalidField === 'entry-cow-unit-price'} aria-label={pricing === 'con' ? 'Thành tiền' : 'Đơn giá (đ/kg)'} value={c.unitPrice} onChange={unitPrice => set({unitPrice})} inputClassName={compactInputCls} />
           </Field>
           {pricing === 'kg' && <Field label="Thành tiền"><output className={`${compactInputCls} flex items-center bg-page text-muted`}>{c.weight > 0 ? `${money(amount)} đ` : '—'}</output></Field>}
         </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, DateInput, Foot, Icon, inputCls, Metric, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Badge, Button, DateInput, Icon, inputCls, Metric, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useFeedRationList } from '../hooks/useFeedRationList'
 import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../domain/feedRationList'
@@ -165,7 +165,6 @@ export default function FeedRationPage() {
         <Note tone="info">Mỗi chuồng chỉ có 1 khẩu phần hiệu lực tại một ngày. Phiên bản mới có hiệu lực từ ngày chọn và tự kết thúc phiên bản cũ vào ngày trước đó.</Note>
         {query.data && summary.plannedDailyCost === null && <Note tone="warn">Chưa đủ dữ liệu giá bình quân để tính chi phí cho một số khẩu phần.</Note>}
       </section>
-      <Foot>Danh sách khẩu phần theo chuồng (Chủ trại, Quản lý). Lượng kế hoạch của một cữ = khẩu phần × số con đang có trong chuồng; chi phí ước tính theo giá nhập bình quân. Dòng nền xanh là phiên bản sắp áp dụng; khẩu phần ngừng hiển thị mờ.</Foot>
       {dialog === 'huy' && dialogRow?.status === 'SCHEDULED' && <FeedRationCancelDialog row={dialogRow} onClose={close} onDone={done} cancelVersion={query.cancel} />}
       {dialog === 'ngung' && dialogRow?.status === 'EFFECTIVE' && <FeedRationStopDialog row={dialogRow} onClose={close} onDone={done} stopVersion={query.stop} />}
     </Layout>

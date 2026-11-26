@@ -47,11 +47,11 @@ describe('SCR-70 receipt pagination', () => {
     const secondPageReceipt = (await screen.findAllByRole('button', { name: /^RC-/ }))[0]
     const selectedCode = secondPageReceipt.textContent ?? ''
     await user.click(secondPageReceipt)
-    expect((await screen.findAllByText(`Biên nhận ${selectedCode} · Chỉ đọc`)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(selectedCode)).length).toBeGreaterThan(1)
 
     await user.type(screen.getByLabelText('Tìm biên nhận'), 'RC-26-0412')
 
     expect((await screen.findAllByText('RC-26-0412')).length).toBeGreaterThan(0)
-    expect(screen.queryByText(`Biên nhận ${selectedCode} · Chỉ đọc`)).toBeNull()
+    expect(screen.queryByText(selectedCode)).toBeNull()
   })
 })

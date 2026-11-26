@@ -1,34 +1,26 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { ErrorBlock, Foot, LoadingBlock, PageHeader } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { ErrorBlock, PageHeader } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
-import { CategoryGuideCard } from '../components/CategoryGuideCard'
 import { NewTicketForm } from '../components/NewTicketForm'
 import { MESSAGES, SupportError } from '../domain/supportError'
 import { TICKET_CATEGORIES } from '../domain/ticketRules'
 import type { CreateTicketCommand, TicketCategory } from '../types'
-import { useSupportCommands, useSupportOwnedFarms } from '../hooks/useSupportUseCase'
+import { useSupportCommands } from '../hooks/useSupportUseCase'
 
 const TITLE = 'Gửi yêu cầu hỗ trợ'
 
-/** SCR-65. Từ ngữ cảnh (thanh toán, trại bị ngưng) mở bằng `?category=PAYMENT&farmId=1` để điền sẵn (AF1). */
+/** Form tạo ticket Owner: ticket luôn gắn ngầm với trại đang mở trong phiên. */
 export default function NewTicketPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const session = useSession()
-  const { data: farms, loading, error, refetch } = useSupportOwnedFarms()
   const { createTicket } = useSupportCommands()
 
-  if (loading && !farms) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
-  if (error || !farms) return <Layout title={TITLE}><ErrorBlock variant="panel" message={userFacingError(error, 'Không tải được danh sách trang trại.')} onRetry={refetch} /></Layout>
+  if (session?.farmId == null) return <Layout title={TITLE}><ErrorBlock variant="panel" message="Hãy mở một trang trại trước khi gửi yêu cầu hỗ trợ." /></Layout>
 
   const categoryParam = params.get('category') as TicketCategory | null
-  const farmParam = Number(params.get('farmId'))
-  const initial = {
-    category: categoryParam && TICKET_CATEGORIES.some((c) => c.value === categoryParam) ? categoryParam : ('' as const),
-    farmId: (farms.find((f) => f.id === farmParam) ?? farms.find((f) => f.id === session?.farmId) ?? farms[0])?.id ?? null,
-  }
+  const initialCategory = categoryParam && TICKET_CATEGORIES.some((c) => c.value === categoryParam) ? categoryParam : ('' as const)
 
   const submit = async (cmd: CreateTicketCommand) => {
     try {
@@ -44,13 +36,9 @@ export default function NewTicketPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} />
-        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
-          <div className="@container col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8">
-            <NewTicketForm farms={farms} initial={initial} onSubmit={submit} onCancel={() => navigate('/ho-tro')} />
-          </div>
-          <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4"><CategoryGuideCard /></div>
+        <div className="@container min-w-0">
+          <NewTicketForm activeFarmId={session.farmId} initialCategory={initialCategory} onSubmit={submit} onCancel={() => navigate('/ho-tro')} />
         </div>
-        <Foot>Chọn danh mục và phạm vi, nhập tiêu đề tối đa 150 ký tự cùng mô tả tối đa 3.000 ký tự; mức ưu tiên do bộ phận hỗ trợ gán.</Foot>
       </div>
     </Layout>
   )

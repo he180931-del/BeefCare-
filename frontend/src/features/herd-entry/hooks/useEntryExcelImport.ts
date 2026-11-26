@@ -1,12 +1,13 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import readXlsxFile from 'read-excel-file'
 import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../domain/entryExcel'
+import { entryImportIssueText, type EntryImportIssue } from '../domain/entryImportIssue'
 import type { EntryCow } from '../types'
 import { herdEntryError } from '../api/herdEntryError'
 
 export type EntryBackendImportResult = {
   total?: number; valid?: number; warnings?: number; errors?: number; summary?: { message?: string }
-  rows?: Array<{ row?: number; earTag?: string; breed?: string; sex?: string; weight?: string | number; pen?: string; result?: string; issues?: Array<{ message?: string; field?: string; severity?: string }> }>
+  rows?: Array<{ row?: number; earTag?: string; breed?: string; sex?: string; weight?: string | number; pen?: string; result?: string; issues?: EntryImportIssue[] }>
 }
 export type { EntryExcelPreviewRow }
 
@@ -18,13 +19,7 @@ type Options = {
 const backendRows = (result: EntryBackendImportResult): EntryExcelPreviewRow[] => (result.rows ?? []).map((row, index) => {
   const resultCode = String(row.result ?? '').toUpperCase()
   const tone = resultCode === 'ERROR' ? 'err' : resultCode === 'WARNING' ? 'warn' : 'ok'
-  const issues = (row.issues ?? []).map((issue) => {
-    const message = String(issue.message ?? '').trim()
-    if (message) return message
-    const field = String(issue.field ?? '').trim()
-    const labels: Record<string, string> = { earTagNumber: 'Số thẻ tai', breed: 'Giống', sex: 'Giới tính', birthDate: 'Ngày sinh', birthDateAccuracy: 'Độ chính xác ngày sinh', lifeStage: 'Giai đoạn sinh trưởng', purposeId: 'Mục đích nuôi', entryWeightKg: 'Cân nhập (kg)', weightBasis: 'Cơ sở cân', penId: 'Chuồng nhận', unitPrice: 'Đơn giá', quarantineUntil: 'Ngày kết thúc cách ly' }
-    return field ? `Vui lòng kiểm tra trường ${labels[field] ?? field}.` : ''
-  }).filter(Boolean)
+  const issues = (row.issues ?? []).map(entryImportIssueText).filter(Boolean)
   const text = issues.length ? `${tone === 'err' ? 'Lỗi' : 'Cảnh báo'} · ${issues.join('; ')}` : tone === 'err' ? 'Lỗi' : tone === 'warn' ? 'Cảnh báo' : 'Hợp lệ'
   return { line: row.row ?? index + 2, tag: String(row.earTag ?? ''), breed: String(row.breed ?? ''), sex: row.sex === 'MALE' ? 'Đực' : row.sex === 'FEMALE' ? 'Cái' : String(row.sex ?? ''), kg: Number(row.weight) || 0, barn: String(row.pen ?? ''), result: { tone, text }, cow: null }
 })

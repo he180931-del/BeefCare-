@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
+import { Button, Card, DateInput, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { useFinanceBankTransactions, useFinanceCategories, useFinanceFarms, useFinanceRecord, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
 import { RecordDialogs } from '../components/RecordDialogs'
-import { categoryLabel, DEMO_TODAY, FINANCE_CATEGORIES, formatDateTime, formatVnd } from '../domain/financeRules'
+import { categoryLabel, formatDate, formatDateTime, formatVnd } from '../domain/financeRules'
 import { validateRecordFields } from '../validation/financeValidation'
 import type { BankTransactionChoice, FinanceRecord, RecordErrors, RecordFields } from '../types'
 
-const EMPTY: RecordFields = { type: 'EXPENSE', category: '', amountVnd: 0, occurredOn: DEMO_TODAY, scope: 'GENERAL', farmId: null, documentNumber: '', description: '', sourceType: 'MANUAL', sourceEvidenceId: null }
+const EMPTY: RecordFields = { type: 'EXPENSE', category: '', amountVnd: 0, occurredOn: '', scope: 'GENERAL', farmId: null, documentNumber: '', description: '', sourceType: 'MANUAL', sourceEvidenceId: null }
 const HISTORY_PAGE_SIZE = 5
 const toFields = (r: FinanceRecord): RecordFields => ({ type: r.type, category: r.category, amountVnd: r.amountVnd, occurredOn: r.occurredOn, scope: r.scope, farmId: r.farmId, documentNumber: r.documentNumber, description: r.description, sourceType: r.sourceType, sourceEvidenceId: r.sourceEvidenceId })
+const sameFields = (a: RecordFields, b: RecordFields) => (Object.keys(a) as (keyof RecordFields)[]).every((key) => a[key] === b[key])
 const Err = ({ text }: { text?: string }) => (text ? <span role="alert" className="text-[12px] text-err-fg">{text}</span> : null)
 
 /** SCR-72: biểu mẫu khoản thu chi (mới, nháp, đã ghi sổ, đã hủy bỏ). */
@@ -58,12 +59,15 @@ export default function RecordFormPage() {
   const set = (p: Partial<RecordFields>) => setFields((f) => ({ ...f, ...p }))
   const title = record ? `Khoản thu chi ${record.recordCode}` : 'Khoản thu chi mới'
   const sub = !record ? 'Nhập khoản thu hoặc chi của nền tảng. Lưu nháp trước, kiểm tra rồi ghi sổ.' : record.state === 'DRAFT' ? 'Chỉ khoản nháp được sửa. Khi ghi sổ, khoản này không thể sửa nữa.' : record.state === 'POSTED' ? 'Khoản đã ghi sổ chỉ đọc; sửa sai bằng Hủy bỏ kèm lý do.' : 'Khoản đã hủy bỏ chỉ đọc; có thể tạo nháp thay thế.'
-  const categoryError = useCases.isBackend() && !!categoryQuery.error
-  const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? (useCases.isBackend() ? [] : FINANCE_CATEGORIES[fields.type])
+  const categoryError = !!categoryQuery.error
+  const categoryOptions = { INCOME: categoryQuery.data?.income ?? [], EXPENSE: categoryQuery.data?.expense ?? [] }
+  const categoryCodes = categoryOptions[fields.type]
+  // Ghi sổ chỉ nhận bản đã lưu: có thay đổi chưa lưu thì phải Lưu nháp trước, không lưu ngầm.
+  const dirty = !!record && !sameFields(fields, toFields(record))
   const changeReload = () => setReloadKey((k) => k + 1)
 
   const save = async (): Promise<FinanceRecord | null> => {
-    const found = validateRecordFields(fields, useCases.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
+    const found = validateRecordFields(fields, useCases.now(), categoryOptions)
     setErrors(found)
     if (categoryError) { setFormError('Chưa tải được danh mục tài chính từ máy chủ. Vui lòng thử lại.'); return null }
     if (Object.keys(found).length) return null
@@ -83,12 +87,11 @@ export default function RecordFormPage() {
       return null
     } finally { setBusy(false) }
   }
-  const startPost = async () => {
-    const found = validateRecordFields(fields, useCases.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
+  const startPost = () => {
+    const found = validateRecordFields(fields, useCases.now(), categoryOptions)
     setErrors(found)
     if (Object.keys(found).length) { open('kiem-tra'); return }
-    const saved = await save()
-    if (saved) open('ghi-so')
+    open('ghi-so')
   }
   const useSource = () => {
     if (!pick) return
@@ -97,7 +100,11 @@ export default function RecordFormPage() {
     set({ sourceEvidenceId: pick.evidenceId, amountVnd: pick.amount, occurredOn: pick.bankPaidAt.slice(0, 10) })
     close()
   }
+  const wantedDirection = fields.type === 'INCOME' ? 'IN' : 'OUT'
+  const pickable = (bank.data ?? []).filter((b) => b.evidenceId != null && b.direction === wantedDirection)
   const chosen = (bank.data ?? []).find((b) => b.evidenceId != null && b.evidenceId === fields.sourceEvidenceId)
+  const bankSource = fields.sourceType === 'BANK'
+  const pickTitle = !editable ? 'Khoản này không còn sửa được' : bankSource ? 'Chọn giao dịch ngân hàng đã xác thực làm chứng từ' : 'Chỉ dùng khi nguồn khoản là Giao dịch ngân hàng'
   const sourceNotice = formError && /đã được ghi nhận là/.test(formError) ? formError : null
 
   return (
@@ -106,62 +113,80 @@ export default function RecordFormPage() {
         <PageHeader title={title} sub={sub}>
           {record?.state === 'DRAFT' && <Button onClick={() => open('bo-nhap')}>Bỏ nháp</Button>}
           {editable && <Button onClick={() => { void save() }} disabled={busy}>Lưu nháp</Button>}
-          {record?.state === 'DRAFT' && <Button variant="primary" onClick={() => { void startPost() }} disabled={busy}><Icon name="circle-check" size={16} /> Ghi sổ</Button>}
+          {record?.state === 'DRAFT' && <Button variant="primary" onClick={startPost} disabled={busy || dirty}><Icon name="circle-check" size={16} /> Ghi sổ</Button>}
           {record?.state === 'POSTED' && <Button variant="danger" onClick={() => open('huy')}>Hủy bỏ khoản đã ghi sổ</Button>}
           {record?.state === 'VOID' && <Button variant="primary" onClick={() => open('thay-the')}><Icon name="circle-plus" size={16} /> Tạo nháp thay thế</Button>}
           <Button variant="link" onClick={() => navigate(FINANCE_BASE)}>Về danh sách</Button>
         </PageHeader>
         <FlashNote flash={flash} />
+        {dirty && record?.state === 'DRAFT' && <Note tone="info">Có thay đổi chưa lưu. Lưu nháp trước khi ghi sổ.</Note>}
         {formError && !sourceNotice && <Note tone="err">{formError}</Note>}
         {categoryError && <Note tone="err">Chưa tải được danh mục tài chính từ máy chủ. Vui lòng tải lại trang rồi thử lại.</Note>}
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
           <Card title="Thông tin khoản" actions={record ? <StateBadge state={record.state} /> : <StateBadge state="DRAFT" />}>
             <div className="flex flex-col gap-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Loại *"><div className="flex gap-4">
-                  <Radio name="type" checked={fields.type === 'INCOME'} onChange={() => editable && set({ type: 'INCOME', category: '' })}>Thu</Radio>
-                  <Radio name="type" checked={fields.type === 'EXPENSE'} onChange={() => editable && set({ type: 'EXPENSE', category: '' })}>Chi</Radio>
-                </div></Field>
-                <Field label="Phạm vi *"><div className="flex flex-wrap gap-4">
-                  <Radio name="scope" checked={fields.scope === 'GENERAL'} onChange={() => editable && set({ scope: 'GENERAL', farmId: null })}>Chung nền tảng</Radio>
-                  <Radio name="scope" checked={fields.scope === 'FARM'} onChange={() => editable && set({ scope: 'FARM' })}>Gắn với trại</Radio>
-                </div></Field>
+                <div className="flex flex-col gap-4">
+                  <Field label="Loại *"><div className="flex gap-4">
+                    <Radio name="type" checked={fields.type === 'INCOME'} onChange={() => editable && set({ type: 'INCOME', category: '', ...(fields.sourceType === 'BANK' ? { sourceEvidenceId: null } : {}) })}>Thu</Radio>
+                    <Radio name="type" checked={fields.type === 'EXPENSE'} onChange={() => editable && set({ type: 'EXPENSE', category: '', ...(fields.sourceType === 'BANK' ? { sourceEvidenceId: null } : {}) })}>Chi</Radio>
+                  </div></Field>
+                  <Field label="Danh mục *" id="fr-cat" hint={<Err text={errors.category} />}>
+                    <Select id="fr-cat" value={fields.category} disabled={!editable} onChange={(e) => set({ category: e.target.value })}>
+                      <option value="">Chọn danh mục</option>
+                      {categoryCodes.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
+                      {fields.category && !categoryCodes.includes(fields.category) && <option>{fields.category}</option>}
+                    </Select>
+                  </Field>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Field label="Nguồn khoản"><div className="flex flex-wrap items-center gap-2">
+                    <Radio name="source" checked={fields.sourceType === 'MANUAL'} onChange={() => editable && set({ sourceType: 'MANUAL', sourceEvidenceId: null })}>Nhập thủ công</Radio>
+                    <Radio name="source" checked={fields.sourceType === 'BANK'} onChange={() => { if (!editable) return; set({ sourceType: 'BANK', amountVnd: 0, occurredOn: '' }) }}>Giao dịch ngân hàng</Radio>
+                    <Button size="sm" title={pickTitle} disabled={!editable || !bankSource} onClick={() => { setPick(chosen ?? null); open('chon-nguon') }}>
+                      <Icon name="file-invoice" size={14} /> {chosen ? 'Đổi chứng từ' : 'Chọn chứng từ ngân hàng'}
+                    </Button>
+                  </div></Field>
+                  {fields.sourceType === 'BANK' && (
+                    <div className="flex flex-col gap-1 text-[12px] text-muted">
+                      <span>{chosen ? `${chosen.evidenceCode} · ${chosen.sourceReference}` : (fields.sourceEvidenceId && record?.sourceReference) || ''} <Err text={errors.sourceEvidenceId} /></span>
+                    </div>
+                  )}
+                  {sourceNotice && <div role="alert"><Note tone="err">{sourceNotice}</Note></div>}
+                </div>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
-                <Field label="Danh mục *" id="fr-cat" hint={<Err text={errors.category} />}>
-                  <Select id="fr-cat" value={fields.category} disabled={!editable} onChange={(e) => set({ category: e.target.value })}>
-                    <option value="">Chọn danh mục</option>
-                    {categoryCodes.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
-                    {fields.category && !categoryCodes.includes(fields.category) && <option>{fields.category}</option>}
+                <Field label="Gắn với trại *" id="fr-scope">
+                  <Select id="fr-scope" value={fields.scope === 'FARM' ? 'YES' : 'NO'} disabled={!editable} onChange={(e) => (e.target.value === 'YES' ? set({ scope: 'FARM' }) : set({ scope: 'GENERAL', farmId: null }))}>
+                    <option value="NO">Không</option>
+                    <option value="YES">Có</option>
                   </Select>
                 </Field>
-                <Field label="Số tiền *" id="fr-amount" hint={<Err text={errors.amountVnd} />}>
-                  <div className="relative"><input id="fr-amount" className={`${inputCls} pr-8`} inputMode="numeric" readOnly={!editable} value={fields.amountVnd ? formatVnd(fields.amountVnd) : ''} onChange={(e) => set({ amountVnd: Number(e.target.value.replace(/\D/g, '')) || 0 })} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-muted">đ</span></div>
-                </Field>
-                <Field label="Ngày phát sinh *" id="fr-date" hint={<Err text={errors.occurredOn} />}><DateInput id="fr-date" value={fields.occurredOn} readOnly={!editable} onChange={(v) => set({ occurredOn: v })} /></Field>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
                 <Field label={fields.scope === 'FARM' ? 'Trang trại *' : 'Trang trại'} id="fr-farm" hint={<Err text={errors.farmId} />}>
-                  <Select id="fr-farm" value={fields.farmId ?? ''} disabled={!editable || fields.scope === 'GENERAL'} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
-                    <option value="">{fields.scope === 'GENERAL' ? 'Không gắn trại' : 'Chọn trang trại'}</option>
-                    {(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </Select>
+                  <div className={fields.scope === 'GENERAL' ? 'opacity-50' : ''}>
+                    <Select id="fr-farm" value={fields.farmId ?? ''} disabled={!editable || fields.scope === 'GENERAL'} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
+                      <option value="">{fields.scope === 'GENERAL' ? 'Không gắn trại' : 'Chọn trang trại'}</option>
+                      {(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </Select>
+                  </div>
                 </Field>
                 <Field label="Số chứng từ" id="fr-doc" hint={<Err text={errors.documentNumber} />}><input id="fr-doc" className={inputCls} maxLength={100} readOnly={!editable} value={fields.documentNumber} onChange={(e) => set({ documentNumber: e.target.value })} /></Field>
               </div>
+              <div className={`grid gap-4 md:grid-cols-2 ${bankSource ? 'opacity-50' : ''}`}>
+                <Field label="Số tiền *" id="fr-amount" hint={<Err text={errors.amountVnd} />}>
+                  <div className="relative"><input id="fr-amount" className={`${inputCls} pr-8`} inputMode="numeric" readOnly={!editable || bankSource} value={fields.amountVnd ? formatVnd(fields.amountVnd) : ''} onChange={(e) => set({ amountVnd: Number(e.target.value.replace(/\D/g, '')) || 0 })} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-muted">đ</span></div>
+                </Field>
+                <Field label="Ngày phát sinh *" id="fr-date" hint={<Err text={errors.occurredOn} />}><DateInput id="fr-date" value={fields.occurredOn} readOnly={!editable || bankSource} onChange={(v) => set({ occurredOn: v })} /></Field>
+              </div>
               <Field label="Diễn giải" id="fr-desc" hint={<Err text={errors.description} />}><Textarea id="fr-desc" maxLength={500} readOnly={!editable} value={fields.description} onChange={(e) => set({ description: e.target.value })} /></Field>
-              <Field label="Nguồn khoản"><div className="flex flex-wrap items-center gap-4">
-                <Radio name="source" checked={fields.sourceType === 'MANUAL'} onChange={() => editable && set({ sourceType: 'MANUAL', sourceEvidenceId: null })}>Nhập thủ công</Radio>
-                <Radio name="source" checked={fields.sourceType === 'BANK'} onChange={() => editable && set({ sourceType: 'BANK' })}>Giao dịch ngân hàng</Radio>
-                {editable && fields.sourceType === 'BANK' && <Button size="sm" onClick={() => { setPick(chosen ?? null); open('chon-nguon') }}>{chosen ? 'Đổi chứng từ' : 'Chọn chứng từ ngân hàng'}</Button>}
-              </div></Field>
-              {fields.sourceType === 'BANK' && <div className="text-[12px] text-muted">{chosen ? `${chosen.evidenceCode} · ${chosen.sourceReference}` : record?.sourceReference || 'Chưa chọn chứng từ.'} <Err text={errors.sourceEvidenceId} /></div>}
-              {sourceNotice && <div role="alert"><Note tone="err">{sourceNotice}</Note></div>}
-              <p className="m-0 text-[11px] text-muted">Nếu khoản lấy từ ngân hàng, chọn chứng từ đã xác thực để giữ định danh nguồn. Số chứng từ tự nhập chỉ để tham khảo.</p>
-              <Note tone="info">Số tiền là số nguyên đồng lớn hơn 0; danh mục phải phù hợp loại; chọn &quot;Gắn với trại&quot; thì bắt buộc chọn trại.</Note>
+              {editable && (
+                <div className="flex justify-end border-t border-edge pt-4">
+                  <Button onClick={() => { void save() }} disabled={busy}>Lưu nháp</Button>
+                </div>
+              )}
             </div>
           </Card>
-          <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
             <Card title="Lịch sử thao tác">
               {(record?.history ?? []).length === 0 ? <p className="m-0 text-[12px] text-muted">Chưa có thao tác. Lịch sử bắt đầu khi lưu nháp.</p> : (
                 <>
@@ -177,10 +202,8 @@ export default function RecordFormPage() {
                 </>
               )}
             </Card>
-            <Note>Đây là tài chính nền tảng cơ bản – không phải kế toán trại, ERP hay kế toán thuế. Khoản đã ghi sổ chỉ có thể hủy bỏ kèm lý do.</Note>
           </div>
         </div>
-        <Foot>Biểu mẫu khoản thu chi (PM). Ba nút ở đầu trang: bỏ nháp, lưu nháp và ghi sổ. Khung phải ghi lịch sử thao tác của khoản.</Foot>
       </div>
 
       <RecordDialogs code={record?.recordCode ?? null} onChanged={changeReload} />
@@ -189,9 +212,9 @@ export default function RecordFormPage() {
         <Modal title="Chọn chứng từ ngân hàng" width={640} onClose={close}>
           <div className="flex flex-col gap-3">
             <Field label="Tìm giao dịch đã xác thực" id="tx-pick">
-              <Select id="tx-pick" value={pick?.evidenceId ?? ''} onChange={(e) => setPick((bank.data ?? []).find((b) => b.evidenceId === Number(e.target.value)) ?? null)}>
+              <Select id="tx-pick" value={pick?.evidenceId ?? ''} onChange={(e) => setPick(pickable.find((b) => b.evidenceId === Number(e.target.value)) ?? null)}>
                 <option value="">Chọn giao dịch</option>
-                {(bank.data ?? []).filter((b) => b.evidenceId != null).map((b) => <option key={b.evidenceId} value={b.evidenceId}>{b.evidenceCode} · {b.paymentReference} · {b.bankPaidAt.slice(8, 10)}/{b.bankPaidAt.slice(5, 7)}/{b.bankPaidAt.slice(0, 4)}</option>)}
+                {pickable.map((b) => <option key={b.evidenceId} value={b.evidenceId}>{b.evidenceCode} · {b.paymentReference} · {b.bankPaidAt.slice(8, 10)}/{b.bankPaidAt.slice(5, 7)}/{b.bankPaidAt.slice(0, 4)}</option>)}
               </Select>
             </Field>
             {pick && (
@@ -200,7 +223,6 @@ export default function RecordFormPage() {
                 <div className="flex flex-col gap-1"><span className="text-[12px] font-medium text-ink">Chiều / tiền / ngày ngân hàng</span><input className={inputCls} readOnly value={`${pick.direction} · ${formatVnd(pick.amount)} VND · ${formatDateTime(pick.bankPaidAt)}`} aria-label="Chiều tiền ngày ngân hàng" /></div>
               </>
             )}
-            <Note tone="info">Định danh nguồn được chọn từ chứng từ tin cậy; không dùng Số chứng từ tự nhập làm khóa. Không nhận nguồn đã thuộc đăng ký gói, tiền nhầm gói hoặc khoản hoàn của nó.</Note>
           </div>
           <ModalFooter>
             <ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>

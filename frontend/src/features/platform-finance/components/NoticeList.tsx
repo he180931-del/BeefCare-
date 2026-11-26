@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
 import { financeError } from '../api/financeError'
 import { useFinanceNotices, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { relativeTime, unreadCount } from '../domain/financeRules'
@@ -9,7 +9,7 @@ import type { NoticeKind, PmNotice } from '../types'
 import { FlashNote, type Flash } from './common'
 
 /** Danh sách thông báo dùng chung cho SCR-47 (đối soát) và thông báo hỗ trợ của PM. */
-export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title: string; sub: string; foot: string }) {
+export function NoticeList({ kind, title, sub }: { kind: NoticeKind; title: string; sub: string }) {
   const navigate = useNavigate()
   const [tab, setTab] = useState<'ALL' | 'UNREAD'>('ALL')
   const [flash, setFlash] = useState<Flash | null>(null)
@@ -60,7 +60,6 @@ export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title
             </ul>
           )}
         </Card>
-        <Foot>{foot}</Foot>
       </div>
     </Layout>
   )

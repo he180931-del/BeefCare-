@@ -1,17 +1,21 @@
-import { useState } from 'react'
-import { Badge, Button, Checkbox, Icon, KV, Table, Td, Th } from '../../../shared/ui'
-import { criteriaOf, criteriaRows, dmy, situationText } from '../domain/penRules'
+import { useEffect, useState } from 'react'
+import { Badge, Button, Checkbox, Icon, KV, Note, Table, Td, Th } from '../../../shared/ui'
+import { criteriaOf, criteriaRows, dmy, PEN_STATUS_LABELS, situationText } from '../domain/penRules'
 import { Box, TH } from './parts'
 import { penName } from './BarnTable'
 import type { PenCattle, PenDetail } from '../api/penApi'
 import type { Pen } from '../types'
 
 /** Pen detail of SCR-17 (fields 10–15). Write actions are shown to Owner and Manager only (§2, TC-04-24). */
-export default function BarnPanel({ barn, detail, loading = false, canManage = true, onEdit, onToggle, onMove, onViewAll }: { barn: Pen; detail?: PenDetail | null; loading?: boolean; canManage?: boolean; onEdit: () => void; onToggle: () => void; onMove: (cattle: PenCattle[]) => void; onViewAll?: () => void }) {
+export default function BarnPanel({ barn, detail, detailError, onRetry, loading = false, canManage = true, onEdit, onToggle, onMove, onViewAll }: { barn: Pen; detail?: PenDetail | null; detailError?: unknown; onRetry?: () => void; loading?: boolean; canManage?: boolean; onEdit: () => void; onToggle: () => void; onMove: (cattle: PenCattle[]) => void; onViewAll?: () => void }) {
   const active = barn.status === 'ACTIVE'
   const shown = detail ?? barn
   const cattle = detail?.cattleInPen ?? []
   const [selected, setSelected] = useState<string[]>([])
+  // A reloaded detail (e.g. after a move) drops ticks of cattle that are no longer in this pen.
+  useEffect(() => {
+    setSelected((current) => current.filter((code) => cattle.some((c) => c.code === code)))
+  }, [detail])
   const rows = criteriaRows(criteriaOf(shown))
   const versionNo = shown.criteriaVersionNo
   const versionText = versionNo != null
@@ -21,8 +25,8 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
   const chosen = cattle.filter((c) => selected.includes(c.code))
 
   return (
-    <Box>
-      <div className="flex items-center justify-between gap-3">
+    <Box className="@container">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="m-0 text-sm font-semibold text-[#212121]">{barn.code} – {penName(barn)}</h3>
         {canManage && (
           <div className="flex shrink-0 gap-2">
@@ -32,12 +36,12 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 @min-[420px]:grid-cols-4">
         <KV k="Sức chứa">{barn.capacity}</KV>
         <KV k="Số con">{barn.count}</KV>
-        <KV k="Chỗ trống">{Math.max(0, barn.capacity - barn.count)}</KV>
+        <KV k="Chỗ trống"><span className={!active ? 'text-muted' : undefined}>{Math.max(0, detail?.freePlaces ?? barn.freePlaces ?? barn.capacity - barn.count)}{!active && ' · không nhận bò mới'}</span></KV>
         <KV k="Trạng thái">
-          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>}
+          <span className="min-w-0 whitespace-nowrap">{active ? <Badge tone="ok" icon="circle-check" className="!border-0">{PEN_STATUS_LABELS.ACTIVE}</Badge> : <Badge>{PEN_STATUS_LABELS.INACTIVE}</Badge>}</span>
         </KV>
       </div>
 
@@ -67,6 +71,7 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
             </Button>
           )}
         </div>
+        {Boolean(detailError) && <Note tone="err">Không tải được chi tiết chuồng. Vui lòng thử lại. {onRetry && <Button small variant="link" onClick={onRetry}>Thử lại</Button>}</Note>}
         <Table stack={false}>
           <thead>
             <tr>
@@ -76,12 +81,12 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
             </tr>
           </thead>
           <tbody>
-            {cattle.length === 0 && (
+            {!detailError && cattle.length === 0 && (
               <tr>
                 <Td colSpan={canManage ? 3 : 2} className={`${TH} text-muted`}>{loading ? 'Đang tải…' : 'Chuồng chưa có bò'}</Td>
               </tr>
             )}
-            {cattle.map((c) => (
+            {!detailError && cattle.map((c) => (
               <tr key={c.code}>
                 {canManage && (
                   <Td className={TH}>

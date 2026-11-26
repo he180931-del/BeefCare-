@@ -25,6 +25,8 @@ function autoRange(events: readonly ReproductionEvent[]): { from: string; to: st
   return { from: latest ? `${latest.slice(0, 4)}-01-01` : '', to: latest }
 }
 const shortDate = (value: string) => (value ? `${value.slice(8, 10)}/${value.slice(5, 7)}` : '')
+/** D79: số sự kiện hiện sẵn ở dòng thời gian sinh sản. */
+export const TIMELINE_ROWS = 5
 
 export default function ReproductionTimeline({ profile, canManage, onRevise, source }: {
   profile: ReproductionFemale
@@ -35,6 +37,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
   const [type, setType] = useState<ReproductionEventType | ''>('')
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null)
   const [picker, setPicker] = useState(false)
+  const [all, setAll] = useState(false)
   const auto = autoRange(profile.events)
   const range = custom ?? { from: auto.from, to: '' }
   const label = custom
@@ -45,6 +48,9 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
     .filter((event) => event.status !== 'VOIDED' && (!type || event.type === type)
       && (!range.from || event.occurredAt.slice(0, 10) >= range.from) && (!range.to || event.occurredAt.slice(0, 10) <= range.to))
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+  // D79: mặc định 5 sự kiện mới nhất trong khoảng đã chọn; phần còn lại mở bằng "Xem thêm".
+  const hidden = source || all ? 0 : Math.max(0, rows.length - TIMELINE_ROWS)
+  const shown = hidden ? rows.slice(0, TIMELINE_ROWS) : rows
 
   const open = (event: ReproductionEvent, action: 'correct' | 'void') => {
     const calving = event.type === 'CALVING' ? profile.calvings.find((item) => item.id === event.id) : undefined
@@ -79,7 +85,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
       <Table scroll>
         <thead><tr><Th>Thời điểm ↓</Th><Th>Sự kiện</Th><Th>Chi tiết</Th><Th>Người ghi</Th><Th>Thao tác</Th></tr></thead>
         <tbody>
-          {rows.map((event) => {
+          {shown.map((event) => {
             const voided = event.status === 'VOIDED'
             const stamp = formatDateTime(event.occurredAt)
             return (
@@ -103,6 +109,11 @@ export default function ReproductionTimeline({ profile, canManage, onRevise, sou
           {!rows.length && <tr><Td colSpan={5} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản trong khoảng đã chọn.</Td></tr>}
         </tbody>
       </Table>
+      {!source && (hidden > 0 || all) && rows.length > TIMELINE_ROWS && (
+        <button type="button" aria-expanded={all} className="cursor-pointer self-start text-xs font-semibold text-brand" onClick={() => setAll((v) => !v)}>
+          {all ? 'Thu gọn' : `Xem thêm ${hidden} sự kiện`}
+        </button>
+      )}
     </Panel>
   )
 }

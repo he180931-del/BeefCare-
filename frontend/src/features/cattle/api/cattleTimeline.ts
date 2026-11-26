@@ -1,5 +1,6 @@
 import type { CattleEvent, Tone } from '../types'
 import { toFarmLocal } from '../../../shared/lib/date/farmTime'
+import { QR_STATUS_LABELS } from '../domain/profileRules'
 
 /** One event of GET /api/farms/{farmId}/cattle/{id}/timeline (CattleTimelineService.Event). */
 export type BackendTimeline = {
@@ -19,8 +20,12 @@ export type BackendTimeline = {
   canCorrect?: boolean
 }
 
-/** SCR-50 #1 chips, in the order of the spec. */
+/**
+ * SCR-50 #1 chips, in the order of the spec. D79: "Chăm sóc" gom Cân & BCS, Tiêm phòng, Sức khỏe, Sinh sản – nhóm xem
+ * hằng ngày – và là chip mặc định khi bò có sự kiện chăm sóc.
+ */
 export const TIMELINE_FILTERS = [
+  ['care', 'Chăm sóc'],
   ['all', 'Tất cả'],
   ['qr', 'Định danh & QR'],
   ['stage', 'Mục đích / giai đoạn'],
@@ -31,6 +36,9 @@ export const TIMELINE_FILTERS = [
   ['repro', 'Sinh sản'],
   ['entryExit', 'Nhập & xuất'],
 ] as const
+
+/** D79: các nhóm sự kiện thuộc chip "Chăm sóc". */
+export const CARE_CATEGORIES: ReadonlySet<string> = new Set(['weight', 'vaccine', 'health', 'repro'])
 
 const CATEGORY: Record<string, string> = {
   IDENTIFICATION_QR: 'qr', ENTRY_EXIT: 'entryExit', PEN: 'barn', PURPOSE_STAGE: 'stage', GROWTH: 'weight', VACCINATION: 'vaccine', HEALTH: 'health', REPRODUCTION: 'repro',
@@ -47,7 +55,6 @@ const REPLACEMENT: Record<string, string> = { LOST: 'Mất', DAMAGED: 'Hỏng', 
 const REPRO_TYPE: Record<string, string> = { ESTRUS: 'Động dục', BREEDING: 'Phối giống', PREGNANCY_CHECK: 'Khám thai' }
 const REPRO_METHOD: Record<string, string> = { AI: 'thụ tinh nhân tạo', NATURAL: 'phối tự nhiên' }
 const PREGNANCY_UPDATE: Record<string, string> = { COMPLICATION: 'biến chứng', LOSS: 'mất thai' }
-const QR_STATUS: Record<string, string> = { ACTIVE: 'đang dùng', REPLACED: 'đã thay', RETIRED: 'đã thu hồi' }
 const HEALTH_OUTCOME: Record<string, string> = { RECOVERED: 'Đã khỏi', DIED: 'Chết', MISSING: 'Mất', CLOSED_BY_EXIT: 'Đóng do xuất đàn' }
 
 const str = (value: unknown): string => (value == null ? '' : String(value))
@@ -102,7 +109,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     case 'QR_ISSUED':
       return {
         title: `Cấp thẻ QR ${str(v.tagCode)}`,
-        detail: join(QR_STATUS[status] && `Thẻ ${QR_STATUS[status]}`, v.reason && `Bị thay vì: ${REPLACEMENT[str(v.reason)] ?? str(v.reason)}`),
+        detail: join(QR_STATUS_LABELS[status] && `Thẻ ${QR_STATUS_LABELS[status].toLowerCase()}`, v.reason && `Bị thay vì: ${REPLACEMENT[str(v.reason)] ?? str(v.reason)}`),
       }
     case 'PROFILE_CHANGE': {
       const group = str(v.fieldGroup)
@@ -122,7 +129,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     case 'VACCINATION_RECORD':
       return {
         title: `Tiêm ${str(v.vaccine) || 'vắc-xin'}`,
-        detail: join(v.dose && `Liều ${str(v.dose)}`, v.withdrawalEndDate && `Ngưng sử dụng thịt đến ${dateOnly(v.withdrawalEndDate)}`),
+        detail: join(v.dose && `Liều ${str(v.dose)}`, v.withdrawalEndDate && `Cách ly thịt đến ${dateOnly(v.withdrawalEndDate)}`),
         basis: v.source === 'HISTORICAL' ? 'Lịch sử' : 'Tại trại',
         reason: str(v.reason) || undefined,
       }
@@ -133,7 +140,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     case 'TREATMENT':
       return {
         title: `Điều trị – ${str(v.medicine) || 'thuốc'}`,
-        detail: join(v.dose && `Liều ${str(v.dose)}`, v.route && `Đường ${str(v.route)}`, v.courseDays != null && `${str(v.courseDays)} ngày`, v.withdrawalEndDate && `Ngưng sử dụng thịt đến ${dateOnly(v.withdrawalEndDate)}`),
+        detail: join(v.dose && `Liều ${str(v.dose)}`, v.route && `Đường ${str(v.route)}`, v.courseDays != null && `${str(v.courseDays)} ngày`, v.withdrawalEndDate && `Cách ly thịt đến ${dateOnly(v.withdrawalEndDate)}`),
         reason: str(v.reason) || undefined,
       }
     case 'PREGNANCY_UPDATE':

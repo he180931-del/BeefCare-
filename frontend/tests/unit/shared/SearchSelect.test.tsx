@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import SearchSelect, { searchKey } from '../../../src/features/platform-admin/components/SearchSelect'
+import { SearchSelect, searchKey } from '../../../src/shared/ui'
 
 const OPTIONS = [
   { value: 'ACCOUNT_SUSPENDED', label: 'Tạm ngưng tài khoản', keywords: 'ACCOUNT_SUSPENDED' },
@@ -17,6 +17,10 @@ function Harness({ onChange = vi.fn() }: { onChange?: (value: string) => void })
     <SearchSelect aria-label="Lọc theo hành động" options={OPTIONS} value={value} onChange={(v) => { setValue(v); onChange(v) }} emptyText="Không có hành động phù hợp" clearLabel="Bỏ lọc hành động" />
     <button type="button">khác</button>
   </>
+}
+function NonClearableHarness() {
+  const [value, setValue] = useState('ACCOUNT_SUSPENDED')
+  return <SearchSelect aria-label="Lọc không xóa" options={OPTIONS} value={value} onChange={setValue} clearable={false} />
 }
 const field = () => screen.getByRole('combobox', { name: 'Lọc theo hành động' })
 const optionNames = () => screen.queryAllByRole('option').map((o) => o.firstChild?.textContent)
@@ -77,6 +81,12 @@ describe('SearchSelect (bộ lọc gõ để tìm)', () => {
     await user.click(screen.getByRole('button', { name: 'Bỏ lọc hành động' }))
     expect(onChange).toHaveBeenLastCalledWith('')
     expect(field()).toHaveValue('')
+  })
+
+  it('can keep a selected value without showing a clear button', () => {
+    render(<NonClearableHarness />)
+    expect(screen.getByRole('combobox', { name: 'Lọc không xóa' })).toHaveValue('Tạm ngưng tài khoản')
+    expect(screen.queryByRole('button', { name: 'Bỏ lọc' })).not.toBeInTheDocument()
   })
 })
 

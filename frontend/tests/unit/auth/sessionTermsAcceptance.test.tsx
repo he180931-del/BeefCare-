@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider } from '../../../src/features/authentication'
 import type { AuthClient } from '../../../src/features/authentication/types'
 import { SessionProvider } from '../../../src/app/session/SessionProvider'
@@ -30,8 +30,13 @@ const profile = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
+function LocationProbe() {
+  const location = useLocation()
+  return <output aria-label="route">{location.pathname}</output>
+}
+
 function renderSession() {
-  return render(<MemoryRouter><AuthProvider client={client}><SessionProvider><div>Nội dung ứng dụng</div></SessionProvider></AuthProvider></MemoryRouter>)
+  return render(<MemoryRouter><AuthProvider client={client}><SessionProvider><LocationProbe /><div>Nội dung ứng dụng</div></SessionProvider></AuthProvider></MemoryRouter>)
 }
 
 describe('Google terms acceptance session gate', () => {
@@ -43,7 +48,7 @@ describe('Google terms acceptance session gate', () => {
     vi.mocked(client.logout).mockResolvedValue(undefined)
   })
 
-  it('keeps an unconsented Google account outside the application until acceptance succeeds', async () => {
+  it('keeps an unconsented Google account outside the application until acceptance succeeds without owning route policy', async () => {
     const user = userEvent.setup()
     transport.get.mockResolvedValueOnce(profile()).mockResolvedValueOnce(profile({ termsAccepted: true }))
     transport.command.mockResolvedValue({ termsAccepted: true, termsAcceptedAt: '2026-11-23T08:00:00Z' })
@@ -59,6 +64,7 @@ describe('Google terms acceptance session gate', () => {
 
     await waitFor(() => expect(transport.command).toHaveBeenCalledWith('/api/account/terms-acceptance', { accepted: true }, { method: 'POST' }))
     expect(await screen.findByText('Nội dung ứng dụng')).toBeInTheDocument()
+    expect(screen.getByLabelText('route')).toHaveTextContent('/')
   })
 
   it.each([

@@ -47,7 +47,7 @@ describe('purchase pricing round trip', () => {
     const { result } = renderHook(() => useEntryEditor({
       draft: { pricing: draftPricing, cows: [{ ...cow, pricing: cowPricing }] },
       defaults: { recordId: 'PN-TEST', date: '2026-10-29', quarantine: '', receiver: 'An', note: '', cows: [], freight: 0, paid: 0, method: '', due: '' },
-      pendingCalves: [], sellers: [], pens: [], isBuy: true,
+      pendingCalves: [], pens: [], isBuy: true,
     }))
     expect(result.current.pricing).toBe(expected)
     expect(result.current.purchase.cattleAmount).toBe(expected === 'con' ? 8_500_000 : 250 * 8_500_000)

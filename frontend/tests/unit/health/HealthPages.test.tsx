@@ -123,6 +123,38 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('D79: khối Tình trạng sức khỏe có dòng "Từ trước đến nay" – tổng ca, lần điều trị, ca gần nhất', async () => {
+    renderTab('BC-000154')
+    await screen.findByRole('button', { name: 'Mở lại ca' })
+    const label = screen.getByText('Từ trước đến nay')
+    const block = label.parentElement as HTMLElement
+    expect(within(block).getByText('Tổng số ca')).toBeInTheDocument()
+    expect(within(block).getByText('Lần điều trị')).toBeInTheDocument()
+    expect(within(block).getByText('Ca gần nhất').nextElementSibling?.textContent).toMatch(/^\d{2}\/\d{4}$/)
+  })
+
+  it('D81: ca đã đóng Khỏi vẫn sửa được bản ghi từ "Xem ca"; sửa xong tải lại tab; Kỹ thuật viên chỉ xem', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderTab('BC-000154', '', 'MANAGER')
+    await user.click(await screen.findByRole('button', { name: 'Xem ca HC-0411' }))
+    const view = await screen.findByRole('dialog', { name: /^Ca HC-0411/ })
+    await user.click(within(view).getByRole('button', { name: /^Sửa/ }))
+    const edit = await screen.findByRole('dialog', { name: /^Sửa bản ghi/ })
+    const signs = within(edit).getByRole('textbox', { name: /Dấu hiệu/ })
+    await user.clear(signs)
+    await user.type(signs, 'Sưng khớp gối trái')
+    await user.click(within(edit).getByRole('button', { name: /^Lưu/ }))
+    expect(await screen.findByRole('status')).toHaveTextContent(/Đã sửa bản ghi/)
+    // Hộp thoại "Xem ca" và khối "Các ca trước" đều đã nhận giá trị mới.
+    expect((await screen.findAllByText(/Sưng khớp gối trái/)).length).toBeGreaterThan(0)
+    unmount()
+
+    renderTab('BC-000154', '', 'TECHNICIAN')
+    await user.click(await screen.findByRole('button', { name: 'Xem ca HC-0411' }))
+    const readOnly = await screen.findByRole('dialog', { name: /^Ca HC-0411/ })
+    expect(within(readOnly).queryByRole('button', { name: /^Sửa/ })).not.toBeInTheDocument()
+  })
+
   it('D62: mở lại ca đã đóng từ bảng Các ca trước, lý do bắt buộc', async () => {
     const user = userEvent.setup()
     renderTab('BC-000154')

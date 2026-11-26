@@ -57,8 +57,8 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
 
       render(<UpdateModal cow={testCow} onClose={onClose} onSaved={onSaved} />)
 
-      // Chuyển sang tab "Mục đích nuôi"
-      const purposeTab = screen.getByRole('button', { name: /Mục đích nuôi/i })
+      // Chuyển sang tab "Mục đích sản xuất"
+      const purposeTab = screen.getByRole('button', { name: /Mục đích sản xuất/i })
       await user.click(purposeTab)
 
       // Kiểm tra select Mục đích mới bị disabled
@@ -67,7 +67,7 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
       expect(purposeSelect).toBeDisabled()
 
       // Kiểm tra ghi chú phân quyền
-      expect(screen.getByText(/Mục đích nuôi chỉ Chủ trại được đổi/i)).toBeInTheDocument()
+      expect(screen.getByText('Chỉ Chủ trại mới đổi được mục đích sản xuất.')).toBeInTheDocument()
     })
 
     it('TC-CAT-U02: Validates stage update requires different stage and mandatory reason (MSG-FE05-04, MSG-FE05-05)', async () => {

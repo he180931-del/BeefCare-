@@ -604,7 +604,7 @@ public class VaccinationCommandService {
         if (req == null || !"VALID".equalsIgnoreCase(record.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         String note = optionalNote(req.reason());
         Map<String, Object> before = vaccinationSnapshot(record);
-        if (req.vaccineId() != null && !req.vaccineId().equals(record.getVaccine().getId())) {
+        if (req.vaccineId() != null && (record.getVaccine() == null || !req.vaccineId().equals(record.getVaccine().getId()))) {
             Vaccine vaccine = em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
                 .setParameter("id", req.vaccineId()).setParameter("farm", farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst()
                 .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", req.vaccineId()));
@@ -830,7 +830,7 @@ public class VaccinationCommandService {
     }
     static Map<String, Object> vaccinationSnapshot(Vaccination record) {
         Map<String, Object> snapshot = new java.util.LinkedHashMap<>();
-        snapshot.put("status", record.getStatus()); snapshot.put("vaccineId", record.getVaccine().getId());
+        snapshot.put("status", record.getStatus()); snapshot.put("vaccineId", record.getVaccine() == null ? "" : record.getVaccine().getId());
         snapshot.put("vaccineName", record.getVaccineNameSnapshot() == null ? "" : record.getVaccineNameSnapshot());
         snapshot.put("vaccinationDate", record.getVaccinationDate()); snapshot.put("administeredAt", record.getAdministeredAt());
         snapshot.put("batchNo", record.getBatchNo() == null ? "" : record.getBatchNo()); snapshot.put("dose", record.getDose());

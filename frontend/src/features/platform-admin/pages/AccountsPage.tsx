@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, FilterSelect, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
 import { useAccounts } from '../hooks/useAccounts'
 import AccountDetailPanel from '../components/AccountDetailPanel'
@@ -151,7 +151,6 @@ function AccountsContent() {
           </div>
         </div>
       )}
-      <Foot>Tài khoản người dùng (quản trị hệ thống). Chọn một dòng để xem chi tiết tài khoản; tạm ngưng hoặc khôi phục bắt buộc nhập lý do và được ghi vào lịch sử kiểm toán. Tạm ngưng tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

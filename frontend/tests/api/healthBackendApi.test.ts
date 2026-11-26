@@ -310,6 +310,25 @@ test('TC-10-14/15: đóng Chết / Mất tích trả phiếu xuất chờ từ p
 
 // ------------------------------------------------------------------ A7 / A8
 
+test('D81 / R-10-13: sửa ngưng thịt của lần điều trị thuộc ca đã đóng Khỏi (28 → 0 ngày) đi đúng route, không báo "chưa tải"', async () => {
+  const closedProfile = { ...profile, previousCases: [{ ...profile.previousCases[0], version: 4, timeline: [
+    { id: 62, caseId: 331, type: 'TREATMENT', occurredAt: '2026-09-02T01:00:00Z', status: 'VALID', corrected: false, version: 0, medicineId: 3, medicineName: 'Oxytetracycline 20% LA', dose: '30 ml', route: 'INTRAMUSCULAR', courseDays: 1, withdrawalDays: 28, withdrawalEndDate: '2026-11-30', performer: 'Lê Quản Lý' },
+  ] }] }
+  const { api: a, calls } = api({
+    ...baseRoutes(),
+    '/api/farms/1/health-cases/cattle/101?historyCaseId=331': closedProfile,
+    '/api/farms/1/treatments/62/correction': { id: 62, status: 'VALID', version: 1, healthState: 'HEALTHY', caseId: 331, caseStatus: 'CLOSED', withdrawalBefore: '2026-11-30', withdrawalAfter: null },
+  })
+  await a.getProfile('BC-101', '331')
+  const r = await a.correctEntry(62, { expectedVersion: 0, reason: 'Thuốc không có thời gian ngưng', withdrawalDays: 0 })
+  // Trường không gửi là null = backend giữ nguyên giá trị cũ.
+  assert.deepEqual(post(calls, '/treatments/62/correction'), {
+    expectedVersion: 0, reason: 'Thuốc không có thời gian ngưng', withdrawalDays: 0,
+    medicineId: null, administeredAt: null, dose: null, route: null, courseDays: null, performerName: null,
+  })
+  assert.deepEqual([r.action, r.withdrawalBefore, r.withdrawalAfter], ['CORRECTED', '2026-11-30', null])
+})
+
 test('TC-10-19/20: sửa / hủy đi đúng route theo loại bản ghi đã đọc; trả ngưng thịt trước → sau', async () => {
   const { api: a, calls } = api({
     ...baseRoutes(),

@@ -1,15 +1,19 @@
 // Input validation moved out of src/features/platform-finance/domain/financeRules.ts (refactor phase 2): field rules only, the
 // business policy stays in the domain file.
-import type { RecordErrors, RecordFields, ReportCriteria } from '../types'
-import { DEMO_TODAY, FINANCE_CATEGORIES, TYPE_LABEL } from '../domain/financeRules'
+import type { RecordErrors, RecordFields, RecordType, ReportCriteria } from '../types'
+import { TYPE_LABEL } from '../domain/financeRules'
 
-export function validateRecordFields(f: RecordFields, today = DEMO_TODAY, categoryOptions = FINANCE_CATEGORIES): RecordErrors {
+/** Danh mục và ngày hiện tại do nơi gọi truyền vào (từ API), không có giá trị mặc định. */
+export function validateRecordFields(f: RecordFields, today: string, categoryOptions: Record<RecordType, string[]>): RecordErrors {
   const errors: RecordErrors = {}
   if (!f.category) errors.category = 'Danh mục là bắt buộc.'
   else if (!categoryOptions[f.type].includes(f.category)) errors.category = `Danh mục ${f.category} không dùng được cho ${TYPE_LABEL[f.type]}.`
-  if (!Number.isInteger(f.amountVnd) || f.amountVnd < 1) errors.amountVnd = 'Số tiền phải là số nguyên đồng lớn hơn 0.'
-  if (!f.occurredOn) errors.occurredOn = 'Ngày phát sinh là bắt buộc.'
-  else if (f.occurredOn > today) errors.occurredOn = 'Ngày phát sinh không được ở tương lai.'
+  // Nguồn ngân hàng: số tiền và ngày lấy theo giao dịch đã chọn nên form không nhập, không kiểm hai trường này.
+  if (f.sourceType !== 'BANK') {
+    if (!Number.isInteger(f.amountVnd) || f.amountVnd < 1) errors.amountVnd = 'Số tiền phải là số nguyên đồng lớn hơn 0.'
+    if (!f.occurredOn) errors.occurredOn = 'Ngày phát sinh là bắt buộc.'
+    else if (f.occurredOn > today) errors.occurredOn = 'Ngày phát sinh không được ở tương lai.'
+  }
   if (f.scope === 'FARM' && !f.farmId) errors.farmId = 'Trang trại là bắt buộc khi gắn với trại.'
   if (f.documentNumber.length > 100) errors.documentNumber = 'Số chứng từ tối đa 100 ký tự.'
   if (f.description.length > 500) errors.description = 'Diễn giải tối đa 500 ký tự.'

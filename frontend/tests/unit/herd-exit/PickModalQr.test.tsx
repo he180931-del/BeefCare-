@@ -16,9 +16,10 @@ it('adds an eligible cow by QR and rejects a QR that resolves outside the picker
     .mockResolvedValueOnce({ kind: 'otherFarm', farmId: 22 })
     .mockResolvedValueOnce({ kind: 'found', cow: initialCows[1] })
     .mockResolvedValueOnce({ kind: 'found', cow })
+    .mockResolvedValueOnce({ kind: 'found', cow })
 
   render(<PickModal id="PX-1" herdExits={[]} candidates={[candidate]} picked={[]} setPicked={setPicked} onClose={vi.fn()} />)
-  const code = screen.getByRole('textbox', { name: 'Mã thẻ QR' })
+  const code = document.querySelector('input[list="exit-qr-recent-codes"]') as HTMLInputElement
   await user.type(code, 'QR-123')
   const submit = screen.getByRole('button', { name: 'Chọn theo mã' })
   await user.click(submit)
@@ -27,6 +28,24 @@ it('adds an eligible cow by QR and rejects a QR that resolves outside the picker
   expect(await screen.findByText(`Bò ${initialCows[1].code} hiện không thể thêm vào phiếu này.`)).toBeInTheDocument()
   await user.click(submit)
   expect(await screen.findByText(`Đã chọn bò ${cow.code}.`)).toBeInTheDocument()
+  expect(screen.getByText('Vừa quét')).toBeInTheDocument()
+  expect(screen.getByText('Đã chọn')).toBeInTheDocument()
+  expect(document.querySelector(`datalist#exit-qr-recent-codes option[value="${cow.code}"]`)).not.toBeNull()
+  await user.type(code, cow.code)
+  await user.click(submit)
+  expect(await screen.findByText(`Bò ${cow.code} đã có trong danh sách chọn.`)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Thêm 1 con vào phiếu' }))
   expect(setPicked).toHaveBeenCalledWith([candidate])
+})
+
+it('selects a cow once when its checkbox is clicked (row click does not toggle it back)', async () => {
+  const user = userEvent.setup()
+  const cow = initialCows[0]
+  const candidate = { code: cow.code, tag: cow.tag ?? '', breed: cow.breed ?? '', sex: cow.sex ?? '', age: '', group: '', stage: '', barn: 'A1', weight: 300, weightNote: '', estimated: false, unitPrice: 0 }
+  render(<PickModal id="PX-1" herdExits={[]} candidates={[candidate]} picked={[]} setPicked={vi.fn()} onClose={vi.fn()} />)
+  await user.click(screen.getByRole('checkbox', { name: cow.code }))
+  expect(screen.getByRole('checkbox', { name: cow.code })).toBeChecked()
+  expect(screen.getByRole('button', { name: 'Thêm 1 con vào phiếu' })).toBeEnabled()
+  await user.click(screen.getByText(`${cow.code} / ${candidate.tag}`))
+  expect(screen.getByRole('checkbox', { name: cow.code })).not.toBeChecked()
 })

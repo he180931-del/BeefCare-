@@ -23,9 +23,14 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
   const [detailDate, setDetailDate] = useState('')
   const [detailSource, setDetailSource] = useState('')
   const [vaccineRows, setVaccineRows] = useState<Array<{ vaccineId?: number; vaccineName: string; date: string; source: string }>>([])
+  // One name field: a name that matches an ACTIVE catalogue vaccine keeps its ID, anything else is free text.
+  const catalogueVaccineId = (name: string) => {
+    const key = name.trim().toLocaleLowerCase('vi')
+    return key ? vaccines.find((entry) => entry.name.trim().toLocaleLowerCase('vi') === key)?.id : undefined
+  }
   const setHist = onChange
   const detailMeta: Record<HistoryDetail, { title: string; label: string; placeholder: string; value: string; type?: 'number' }> = {
-    vaccine: { title: 'Chi tiết tiêm phòng', label: 'Loại vaccine', placeholder: 'Nhập tên vaccine nếu chưa có trong danh mục', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
+    vaccine: { title: 'Chi tiết tiêm phòng', label: 'Tên vaccine', placeholder: 'Chọn hoặc nhập tên vaccine', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
     disease: { title: 'Chi tiết bệnh đã biết', label: 'Mô tả bệnh', placeholder: 'Nhập mô tả bệnh đã biết', value: c.hist.diseaseNote ?? '' },
     repro: { title: 'Chi tiết sinh sản', label: 'Số tháng mang thai', placeholder: 'Nhập số tháng nếu đang mang thai', value: c.hist.pregnancyMonths == null ? '' : String(c.hist.pregnancyMonths), type: 'number' },
   }
@@ -103,17 +108,17 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
         {detailModal === 'vaccine' ? <div className="flex min-h-0 flex-col gap-2">
           <div aria-label="Danh sách vaccine" role="region" className="max-h-[220px] min-h-0 overflow-y-auto overscroll-contain pr-1">
           <div className="flex flex-col gap-2">
-          {vaccineRows.map((item, index) => <div key={index} className="grid items-end gap-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
-            <Field label={index === 0 ? 'Loại vaccine' : undefined} id={`entry-history-vaccine-name-${index}`}>
-              <input id={`entry-history-vaccine-name-${index}`} aria-label={index === 0 ? 'Tên vaccine tự do' : `Tên vaccine tự do ${index + 1}`} className={compactInputCls} maxLength={255} value={item.vaccineName} placeholder="Ví dụ: LMLM" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, vaccineId: undefined, vaccineName: e.target.value }; setVaccineRows(next) }} />
+          {vaccineRows.map((item, index) => <div key={index} className="grid items-end gap-2 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+            <Field label={index === 0 ? 'Tên vaccine' : undefined} id={`entry-history-vaccine-name-${index}`}>
+              <input id={`entry-history-vaccine-name-${index}`} aria-label={index === 0 ? 'Tên vaccine' : `Tên vaccine ${index + 1}`} list={vaccines.length > 0 ? 'entry-history-vaccine-options' : undefined} className={compactInputCls} maxLength={255} value={item.vaccineName} placeholder="Chọn hoặc nhập tên vaccine" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, vaccineId: catalogueVaccineId(e.target.value), vaccineName: e.target.value }; setVaccineRows(next) }} />
             </Field>
-            {vaccines.length > 0 ? <Field label={index === 0 ? 'Chọn trong danh mục' : undefined} id={`entry-history-vaccine-catalogue-${index}`}><select id={`entry-history-vaccine-catalogue-${index}`} aria-label={`Chọn vaccine trong danh mục ${index + 1}`} className={compactInputCls} value={item.vaccineId == null ? '' : `id:${item.vaccineId}`} onChange={(e) => { const value = e.target.value; const next = [...vaccineRows]; const option = vaccines.find((entry) => String(entry.id) === value.slice(3)); next[index] = value ? { ...item, vaccineId: option?.id, vaccineName: option?.name ?? item.vaccineName } : { ...item, vaccineId: undefined }; setVaccineRows(next) }}><option value="">Không chọn</option>{item.vaccineId != null && !vaccines.some(vaccine => vaccine.id === item.vaccineId) && <option value={`id:${item.vaccineId}`}>{item.vaccineName} · Đã ngưng</option>}{vaccines.map((entry) => <option key={entry.id} value={`id:${entry.id}`}>{entry.code} · {entry.name}</option>)}</select></Field> : <span aria-hidden="true" />}
             <Field label={index === 0 ? 'Ngày tiêm' : undefined}><input aria-label={`Ngày tiêm ${index + 1}`} type="text" maxLength={10} placeholder="2026-03-01 hoặc 03/2026" className={compactInputCls} value={item.date} onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, date: e.target.value }; setVaccineRows(next) }} /></Field>
             <Field label={index === 0 ? 'Nguồn thông tin' : undefined}><input aria-label={`Nguồn thông tin ${index + 1}`} className={compactInputCls} maxLength={255} value={item.source} placeholder="Ví dụ: sổ tiêm cũ" onChange={(e) => { const next = [...vaccineRows]; next[index] = { ...item, source: e.target.value }; setVaccineRows(next) }} /></Field>
             <button type="button" aria-label={`Xóa vaccine ${index + 1}`} className="h-8 cursor-pointer rounded border border-field px-2 text-xs text-danger hover:border-danger" onClick={() => setVaccineRows((rows) => rows.length > 1 ? rows.filter((_, rowIndex) => rowIndex !== index) : [{ vaccineName: '', date: '', source: '' }])}>Xóa</button>
           </div>)}
           </div>
           </div>
+          {vaccines.length > 0 && <datalist id="entry-history-vaccine-options">{vaccines.map((entry) => <option key={entry.id} value={entry.name} />)}</datalist>}
           <button type="button" className="w-fit cursor-pointer rounded border border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-page" onClick={() => setVaccineRows((rows) => [...rows, { vaccineName: '', date: '', source: '' }])}>+ Thêm vaccine</button>
         </div> : detailModal === 'disease' ? <div className="flex flex-col gap-2">
           <Field label="Mô tả bệnh" id="entry-history-disease">

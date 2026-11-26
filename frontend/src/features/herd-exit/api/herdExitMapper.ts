@@ -1,7 +1,8 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import type { ExitDetail, ExitDraft, ExitPayment, ExitStatus, ExitType, HerdExit, LossKind } from '../types'
+import type { ExitCommandOutcome, ExitDetail, ExitDraft, ExitHistoryEntry, ExitListResult, ExitPayment, ExitReviewItem, ExitStatus, ExitStatusCountKey, ExitType, ExitVoidOutcome, HerdExit, LossKind } from '../types'
 import type { ExitChecks, ExitVoidCheck } from './herdExitBackendApi'
 import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
+import { money } from '../../../shared/lib/format'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
 export const LIFE_STAGE_LABELS: Record<string, string> = {
@@ -91,6 +92,82 @@ export const mapVoidCheck = (value: unknown): ExitVoidCheck => {
   }
 }
 
+const sexLabel = (value: unknown) => value === 'MALE' ? 'Đực' : value === 'FEMALE' ? 'Cái' : '—'
+const weightBasis = (basis: unknown, estimated: unknown): 'MEASURED' | 'ESTIMATED' | null =>
+  basis === 'ESTIMATED' || basis === 'MEASURED' ? basis : estimated === true ? 'ESTIMATED' : null
+const refLabel = (value: unknown) => typeof value === 'string' ? value : textValue(asRecord(value).label)
+
+/** Voucher history keeps the server's time and actor (SCR-76 #7); entries without text fall back to the event type. */
+const PAYMENT_METHOD_LABELS: Record<string, string> = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' }
+const withReason = (text: string, reason: unknown) => {
+  const value = textValue(reason)
+  return value && value !== 'null' ? `${text} – lý do: ${value}` : text
+}
+
+/** HistoryEvent.type + data → Vietnamese line; the backend `text` is an English fallback only for unknown types (SCR-76 #7). */
+const historyText = (type: string, data: Record<string, unknown>, fallback: string): string => {
+  const amount = () => `${money(numberValue(data.amount))} đ`
+  const method = PAYMENT_METHOD_LABELS[textValue(data.method)]
+  switch (type) {
+    case 'CREATED': return 'Tạo phiếu'
+    case 'CONFIRMED': return 'Xác nhận xuất đàn'
+    case 'ITEMS_CANCELLED': return `Hủy ${numberValue(data.doses)} mũi tiêm và ${numberValue(data.reminders)} nhắc việc sau ngày xuất`
+    case 'COLLECTION_RECORDED': return `Ghi thu ${amount()}${method ? ` (${method})` : ''}`
+    case 'COLLECTION_VOIDED': return withReason(`Hủy khoản thu ${amount()}`, data.reason)
+    case 'VOIDED': return withReason('Hủy phiếu', data.reason)
+    case 'DISMISSED': return withReason('Bác đề xuất', data.reason)
+    default: return fallback
+  }
+}
+
+export const mapHistory = (value: unknown): ExitHistoryEntry[] => asRows(value)
+  .map((item) => {
+    const type = textValue(item.type)
+    const actor = textValue(item.actor)
+    return { time: textValue(item.time), type, actor: actor === 'system' ? 'Hệ thống' : actor, text: historyText(type, asRecord(item.data), textValue(item.text ?? item.type)) }
+  })
+  .filter((item) => item.text)
+
+const BACKEND_TYPES: Record<string, ExitType> = { SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết / mất', OTHER: 'Khác' }
+const STATUS_KEYS: ExitStatusCountKey[] = ['ALL', 'DRAFT', 'PENDING', 'CONFIRMED', 'VOIDED', 'DISMISSED']
+
+/** `GET /exit-vouchers` ListResult → SCR-41 model; tiles and counts are the server's numbers for the period, never recomputed. */
+export const mapListResult = (value: unknown): ExitListResult => {
+  const body = asRecord(value)
+  const tiles = asRecord(body.tiles)
+  const byType = asRecord(tiles.cattleExitedByType)
+  const counts = asRecord(body.statusCounts)
+  return {
+    from: textValue(body.from), to: textValue(body.to),
+    tiles: {
+      cattleExitedByType: Object.fromEntries(Object.entries(BACKEND_TYPES).map(([key, label]) => [label, numberValue(byType[key])])) as Record<ExitType, number>,
+      cattleExited: numberValue(tiles.cattleExited), salesRevenue: numberValue(tiles.salesRevenue), toCollect: numberValue(tiles.toCollect),
+      vouchersToCollect: numberValue(tiles.vouchersToCollect), awaitingOwner: numberValue(tiles.awaitingOwner),
+    },
+    statusCounts: Object.fromEntries(STATUS_KEYS.map((key) => [key, numberValue(counts[key])])) as Record<ExitStatusCountKey, number>,
+    vouchers: asRows(body.vouchers).map((row) => mapVoucher(row)),
+  }
+}
+
+const idList = (value: unknown) => Array.isArray(value) ? value.map((id) => numberValue(id)).filter((id) => id > 0) : []
+export const mapReviewList = (value: unknown): ExitReviewItem[] => asRows(value).map((item) => ({
+  cattleId: numberValue(item.cattleId), cattleCode: textValue(item.cattleCode),
+  cancelledDoseIds: idList(item.cancelledDoseIds), cancelledReminderIds: idList(item.cancelledReminderIds), closedCaseIds: idList(item.closedCaseIds),
+  closedPregnancyId: nullableNumber(item.closedPregnancyId), pendingCalfIds: idList(item.pendingCalfIds),
+}))
+
+const messageText = (value: unknown) => textValue(asRecord(value).text)
+/** VoidResult {voucher, message, reviewList}. */
+export const mapVoidResult = (value: unknown): ExitVoidOutcome => {
+  const body = asRecord(value)
+  return { voucher: mapVoucher(unwrapVoucher(body)), message: messageText(body.message), reviewList: mapReviewList(body.reviewList) }
+}
+/** ConfirmResult / DismissResult {voucher, message}. */
+export const mapCommandResult = (value: unknown): ExitCommandOutcome => {
+  const body = asRecord(value)
+  return { voucher: mapVoucher(unwrapVoucher(body)), message: messageText(body.message) }
+}
+
 export const mapVoucher = (value: unknown, documents: unknown = [], root = '', voucherId = 0): HerdExit => {
   const row = asRecord(value)
   const lines = asRows(row.lines)
@@ -102,8 +179,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   const due = nullableNumber(row.outstanding ?? row.outstandingAmount)
   const cows = lines.map((line) => ({
     code: textValue(line.cattleCode), tag: textValue(line.earTagNumber, '—'), backendId: numberValue(line.cattleId),
-    breed: `${textValue(line.breedName, 'Bò')} · ${line.sex === 'MALE' ? 'Đực' : 'Cái'}`,
-    weight: numberValue(line.exitWeightKg), estimated: Boolean(line.estimated), barn: textValue(line.penCode),
+    breed: textValue(line.breedName, '—'), sex: sexLabel(line.sex),
+    weight: nullableNumber(line.exitWeightKg), estimated: Boolean(line.estimated), weightBasis: weightBasis(line.weightBasis, line.estimated), barn: textValue(line.penCode),
     current: statusFromBackend(row.status) === 'Đã xuất' ? 'EXITED' : textValue(line.herdStatus), amount: numberValue(line.lineAmount), unitPrice: numberValue(line.unitPrice),
   }))
   const isLoss = row.exitType === 'DEATH' || Boolean(row.loss) || row.lossKind === 'DIED' || row.lossKind === 'MISSING'
@@ -111,16 +188,20 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   const detail: ExitDetail = {
     death: isLoss, ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind } : {}), lossType: lossTypeLabel(row.lossKind), date: textValue(row.exitDate),
     reason: textValue(row.deathCause), disposal: textValue(row.carcassDisposal), buyer: buyerName,
+    buyerPhone: textValue(buyer.phone ?? row.buyerPhone), phone: textValue(buyer.phone ?? row.buyerPhone),
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note),
-    by: textValue(asRecord(row.confirmedBy).label ?? row.confirmedBy, '—'),
+    destination: textValue(row.destination),
+    createdAt: textValue(row.createdAt), confirmedBy: refLabel(row.confirmedBy), confirmedAt: textValue(row.confirmedAt),
+    closedBy: refLabel(row.closedBy), closedAt: textValue(row.closedAt),
     cows,
     cowsTotal: numberValue(row.cattleAmount), deduction: numberValue(row.deductions), payments: paymentRows(row.payments), docs: mapDocuments(documents, root, voucherId),
-    history: asRows(row.history).map((item) => textValue(item.text ?? item.type)).filter(Boolean),
+    history: mapHistory(row.history),
   }
   if (isLoss) {
     detail.cow = cows[0]
     detail.sourceHealthCaseId = sourceHealthCaseId ?? undefined
     detail.source = textValue(sourceHealthCase.label)
+    detail.sourceHealthCaseCode = textValue(sourceHealthCase.label)
     detail.reporter = textValue(asRecord(row.reportedBy).label)
     detail.barnShift = textValue(lines[0]?.penCode)
   }
@@ -128,9 +209,11 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     type: typeFromBackend(row.exitType, isLoss), date: textValue(row.exitDate), buyerId: buyer.id == null ? '' : String(buyer.id),
     quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate),
     ...(persistedLossKind ? { lossKind: persistedLossKind as LossKind, deathCause: textValue(row.deathCause), carcassDisposal: textValue(row.carcassDisposal) } : {}),
-    note: textValue(row.exitType === 'OTHER' && !isLoss ? row.destination ?? row.note : isLoss ? row.deathCause ?? row.note : row.note),
+    ...(row.exitType === 'OTHER' && !isLoss ? { destination: textValue(row.destination) } : {}),
+    note: textValue(isLoss ? row.deathCause ?? row.note : row.note),
     pricing: row.pricingBasis === 'PER_HEAD' ? 'con' : 'kg', deduction: numberValue(row.deductions), collected: numberValue(row.depositCollected ?? row.amountCollected),
-    method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', dueDate: textValue(row.collectionDueDate),
+    ...(row.paymentMethod == null ? {} : { method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản' }),
+    ...(textValue(row.collectionDueDate) ? { dueDate: textValue(row.collectionDueDate) } : {}),
     docs: mapDocuments(documents, root, voucherId),
     cows: lines.map((line) => ({
       code: textValue(line.cattleCode), backendId: numberValue(line.cattleId), tag: textValue(line.earTagNumber), breed: textValue(line.breedName), sex: line.sex === 'MALE' ? 'Đực' : 'Cái',
@@ -143,7 +226,9 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   return {
     id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.exitDate),
     type: typeFromBackend(row.exitType, isLoss), who: buyerName || textValue(row.destination ?? row.deathCause),
-    sub: textValue(row.note), count: numberValue(row.cattleCount, lines.length), weight: numberValue(row.totalWeightKg),
+    sub: isLoss ? textValue(sourceHealthCase.label) : textValue(row.transportCertNo), count: numberValue(row.cattleCount, lines.length),
+    weightKg: nullableNumber(row.totalWeightKg), weightEstimated: row.weightEstimated === true || numberValue(row.estimatedWeightCount) > 0,
+    pens: Array.isArray(row.pens) ? row.pens.map((pen) => textValue(pen)).filter(Boolean) : [...new Set(cows.map((cow) => cow.barn).filter(Boolean))],
     total, collected: nullableNumber(row.amountCollected) ?? undefined, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),
   }
 }
@@ -157,6 +242,12 @@ export const findNamedId = (rows: unknown, name: string): number | null => {
 // Moved from api/backendTransport.ts (refactor phase 2b): each voucher feature owns its payment/voucher envelope mapping.
 export const enumPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' =>
   value === 'Tiền mặt' || value === 'CASH' ? 'CASH' : 'BANK_TRANSFER'
+
+export const optionalPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' | null => {
+  if (value === 'Tiền mặt' || value === 'CASH') return 'CASH'
+  if (value === 'Chuyển khoản' || value === 'BANK_TRANSFER') return 'BANK_TRANSFER'
+  return null
+}
 
 export const unwrapVoucher = (value: unknown): Record<string, unknown> => {
   const body = asRecord(value)

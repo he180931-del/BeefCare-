@@ -119,6 +119,43 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         )).farmId()).isEqualTo(farm.getId());
     }
 
+    @Test void internalRequestRoleMustMatchTicketCategoryWhileSystemUsageAndOtherAllowEitherSpecialist() {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM), sa = staff(PlatformRole.SA);
+
+        actAs(owner);
+        SupportDtos.Ticket accountAccess = claim(tickets.create(new SupportDtos.Create(
+            "ACCOUNT_ACCESS", "ACCOUNT", null, "Không đăng nhập được", "Mô tả yêu cầu"
+        )), cs);
+        assertThatThrownBy(() -> requests.create(accountAccess.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra truy cập", List.of(), accountAccess.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(400));
+
+        actAs(owner);
+        SupportDtos.Ticket payment = claim(tickets.create(new SupportDtos.Create(
+            "PAYMENT", "FARM", farm.getId(), "Kiểm tra thanh toán", "Mô tả yêu cầu"
+        )), cs);
+        assertThatThrownBy(() -> requests.create(payment.id(), new SupportDtos.InternalCreate(
+            PlatformRole.SA, sa.getId(), "Kiểm tra thanh toán", List.of(), payment.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(400));
+
+        actAs(owner);
+        SupportDtos.Ticket systemUsage = claim(tickets.create(new SupportDtos.Create(
+            "SYSTEM_USAGE", "FARM", farm.getId(), "Lỗi hệ thống", "Mô tả yêu cầu"
+        )), cs);
+        assertThat(requests.create(systemUsage.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra lỗi hệ thống", List.of(), systemUsage.version()
+        )).targetRole()).isEqualTo(PlatformRole.PM.name());
+
+        actAs(owner);
+        SupportDtos.Ticket other = claim(tickets.create(new SupportDtos.Create(
+            "OTHER", "ACCOUNT", null, "Yêu cầu khác", "Mô tả yêu cầu"
+        )), cs);
+        assertThat(requests.create(other.id(), new SupportDtos.InternalCreate(
+            PlatformRole.SA, sa.getId(), "Kiểm tra yêu cầu khác", List.of(), other.version()
+        )).targetRole()).isEqualTo(PlatformRole.SA.name());
+    }
+
     @Test void ownerEndpointsRejectFarmNonOwnersAndPlatformStaffEvenWhenOwnerProfileFlagIsSet() {
         Farm farm = farm();
         AppUser manager = memberWithRole(farm, FarmRole.MANAGER);
@@ -214,15 +251,315 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         Integer currentVersion = current(id).version();
         assertThatThrownBy(() -> tickets.resolve(id, new SupportDtos.Resolution("Đã xử lý", currentVersion)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo("MSG-FE20-12"));
-        actAs(pm); assertThat(requests.get(ir.id()).question()).isEqualTo("Kiểm tra dịch vụ trại");
+        actAs(pm); assertThat(requests.get(ir.id()).requestText()).isEqualTo("Kiểm tra dịch vụ trại");
         assertThatThrownBy(() -> tickets.get(id, true)).isInstanceOf(DomainException.class);
         actAs(otherPm); assertThatThrownBy(() -> requests.get(ir.id())).isInstanceOf(DomainException.class);
-        actAs(pm); requests.complete(ir.id(), new SupportDtos.Complete("UNABLE", "Chưa đủ thông tin", null, ir.version()));
+        actAs(pm); requests.complete(ir.id(), new SupportDtos.Complete("NOT_CONFIRMED", "Chưa đủ thông tin", ir.version()));
         actAs(cs); assertThat(current(id).status()).isEqualTo("IN_PROGRESS");
         assertThat(tickets.resolve(id, new SupportDtos.Resolution("Đã hướng dẫn chủ trại", current(id).version())).status()).isEqualTo("RESOLVED");
     }
 
-    @Test void internalPaymentContextUsesReconciliationCodeInsteadOfDatabaseId() {
+    @Test void legacyDomainCompletionOutcomeIsRejectedWithoutChangingInternalRequestHistory() {
+        Farm farm = farm(); AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra dịch vụ trại", List.of(), ticket.version()));
+
+        actAs(pm);
+        assertThatThrownBy(() -> requests.complete(request.id(), new SupportDtos.Complete(
+            "UNABLE", "legacy result", request.version())))
+            .isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-COM-10"));
+
+        em.clear();
+        InternalRequest persisted = em.find(InternalRequest.class, request.id());
+        assertThat(persisted.getState()).isEqualTo("OPEN");
+        assertThat(persisted.getOutcome()).isNull();
+        assertThat(em.createQuery("select count(h) from InternalRequestHistory h where h.internalRequest.id=:request", Long.class)
+            .setParameter("request", request.id()).getSingleResult()).isEqualTo(1L);
+    }
+
+    @Test void waitingForCsStateRoundTripsAndIsAvailableToTheNamedRecipient() {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView created = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái dịch vụ", List.of(), ticket.version()
+        ));
+
+        InternalRequest persisted = em.find(InternalRequest.class, created.id());
+        persisted.setState("WAITING_CS");
+        em.flush();
+        em.clear();
+
+        actAs(pm);
+        assertThat(requests.mine("WAITING_CS"))
+            .singleElement()
+            .extracting(SupportDtos.RecipientInternalView::status)
+            .isEqualTo("WAITING_CS");
+    }
+
+    @Test void namedRecipientCanRequestMoreInformationWithoutCompletingTheInternalRequest() {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái dịch vụ", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Vui lòng bổ sung mã giao dịch.", request.version()
+        ));
+
+        assertThat(waiting.status()).isEqualTo("WAITING_CS");
+        assertThat(waiting.outcome()).isEqualTo("NEED_MORE_INFO");
+        assertThat(waiting.resultNote()).isEqualTo("Vui lòng bổ sung mã giao dịch.");
+        assertThat(waiting.completedAt()).isNull();
+        assertThat(em.find(InternalRequest.class, request.id()).getState()).isEqualTo("WAITING_CS");
+        actAs(cs);
+        assertThat(current(ticket.id()).status()).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test void waitingForCsCountsAsActiveWhenCreatingAnotherRequestForTheSameRole() {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM), otherPm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái dịch vụ", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Vui lòng bổ sung mã giao dịch.", request.version()
+        ));
+
+        actAs(cs);
+        Integer ticketVersion = current(ticket.id()).version();
+        assertThatThrownBy(() -> requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, otherPm.getId(), "Tạo yêu cầu trùng vai trò", List.of(), ticketVersion
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-FE20-16"));
+        assertThat(em.find(InternalRequest.class, waiting.id()).getState()).isEqualTo("WAITING_CS");
+    }
+
+    @Test void waitingForCsBlocksResolutionAndClosure() {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái dịch vụ", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Vui lòng bổ sung mã giao dịch.", request.version()
+        ));
+
+        actAs(cs);
+        Integer waitingTicketVersion = current(ticket.id()).version();
+        assertThatThrownBy(() -> tickets.resolve(ticket.id(), new SupportDtos.Resolution("Đã xử lý", waitingTicketVersion)))
+            .isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-FE20-12"));
+
+        // A persisted WAITING_CS request must remain a close blocker even if an older workflow
+        // already moved the ticket to RESOLVED before the request entered that state.
+        InternalRequest persisted = em.find(InternalRequest.class, request.id());
+        persisted.setState("DONE");
+        em.flush();
+        actAs(cs);
+        SupportDtos.Ticket resolved = tickets.resolve(ticket.id(), new SupportDtos.Resolution("Đã xử lý", current(ticket.id()).version()));
+        persisted.setState("WAITING_CS");
+        em.flush();
+        actAs(owner);
+        SupportDtos.Ticket acknowledged = tickets.acknowledge(ticket.id(), new SupportDtos.Acknowledge(
+            1, "Đã xác nhận", resolved.version()
+        ));
+        actAs(cs);
+        SupportDtos.Ticket closed = tickets.close(ticket.id(), new SupportDtos.Close(true, null, acknowledged.version()));
+        assertThat(closed.status()).isEqualTo("CLOSED");
+        assertThat(em.find(InternalRequest.class, request.id()).getState()).isEqualTo("CANCELLED");
+        assertThat(em.createQuery("select h from InternalRequestHistory h where h.internalRequest.id=:id order by h.id desc", InternalRequestHistory.class)
+            .setParameter("id", request.id()).setMaxResults(1).getSingleResult().getNote())
+            .isEqualTo(SupportTicketCommandService.INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON);
+    }
+
+    @Test void clarificationRequestRequiresANonblankComment() {
+        AppUser owner = owner(null), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, null), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        assertThatThrownBy(() -> requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "   ", request.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_06));
+    }
+
+    @Test void clarificationRequestRequiresTheNamedRecipientAndAnOpenRequest() {
+        AppUser owner = owner(null), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM), otherPm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, null), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái", List.of(), ticket.version()
+        ));
+
+        actAs(otherPm);
+        assertThatThrownBy(() -> requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần thêm dữ liệu", request.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.FE20_19));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần thêm dữ liệu", request.version()
+        ));
+        assertThatThrownBy(() -> requests.complete(waiting.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần thêm dữ liệu lần nữa", waiting.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.FE20_19));
+    }
+
+    @Test void assignedCsClarifiesWaitingInternalRequestBackToOpenAndNotifiesTheSameRecipient() throws Exception {
+        Farm farm = farm();
+        AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái dịch vụ", List.of(), ticket.version()
+        ));
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Vui lòng bổ sung mã giao dịch.", request.version()
+        ));
+
+        actAs(cs);
+        SupportDtos.InternalView clarified = requests.manage(request.id(), new SupportDtos.InternalManage(
+            "CLARIFY", null, null, "Bổ sung mã giao dịch và thời điểm phát sinh.", waiting.version()
+        ));
+
+        assertThat(clarified.id()).isEqualTo(request.id());
+        assertThat(clarified.status()).isEqualTo("OPEN");
+        assertThat(clarified.recipientId()).isEqualTo(pm.getId());
+        assertThat(clarified.resultNote()).isEqualTo("Bổ sung mã giao dịch và thời điểm phát sinh.");
+        assertThat(em.createQuery("select h from SupportHistory h where h.ticket.id=:ticket and h.eventType='IR_CLARIFIED'", SupportHistory.class)
+            .setParameter("ticket", ticket.id()).getResultList()).singleElement().satisfies(history -> {
+                assertThat(history.getDetails()).contains("requestId", "clarification");
+            });
+        assertThat(em.createQuery("select a from AuditLog a where a.targetType='InternalRequest' and a.targetId=:request and a.action='SUPPORT_INTERNAL_MANAGE' order by a.id desc", AuditLog.class)
+            .setParameter("request", request.id()).getResultList()).first().satisfies(auditLog -> {
+                assertThat(auditLog.getDetails()).contains("WAITING_CS", "OPEN");
+            });
+
+        OutboxEvent notice = noticeEvent(request.id(), "CLARIFIED", pm.getId(), clarified.version());
+        internalRequestNotifications.handle(notice);
+        actAs(pm);
+        assertThat(requests.get(request.id()).resultNote()).isEqualTo("Bổ sung mã giao dịch và thời điểm phát sinh.");
+        assertThat(notificationService.mine()).anyMatch(item -> item.targetType().equals("INTERNAL_REQUEST") && item.targetId().equals(request.id()));
+    }
+
+    @Test void clarificationRejectsBlankBodyAndAnySourceStateOtherThanWaitingForCs() {
+        AppUser owner = owner(null), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, null), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần thêm mã giao dịch.", request.version()
+        ));
+        actAs(cs);
+        assertThatThrownBy(() -> requests.manage(request.id(), new SupportDtos.InternalManage(
+            "CLARIFY", null, null, "  ", waiting.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_06));
+
+        SupportDtos.InternalView clarified = requests.manage(request.id(), new SupportDtos.InternalManage(
+            "CLARIFY", null, null, "Bổ sung thêm thời điểm phát sinh.", waiting.version()
+        ));
+        assertThatThrownBy(() -> requests.manage(request.id(), new SupportDtos.InternalManage(
+            "CLARIFY", null, null, "Không được gửi khi đang mở.", clarified.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_05));
+    }
+
+    @Test void clarificationRejectsARequesterWhoIsNotTheAssignedCs() {
+        AppUser owner = owner(null), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket = claim(create(owner, null), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái", List.of(), ticket.version()
+        ));
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần thêm mã giao dịch.", request.version()
+        ));
+
+        actAs(owner);
+        assertThatThrownBy(() -> requests.manage(request.id(), new SupportDtos.InternalManage(
+            "CLARIFY", null, null, "Không được gửi bởi chủ trại.", waiting.version()
+        ))).isInstanceOf(DomainException.class);
+    }
+
+    @Test void assignedCsCanReassignOrCancelWaitingInternalRequestWithRoleVersionAndActiveGuards() throws Exception {
+        AppUser owner = owner(null), cs = staff(PlatformRole.CS), otherCs = staff(PlatformRole.CS);
+        AppUser pm = staff(PlatformRole.PM), nextPm = staff(PlatformRole.PM), sa = staff(PlatformRole.SA);
+        SupportDtos.Ticket ticket = claim(create(owner, null), cs);
+        SupportDtos.InternalView request = requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Kiểm tra trạng thái", List.of(), ticket.version()
+        ));
+
+        actAs(pm);
+        SupportDtos.RecipientInternalView waiting = requests.complete(request.id(), new SupportDtos.Complete(
+            "NEED_MORE_INFO", "Cần bổ sung mã giao dịch.", request.version()
+        ));
+
+        actAs(otherCs);
+        assertThatThrownBy(() -> requests.manage(waiting.id(), new SupportDtos.InternalManage(
+            "REASSIGN", nextPm.getId(), "Đổi người xử lý", waiting.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-FE20-09"));
+
+        actAs(cs);
+        assertThatThrownBy(() -> requests.manage(waiting.id(), new SupportDtos.InternalManage(
+            "REASSIGN", sa.getId(), "Đổi sai vai trò", waiting.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_08));
+
+        SupportDtos.InternalView reassigned = requests.manage(waiting.id(), new SupportDtos.InternalManage(
+            "REASSIGN", nextPm.getId(), "Đổi người xử lý", waiting.version()
+        ));
+        assertThat(reassigned.status()).isEqualTo("WAITING_CS");
+        assertThat(reassigned.recipientId()).isEqualTo(nextPm.getId());
+        assertThat(reassigned.version()).isGreaterThan(waiting.version());
+
+        actAs(pm);
+        assertThatThrownBy(() -> requests.get(request.id()))
+            .isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.FE20_19));
+        actAs(cs);
+        assertThatThrownBy(() -> requests.create(ticket.id(), new SupportDtos.InternalCreate(
+            PlatformRole.PM, pm.getId(), "Tạo yêu cầu trùng vai trò", List.of(), current(ticket.id()).version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo("MSG-FE20-16"));
+
+        assertThatThrownBy(() -> requests.manage(reassigned.id(), new SupportDtos.InternalManage(
+            "CANCEL", null, "Phiên bản cũ", waiting.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_05));
+
+        SupportDtos.InternalView cancelled = requests.manage(reassigned.id(), new SupportDtos.InternalManage(
+            "CANCEL", null, "Không cần xử lý", reassigned.version()
+        ));
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
+        assertThat(cancelled.recipientId()).isEqualTo(nextPm.getId());
+        assertThat(cancelled.completedAt()).isNotNull();
+
+        OutboxEvent reassignmentNotice = noticeEvent(reassigned.id(), "REASSIGNED", nextPm.getId(), reassigned.version());
+        internalRequestNotifications.handle(reassignmentNotice);
+        OutboxEvent cancellationNotice = noticeEvent(cancelled.id(), "CANCELLED", nextPm.getId(), cancelled.version());
+        internalRequestNotifications.handle(cancellationNotice);
+        actAs(nextPm);
+        assertThat(notificationService.mine()).extracting(NotificationService.NotificationView::title)
+            .anyMatch(title -> title.contains("được giao") || title.contains("đã bị hủy"));
+
+        actAs(cs);
+        assertThatThrownBy(() -> requests.manage(cancelled.id(), new SupportDtos.InternalManage(
+            "CANCEL", null, "Hủy lần nữa", cancelled.version()
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getCode()).isEqualTo(MessageCodes.COM_05));
+        assertThat(em.createQuery("select h from InternalRequestHistory h where h.internalRequest.id=:request order by h.id", InternalRequestHistory.class)
+            .setParameter("request", request.id()).getResultList()).extracting(InternalRequestHistory::getEventType)
+            .contains("REASSIGNED", "CANCELLED");
+    }
+
+    @Test void internalCreateDoesNotPersistRetiredContextReferences() {
         Farm farm = farm(); AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
         PlanVersion plan = save(new PlanVersion().price1y(new BigDecimal("1200000")).price2y(new BigDecimal("2160000"))
             .price3y(new BigDecimal("3060000")).effectiveAt(clock.instant().minusSeconds(1)));
@@ -236,30 +573,21 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         SupportDtos.InternalView internal = requests.create(ticket.id(), new SupportDtos.InternalCreate(PlatformRole.PM, pm.getId(),
             "Kiểm tra thanh toán", List.of(new SupportDtos.ContextReference("PAYMENT", payment.getId())), ticket.version()));
 
-        assertThat(internal.context()).singleElement().satisfies(ref -> {
-            assertThat(ref.type()).isEqualTo("PAYMENT");
-            assertThat(ref.id()).isEqualTo(payment.getId());
-            assertThat(ref.label()).isEqualTo("Thanh toán BC-TRASOAT-15901");
-        });
+        assertThat(internal.requestText()).isEqualTo("Kiểm tra thanh toán");
     }
 
-    @Test void performedResultMustReferenceRelatedCommittedDomainWorkAndReassignmentRevokesCachedReplay() throws Exception {
+    @Test void targetCompletionAndReassignmentRevokeCachedReplay() throws Exception {
         Farm farm = farm(); AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM), nextPm = staff(PlatformRole.PM);
         SupportDtos.Ticket t = claim(create(owner, farm), cs);
         SupportDtos.InternalView ir = requests.create(t.id(), new SupportDtos.InternalCreate(PlatformRole.PM, pm.getId(), "Xem trạng thái trại", List.of(), t.version()));
-        actAs(pm);
-        AuditLog unrelated = audit.log(farm(), pm, "FARM_ACTIVATE", "Farm", farm.getId(), Map.of()); em.flush();
-        assertThatThrownBy(() -> requests.complete(ir.id(), new SupportDtos.Complete("PERFORMED", "Đã thực hiện", unrelated.getId(), ir.version())))
-            .isInstanceOf(DomainException.class);
         actAs(cs);
         requests.manage(ir.id(), new SupportDtos.InternalManage("REASSIGN", nextPm.getId(), "Chuyển người xử lý", ir.version()));
         actAs(pm); assertThatThrownBy(() -> requests.get(ir.id())).isInstanceOf(DomainException.class);
-        actAs(nextPm); SupportDtos.InternalView active = requests.get(ir.id());
-        AuditLog actual = audit.log(farm, nextPm, "FARM_ACTIVATE", "Farm", farm.getId(), Map.of()); em.flush();
-        SupportDtos.Complete done = new SupportDtos.Complete("PERFORMED", "Đã cập nhật dịch vụ trại", actual.getId(), active.version());
-        SupportDtos.InternalView completed = commands.executePlatformAuthorized(PlatformRole.PM, "IR_COMPLETE:"+ir.id(), "done-key", done,
-            SupportDtos.InternalView.class, () -> requests.requireRecipient(ir.id()), () -> requests.complete(ir.id(), done));
-        assertThat(completed.status()).isEqualTo("DONE"); assertThat(completed.domainResultAuditId()).isEqualTo(actual.getId());
+        actAs(nextPm); SupportDtos.RecipientInternalView active = requests.get(ir.id());
+        SupportDtos.Complete done = new SupportDtos.Complete("CONFIRMED", "Đã xác minh trạng thái dịch vụ trại", active.version());
+        SupportDtos.RecipientInternalView completed = commands.executePlatformAuthorized(PlatformRole.PM, "IR_COMPLETE:"+ir.id(), "done-key", done,
+            SupportDtos.RecipientInternalView.class, () -> requests.requireRecipient(ir.id()), () -> requests.complete(ir.id(), done));
+        assertThat(completed.status()).isEqualTo("DONE");
         OutboxEvent completionNotice=completionNoticeEvent(ir.id());
         completionNotifications.handle(completionNotice);
         completionNotifications.handle(completionNotice);

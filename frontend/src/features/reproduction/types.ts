@@ -152,8 +152,15 @@ export interface ReproductionFemale {
     conceptionDetail?: string
     overdueForConception: boolean
   }
-  declaredPregnancyAtEntryMonths: number | null
+  /** D82, SCR-39 #3: khai báo "mang thai" lúc nhập đàn, chưa có khám thai / lần đẻ sau ngày nhập. */
+  declaredPregnancy: DeclaredPregnancy | null
   version: number
+}
+
+/** Khai báo mang thai lúc nhập: số tháng ước tính (null khi không rõ) và ngày nhập (`YYYY-MM-DDT00:00`). */
+export interface DeclaredPregnancy {
+  months: number | null
+  entryDate: string
 }
 
 export interface WorklistFilters {

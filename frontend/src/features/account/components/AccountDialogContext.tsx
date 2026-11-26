@@ -24,7 +24,7 @@ export function AccountDialogProvider({ children }: { children: ReactNode }) {
   const returnFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    if (session && search.get('m') === 'doi-mat-khau') setActive('profile')
+    if (session && ['ho-so', 'doi-mat-khau'].includes(search.get('m') ?? '')) setActive('profile')
   }, [search, session])
 
   const controller = useMemo<AccountDialogController>(() => ({

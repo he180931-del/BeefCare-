@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import { Button, ErrorBlock, LoadingBlock, Modal, Note, PageHeader } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { ConversationCard } from '../components/ConversationCard'
 import { ReopenDialog, ReopenedDialog, ResolutionVersionDialog } from '../components/ReopenDialogs'
@@ -20,7 +20,7 @@ const TITLE = 'Chi tiết yêu cầu hỗ trợ'
 
 /**
  * SCR-66. Hộp thoại qua `?m=`: mo-lai, da-mo-lai, da-xac-nhan, da-dong, ket-qua-thay-doi, ket-qua-v<phiên bản>.
- * Trên điện thoại hai cột xếp dọc theo thứ tự: trao đổi, kết quả, phản hồi, thông tin, lịch sử.
+ * Trên điện thoại hai cột xếp dọc theo thứ tự: trao đổi, thông tin, lịch sử.
  */
 export default function TicketDetailPage() {
   const { id } = useParams()
@@ -67,27 +67,19 @@ export default function TicketDetailPage() {
             </Button>
           </Note>
         )}
-        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
-          <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4 @min-[1024px]:gap-6">
-            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => getMessages(ticket.id, beforeId)} />
-            <ResolutionCard
-              ticket={ticket}
-              busy={actions.busy}
-              onConfirm={() => latest && actions.confirm(latest.version)}
-              onReopen={() => openModal('mo-lai')}
-              onViewVersion={(v) => openModal(`ket-qua-v${v}`)}
-            />
-            <ReplyCard ticket={ticket} onSend={actions.reply} />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
+          <div className="flex min-w-0 flex-col gap-4 xl:min-h-0">
+            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => getMessages(ticket.id, beforeId)} composer={<ReplyCard embedded ticket={ticket} onSend={actions.reply} />} />
           </div>
-          <div className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4 flex flex-col gap-4 @min-[1024px]:gap-6">
-            <TicketInfoCard ticket={ticket} />
+          <div className="flex min-w-0 flex-col gap-4">
+            <TicketInfoCard ticket={ticket} onViewResults={() => openModal('ket-qua')} />
             <StatusHistoryCard ticket={ticket} />
           </div>
         </div>
-        <Foot>Xem trao đổi công khai, thông tin phiếu, lịch sử trạng thái và kết quả xử lý; phản hồi tối đa 3.000 ký tự, phiếu đã đóng không nhận phản hồi.</Foot>
       </div>
 
       {m === 'mo-lai' && latest && ticket.status === 'RESOLVED' && <ReopenDialog ticket={ticket} resolution={latest} onSubmit={actions.reopen} onClose={closeModal} />}
+      {m === 'ket-qua' && latest && <Modal title="Kết quả giải quyết" sub="Thông tin đầy đủ theo từng phiên" width={1100} onClose={closeModal}><div className="max-h-[65vh] overflow-y-auto pr-1"><ResolutionCard ticket={ticket} busy={actions.busy} onConfirm={() => actions.confirm(latest.version)} onReopen={() => openModal('mo-lai')} /></div></Modal>}
       {m === 'da-mo-lai' && <ReopenedDialog ticket={ticket} onViewPrevious={(v) => openModal(`ket-qua-v${v}`)} onClose={closeModal} />}
       {viewVersion && <ResolutionVersionDialog ticket={ticket} version={Number(viewVersion)} onClose={closeModal} />}
       {m === 'da-xac-nhan' && <ConfirmedDialog ticket={ticket} onReopen={() => openModal('mo-lai')} onBack={closeModal} onClose={closeModal} />}

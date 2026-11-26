@@ -2,8 +2,9 @@
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED'
 export type TicketPriority = 'LOW' | 'NORMAL' | 'HIGH'
 export type TicketCategory = 'ACCOUNT_ACCESS' | 'PAYMENT' | 'FARM_SERVICE' | 'SYSTEM_USAGE' | 'OTHER'
-export type InternalStatus = 'OPEN' | 'DONE' | 'CANCELLED'
-export type InternalOutcome = 'PERFORMED' | 'UNABLE' | 'OUTSIDE_DOMAIN'
+export type InternalStatus = 'OPEN' | 'WAITING_CS' | 'DONE' | 'CANCELLED'
+export type InternalOutcome = 'CONFIRMED' | 'NOT_CONFIRMED' | 'NEED_MORE_INFO' | 'OUT_OF_SCOPE'
+export type TargetInternalOutcome = InternalOutcome
 export type TargetRole = 'PM' | 'SA'
 export type QueueTab = 'all' | 'unassigned' | 'mine' | 'waiting' | 'resolved'
 
@@ -47,27 +48,35 @@ export interface InternalView {
   title: string
   ticketId: number
   ticketCode: string
-  farmId: number
+  ticketSubject: string
+  ticketCategory: TicketCategory
+  /** Tên Chủ trại đã tạo ticket; dùng để định danh yêu cầu cho PM/SA. */
+  ticketRequester: string
+  farmId: number | null
   farmName: string
   targetRole: TargetRole
   recipientId: number
   recipient: string
-  fromId: number
+  fromId: number | null
   from: string
   createdAt: string
-  question: string
-  context: ContextRef[]
+  /** Canonical FE20 target field. */
+  requestText: string
   status: InternalStatus
   outcome?: InternalOutcome
-  result?: string
+  /** Canonical FE20 target field. */
+  resultNote?: string
   /** OPEN và người nhận không còn khả dụng (tài khoản bị tạm ngưng / mất vai trò): CS cần đổi người nhận (UC-FE03-08, D32). */
   needsReassignment?: boolean
-  domainResultAuditId?: number
   completedAt?: string
   completedBy?: string
   version: number
-  history: HistoryEvent[]
+  /** Absent/null server history means the source did not provide history; [] means known empty. */
+  history?: HistoryEvent[]
 }
+
+/** Named PM/SA response projection; it uses the same strict text/history allowlist as the CS view. */
+export type RecipientInternalView = InternalView
 
 export interface Ticket {
   id: number
@@ -76,7 +85,7 @@ export interface Ticket {
   category: TicketCategory
   priority: TicketPriority
   status: TicketStatus
-  farmId: number
+  farmId: number | null
   farmName: string
   requesterId: number
   requester: string
@@ -91,7 +100,8 @@ export interface Ticket {
   messagesBeforeId?: number | null
   messagesHasMore?: boolean
   resolutions: ResolutionView[]
-  history: HistoryEvent[]
+  /** Absent/null server history means the source did not provide history; [] means known empty. */
+  history?: HistoryEvent[]
   internalRequests: InternalView[]
   contextOptions: Record<TargetRole, ContextRef[]>
 }
@@ -133,8 +143,6 @@ export interface QueuePage {
   counts: Record<QueueTab, number> & { unassignedHigh: number }
 }
 
-export interface DomainResult { id: number; label: string }
-
 export interface SupportNotification {
   id: number
   title: string
@@ -150,9 +158,15 @@ export interface SupportNotification {
 
 export interface CompleteCommand {
   outcome: InternalOutcome
-  result: string
-  domainResultAuditId?: number
+  resultNote: string
   expectedVersion: number
   /** Chỉ để minh họa khung "Kết quả miền đã lưu, chưa lưu Hoàn thành". */
   simulateSaveFailure?: boolean
+}
+
+export interface CreateInternalCommand {
+  targetRole: TargetRole
+  recipientId: number
+  /** Canonical FE20 target field. */
+  requestText: string
 }

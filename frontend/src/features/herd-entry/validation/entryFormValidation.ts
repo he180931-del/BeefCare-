@@ -35,7 +35,8 @@ export function validateEntryForPost(input: ValidationInput): string | null {
   if (!input.date) return 'Ngày nhập là bắt buộc.'
   if (input.date > today) return 'Ngày nhập không được ở tương lai.'
   if (input.type === 'Mua ngoài' && !String(input.sourceId ?? '').trim()) return 'Vui lòng chọn người bán.'
-  if (input.type === 'Mua ngoài' && !String(input.receiver ?? '').trim()) return 'Vui lòng nhập người thực hiện nhập đàn.'
+  // receiver undefined = máy chủ tự ghi người tạo theo phiên, không cần nhập tay.
+  if (input.type === 'Mua ngoài' && input.receiver !== undefined && !input.receiver.trim()) return 'Vui lòng nhập người thực hiện nhập đàn.'
   const cows = input.cows ?? []
   if (!cows.length) return 'Phiếu nhập phải có ít nhất một con bò.'
   for (const [index, cow] of cows.entries()) {

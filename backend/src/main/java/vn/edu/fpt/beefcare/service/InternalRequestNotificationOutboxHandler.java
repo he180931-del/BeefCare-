@@ -48,7 +48,7 @@ public class InternalRequestNotificationOutboxHandler implements OutboxEventHand
         Long recipientId = positiveLong(payload.path("recipientId").asText(null), "recipientId");
         String action = payload.path("action").asText(null);
         int requestVersion = payload.path("requestVersion").asInt(-1);
-        if (requestVersion < 0 || !("CREATED".equals(action) || "REASSIGNED".equals(action) || "CANCELLED".equals(action))) {
+        if (requestVersion < 0 || !("CREATED".equals(action) || "REASSIGNED".equals(action) || "CLARIFIED".equals(action) || "CANCELLED".equals(action))) {
             throw new IllegalStateException("Invalid internal request notification payload");
         }
 
@@ -65,7 +65,8 @@ public class InternalRequestNotificationOutboxHandler implements OutboxEventHand
         InternalRequest request = observed;
         if (request.getVersion() == null || request.getVersion() != requestVersion) return;
         if (request.getRecipient() == null || !recipientId.equals(request.getRecipient().getId())) return;
-        if (("CREATED".equals(action) || "REASSIGNED".equals(action)) && !"OPEN".equals(request.getState())) return;
+        if (("CREATED".equals(action) || "CLARIFIED".equals(action)) && !"OPEN".equals(request.getState())) return;
+        if ("REASSIGNED".equals(action) && !java.util.Set.of("OPEN", "WAITING_CS").contains(request.getState())) return;
         if ("CANCELLED".equals(action) && !"CANCELLED".equals(request.getState())) return;
         if (!targetAccess.canOpenInternalRequest(request.getRecipient(), requestId)) return;
 
@@ -84,6 +85,7 @@ public class InternalRequestNotificationOutboxHandler implements OutboxEventHand
         return switch (action) {
             case "CANCELLED" -> "Yêu cầu nội bộ " + request.getCode() + " đã bị hủy";
             case "REASSIGNED" -> "Bạn được giao yêu cầu nội bộ " + request.getCode();
+            case "CLARIFIED" -> "Yêu cầu nội bộ " + request.getCode() + " có bổ sung cần xem";
             default -> "Bạn có yêu cầu nội bộ mới " + request.getCode();
         };
     }

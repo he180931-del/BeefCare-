@@ -1,5 +1,5 @@
 import { useOwnerRegistration } from '../hooks/useOwnerRegistration'
-import { Button, Card, Field, Foot, inputCls, Note } from '../../../shared/ui'
+import { Button, Card, Field, inputCls, Note } from '../../../shared/ui'
 import SetupLayout from '../components/SetupLayout'
 import { FieldError, Stepper } from '../components/WorkspaceUi'
 
@@ -26,7 +26,6 @@ export default function OwnerRegistrationPage() {
           <div className="flex justify-end"><Button type="submit" variant="primary" size="lg" className="h-auto! min-h-11 whitespace-normal! py-2" disabled={saving || query.loading}>{saving ? 'Đang lưu…' : 'Hoàn tất và đăng ký trang trại'}</Button></div>
         </form>
       </Card>
-      <Foot>Thư điện tử đã xác minh được khóa; họ và tên và số điện thoại giúp nhận diện người chịu trách nhiệm.</Foot>
     </SetupLayout>
   )
 }

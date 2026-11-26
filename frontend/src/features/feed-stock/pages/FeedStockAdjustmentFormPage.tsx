@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { listFeedStock } from '../api/feedStockApi'
 import {
@@ -28,7 +29,6 @@ const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
   OTHER: 'Khác',
 }
 const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
-const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
 const commandKey = () => newFeedCommandKey('feed-adjustment')
 
 const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
@@ -97,7 +97,8 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
   postAdjustment: ReturnType<typeof useFeedStockAdjustmentForm>['post']
 }) {
   const navigate = useNavigate()
-  const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
+  const session = useSession()
+  const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows, session?.fullName ?? ''))
   const [currentRecord, setCurrentRecord] = useState(record)
   const [docs, setDocs] = useState<Array<{ name: string; ext: string }>>([])
   const [attachments, setAttachments] = useState(initialAttachments)
@@ -349,7 +350,6 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
         {readOnly && displayedDocs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
       </Card>
 
-      <Foot>{FOOT}</Foot>
     </Layout>
   )
 }

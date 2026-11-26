@@ -14,6 +14,7 @@ import vn.edu.fpt.beefcare.service.dto.SupportDtos;
 @Service
 @Transactional
 public class SupportTicketCommandService {
+    static final String INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON = "Hiện không có chăm sóc khách hàng hỗ trợ yêu cầu này.";
     private static final Set<String> CATEGORIES = Set.of("ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER");
     private static final Set<String> FARM_REQUIRED_CATEGORIES = Set.of("PAYMENT", "FARM_SERVICE");
     private static final Set<String> PRIORITIES = Set.of("LOW", "NORMAL", "HIGH");
@@ -123,7 +124,13 @@ public class SupportTicketCommandService {
                     if (next.equals(actor)) throw DomainException.invalid("recipientId");
                     t.setAssignedCs(next);
                 }
-                case "RELEASE" -> { text(r.reason(), 1000, "reason"); t.setAssignedCs(null); }
+                case "RELEASE" -> {
+                    text(r.reason(), 1000, "reason");
+                    // Returning a ticket to the queue also invalidates any specialist requests
+                    // owned by the current CS; a new assignee must start a fresh request.
+                    cancelOpenInternalRequestsForClose(t, actor);
+                    t.setAssignedCs(null);
+                }
                 case "CLASSIFY" -> {
                     if (r.category() == null && r.priority() == null) throw DomainException.required("classification");
                     if (r.category() != null) { if (!CATEGORIES.contains(r.category())) throw DomainException.invalid("category"); t.setCategory(r.category()); }
@@ -189,9 +196,10 @@ public class SupportTicketCommandService {
         SupportTicket t = find(id, true); AppUser actor = assigned(t); writable(t);
         VersionGuard.requireExpected(t.getVersion(), r.expectedVersion());
         if (!"RESOLVED".equals(t.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
-        requireNoOpenRequest(t); ResolutionAcknowledgment ack = acknowledgment(latestResolution(t));
+        ResolutionAcknowledgment ack = acknowledgment(latestResolution(t));
         if (ack == null || !"EFFECTIVE".equals(ack.status)) throw DomainException.unprocessable("MSG-FE20-13");
         if (!r.reviewedAcknowledgment()) throw DomainException.unprocessable(MessageCodes.COM_16);
+        cancelOpenInternalRequestsForClose(t, actor);
         ack.reviewedBy = actor; ack.reviewedAt = clock.now(); t.setStatus("CLOSED");
         history(t, actor, "CLOSED", "RESOLVED", optionalText(r.note(), 500, "note"),
             Map.of("resolutionVersion", t.getLatestResolutionVersion(), "acknowledgmentId", ack.id));
@@ -274,8 +282,35 @@ public class SupportTicketCommandService {
         if (!available(user, role)) throw DomainException.notFound(MessageCodes.COM_08); return user;
     }
     void requireNoOpenRequest(SupportTicket t) {
-        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.state='OPEN'", Long.class)
+        if (em.createQuery("select count(r) from InternalRequest r where r.ticket.id=:t and r.state in ('OPEN','WAITING_CS')", Long.class)
             .setParameter("t", t.getId()).getSingleResult() != 0) throw DomainException.unprocessable("MSG-FE20-12");
+    }
+
+    /** Closing a ticket also closes any still-open specialist requests with the default reason. */
+    private void cancelOpenInternalRequestsForClose(SupportTicket t, AppUser actor) {
+        List<InternalRequest> requests = em.createQuery(
+            "select r from InternalRequest r where r.ticket.id=:t and r.state in ('OPEN','WAITING_CS') order by r.id",
+            InternalRequest.class
+        ).setParameter("t", t.getId()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (InternalRequest request : requests) {
+            String prior = request.getState();
+            request.setState("CANCELLED");
+            request.setCompletedAt(clock.now());
+            em.flush();
+            InternalRequestHistory history = new InternalRequestHistory();
+            history.setInternalRequest(request);
+            history.setActor(actor);
+            history.setActorRole("CS");
+            history.setEventType("CANCELLED");
+            history.setNote(INTERNAL_CANCEL_ON_TICKET_CLOSE_REASON);
+            history.setOccurredAt(clock.now());
+            history.setRequestVersion(request.getVersion());
+            history.setState("CANCELLED");
+            history.setOutcome(request.getOutcome());
+            em.persist(history);
+            changed(t, actor, "SUPPORT_INTERNAL_MANAGE", request, prior);
+            notice(request.getRecipient(), t, "internal-cancelled");
+        }
     }
     void history(SupportTicket t, AppUser actor, String type, String prior, String reason, Map<String, ?> details) {
         SupportHistory h = new SupportHistory(); h.setTicket(t); h.setActor(actor); h.setEventType(type);
@@ -467,18 +502,39 @@ public class SupportTicketCommandService {
     }
 
     /** The recipient's own view (SCR-69): the signed-in recipient is available, so nothing needs reassignment. */
-    SupportDtos.InternalView recipientInternalView(InternalRequest r) {
-        return internalView(r, false);
+    SupportDtos.RecipientInternalView recipientInternalView(InternalRequest r) {
+        SupportTicket t = r.getTicket();
+        return new SupportDtos.RecipientInternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getRequester().getFullName(),
+            t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
+            r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
+            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(),
+            r.getState(), r.getOutcome(), r.getCompletedAt(), r.getVersion(), false, internalHistory(r),
+            r.getQuestion(), r.getResultText());
     }
 
     private SupportDtos.InternalView internalView(InternalRequest r, boolean needsReassignment) {
-        List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));
         SupportTicket t = r.getTicket();
-        List<SupportDtos.ContextReference> displayContext = context.stream().map(this::withContextLabel).toList();
-        return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getFarm() == null ? null : t.getFarm().getId(),
+        return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getRequester().getFullName(), t.getFarm() == null ? null : t.getFarm().getId(),
             t.getFarm() == null ? null : t.getFarm().getName(), r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
-            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), displayContext, r.getState(), r.getOutcome(),
-            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion(), needsReassignment);
+            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getState(), r.getOutcome(),
+            r.getCompletedAt(), r.getVersion(), needsReassignment, internalHistory(r),
+            r.getQuestion(), r.getResultText());
+    }
+
+    private List<SupportDtos.InternalHistory> internalHistory(InternalRequest r) {
+        return em.createQuery(
+                "select h from InternalRequestHistory h where h.internalRequest.id=:request order by h.occurredAt,h.id",
+                InternalRequestHistory.class
+            )
+            .setParameter("request", r.getId())
+            .getResultList()
+            .stream()
+            .map(h -> new SupportDtos.InternalHistory(
+                h.getId(), h.getEventType(), h.getNote(), h.getActor() == null ? null : h.getActor().getId(),
+                h.getActor() == null ? "SYSTEM" : h.getActor().getFullName(), h.getActorRole(), h.getOccurredAt(),
+                h.getRequestVersion(), h.getState(), h.getOutcome()
+            ))
+            .toList();
     }
 
     private static PlatformRole targetRole(InternalRequest r) {
