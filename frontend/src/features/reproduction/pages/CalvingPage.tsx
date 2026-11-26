@@ -57,7 +57,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
   const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
   const [saving, setSaving] = useState(false)
   const [issues, setIssues] = useState<ReproductionIssue[]>([])
-  const [form, setForm] = useState({ birthAt: nowLocal(), pregnancyId: '', dataSource: 'DIRECT_OBSERVATION' as DataSource, attendant: '', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false })
+  const [form, setForm] = useState({ birthAt: nowLocal(), pregnancyId: '', dataSource: 'DIRECT_OBSERVATION' as DataSource, attendant: session?.fullName ?? '', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false })
   const [calves, setCalves] = useState<CalfForm[]>([])
 
   const { profile, profileLoading: loading, profileError, recordCalving } = useReproductionUseCases({ cattleCode: code, role, scope: 'profile' })

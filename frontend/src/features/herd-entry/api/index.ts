@@ -4,6 +4,7 @@ export {
   entryPaymentVoidEnabled,
   voidEntryPayment,
   entryLineCorrectionEnabled,
+  entryReceiverEditable,
   entryHistoryDemoEnabled,
   correctEntryHistoryDemo,
   entryVoidCheck,
