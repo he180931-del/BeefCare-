@@ -1225,3 +1225,13 @@ An yêu cầu "sửa lại spec cho giống code của tôi" sau bản rà soát
 
 Phần spec có mà code chưa làm, giữ trong spec và ghi là việc còn lại: toast MSG-FE06-01 / 05 / 10 và MSG-FE13-02 / 06 sau khi lưu, ảnh dòng bò (backend A19 đã có), mở bản in thẻ QR sau ghi sổ. Không đổi API, DTO, OpenAPI hay migration.
 
+
+### D88 — Report 3: gộp use case từ 136 xuống 103 (27/11/2026)
+
+TuanPQ chốt trong phiên: 136 use case là quá nhiều cho nhóm 5 người, gộp theo mức "khoảng 100" và đánh số lại liền mạch.
+
+1. **Gộp, không bỏ chức năng.** Gộp các use case chồng lấn (xem sinh sản FE-11/FE-12, sửa / hủy thai và đẻ, xem thuê bao của PM vào FE-02) và các nhóm thêm / sửa / đổi trạng thái đơn giản thành "Manage …" (danh mục FE-18, chuồng, lời mời, thành viên, tài khoản, phiếu thu chi nháp, thông báo nền tảng, trả lời ticket). Nghiệp vụ lõi (nhập đàn, xuất đàn, ca bệnh, thức ăn, thanh toán) giữ nguyên.
+2. **Mã mới chỉ dùng trong báo cáo.** Report 3 v1.17 dùng mã mới; Report 4 và Report 5.1–5.3 dẫn theo mã mới. Code, test, OpenAPI và spec trong `docs/requirements/specs/` giữ mã cũ, không đổi tên. Đối chiếu tại [UC_ID_MAPPING.md](requirements/UC_ID_MAPPING.md).
+3. Bổ sung cho D12: nguồn nghiệp vụ vẫn là SRS 28/10 và 23 spec; chỉ phần đánh số use case trong báo cáo đổi theo bảng đối chiếu.
+
+Không đổi API, DTO, DB hay hành vi.
