@@ -10,12 +10,14 @@ export const localFeedDate = businessDate
 export function initialFeedStockAdjustmentForm(
   record: FeedStockAdjustment | null,
   stockRows: readonly FeedStockRow[],
+  /** Phiếu mới điền sẵn người kiểm kê là người đang đăng nhập (vẫn sửa được). */
+  defaultCountedBy = '',
 ): FeedStockAdjustmentFormValues {
   const savedLines = new Map(record?.lines.map((line) => [line.feedItemId, line]) ?? [])
   return {
     countDate: record?.countDate ?? localFeedDate(),
     adjustmentType: record && isAdjustmentType(record.adjustmentType) ? record.adjustmentType : 'PERIODIC_COUNT',
-    countedBy: record?.countedBy ?? '',
+    countedBy: record ? record.countedBy : defaultCountedBy,
     lines: stockRows.map((stock) => {
       const saved = savedLines.get(stock.feedItemId)
       return {

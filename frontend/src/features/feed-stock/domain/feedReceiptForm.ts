@@ -46,12 +46,13 @@ export const blankFeedReceiptLine = (): FeedReceiptFormLine => ({
   unitPrice: '',
 })
 
-export function initialFeedReceiptForm(record: FeedReceipt | FeedReceiptDemoRecord | null, initialFeedItemId = ''): FeedReceiptFormValues {
+/** {@code defaultReceivedBy}: phiếu mới điền sẵn người nhận hàng là người đang đăng nhập (vẫn sửa được). */
+export function initialFeedReceiptForm(record: FeedReceipt | FeedReceiptDemoRecord | null, initialFeedItemId = '', defaultReceivedBy = ''): FeedReceiptFormValues {
   if (!record) return {
     receiptDate: todayIso(),
     supplierId: '',
     invoiceNumber: '',
-    receivedBy: '',
+    receivedBy: defaultReceivedBy,
     storageLocation: '',
     note: '',
     transportFee: '0',

@@ -55,8 +55,9 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
     penApi.listPenMembers().then((rows) => {
       if (!active) return
       setMembers(rows)
-      const current = session?.id != null ? rows.find((row) => row.userId === session.id) : rows[0]
-      setPerformerId(String(current?.userId ?? session?.id ?? rows[0]?.userId ?? ''))
+      // FE-04: người thực hiện mặc định là mình; không có trong danh sách thì để trống (máy chủ ghi theo phiên đăng nhập).
+      const current = session?.id != null ? rows.find((row) => row.userId === session.id) : undefined
+      setPerformerId(current ? String(current.userId) : '')
     }).catch(() => {
       if (active) {
         setMembersError('Không tải được danh sách thành viên; vẫn có thể chuyển với người đang đăng nhập.')

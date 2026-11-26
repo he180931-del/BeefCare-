@@ -92,7 +92,9 @@ describe('pen members (popup Chuyển chuồng #5)', () => {
     expect(within(row42).getAllByText('—')).toHaveLength(5)
 
     const performer = screen.getByRole('combobox', { name: 'Người thực hiện' })
-    await waitFor(() => expect(within(performer).getAllByRole('option')).toHaveLength(2))
+    // Không có phiên đăng nhập (render ngoài SessionProvider): để trống = "Người đang đăng nhập", không tự chọn thành viên đầu.
+    await waitFor(() => expect(within(performer).getAllByRole('option')).toHaveLength(3))
+    expect(performer).toHaveValue('')
     const user = userEvent.setup()
     await user.selectOptions(performer, '15')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Chuồng đích' }), 'B')
@@ -104,6 +106,35 @@ describe('pen members (popup Chuyển chuồng #5)', () => {
 
     await waitFor(() => expect(onMoved).toHaveBeenCalledWith('Đã chuyển 2 con sang B.'))
     expect(calls.find((c) => c.path === '/api/farms/9/pen-moves')?.body).toEqual(expect.objectContaining({ performedBy: 15, reason: 'Correction' }))
+  })
+
+  it('defaults the performer to the signed-in member, and leaves it empty when that user is not in the member list', async () => {
+    stubBackend((path) => {
+      if (path === '/api/farms/9/members') return json({ items: [
+        { id: 3, userId: 11, fullName: 'Nguyễn An', role: 'MANAGER', status: 'ACTIVE' },
+        { id: 5, userId: 15, fullName: 'Lê Cường', role: 'TECHNICIAN', status: 'ACTIVE' },
+      ] })
+      return undefined
+    })
+    const [{ default: MoveDialog }, { mapBackendPen, mapBackendPenDetail }, { SessionContext }] = await Promise.all([
+      import('../../../src/features/pen-management/components/MoveDialog'),
+      import('../../../src/features/pen-management/api/penApi'),
+      import('../../../src/app/session/sessionContext'),
+    ])
+    const from = mapBackendPenDetail({ ...pen(11, 'A'), cattle })
+    const dialog = (userId: number) => (
+      <SessionContext.Provider value={{ id: userId, fullName: 'x', email: 'x@example.test', role: 'MANAGER' } as never}>
+        <MemoryRouter><MoveDialog from={from} cattle={from.cattleInPen} pens={[from, mapBackendPen(pen(12, 'B'))]} today={TODAY} onClose={vi.fn()} onMoved={vi.fn()} /></MemoryRouter>
+      </SessionContext.Provider>
+    )
+    const { unmount } = render(dialog(15))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Người thực hiện' })).toHaveValue('15'))
+    unmount()
+
+    render(dialog(99))
+    const performer = screen.getByRole('combobox', { name: 'Người thực hiện' })
+    await waitFor(() => expect(within(performer).getAllByRole('option')).toHaveLength(3))
+    expect(performer).toHaveValue('')
   })
 
   it('"Dùng chung lý do" fills only the empty warning reasons', async () => {
