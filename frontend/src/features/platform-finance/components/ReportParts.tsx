@@ -209,6 +209,8 @@ export function RankBars({ items, tone = 'brand', empty }: { items: Slice[]; ton
   )
 }
 
+const LINE_STATUS: Record<string, string> = { PAID: 'Đã thanh toán', POSTED: 'Đã ghi sổ', VOID: 'Đã hủy bỏ' }
+
 export type SheetKind = 'title' | 'head' | 'body' | 'total' | 'blank'
 export interface SheetRow { kind: SheetKind; cells: (string | number)[] }
 export interface SheetPreviewData { name: string; rows: SheetRow[] }
@@ -269,10 +271,10 @@ export function buildWorkbookPreview(report: CashReport, farmLabel: string, sour
   ]
   const dmy = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`
   const flowSheet = (dir: 'IN' | 'OUT'): SheetRow[] => {
-    const rows = report.lines.filter((l) => l.direction === dir)
+    const rows = report.lines.filter((l) => l.direction === dir).sort((a, b) => a.cashDate.localeCompare(b.cashDate) || a.code.localeCompare(b.code))
     return [
       { kind: 'head', cells: ['Ngày', 'Mã', 'Loại nguồn', 'Danh mục', 'Trại', 'Số tiền (VND)', 'Trạng thái', 'Nguồn', 'Phiên bản nguồn'] },
-      ...rows.map((l): SheetRow => ({ kind: 'body', cells: [dmy(l.cashDate), l.code, l.sourceType === 'RECEIPT' ? 'Biên nhận gói' : 'Khoản thu chi', categoryLabel(l.category), l.farmName, l.amountVnd, l.status, l.reference, l.sourceVersion == null ? '' : `v${l.sourceVersion}`] })),
+      ...rows.map((l): SheetRow => ({ kind: 'body', cells: [dmy(l.cashDate), l.code, l.sourceType === 'RECEIPT' ? 'Biên nhận gói' : 'Khoản thu chi', categoryLabel(l.category), l.farmName, l.amountVnd, LINE_STATUS[l.status] ?? l.status, l.reference, l.sourceVersion == null ? '' : `v${l.sourceVersion}`] })),
       { kind: 'total', cells: [`Tổng (${rows.length} giao dịch)`, '', '', '', '', rows.reduce((a, l) => a + l.amountVnd, 0)] },
     ]
   }

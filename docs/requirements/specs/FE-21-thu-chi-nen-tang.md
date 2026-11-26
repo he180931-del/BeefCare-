@@ -125,7 +125,7 @@ AF1 xem theo trại: bấm tên trại trong bảng → hộp thoại **Giao d�
    - **Thu** / **Chi**: mỗi giao dịch một dòng (ngày, mã, loại nguồn, danh mục, trại, số tiền, trạng thái, nguồn, phiên bản nguồn) + dòng tổng có số giao dịch.
 4. Trả file → MSG-FE21-13.
 AF1 báo cáo rỗng → file có đủ 4 sheet, tổng 0 và hàng tiêu đề.
-Ghi chú triển khai: bản xem trước (FE, `buildWorkbookPreview`) là mẫu đích. Backend `GET …/reports/{id}/xlsx` hiện vẫn xuất 2 sheet Summary / Details nhãn tiếng Anh — cần sửa cho khớp mẫu này.
+Ghi chú triển khai: FE `buildWorkbookPreview` và BE `PlatformFinanceWorkbook` dùng cùng bố cục. Tệp có định dạng: tiêu đề in đậm, hàng tiêu đề nền xanh, dòng tổng in đậm, số tiền dạng `#,##0` (âm màu đỏ), độ rộng cột cố định; danh mục và trạng thái hiển thị nhãn tiếng Việt; giao dịch sắp theo ngày.
 E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không phải PM → MSG-COM-01.
 
 ---
@@ -292,5 +292,5 @@ Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 26/11/2026 | 28/10/2026 | Bố cục SCR-72 mới (luồng Loại → Nguồn → Gắn trại), ô Số tiền / Ngày mờ khi nguồn là giao dịch NH, nút Lưu cuối phiếu | Claude (theo yêu cầu LamKD) |
-| 26/11/2026 | 28/10/2026 | SCR-73: hàng lọc có nút Chạy báo cáo, 5 biểu đồ từ snapshot, bảng "Dòng tiền theo trại", hộp thoại giao dịch theo trại (lọc + nút Tìm) và chi tiết giao dịch; bỏ "Xem chi tiết giao dịch", "Phạm vi tính" và các hộp thoại Đã làm mới / Báo cáo rỗng. UC-FE21-09: nút Xuất báo cáo mở bản xem trước mô phỏng Excel; tệp 4 sheet Tổng hợp / Theo trại / Thu / Chi (backend chưa khớp) | Claude (theo yêu cầu LamKD) |
+| 26/11/2026 | 28/10/2026 | SCR-73: hàng lọc có nút Chạy báo cáo, 5 biểu đồ từ snapshot, bảng "Dòng tiền theo trại", hộp thoại giao dịch theo trại (lọc + nút Tìm) và chi tiết giao dịch; bỏ "Xem chi tiết giao dịch", "Phạm vi tính" và các hộp thoại Đã làm mới / Báo cáo rỗng. UC-FE21-09: nút Xuất báo cáo mở bản xem trước mô phỏng Excel; tệp 4 sheet Tổng hợp / Theo trại / Thu / Chi; backend xuất XLSX theo đúng mẫu này (`PlatformFinanceWorkbook`) | Claude (theo yêu cầu LamKD) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |

@@ -15,7 +15,7 @@ const report: CashReport = {
     scopes: [], dailyIncome: [], note: '',
   },
   lines: [
-    line({ code: 'RC-1', sourceType: 'RECEIPT', category: 'SUBSCRIPTION', amountVnd: 1_000_000, cashDate: '2026-10-03', farmName: 'Trại B' }),
+    line({ code: 'RC-1', sourceType: 'RECEIPT', status: 'PAID', category: 'SUBSCRIPTION', amountVnd: 1_000_000, cashDate: '2026-10-03', farmName: 'Trại B' }),
     line({ code: 'FR-2', amountVnd: 200_000, cashDate: '2026-11-02' }),
     line({ code: 'FR-3', direction: 'OUT', category: 'MARKETING', amountVnd: 300_000, cashDate: '2026-11-10', scope: 'GENERAL', farmName: 'Chung' }),
   ],
@@ -51,6 +51,12 @@ describe('XLSX preview: sheet Tổng hợp', () => {
     const labels = sheet().rows.map((r) => String(r.cells[0] ?? ''))
     expect(labels).not.toContain('Theo trại')
     expect(labels.some((l) => l.startsWith('Ghi chú'))).toBe(false)
+  })
+
+  it('sheet Thu dịch trạng thái giống tệp XLSX', () => {
+    const income = buildWorkbookPreview(report, 'Tất cả trại', 'x')[2]
+    expect(income.rows[1].cells[6]).toBe('Đã thanh toán')
+    expect(income.rows[2].cells[6]).toBe('Đã ghi sổ')
   })
 
   it('monthsBetween gồm cả tháng trống và qua năm', () => {
