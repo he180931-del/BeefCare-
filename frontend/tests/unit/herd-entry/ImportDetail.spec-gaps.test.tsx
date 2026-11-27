@@ -101,3 +101,9 @@ it('keeps header actions and the Thao tác column out of the printed voucher', a
   expect(within(active).getByRole('button', { name: 'Sửa / Hủy' }).closest('td')).toHaveClass('print:hidden')
   expect(screen.getByText(/Danh sách bò của phiếu đã nhập không thêm/)).toHaveClass('print:hidden')
 })
+
+it('shows one line instead of an empty payment table when nothing has been paid', async () => {
+  page()
+  expect(await screen.findByText('Chưa ghi khoản thanh toán nào.')).toBeInTheDocument()
+  expect(screen.queryByRole('columnheader', { name: 'Phương thức · tham chiếu' })).not.toBeInTheDocument()
+})

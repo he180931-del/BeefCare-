@@ -128,7 +128,6 @@ export default function ExportDetail() {
                 </tfoot>
               )}
             </Table>
-            {isSold && <div className="print:hidden"><Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE.</Note></div>}
             {r.status === 'Đã hủy' && <Note>Phiếu đã hủy, các con đã trở lại đàn.</Note>}
           </Box>
 
