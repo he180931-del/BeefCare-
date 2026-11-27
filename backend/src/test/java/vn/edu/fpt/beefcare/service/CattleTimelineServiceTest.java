@@ -66,7 +66,7 @@ class CattleTimelineServiceTest extends DomainTestSupport {
             if (role == FarmRole.TECHNICIAN) {
                 assertThat(event.sourceId()).isNull();
                 assertThat(event.canOpen()).isFalse();
-                assertThat(event.values()).containsOnlyKeys("exitType", "date", "reason");
+                assertThat(event.values()).containsOnlyKeys("exitType", "lossKind", "date", "reason");
             } else {
                 assertThat(event.sourceId()).isEqualTo(line.getId());
                 assertThat(event.values()).containsEntry("voucherCode", voucher.getCode());

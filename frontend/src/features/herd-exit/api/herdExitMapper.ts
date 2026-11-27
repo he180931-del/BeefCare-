@@ -8,6 +8,8 @@ import { money } from '../../../shared/lib/format'
 export const LIFE_STAGE_LABELS: Record<string, string> = {
   UNWEANED_CALF: 'Bê chưa cai sữa', WEANED_CALF: 'Bê cai sữa', YOUNG_STOCK: 'Bò tơ', ADULT: 'Bò trưởng thành',
 }
+const lineWithdrawal = (line: Record<string, unknown>): string =>
+  textValue(line.withdrawalUntil ?? line.withdrawalEndDate ?? asRecord(asRecord(line.check).withdrawal).endDate)
 export const HERD_GROUP_LABELS: Record<string, string> = {
   CALVES: 'Bê', FATTENING: 'Vỗ béo', BREEDING_BULLS: 'Đực giống', BREEDING_FEMALES: 'Bò cái sinh sản', YOUNG_STOCK: 'Bò tơ', OTHER: 'Khác',
 }
@@ -65,7 +67,8 @@ export const mapChecks = (value: unknown): ExitChecks => {
     hasWarnings: Boolean(item.hasWarnings),
     messages: asRows(item.messages).map((message) => ({
       ...(typeof message.code === 'string' ? { code: message.code } : {}),
-      ...(typeof message.text === 'string' ? { text: message.text } : {}),
+      // DEF-ST-11: server texts carry ISO dates (MSG-FE13-07); show dd/mm/yyyy.
+      ...(typeof message.text === 'string' ? { text: message.text.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3/$2/$1') } : {}),
       ...(typeof message.params === 'object' && message.params !== null ? { params: message.params as Record<string, unknown> } : {}),
     })),
   }))
@@ -217,9 +220,11 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     docs: mapDocuments(documents, root, voucherId),
     cows: lines.map((line) => ({
       code: textValue(line.cattleCode), backendId: numberValue(line.cattleId), tag: textValue(line.earTagNumber), breed: textValue(line.breedName), sex: line.sex === 'MALE' ? 'Đực' : 'Cái',
-      age: textValue(line.ageText ?? line.age), group: textValue(line.herdGroup ?? line.group), stage: textValue(line.lifeStage ?? line.stage),
+      // DEF-ST-11: labels, never raw enums; the withdrawal end comes from the line check after saving.
+      age: textValue(line.ageText ?? line.age), group: HERD_GROUP_LABELS[textValue(line.herdGroup ?? line.group)] ?? textValue(line.herdGroup ?? line.group),
+      stage: LIFE_STAGE_LABELS[textValue(line.lifeStage ?? line.stage)] ?? textValue(line.lifeStage ?? line.stage),
       barn: textValue(line.penCode), weight: numberValue(line.exitWeightKg), weightNote: textValue(line.weightNote), unitPrice: numberValue(line.unitPrice), estimated: Boolean(line.estimated),
-      ...(textValue(line.withdrawalUntil ?? line.withdrawalEndDate) ? { withdrawalUntil: textValue(line.withdrawalUntil ?? line.withdrawalEndDate) } : {}),
+      ...(lineWithdrawal(line) ? { withdrawalUntil: lineWithdrawal(line) } : {}),
       ...(textValue(line.openCase ?? line.openCaseCode) ? { openCase: textValue(line.openCase ?? line.openCaseCode) } : {}),
     })),
   } : undefined

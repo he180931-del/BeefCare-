@@ -231,7 +231,7 @@ export default function RowEditModal({ cow, index, dateIso, pricing = 'kg', isNe
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-3">
           <Field id="entry-cow-barn" label="Chuồng nhận *">
             <Select className={compactSelectCls} id="entry-cow-barn" aria-invalid={invalidField === 'entry-cow-barn'} value={c.barn} onChange={(e) => set({ barn: e.target.value })}>
-              {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
+              {pens.filter((b) => b.status === 'ACTIVE' || b.code === c.barn).map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
             </Select>
           </Field>
           <Field id="entry-cow-unit-price" label={pricing === 'con' ? 'Thành tiền (đ) *' : 'Đơn giá (đ/kg) *'} hint={pricing === 'con' ? 'Số tiền mua con này' : 'Theo kg – áp cho cả phiếu'}>

@@ -50,7 +50,8 @@ public class CattleGuardService {
     }
 
     /** Throws MSG-COM-13 / MSG-COM-18 / MSG-COM-17 unless the cattle is ACTIVE and not exit-pending. */
-    @Transactional(readOnly = true)
+    // DEF-ST-15: a refused check must not mark the caller's transaction rollback-only (500 on a check endpoint).
+    @Transactional(readOnly = true, noRollbackFor = DomainException.class)
     public void assertWritable(Cattle cattle) {
         assertActive(cattle);
         pendingExitLine(cattle.getId()).ifPresent(line -> {
@@ -114,7 +115,8 @@ public class CattleGuardService {
      * Whether the cattle may be put on an exit voucher: ACTIVE, not exit-pending (MSG-COM-17) and on no other open
      * exit line (MSG-FE13-08). {@code voucherId} is the voucher being edited, whose own line does not count.
      */
-    @Transactional(readOnly = true)
+    // DEF-ST-15: a refused check must not mark the caller's transaction rollback-only (500 on a check endpoint).
+    @Transactional(readOnly = true, noRollbackFor = DomainException.class)
     public void assertCanJoinExitVoucher(Cattle cattle, Long voucherId) {
         assertWritable(cattle);
         openExitLine(cattle.getId())

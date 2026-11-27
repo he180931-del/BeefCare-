@@ -85,7 +85,7 @@ export const herdEntryApi = {
 }
 
 // POST|PUT /api/farms/{farmId}/entry-vouchers[/{id}] and POST .../{id}/post
-export const saveHerdEntry = (input: { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => {
+export const saveHerdEntry = (input: { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[]; attempt?: string }) => {
   return usingBackend ? backendApi.save(input) : demo.entryLocal.saveDraft(input)
 }
 

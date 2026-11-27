@@ -12,7 +12,11 @@ import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPaym
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
-type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
+/**
+ * attempt: one per opened entry form. A new voucher has no id, so without it two forms with the same content (a calf
+ * registered again after its voucher was voided) would share the Idempotency-Key and replay the voided voucher.
+ */
+type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[]; attempt?: string }
 type PaymentInput = Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 
 export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string; to?: string; sellerId?: number; sellerName?: string }
@@ -202,7 +206,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   }
   const previewExcel = (code: string, file: File) => importExcel(code, file, false)
   const commitExcel = (code: string, file: File) => importExcel(code, file, true)
-  const save = async ({ id, expectedVersion, record, cattleRows, documents = [] }: SaveInput): Promise<HerdEntry> => {
+  const save = async ({ id, expectedVersion, record, cattleRows, documents = [], attempt }: SaveInput): Promise<HerdEntry> => {
     const version = id ? requireVersion(expectedVersion) : null
     const existing = id ? await resolve(id, record.backendId) : null
     const draft = record.draft ?? {}
@@ -225,7 +229,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
       entryType: entryType(record.type), entryDate: textValue(record.date ?? draft.date), sellerId: farmBorn ? null : sellerId,
       ...(farmBorn ? {} : { newSeller: !sellerId ? { name: sourceName, phone: textValue(detail.phone), area: '' } : null }),
       // GBR-92: one basis belongs to the voucher, including empty drafts and Excel rows.
-      ...(farmBorn ? {} : { quarantineCertNo: textValue(draft.quarantine ?? detail.quarantine ?? record.quarantine) || null, vehiclePlate: textValue(draft.plate ?? detail.plate) || null, note: textValue(draft.note ?? detail.note) || null, pricingBasis: (draft.pricing ?? record.pricing) === 'con' ? 'PER_HEAD' : 'PER_KG', transportFee: numberValue(draft.freight ?? detail.freight), amountPaid: numberValue(draft.paid), paymentMethod: enumPaymentMethod(draft.method), paymentDueDate: textValue(draft.due) || null }),
+      ...(farmBorn ? {} : { quarantineCertNo: textValue(draft.quarantine ?? detail.quarantine ?? record.quarantine) || null, vehiclePlate: textValue(draft.plate ?? detail.plate) || null, note: textValue(draft.note ?? detail.note) || null, pricingBasis: (draft.pricing ?? record.pricing) === 'con' ? 'PER_HEAD' : 'PER_KG', transportFee: numberValue(draft.freight ?? detail.freight), amountPaid: numberValue(draft.paid ?? record.paid), paymentMethod: enumPaymentMethod(draft.method ?? detail.method), paymentDueDate: textValue(draft.due ?? detail.due) || null }),
       lines: lineRows.map((cow) => {
         const hist = asRecord(cow.hist)
         const vaccineItems = Array.isArray(hist.vaccineItems) ? hist.vaccineItems.map(asRecord) : []
@@ -240,7 +244,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
         return {
           earTagNumber: textValue(cow.tag) || null, name: textValue(cow.name) || null, photoUrl: null, colourMarkings: textValue(cow.colourMarkings) || null,
           breedId: nullableNumber(cow.breedId) ?? findNamedId(breedsBody, textValue(cow.breed)), sex: sex(cow.sex), birthDate: fullDate(cow.dob ?? cow.born),
-          birthDateAccuracy: birthAccuracy(cow.dobAccuracy), ageMonths: nullableNumber(cow.ageMonths), lifeStage: lifeStage(cow.stage ?? cow.group, farmBorn),
+          birthDateAccuracy: birthAccuracy(cow.dobAccuracy), ageMonths: farmBorn ? null : nullableNumber(cow.ageMonths), lifeStage: lifeStage(cow.stage ?? cow.group, farmBorn),
           purposeId, entryWeightKg: keepWeight ? numberValue(cow.weight) : null,
           weightBasis: keepWeight ? basis : null, penId: findNamedId(penRows.map((pen) => ({ ...pen, name: pen.code })), barn) ?? nullableNumber(cow.penId),
           unitPrice: numberValue(cow.unitPrice), quarantineUntil: textValue(cow.quarantineUntil) || null, warningReason: textValue(cow.warningReason) || null,
@@ -257,7 +261,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
       }),
       expectedVersion: version,
     }
-    const operationKey = requestKey('entry-save', { id: id ?? null, body })
+    const operationKey = requestKey('entry-save', { id: id ?? null, ...(!id && attempt ? { attempt } : {}), body })
     const saved = unwrapVoucher(await transport.command(existing ? `${root}/${existing.backendId}` : root, body, { ...(existing ? { method: 'PUT' } : {}), key: operationKey }))
     const voucherId = numberValue(saved.id)
     const uploadedDocuments = []
