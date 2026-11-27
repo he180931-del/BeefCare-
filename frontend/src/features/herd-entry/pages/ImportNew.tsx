@@ -121,6 +121,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   // Payment belongs to the entry voucher (not an individual cattle row). Keep
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  // One idempotency scope per opened form (DEF-ST-17): retries reuse it, a new form never replays a voided voucher.
+  const [formAttempt] = useState(() => globalThis.crypto.randomUUID())
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
   const [snapshotRecord, setSnapshotRecord] = useState(draftRow)
   const [commandError, setCommandError] = useState<unknown>(null)
@@ -250,7 +252,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
     const saveId = persistedRecordId ?? draftRow?.id ?? (entryExcelBackendEnabled ? undefined : recordId)
     const saveCommand = status === 'Đã nhập' ? postEntry : saveDraft
     record.backendId = snapshotRecord?.backendId
-    const saved = await saveCommand({ id: saveId, expectedVersion: snapshotRecord?.version, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    const saved = await saveCommand({ id: saveId, expectedVersion: snapshotRecord?.version, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents, attempt: formAttempt })
     setSnapshotRecord(saved)
     setPriceResetNotice(false)
     setPersistedRecordId(saved.id)

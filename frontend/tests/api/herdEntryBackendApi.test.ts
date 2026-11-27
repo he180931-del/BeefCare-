@@ -861,3 +861,26 @@ test('entry backend never sends ageMonths for a FARM_BORN calf', async () => {
   })
   assert.equal(body.lines[0].ageMonths, null)
 })
+
+// DEF-ST-17: re-registering a calf after its farm-born voucher was voided sent the same body, so the same
+// Idempotency-Key replayed the voided voucher. Each opened form has its own attempt; retries keep the key.
+test('entry backend scopes the create key to the form attempt', async () => {
+  const keys: Array<string | undefined> = []
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [] }
+      if (path.endsWith('/catalogues/breeds') || path.endsWith('/catalogues/production-purposes')) return []
+      if (path.includes('/trading-partners')) return []
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (_path, _body, options) => { keys.push(options?.key); return voucher('DRAFT') },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+  const record = { date: '2026-11-28', type: 'Mua ngoài' as const, status: 'Nháp' as const }
+  await api.save({ record, attempt: 'form-1' })
+  await api.save({ record, attempt: 'form-1' })
+  await api.save({ record, attempt: 'form-2' })
+  assert.equal(keys[0], keys[1])
+  assert.notEqual(keys[1], keys[2])
+})

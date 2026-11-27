@@ -12,7 +12,11 @@ import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPaym
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
-type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
+/**
+ * attempt: one per opened entry form. A new voucher has no id, so without it two forms with the same content (a calf
+ * registered again after its voucher was voided) would share the Idempotency-Key and replay the voided voucher.
+ */
+type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[]; attempt?: string }
 type PaymentInput = Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 
 export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string; to?: string; sellerId?: number; sellerName?: string }
@@ -202,7 +206,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   }
   const previewExcel = (code: string, file: File) => importExcel(code, file, false)
   const commitExcel = (code: string, file: File) => importExcel(code, file, true)
-  const save = async ({ id, expectedVersion, record, cattleRows, documents = [] }: SaveInput): Promise<HerdEntry> => {
+  const save = async ({ id, expectedVersion, record, cattleRows, documents = [], attempt }: SaveInput): Promise<HerdEntry> => {
     const version = id ? requireVersion(expectedVersion) : null
     const existing = id ? await resolve(id, record.backendId) : null
     const draft = record.draft ?? {}
@@ -257,7 +261,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
       }),
       expectedVersion: version,
     }
-    const operationKey = requestKey('entry-save', { id: id ?? null, body })
+    const operationKey = requestKey('entry-save', { id: id ?? null, ...(!id && attempt ? { attempt } : {}), body })
     const saved = unwrapVoucher(await transport.command(existing ? `${root}/${existing.backendId}` : root, body, { ...(existing ? { method: 'PUT' } : {}), key: operationKey }))
     const voucherId = numberValue(saved.id)
     const uploadedDocuments = []
