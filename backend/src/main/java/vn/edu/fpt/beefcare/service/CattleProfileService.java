@@ -70,7 +70,9 @@ public class CattleProfileService {
         if(entry!=null&&request.effectiveDate().isBefore(entry))throw DomainException.unprocessable(MessageCodes.COM_15,"date",entry);
         ProductionPurpose purpose=c.getPurpose();if(request.productionPurposeId()!=null&&!request.productionPurposeId().equals(purpose.getId())){
             if(!ctx.isOwner())throw DomainException.forbidden("MSG-FE05-03");purpose=em.find(ProductionPurpose.class,request.productionPurposeId());
-            if(purpose==null||!farmId.equals(purpose.getFarm().getId())||!Boolean.TRUE.equals(purpose.getAvailable()))throw DomainException.invalid("productionPurposeId");
+            if(purpose==null||!farmId.equals(purpose.getFarm().getId()))throw DomainException.invalid("productionPurposeId");
+            // TC-05-19 / UC-FE05: a purpose the farm stopped using is an inactive catalogue value (422), like breed/vaccine/medicine.
+            if(!Boolean.TRUE.equals(purpose.getAvailable()))throw DomainException.unprocessable(MessageCodes.FE18_08,"field","productionPurposeId");
             // R-05-04 (GBR-25): only SIRE is male-only and BREEDING female-only; FATTENING / UNDECIDED fit both sexes.
             if((purpose.getPurposeType()==PurposeType.SIRE&&c.getSex()!=Sex.MALE)
                 || (purpose.getPurposeType()==PurposeType.BREEDING&&c.getSex()!=Sex.FEMALE))
