@@ -9,7 +9,7 @@ type HerdCow = ExitCandidateCow
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.
 const ACTIVE_STATUSES = ['Nháp', 'Chờ xác nhận', 'Đã xuất']
 
-export default function PickModal({ id, herdExits, candidates: availableCattle, picked, setPicked, onClose }: { id: string; herdExits: HerdExit[]; candidates: HerdCow[]; picked: HerdCow[]; setPicked: (rows: HerdCow[]) => void; onClose: () => void }) {
+export default function PickModal({ id, herdExits, candidates: availableCattle, picked, setPicked, onClose, blockedMessage }: { id: string; herdExits: HerdExit[]; candidates: HerdCow[]; picked: HerdCow[]; setPicked: (rows: HerdCow[]) => void; onClose: () => void; blockedMessage?: (code: string) => Promise<string | undefined> }) {
   const [query, setQuery] = useState('')
   const [barn, setBarn] = useState('all')
   const [group, setGroup] = useState('all')
@@ -35,7 +35,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
   const pickQrCandidate = useCallback((candidate: HerdCow) => {
     setSelected((current) => new Set([...current, candidate.code]))
   }, [])
-  const { showQr, setShowQr, qrCode, setQrCode, checkingQr, qrFeedback, recentCodes, selectFromQr } = useExitQrPick({ candidates, onPick: pickQrCandidate, selectedCodes: selected })
+  const { showQr, setShowQr, qrCode, setQrCode, checkingQr, qrFeedback, recentCodes, selectFromQr } = useExitQrPick({ candidates, onPick: pickQrCandidate, selectedCodes: selected, blockedMessage })
   const recentOrder = new Map(recentCodes.map((code, index) => [code, index]))
   const recentRows = candidates.filter((candidate) => recentOrder.has(candidate.code))
   const rows = [...new Map([...recentRows, ...filteredRows].map((row) => [row.code, row])).values()]

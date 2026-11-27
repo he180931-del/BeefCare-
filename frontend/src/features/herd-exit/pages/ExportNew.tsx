@@ -453,7 +453,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
               ['Số con', picked.length],
               ['Loại xuất', type],
               ['Tổng cân xuất', `${money(totalWeight)} kg${estimated ? ` (${estimated} con ước tính)` : ''}`],
-              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => (b.count == null ? `${b.name} (−${b.out})` : `${b.name} (${b.count} → ${b.count - b.out})`)).join(' · ') : '—'],
+              ['Chuồng giảm', barnDelta.length ? barnDelta.map((shift) => ({ ...shift, count: shift.count ?? checks?.occupancy.find((pen) => pen.penCode === shift.code)?.before ?? null })).map((b) => (b.count == null ? `${b.name} (−${b.out})` : `${b.name} (${b.count} → ${b.count - b.out})`)).join(' · ') : '—'],
               ...(hasPricing ? [['Tổng phải thu', `${money(receivable)} đ`]] : []),
             ]}
           />
@@ -478,7 +478,7 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
 
 
       {m === 'pick' && (
-        <PickModal id={id} herdExits={exports} candidates={selectableCattle} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} />
+        <PickModal id={id} herdExits={exports} candidates={selectableCattle} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} blockedMessage={findBlockingVoucher} />
       )}
       {m === 'buyer' && (
         <AddBuyerModal onClose={closeModal} onSave={async (input, options) => { const buyer = await onAddBuyer(input, options); setBuyerId(buyer.id); closeModal(); return buyer }} />
