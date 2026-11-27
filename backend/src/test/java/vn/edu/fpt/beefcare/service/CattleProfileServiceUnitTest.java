@@ -77,7 +77,7 @@ import vn.edu.fpt.beefcare.service.dto.GrowthDtos;
 
 /**
  * Unit tests (Mockito, no Spring context, no database) for the main functions of the four FE-05 use cases (D88
- * numbering): UC-FE05-01 View Cattle List and Profile ({@link CattleProfileService#list}), UC-FE05-02 Update Cattle
+ * numbering): UC-FE05-01 View Cattle List and Profile ({@link CattleProfileService#list}, {@link CattleProfileService#get}), UC-FE05-02 Update Cattle
  * Profile ({@link CattleProfileService#update}), UC-FE05-03 Issue or Replace Cattle QR Tag
  * ({@link CattleProfileService#issueTag}) and UC-FE05-04 Scan Cattle QR Code ({@link CattleProfileService#resolve}).
  * The JPQL queries are mocked {@link TypedQuery} objects chosen by their text; the cattle guard is the real
@@ -395,6 +395,205 @@ class CattleProfileServiceUnitTest {
         assertThat(((DomainException) status).getParams()).containsEntry("field", "herdStatus");
         Throwable sort = catchThrowable(() -> list(null, null, 0, 20, "weight"));
         assertThat(((DomainException) sort).getParams()).containsEntry("field", "sort");
+    }
+
+    // ------------------------------------------------------------------ UC-FE05-01 get()
+
+    private Cattle purchased() {
+        Cattle c = cattle(111L, Sex.FEMALE, LifeStage.ADULT, PurposeType.BREEDING);
+        c.setEarTagNumber("T-11");
+        c.setName("Mai");
+        c.setColourMarkings("Vang, dom trang tren tran");
+        c.setNotes("Hien");
+        Cattle dam = new Cattle();
+        dam.setId(55L);
+        dam.setDisplayCode("BO-055");
+        c.setDam(dam);
+        c.setExternalSireCode("RED-ANGUS-7");
+        Pen pen = new Pen();
+        pen.setId(11L);
+        pen.setCode("A-01");
+        pen.setName("Chuong sinh san 1");
+        PenAssignment open = new PenAssignment();
+        open.setPen(pen);
+        open.setFromDate(LocalDate.of(2026, 10, 12));
+        when(placements.findOpen(111L)).thenReturn(Optional.of(open));
+        weights.put(111L, new BigDecimal("385.5"));
+        vn.edu.fpt.beefcare.domain.TradingPartner seller = new vn.edu.fpt.beefcare.domain.TradingPartner();
+        seller.setName("Anh Hung Ba Vi");
+        HerdEntryVoucher voucher = new HerdEntryVoucher();
+        voucher.setId(82L);
+        voucher.setCode("PN-2610-002");
+        voucher.setSeller(seller);
+        HerdEntry entry = new HerdEntry();
+        entry.setId(92L);
+        entry.setVoucher(voucher);
+        entry.setSource(vn.edu.fpt.beefcare.domain.enumeration.EntrySource.EXTERNAL);
+        entry.setEntryDate(LocalDate.of(2026, 10, 12));
+        entry.setEntryWeightKg(new BigDecimal("360"));
+        entry.setWeightBasis(vn.edu.fpt.beefcare.domain.enumeration.WeightBasis.MEASURED);
+        entry.setQuarantineUntil(LocalDate.of(2026, 10, 26));
+        when(em.createQuery(contains("from HerdEntry h"), eq(HerdEntry.class))).thenAnswer(inv -> rows(List.of(entry)));
+        when(declarations.forEntry(entry)).thenReturn(List.of(
+            new CattleDtos.Declaration("VACCINATION", "UNKNOWN", null, null, "Nguoi ban", null, null, null),
+            new CattleDtos.Declaration("REPRODUCTION", "KNOWN", null, null, "Nguoi ban", 1, "YES", 4)
+        ));
+        return c;
+    }
+
+    @Test
+    void tcAnnt050107TheOwnerSeesIdentityStatePenEntryAndEveryAction() {
+        Cattle c = purchased();
+        when(state.state(c)).thenReturn(Map.of("healthState", "HEALTHY", "withdrawalEndDate", TODAY.plusDays(3)));
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 111L);
+
+        assertThat(profile.displayCode()).isEqualTo("BO-0111");
+        assertThat(profile.earTagNumber()).isEqualTo("T-11");
+        assertThat(profile.breedName()).isEqualTo("Brahman");
+        assertThat(profile.purposeType()).isEqualTo(PurposeType.BREEDING);
+        assertThat(profile.herdGroup()).isEqualTo("BREEDING_FEMALES");
+        assertThat(profile.penCode()).isEqualTo("A-01");
+        assertThat(profile.penSince()).isEqualTo(LocalDate.of(2026, 10, 12));
+        assertThat(profile.latestWeightKg()).isEqualByComparingTo("385.5");
+        assertThat(profile.healthState()).isEqualTo("HEALTHY");
+        assertThat(profile.withdrawalActive()).isTrue();
+        assertThat(profile.colourMarkings()).isEqualTo("Vang, dom trang tren tran");
+        assertThat(profile.notes()).isEqualTo("Hien");
+        assertThat(profile.damCode()).isEqualTo("BO-055");
+        assertThat(profile.sireCode()).isNull();
+        assertThat(profile.externalSireCode()).isEqualTo("RED-ANGUS-7");
+        assertThat(profile.canUpdate()).isTrue();
+        assertThat(profile.canChangePurpose()).isTrue();
+        assertThat(profile.quarantineUntil()).isEqualTo(LocalDate.of(2026, 10, 26));
+        CattleDtos.Entry entry = profile.entry();
+        assertThat(entry.source()).isEqualTo("EXTERNAL");
+        assertThat(entry.weightKg()).isEqualByComparingTo("360");
+        assertThat(entry.weightBasis()).isEqualTo("MEASURED");
+        assertThat(entry.voucherCode()).isEqualTo("PN-2610-002");
+        assertThat(entry.seller()).isEqualTo("Anh Hung Ba Vi");
+        assertThat(entry.declarations()).extracting(CattleDtos.Declaration::status).containsExactly("UNKNOWN", "KNOWN");
+        verify(access).require(FARM_ID, FarmAction.VIEW_CATTLE);
+        verifyNoInteractions(audit, outbox);
+        verify(em, never()).persist(any());
+    }
+
+    @Test
+    void tc0535ATechnicianSeesTheDeclarationsButNoVoucherMoneyOrActions() {
+        purchased();
+        caller(FarmRole.TECHNICIAN);
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 111L);
+
+        assertThat(profile.canUpdate()).isFalse();
+        assertThat(profile.canChangePurpose()).isFalse();
+        assertThat(profile.entry().entryDate()).isEqualTo(LocalDate.of(2026, 10, 12));
+        assertThat(profile.entry().id()).isNull();
+        assertThat(profile.entry().voucherId()).isNull();
+        assertThat(profile.entry().voucherCode()).isNull();
+        assertThat(profile.entry().seller()).isNull();
+        assertThat(profile.entry().declarations()).hasSize(2);
+    }
+
+    @Test
+    void tcAnnt050108AManagerCanUpdateButNotChangeThePurpose() {
+        purchased();
+        caller(FarmRole.MANAGER);
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 111L);
+
+        assertThat(profile.canUpdate()).isTrue();
+        assertThat(profile.canChangePurpose()).isFalse();
+        assertThat(profile.entry().voucherCode()).isEqualTo("PN-2610-002");
+    }
+
+    @Test
+    void tc0521ACattleOnAPendingDeathVoucherShowsExitPendingAndCannotBeUpdated() {
+        purchased();
+        when(exits.findFirstByCattleIdAndStatus(111L, ExitLineStatus.PENDING)).thenReturn(Optional.of(new HerdExit()));
+
+        CattleDtos.Profile owner = service.get(FARM_ID, 111L);
+        caller(FarmRole.TECHNICIAN);
+        CattleDtos.Profile technician = service.get(FARM_ID, 111L);
+
+        assertThat(owner.exitPending()).isTrue();
+        assertThat(owner.canUpdate()).isFalse();
+        assertThat(technician.exitPending()).isFalse();
+    }
+
+    @Test
+    void tc0532AnExitedCattleOpensReadOnlyWithoutCurrentState() {
+        Cattle c = purchased();
+        c.setHerdStatus(HerdStatus.EXITED);
+        c.setExitType(ExitType.SALE);
+        c.setExitDate(LocalDate.of(2026, 11, 20));
+        when(placements.findOpen(111L)).thenReturn(Optional.empty());
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 111L);
+
+        assertThat(profile.herdStatus()).isEqualTo(HerdStatus.EXITED);
+        assertThat(profile.exitType()).isEqualTo(ExitType.SALE);
+        assertThat(profile.exitDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+        assertThat(profile.penCode()).isNull();
+        assertThat(profile.canUpdate()).isFalse();
+        assertThat(profile.healthState()).isNull();
+        assertThat(profile.withdrawalActive()).isFalse();
+        verify(state, never()).state(any());
+    }
+
+    @Test
+    void tc0538AVoidedCattleHidesTheEntryDeclarations() {
+        Cattle c = purchased();
+        c.setHerdStatus(HerdStatus.VOIDED);
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 111L);
+
+        assertThat(profile.herdStatus()).isEqualTo(HerdStatus.VOIDED);
+        assertThat(profile.canUpdate()).isFalse();
+        assertThat(profile.entry().voucherCode()).isEqualTo("PN-2610-002");
+        assertThat(profile.entry().declarations()).isNull();
+        verify(declarations, never()).forEntry(any());
+        verify(state, never()).state(any());
+    }
+
+    @Test
+    void tcAnnt050109AFarmBornCalfWithoutEntryOrWeightHasNoEntryBlock() {
+        Cattle calf = cattle(112L, Sex.MALE, LifeStage.UNWEANED_CALF, PurposeType.UNDECIDED);
+        Cattle sire = new Cattle();
+        sire.setId(56L);
+        sire.setDisplayCode("BO-056");
+        calf.setSire(sire);
+
+        CattleDtos.Profile profile = service.get(FARM_ID, 112L);
+
+        assertThat(profile.herdGroup()).isEqualTo("CALVES");
+        assertThat(profile.sireCode()).isEqualTo("BO-056");
+        assertThat(profile.damCode()).isNull();
+        assertThat(profile.entry()).isNull();
+        assertThat(profile.quarantineUntil()).isNull();
+        assertThat(profile.latestWeightKg()).isNull();
+        assertThat(profile.penCode()).isNull();
+    }
+
+    @Test
+    void tcAnnt050110ACattleOfAnotherFarmOrAnUnknownIdIsNotFound() {
+        Cattle other = cattle(113L, Sex.FEMALE, LifeStage.ADULT, PurposeType.BREEDING);
+        Farm otherFarm = new Farm();
+        otherFarm.setId(502L);
+        other.setFarm(otherFarm);
+
+        assertDomain(catchThrowable(() -> service.get(FARM_ID, 113L)), HttpStatus.NOT_FOUND, MessageCodes.COM_08);
+        assertDomain(catchThrowable(() -> service.get(FARM_ID, 999L)), HttpStatus.NOT_FOUND, MessageCodes.COM_08);
+        verify(placements, never()).findOpen(113L);
+    }
+
+    @Test
+    void tcAnnt050111ACallerWithoutAccessToTheFarmReadsNoProfile() {
+        purchased();
+        when(access.require(FARM_ID, FarmAction.VIEW_CATTLE)).thenThrow(DomainException.forbidden(MessageCodes.COM_01));
+
+        assertDomain(catchThrowable(() -> service.get(FARM_ID, 111L)), HttpStatus.FORBIDDEN, MessageCodes.COM_01);
+        verify(em, never()).find(Cattle.class, 111L);
     }
 
     // ------------------------------------------------------------------ UC-FE05-02 update()
