@@ -38,7 +38,7 @@ Công khai, không cần đăng nhập. Người đã đăng nhập vẫn mở �
 | Mã bản phát hành | 1 bản phát hành tại một thời điểm |
 | Các mục | Header, Hero, Dải số liệu, Tính năng, Cách hoạt động, Bảng giá, FAQ, Liên hệ, Footer |
 | Câu hỏi FAQ | Danh sách câu hỏi – trả lời |
-| Liên hệ | Email `tuanpqhe181869@fpt.edu.vn`, điện thoại `0386 671 863`; **không có địa chỉ** |
+| Liên hệ | Email `beefcare@gmail.com`, điện thoại `0386 671 863`; **không có địa chỉ** |
 | Vòng đời | Đổi bằng triển khai; không có quản lý nội dung cho người dùng |
 
 ### 3.2 Giá
@@ -83,7 +83,7 @@ E1 không tải được giá → MSG-FE22-01 + Thử lại; phần còn lại v
 | 5 | How it works / Cách hoạt động | 4 bước: quét QR thẻ tai, mở đúng hồ sơ, ghi sự kiện thực tế, theo dõi và nhận nhắc việc | Tĩnh |
 | 6 | Pricing / Bảng giá | 3 thẻ 1 / 2 / 3 năm, tổng giá mỗi trại từ phiên bản hiệu lực | Placeholder khi tải; lỗi → MSG-FE22-01 + Thử lại |
 | 7 | FAQ | Accordion: quy mô trại, có cần cài app, khác nhau giữa các kỳ hạn, thanh toán và kích hoạt, tách dữ liệu giữa các trại | Mở / đóng từng câu |
-| 8 | Contact / Liên hệ | Email tuanpqhe181869@fpt.edu.vn, điện thoại 0386 671 863 | `mailto:` / `tel:`; không có địa chỉ |
+| 8 | Contact / Liên hệ | Email beefcare@gmail.com, điện thoại 0386 671 863 | `mailto:` / `tel:`; không có địa chỉ |
 | 9 | Footer | Bản quyền BeefCare | — |
 
 Responsive: điện thoại và máy tính (NFR – theo FE-01 shell).
@@ -145,3 +145,4 @@ Ghi chú: A1 có thể là nội dung tĩnh đóng gói trong FE (vì "đổi b�
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 26/11/2026 | 28/10/2026 | A2: ghi đúng dạng dữ liệu `PriceVersion` mà `GET /api/public/prices` đang trả | Claude (theo yêu cầu LamKD) |
+| 27/11/2026 | 28/10/2026 | Email liên hệ ghi đúng code: `beefcare@gmail.com` (D89) | Claude (theo yêu cầu LamKD) |

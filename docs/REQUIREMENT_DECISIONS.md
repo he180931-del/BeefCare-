@@ -1235,3 +1235,7 @@ TuanPQ chốt trong phiên: 136 use case là quá nhiều cho nhóm 5 người, 
 3. Bổ sung cho D12: nguồn nghiệp vụ vẫn là SRS 28/10 và 23 spec; chỉ phần đánh số use case trong báo cáo đổi theo bảng đối chiếu.
 
 Không đổi API, DTO, DB hay hành vi.
+
+### D89 — Spec FE-21, FE-22 khớp code hiện tại (27/11/2026)
+
+Đối chiếu khi viết test: email liên hệ trang giới thiệu là `beefcare@gmail.com` (FE-22) và nhãn tab phiếu đã hủy là "Đã hủy bỏ" (FE-21). Sửa spec theo code, không đổi API, DTO, DB hay hành vi. Các lệch khác (FE-20, Q2 của FE-22) chưa xác minh trong code nên chưa sửa.

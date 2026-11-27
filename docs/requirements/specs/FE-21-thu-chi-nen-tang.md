@@ -157,7 +157,7 @@ E1 hết hạn → MSG-FE21-12 · E2 lỗi xuất → MSG-FE21-14 · E3 không p
 | 3 | Category / Danh mục | Dropdown |
 | 4 | Occurrence date / Ngày phát sinh | Khoảng ngày |
 | 5 | Scope / Phạm vi | Tất cả / Chung / 1 trại |
-| 6 | Tabs | Tất cả, Nháp, Đã ghi sổ, Đã hủy – có số |
+| 6 | Tabs | Tất cả, Nháp, Đã ghi sổ, Đã hủy bỏ |
 | 7 | Occurrence date, Type, Category, Scope, Description | Cột |
 | 8 | Amount / Số tiền | +số tiền (thu), −số tiền (chi), VND |
 | 9 | Status | DRAFT / POSTED / VOID |
@@ -296,3 +296,4 @@ Không có nút "Xem chi tiết giao dịch" toàn snapshot và không có thẻ
 | 26/11/2026 | 28/10/2026 | SCR-73: hàng lọc có nút Chạy báo cáo, 5 biểu đồ từ snapshot, bảng "Dòng tiền theo trại", hộp thoại giao dịch theo trại (lọc + nút Tìm) và chi tiết giao dịch; bỏ "Xem chi tiết giao dịch", "Phạm vi tính" và các hộp thoại Đã làm mới / Báo cáo rỗng. UC-FE21-09: nút Xuất báo cáo mở bản xem trước mô phỏng Excel; tệp 4 sheet Tổng hợp / Theo trại / Thu / Chi; backend xuất XLSX theo đúng mẫu này (`PlatformFinanceWorkbook`) | Claude (theo yêu cầu LamKD) |
 | 26/11/2026 | 28/10/2026 | R-21-05: biên lai = PAID + chứng từ ACCEPTED, một biên lai mỗi thanh toán, trang Biên lai và báo cáo cùng quy tắc. R-21-08: cho phép ngày cuối ở tương lai. Dòng tổng khi lọc 1 trại ghi "Tổng cộng". Thêm Q6 (trại khác gộp) | Claude (theo yêu cầu LamKD) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 27/11/2026 | 28/10/2026 | Nhãn tab "Đã hủy bỏ" khớp code (D89) | Claude (theo yêu cầu LamKD) |
