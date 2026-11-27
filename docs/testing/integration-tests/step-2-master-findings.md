@@ -8,7 +8,7 @@
 
 ## Inventory result
 
-The selected source set contains 5 workbooks and 447 detectable test case IDs before deduplication. The master inventory records 452 rows because some selected workbooks contain repeated IDs in supporting/design sheets. It preserves each source row so the duplicate can be resolved with evidence in the next step.
+The selected source set contains 5 workbooks and 447 detectable test case IDs before deduplication. The Step 2 raw snapshot, now preserved as `integration-test-master-raw.csv`, records 452 rows because some selected workbooks contain repeated IDs in supporting/design sheets. Step 3 reduced the canonical `integration-test-master.csv` to 447 rows, one row per selected test-case ID, while retaining the raw snapshot for traceability.
 
 ## Duplicates requiring resolution
 
@@ -21,7 +21,8 @@ Many rows have no explicit `UC-FE##-##` reference in their description. The test
 
 ## Files created in Step 2
 
-- `integration-test-master.csv` is the row-level source inventory. It keeps the original text and source coordinates.
+- `integration-test-master-raw.csv` is the preserved Step 2 row-level source inventory. It keeps every original source row, text, and source coordinate.
+- `integration-test-master.csv` is the Step 3 canonical inventory derived from that raw snapshot. It keeps the retained rows' original text and source coordinates and adds the deduplication decision columns.
 - `source-inventory.csv` is the file-level inventory.
 
 No test procedure, expected result, status, or evidence was rewritten in this step.
