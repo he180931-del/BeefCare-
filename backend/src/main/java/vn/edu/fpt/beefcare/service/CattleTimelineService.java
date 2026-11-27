@@ -43,11 +43,11 @@ public class CattleTimelineService {
             // A draft, pending or removed line is not an event that occurred. The shared CLOSED filter handles voids.
             if(e.getStatus()!=ExitLineStatus.CONFIRMED&&e.getStatus()!=ExitLineStatus.VOIDED)continue;
             HerdExitVoucher voucher=e.getVoucher();
-            Map<String,Object> details=values("exitType",voucher.getExitType(),"date",voucher.getExitDate(),"reason",e.getStatus()==ExitLineStatus.VOIDED?voucher.getCloseReason():null);
+            Map<String,Object> details=values("exitType",voucher.getExitType(),"lossKind",voucher.getLossKind(),"date",voucher.getExitDate(),"reason",e.getStatus()==ExitLineStatus.VOIDED?voucher.getCloseReason():null);
             if(ctx.role()!=FarmRole.TECHNICIAN){details.put("voucherId",e.getVoucher().getId());details.put("voucherCode",e.getVoucher().getCode());}
             events.add(event("ENTRY_EXIT","HERD_EXIT",ctx.role()==FarmRole.TECHNICIAN?null:e.getId(),at(voucher.getExitDate(),zone),voucher.getConfirmedAt(),voucher.getConfirmedBy()==null?null:voucher.getConfirmedBy().getFullName(),e.getStatus().name(),false,details));
         }
-        for(PenAssignment p:rows("select p from PenAssignment p where p.cattle.id=:c",PenAssignment.class,cattleId))events.add(event("PEN","PEN_ASSIGNMENT",p.getId(),at(p.getFromDate(),zone),p.getRecordedAt(),p.getMovedBy()==null?null:p.getMovedBy().getFullName(),"VALID",false,values("penId",p.getPen().getId(),"penCode",p.getPen().getCode(),"toDate",p.getToDate(),"reason",p.getReason())));
+        for(PenAssignment p:rows("select p from PenAssignment p where p.cattle.id=:c",PenAssignment.class,cattleId))events.add(event("PEN","PEN_ASSIGNMENT",p.getId(),at(p.getFromDate(),zone),p.getRecordedAt(),p.getMovedBy()==null?null:p.getMovedBy().getFullName(),"VALID",false,values("penId",p.getPen().getId(),"penCode",p.getPen().getCode(),"toDate",p.getToDate(),"reason",p.getReason(),"warningReason",p.getWarningReason())));
         for(CattleQrTag t:rows("select t from CattleQrTag t where t.cattle.id=:c",CattleQrTag.class,cattleId))events.add(event("IDENTIFICATION_QR","QR_ISSUED",t.getId(),t.getIssuedAt(),t.getIssuedAt(),t.getIssuedBy().getFullName(),t.getStatus().name(),false,values("tagCode",t.getTagCode(),"reason",t.getReplacementReason())));
         for(CattleProfileChange p:rows("select p from CattleProfileChange p where p.cattle.id=:c",CattleProfileChange.class,cattleId)){
             String group = p.getFieldGroup().name();

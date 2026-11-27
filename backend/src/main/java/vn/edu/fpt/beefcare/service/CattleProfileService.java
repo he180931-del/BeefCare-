@@ -99,7 +99,7 @@ public class CattleProfileService {
     @Transactional public CattleDtos.Tag issueTag(Long farmId,Long cattleId,CattleDtos.TagRequest request){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_CATTLE);Cattle c=guard.lockWritable(farmId,cattleId);VersionGuard.requireExpected(c.getVersion(),request.cattleVersion());
         CattleQrTag old=tags.findFirstByCattleIdAndStatus(cattleId,QrTagStatus.ACTIVE).orElse(null);if(old!=null&&request.reason()==null)throw DomainException.required("reason");
-        String code=clean(request.tagCode());if(code==null)code=codes.nextQrTagCode(farmId);if(tags.existsByTagCode(code))throw DomainException.unprocessable("MSG-FE12-08");
+        String code=clean(request.tagCode());if(code==null)code=codes.nextQrTagCode(farmId);if(tags.existsByTagCode(code))throw DomainException.unprocessable(MessageCodes.FE12_08,"tag_code",code);
         CattleQrTag tag=new CattleQrTag();tag.setFarm(ctx.farm());tag.setCattle(c);tag.setTagCode(code);tag.setStatus(QrTagStatus.ACTIVE);tag.setIssuedAt(clock.now());tag.setIssuedBy(ctx.user());tag.setNote(request.note());
         if(old!=null){old.setStatus(QrTagStatus.REPLACED);old.setClosedAt(clock.now());old.setReplacementReason(request.reason());em.flush();}
         em.persist(tag);if(old!=null)old.setReplacedByTag(tag);touch(c);

@@ -808,3 +808,56 @@ test('FE-06 "+ Thêm nguồn mới" posts a SELLER-only trading partner with the
   await assert.rejects(() => api.saveSeller({ name: '  ', phone: '', area: '' }), /bắt buộc/)
   assert.equal(calls.length, 1)
 })
+
+// DEF-ST-02 (System test Round 1): "Lưu & tạo hồ sơ" posts a record without a draft; the prepayment must still be sent.
+test('entry backend posts the prepayment of a voucher saved and posted at once', async () => {
+  let created: any
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [{ id: 11, code: 'A1', name: 'Chuồng A1' }] }
+      if (path.endsWith('/catalogues/breeds')) return [{ id: 21, name: 'Brahman' }]
+      if (path.endsWith('/catalogues/production-purposes')) return [{ id: 31, name: 'Nuôi thịt' }]
+      if (path.includes('/trading-partners')) return [{ id: 7, name: 'Trang trại Mộc Châu' }]
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (path, body) => {
+      if (path.endsWith('/entry-vouchers')) created = body
+      return path.endsWith('/post') ? { voucher: voucher('POSTED') } : voucher('DRAFT')
+    },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+  await api.save({
+    record: {
+      date: '2026-11-28', type: 'Mua ngoài', status: 'Đã nhập', source: 'Trang trại Mộc Châu', pricing: 'kg', paid: 10000000,
+      detail: { sourceName: 'Trang trại Mộc Châu', freight: 1000000, method: 'Tiền mặt', due: '2026-12-15', payments: [{ date: '28/11/2026', by: 'A', method: 'Tiền mặt', ref: '', amount: 10000000 }] },
+    },
+    cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', purpose: 'Nuôi thịt', unitPrice: 80000 }],
+  })
+  assert.equal(created.amountPaid, 10000000)
+  assert.equal(created.paymentMethod, 'CASH')
+  assert.equal(created.paymentDueDate, '2026-12-15')
+  assert.equal(created.transportFee, 1000000)
+})
+
+// DEF-ST-04: a newborn calf has no age in months; its birth date comes from the calving (D55).
+test('entry backend never sends ageMonths for a FARM_BORN calf', async () => {
+  let body: any
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [{ id: 3, code: 'A3', name: 'A3' }] }
+      if (path.endsWith('/catalogues/breeds')) return []
+      if (path.endsWith('/catalogues/production-purposes')) return [{ id: 2, code: 'UNDECIDED', name: 'Chưa xác định', purposeType: 'UNDECIDED', available: true }]
+      if (path.includes('/trading-partners')) return []
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (_path, requestBody) => { body ??= requestBody; return { ...voucher('DRAFT'), entryType: 'FARM_BORN' } },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+  await api.save({
+    record: { date: '2026-11-28', type: 'Bê sinh tại trại', status: 'Nháp', source: 'Bê của BC-000002' },
+    cattleRows: [{ tag: 'K1', mother: 'BC-000002', sex: 'Cái', born: '2026-11-28', stage: 'Bê', purposeId: 2, barn: 'A3', calfOutcomeId: 17, unitPrice: 0, ageMonths: 0 }],
+  })
+  assert.equal(body.lines[0].ageMonths, null)
+})

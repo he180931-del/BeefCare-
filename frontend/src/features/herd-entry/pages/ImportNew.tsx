@@ -97,7 +97,10 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   // a hard-coded A3: farms may name their pens differently and purchase entry
   // must be able to select an active backend pen.
   const importBarns = canonicalPens
-  const barnOptions = importBarns.map((barn) => ({ value: barn.code, label: barn.name }))
+  // DEF-ST-06 (R-04-05): an inactive pen is not offered; a draft row that already holds one keeps showing it.
+  const barnOptionsFor = (current: string) => importBarns
+    .filter((barn) => barn.status === 'ACTIVE' || barn.code === current)
+    .map((barn) => ({ value: barn.code, label: barn.name }))
   const calfBarnOptions = canonicalPens.filter((pen) => pen.status === 'ACTIVE').map((pen) => ({ value: pen.code, label: pen.name }))
   const typeLocked = Boolean(draftRow)
   const nextNumber = Math.max(0, ...imports.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1
@@ -171,7 +174,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
     }
     const inputs: EntryInput[] = isBuy
       ? cows.map((cow) => ({ ...cow, date }))
-      : picked.map((calf) => ({ ...calf, breed: calf.sex === 'Đực' ? 'Bê đực' : 'Bê cái', unitPrice: 0, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
+      : picked.map((calf) => ({ ...calf, breed: calf.sex === 'Đực' ? 'Bê đực' : 'Bê cái', unitPrice: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
     if (status === 'Đã nhập') {
       const requiredError = validateEntryForPost({
         date,
@@ -198,6 +201,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           count: n,
           weight: totalWeight,
           total,
+          paid,
           debt,
           status,
           printQr,
@@ -236,6 +240,8 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         cowsTotal: isBuy ? cowsMoney : 0,
         freight: isBuy ? freight : 0,
         payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: Math.min(paid, total) }] : [],
+        // DEF-ST-02: the prepayment of a voucher posted straight away travels with the posted record.
+        ...(isBuy ? { method, due } : {}),
         docs: [...storedDocuments, ...documents.map((file) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name, size: file.size }))],
         history: [`${dmy(date)} · ${receiver} ${status === 'Đã nhập' ? 'lưu và xác nhận' : 'lưu'} phiếu ${recordId}`],
       }
@@ -411,7 +417,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                         <Td className={`${TH} whitespace-nowrap`}>{c.dob ? `~${ageOf(c.dob, date)} th` : c.ageMonths != null ? `~${c.ageMonths} th` : '—'}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
                         <Td className={TH}>
-                          <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
+                          <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptionsFor(c.barn)} />
                         </Td>
                         {pricing === 'kg' && <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>}
                         <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
@@ -681,7 +687,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
             const mapped = entryExcelBackendEnabled ? added.map((cow) => ({ ...cow, pricing })) : added.map((cow) => ({
               tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '',
               dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0,
-              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,
+              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns.find((p) => p.status === 'ACTIVE')?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,
               hist: cow.hist ?? { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
             }))
             setCows(entryExcelBackendEnabled ? mapped : [...cows, ...mapped])

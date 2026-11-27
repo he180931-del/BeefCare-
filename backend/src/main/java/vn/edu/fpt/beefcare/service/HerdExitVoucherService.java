@@ -187,7 +187,7 @@ public class HerdExitVoucherService {
         List<HerdExitVoucher> inPeriod = vouchers
             .findAllInPeriod(farmId, start, end)
             .stream()
-            .filter(v -> type == null || v.getExitType() == type)
+            .filter(v -> type == null || reportType(v) == type)
             .toList();
         Map<Long, List<HerdExit>> linesByVoucher = new HashMap<>();
         if (!inPeriod.isEmpty()) {
@@ -214,7 +214,7 @@ public class HerdExitVoucherService {
             if (v.getStatus() != ExitVoucherStatus.CONFIRMED) {
                 continue;
             }
-            byType.merge(v.getExitType(), linesByVoucher.getOrDefault(v.getId(), List.of()).size(), Integer::sum);
+            byType.merge(reportType(v), linesByVoucher.getOrDefault(v.getId(), List.of()).size(), Integer::sum);
             if (!isLoss(v)) {
                 if (v.getExitType() == ExitType.SALE || v.getExitType() == ExitType.CULL) {
                     revenue += v.getTotalReceivable();
@@ -721,7 +721,7 @@ public class HerdExitVoucherService {
                 pen,
                 today,
                 AssignmentSource.CORRECTION,
-                "Exit voucher " + v.getCode() + " voided",
+                "Hủy phiếu xuất " + v.getCode(),
                 check,
                 warnings.get(c.getId()),
                 ctx.user()
@@ -1124,6 +1124,14 @@ public class HerdExitVoucherService {
         return lines.findAllByVoucherIdAndStatusNotOrderByLineNoAsc(v.getId(), ExitLineStatus.REMOVED);
     }
 
+    /**
+     * DEF-ST-16: the list filter and the tiles group a loss under "Chết / mất" (DEATH) although a MISSING loss is stored
+     * as OTHER + loss_kind MISSING.
+     */
+    static ExitType reportType(HerdExitVoucher v) {
+        return isLoss(v) ? ExitType.DEATH : v.getExitType();
+    }
+
     static boolean isLoss(HerdExitVoucher v) {
         return v.getLossKind() != null || v.getExitType() == ExitType.DEATH;
     }
@@ -1205,7 +1213,12 @@ public class HerdExitVoucherService {
     }
 
     private static Ref sourceRef(HerdExitVoucher v) {
-        return v.getSourceHealthCase() == null ? null : new Ref(v.getSourceHealthCase().getId(), "HC-" + v.getSourceHealthCase().getId());
+        return v.getSourceHealthCase() == null ? null : new Ref(v.getSourceHealthCase().getId(), caseLabel(v.getSourceHealthCase()));
+    }
+
+    /** DEF-ST-14: show the health case code (HC-0001), never the internal id. */
+    static String caseLabel(HealthCase c) {
+        return c.getCaseCode() == null || c.getCaseCode().isBlank() ? "HC-" + c.getId() : c.getCaseCode();
     }
 
     private static Ref userRef(AppUser u) {
@@ -1281,6 +1294,7 @@ public class HerdExitVoucherService {
             loss,
             v.getExitDate(),
             v.getBuyer() == null ? null : new Ref(v.getBuyer().getId(), v.getBuyer().getName()),
+            v.getBuyer() == null ? null : v.getBuyer().getContactPhone(),
             v.getDestination(),
             v.getTransportCertNo(),
             v.getVehiclePlate(),

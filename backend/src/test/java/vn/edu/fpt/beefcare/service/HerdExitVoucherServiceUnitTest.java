@@ -706,7 +706,7 @@ class HerdExitVoucherServiceUnitTest {
             assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
             assertThat(c.getExitType()).isNull();
             assertThat(c.getExitDate()).isNull();
-            verify(penAssignments).openAssignment(c, a01, TODAY, AssignmentSource.CORRECTION, "Exit voucher PX-2611-004 voided", null, null, owner);
+            verify(penAssignments).openAssignment(c, a01, TODAY, AssignmentSource.CORRECTION, "Hủy phiếu xuất PX-2611-004", null, null, owner);
         });
         assertThat(voucherLines).allSatisfy(l -> assertThat(l.getStatus()).isEqualTo(ExitLineStatus.VOIDED));
         assertThat(voucher.getStatus()).isEqualTo(ExitVoucherStatus.VOIDED);

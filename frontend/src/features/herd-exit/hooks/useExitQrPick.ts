@@ -10,10 +10,12 @@ type UseExitQrPickOptions<T extends QrCandidate> = {
   onPick: (candidate: T) => void
   selectedCodes?: ReadonlySet<string>
   blockedMessages?: ReadonlyMap<string, string>
+  /** MSG-FE13-08 for a cattle that is not offered: finds the open voucher that holds it (backend list rows carry no lines). */
+  blockedMessage?: (code: string) => Promise<string | undefined>
 }
 
 /** Coordinates manual and camera QR input for the exit picker. */
-export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selectedCodes, blockedMessages }: UseExitQrPickOptions<T>) {
+export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selectedCodes, blockedMessages, blockedMessage }: UseExitQrPickOptions<T>) {
   const [showQr, setShowQr] = useState(false)
   const [qrCode, setQrCode] = useState('')
   const [checkingQr, setCheckingQr] = useState(false)
@@ -34,7 +36,8 @@ export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selec
       }
       const candidate = candidates.find((row) => row.code === result.cow.code)
       if (!candidate) {
-        setQrFeedback({ message: blockedMessages?.get(result.cow.code) ?? `Bò ${result.cow.code} hiện không thể thêm vào phiếu này.`, ok: false })
+        const reason = blockedMessages?.get(result.cow.code) ?? await blockedMessage?.(result.cow.code).catch(() => undefined)
+        setQrFeedback({ message: reason ?? `Bò ${result.cow.code} hiện không thể thêm vào phiếu này.`, ok: false })
         return
       }
       if (selectedCodes?.has(candidate.code)) {
@@ -50,7 +53,7 @@ export function useExitQrPick<T extends QrCandidate>({ candidates, onPick, selec
     } finally {
       setCheckingQr(false)
     }
-  }, [blockedMessages, candidates, checkingQr, onPick, selectedCodes])
+  }, [blockedMessage, blockedMessages, candidates, checkingQr, onPick, selectedCodes])
 
   return { showQr, setShowQr, qrCode, setQrCode, checkingQr, qrFeedback, recentCodes, selectFromQr }
 }

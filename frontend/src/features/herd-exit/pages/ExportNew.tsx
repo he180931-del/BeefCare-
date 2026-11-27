@@ -120,12 +120,22 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
       .filter((row) => row.id !== id && ['Nháp', 'Chờ xác nhận', 'Đã xuất'].includes(row.status))
       .flatMap((row) => (row.draft?.cows ?? row.detail?.cows ?? [])
         .filter((cow): cow is typeof cow & { code: string } => Boolean(cow.code))
-        .map((cow) => [cow.code, `Bò ${cow.code} đã có trên phiếu ${row.id}.`] as const)),
+        .map((cow) => [cow.code, `${cow.code} đã nằm trên phiếu ${row.id}.`] as const)),
   )
+  // DEF-ST-10 (MSG-FE13-08): backend list rows have no lines, so open the other open vouchers to find the cattle.
+  const findBlockingVoucher = async (code: string): Promise<string | undefined> => {
+    for (const row of exports.filter((item) => item.id !== id && ['Nháp', 'Chờ xác nhận'].includes(item.status))) {
+      const voucher = await herdExitApi.get(row.id)
+      const cows = [...(voucher.draft?.cows ?? []), ...(voucher.detail?.cows ?? [])]
+      if (cows.some((cow) => cow.code === code)) return `${code} đã nằm trên phiếu ${row.id}.`
+    }
+    return undefined
+  }
   const qrPick = useExitQrPick({
     candidates: selectableCattle,
     selectedCodes: selectedQrCodes,
     blockedMessages: blockedQrMessages,
+    blockedMessage: findBlockingVoucher,
     onPick: (candidate) => setPicked((current) => [{ ...candidate, unitPrice: candidate.unitPrice ?? 0 }, ...current]),
   })
   const recentQrCodes = new Set(qrPick.recentCodes)
@@ -221,10 +231,11 @@ function ExportForm({ onReload, onAddBuyer, exports, draftId, selectableCattle, 
     documents,
     formSnapshot,
     buildDraftRecord,
-    beforeSave: () => {
+    beforeSave: (mode) => {
       if (missingRequiredField()) return true
       if (validateAmountsAndDates()) return true
-      const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
+      // DEF-ST-09: a draft may be saved before the cattle are weighed (A3 exitWeightKg optional); the review needs them.
+      const missingWeight = mode === 'check' && hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
       if (missingWeight) {
         setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
         return true

@@ -49,6 +49,8 @@ const SOURCE_TAB: Record<string, string> = { qr: 'qr', stage: '', barn: 'barns',
 const CORRECTABLE = new Set(['weight', 'vaccine', 'repro'])
 
 const LIFE_STAGE: Record<string, string> = { UNWEANED_CALF: 'Bê chưa cai sữa', WEANED_CALF: 'Bê cai sữa', YOUNG_STOCK: 'Bò tơ', ADULT: 'Trưởng thành' }
+// DEF-ST-13: FE-08 measurement methods, never the raw enum.
+const GROWTH_METHOD: Record<string, string> = { SCALE: 'Cân điện tử', TAPE: 'Thước dây', ESTIMATE: 'Ước tính khác' }
 const EXIT_TYPE: Record<string, string> = { SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết', OTHER: 'Khác' }
 const EXIT_STATUS: Record<string, string> = { DRAFT: 'Nháp', PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', DISMISSED: 'Đã bỏ', VOIDED: 'Đã hủy' }
 const REPLACEMENT: Record<string, string> = { LOST: 'Mất', DAMAGED: 'Hỏng', OTHER: 'Khác' }
@@ -97,14 +99,20 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     }
     case 'HERD_EXIT':
       return {
-        title: `Xuất đàn – ${EXIT_TYPE[str(v.exitType)] ?? str(v.exitType)}`,
+        // DEF-ST-16: a MISSING loss is stored as OTHER + lossKind MISSING.
+        title: `Xuất đàn – ${str(v.lossKind) === 'MISSING' ? 'Mất tích' : EXIT_TYPE[str(v.exitType)] ?? str(v.exitType)}`,
         detail: join(EXIT_STATUS[status] ?? status, v.date && `ngày ${dateOnly(v.date)}`, v.voucherCode && `Phiếu ${str(v.voucherCode)}`),
         reason: str(v.reason) || undefined,
       }
     case 'PEN_ASSIGNMENT':
       return {
         title: `Vào chuồng ${str(v.penCode)}`,
-        detail: join(v.toDate ? `đến ${dateOnly(v.toDate)}` : 'đang ở', v.reason && `Lý do: ${str(v.reason)}`),
+        // DEF-ST-07: a move confirmed over a reception warning also shows the warning reason.
+        detail: join(
+          v.toDate ? `đến ${dateOnly(v.toDate)}` : 'đang ở',
+          v.reason && `Lý do: ${str(v.reason) === 'Correction' ? 'Sửa nhầm (chuyển ngược)' : str(v.reason)}`,
+          v.warningReason && `Lý do cảnh báo: ${str(v.warningReason)}`,
+        ),
       }
     case 'QR_ISSUED':
       return {
@@ -122,7 +130,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     case 'GROWTH_ASSESSMENT':
       return {
         title: join(v.weightKg != null && `Cân ${num(v.weightKg)} kg`, v.bcs != null && `BCS ${num(v.bcs)}`) || 'Đánh giá tăng trưởng',
-        detail: join(v.method && `Phương pháp ${str(v.method).toLowerCase()}`),
+        detail: join(v.method && `Phương pháp ${(GROWTH_METHOD[str(v.method)] ?? str(v.method)).toLowerCase()}`),
         basis: v.basis === 'ESTIMATED' ? 'Ước tính' : v.basis === 'MEASURED' ? 'Đo' : undefined,
         reason: str(v.reason) || undefined,
       }

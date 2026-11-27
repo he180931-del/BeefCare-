@@ -108,6 +108,8 @@ public final class ExitVoucherDTO {
         boolean loss,
         LocalDate exitDate,
         Ref buyer,
+        /** SCR-42 "Liên hệ" (DEF-ST-12): the buyer's stored phone. */
+        String buyerPhone,
         String destination,
         String transportCertNo,
         String vehiclePlate,
