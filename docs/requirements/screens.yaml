@@ -1,0 +1,91 @@
+# Bản đồ màn hình BeefCare: mã SCR ↔ code frontend ↔ frame wireframe.
+# Figma: file 9hM1MaI4UmWZP9CDJauxLJ (BEEFCARE-1), chỉ các trang wireframe 01–11. Chữ trong frame lưu ở wireframe_texts.json.
+# code: đường dẫn trong frontend/src/features (file hoặc thư mục); công cụ tự đi theo import tương đối trong cùng feature.
+# Dùng: python docs/tools/screen_audit.py SCR-39 | FE-11 | --all
+SCR-01: {name: Public Landing Page, fe: FE-22, code: [authentication/pages/PublicLandingPage.tsx], wf: [2216:12190, 2216:12347, 2344:7030]}
+SCR-02: {name: Sign In, fe: FE-01, code: [authentication/pages/SignInPage.tsx, authentication/pages/SuspendedPage.tsx], wf: [2216:12397, 2216:12559, 2216:12595]}
+SCR-03: {name: Register Farm Owner, fe: FE-01, code: [authentication/pages/RegisterPage.tsx], wf: [2216:12432]}
+SCR-04: {name: Verify Email, fe: FE-01, code: [authentication/pages/EmailSentPage.tsx], wf: [2216:12473]}
+SCR-05: {name: Forgot Password, fe: FE-01, code: [authentication/pages/RecoveryPages.tsx], wf: [2216:12489, 2216:12506]}
+SCR-06: {name: Set New Password, fe: FE-01, code: [authentication/pages/RecoveryPages.tsx], wf: [2216:12521, 2216:12545]}
+SCR-07: {name: Complete Owner Profile, fe: FE-01, code: [farm-workspace/pages/OwnerRegistrationPage.tsx], wf: [2198:16181]}
+SCR-08: {name: My Profile and Permissions, fe: FE-01, code: [account/components/AccountDialog.tsx, account/components/ChangePasswordDialog.tsx], wf: [2199:12720, 2199:12890]}
+SCR-09: {name: Select Farm, fe: FE-02, code: [farm-workspace/pages/FarmSelectPage.tsx], wf: [2198:16080]}
+SCR-10: {name: Register Farm, fe: FE-02, code: [farm-workspace/pages/FarmRegistrationPage.tsx], wf: [2198:16221]}
+SCR-11: {name: Farm Information, fe: FE-02, code: [farm-workspace/pages/FarmInformationPage.tsx], wf: [2198:16360]}
+SCR-12: {name: Farm Service Overview, fe: FE-02, code: [platform-service/pages/FarmServiceRoutes.tsx], wf: [2341:4109, 2341:4273]}
+SCR-13: {name: Members and Roles, fe: FE-03, code: [farm-workspace/pages/MembersPage.tsx], wf: [2199:12031, 2199:12249, 2199:12499]}
+SCR-14: {name: Farm Invitations, fe: FE-03, code: [farm-workspace/pages/InvitationsPage.tsx], wf: [2199:12376]}
+SCR-15: {name: Accept Invitation, fe: FE-03, code: [farm-workspace/pages/AcceptInvitationPage.tsx], wf: [2199:12625, 2199:12684]}
+SCR-16: {name: User Accounts, fe: FE-03, code: [platform-admin/pages/UserAccountRoutes.tsx, platform-admin/pages/AccountsPage.tsx, platform-admin/pages/StaffAccessRoutes.tsx], wf: [2341:9274, 2341:9419, 2703:24340, 2703:24592]}
+SCR-17: {name: Pens, fe: FE-04, code: [pen-management/pages/BarnList.tsx], wf: [2208:13120, 2208:13355, 2208:13502]}
+SCR-18: {name: Cattle List, fe: FE-05, code: [cattle/pages/CowList.tsx], wf: [2206:15181, 2209:13655]}
+SCR-19: {name: Cattle Profile – Overview, fe: FE-05, code: [cattle/components/OverviewTab.tsx, cattle/components/CowHeader.tsx, cattle/components/UpdateModal.tsx, cattle/components/TechnicianProfile.tsx], wf: [2206:15403, 2705:1870, 2206:15616, 2705:1480, 2209:13788]}
+SCR-20: {name: Profile – Pen History, fe: FE-04, code: [cattle/components/BarnsTab.tsx, cattle/components/MoveModal.tsx], wf: [2206:16017, 2206:16182]}
+SCR-21: {name: Profile – QR Tag, fe: FE-05, code: [cattle/components/QrTab.tsx, cattle/components/QrReissueModal.tsx], wf: [2206:16325, 2206:15735]}
+SCR-22: {name: Scan QR, fe: FE-05, code: [cattle/pages/ScanQrPage.tsx], wf: [2190:12934, 2209:13741, 2193:13018]}
+SCR-23: {name: Herd Entry Vouchers, fe: FE-06, code: [herd-entry/pages/ImportList.tsx], wf: [2265:13722]}
+SCR-24: {name: Herd Entry Voucher – Purchase, fe: FE-06, code: [herd-entry/pages/ImportNew.tsx], wf: [2266:13795, 2267:13868, 2267:14079]}
+SCR-25: {name: Herd Entry Voucher – Farm-born Calves, fe: FE-06, code: [herd-entry/pages/ImportNew.tsx], wf: [2268:14014]}
+SCR-75: {name: Herd Entry Voucher Detail, fe: FE-06, code: [herd-entry/pages/ImportDetail.tsx], wf: [2268:14249, 2269:14160, 2269:14303]}
+SCR-26: {name: Farm Announcements, fe: FE-07, code: [farm-announcements/pages/AnnouncementListPage.tsx, farm-announcements/pages/TechnicianAnnouncementRoutes.tsx], wf: [2204:13723, 2205:12653, 2205:12704]}
+SCR-27: {name: Announcement Editor, fe: FE-07, code: [farm-announcements/pages/AnnouncementEditorPage.tsx], wf: [2204:13867, 2204:14004]}
+SCR-28: {name: Announcement Correction, fe: FE-07, code: [farm-announcements/pages/AnnouncementCorrectionPage.tsx], wf: [2204:14114]}
+SCR-29: {name: Growth and BCS, fe: FE-08, code: [growth/pages/GrowthHerdPage.tsx], wf: [2210:14401]}
+SCR-30: {name: Profile tab – Growth and BCS, fe: FE-08, code: [growth/components], wf: [2210:14573, 2210:14764, 2210:14920, 2213:13822]}
+SCR-31: {name: Vaccination Schedule, fe: FE-09, code: [vaccination/pages/SchedulePage.tsx], wf: [2211:12946]}
+SCR-32: {name: Manage Vaccination Schedule, fe: FE-09, code: [vaccination/pages/ManageSchedulePage.tsx], wf: [2211:13145]}
+SCR-33: {name: Record Vaccination, fe: FE-09, code: [vaccination/pages/RecordPage.tsx], wf: [2211:13325]}
+SCR-34: {name: Profile tab – Vaccination, fe: FE-09, code: [vaccination/components], wf: [2211:13516, 2211:13675, 2213:13899]}
+SCR-35: {name: Vaccination History, fe: FE-09, code: [vaccination/pages/HistoryPage.tsx], wf: [2211:13786]}
+SCR-36: {name: Health Cases, fe: FE-10, code: [health/pages/HealthCaseList.tsx], wf: [2212:13384]}
+SCR-37: {name: Profile tab – Health, fe: FE-10, code: [health/components], wf: [2212:13554, 2212:13735, 2212:13868, 2212:13989, 2212:14126, 2706:615, 2213:13969]}
+SCR-38: {name: Reproduction Worklist, fe: FE-11, code: [reproduction/pages/ReproductionWorklistPage.tsx, reproduction/pages/TechnicianReproductionPage.tsx], wf: [2190:13190, 2193:12934]}
+SCR-39: {name: Profile tab – Reproduction, fe: FE-11, code: [reproduction/components/ReproductionProfileTab.tsx, reproduction/components/RecordDialogs.tsx, reproduction/components/ReviseDialog.tsx, reproduction/components/ReproductionTechnicianTab.tsx], wf: [2191:12094, 2191:12329, 2191:12472, 2191:12631, 2191:12787, 2191:13011, 2192:12514, 2192:12751, 2192:13352, 2192:13497, 2193:13065, 2193:13152]}
+SCR-40: {name: Record Calving, fe: FE-12, code: [reproduction/pages/CalvingPage.tsx], wf: [2192:12875, 2192:13113]}
+SCR-41: {name: Herd Exit Vouchers, fe: FE-13, code: [herd-exit/pages/ExportList.tsx], wf: [2270:14306]}
+SCR-42: {name: Herd Exit Voucher, fe: FE-13, code: [herd-exit/pages/ExportNew.tsx], wf: [2270:14553, 2271:14464]}
+SCR-43: {name: Death / Missing Exit Voucher, fe: FE-13, code: [herd-exit/pages/ExportNew.tsx], wf: [2271:14661]}
+SCR-76: {name: Herd Exit Voucher Detail, fe: FE-13, code: [herd-exit/pages/ExportDetail.tsx], wf: [2272:14622, 2272:14877, 2272:15003]}
+SCR-44: {name: Farm Reminders, fe: FE-14, code: [farm-overview/pages/RemindersPage.tsx, farm-overview/pages/TechnicianRemindersPage.tsx], wf: [2204:13534, 2205:12734]}
+SCR-45: {name: My Notifications, fe: FE-14, code: [notifications/pages/MyNotificationsPage.tsx], wf: [2202:14101]}
+SCR-46: {name: Support Notifications, fe: FE-14, code: [platform-support/pages/NotificationsPage.tsx, platform-finance/pages/PmSupportNoticePage.tsx, platform-admin/pages/AdminNoticePage.tsx], wf: [2338:8428, 2341:7128, 2341:9673]}
+SCR-47: {name: Reconciliation Notifications, fe: FE-14, code: [platform-finance/pages/ReconciliationNoticePage.tsx], wf: [2341:7072]}
+SCR-48: {name: Farm Dashboard, fe: FE-15, code: [farm-overview/pages/FarmDashboardPage.tsx], wf: [2204:13335, 2696:697]}
+SCR-49: {name: Management Reports, fe: FE-15, code: [farm-overview/pages/ManagementReportPage.tsx], wf: [2205:12402]}
+SCR-87: {name: Farm Cash Report, fe: FE-15, code: [farm-overview/pages/CashFlowReportPage.tsx], wf: []}
+SCR-50: {name: Profile tab – Timeline, fe: FE-16, code: [cattle/components/TimelineTab.tsx, cattle/components/TimelineCorrectionDialog.tsx], wf: [2206:15848, 2209:13889]}
+SCR-51: {name: Platform Audit History, fe: FE-17, code: [platform-admin/pages/AuditPage.tsx], wf: [2341:9473]}
+SCR-52: {name: Breed Catalogue, fe: FE-18, code: [farm-catalogue/pages/BreedsPage.tsx], wf: [2099:74478]}
+SCR-53: {name: Vaccine Catalogue, fe: FE-18, code: [farm-catalogue/pages/VaccinesPage.tsx], wf: [2099:74715]}
+SCR-54: {name: Medicine Catalogue, fe: FE-18, code: [farm-catalogue/pages/MedicinesPage.tsx], wf: [2099:74838]}
+SCR-55: {name: Production Purpose Catalogue, fe: FE-18, code: [farm-catalogue/pages/PurposesPage.tsx], wf: [2099:74960]}
+SCR-56: {name: State and Reminder Parameters, fe: FE-18, code: [farm-catalogue/pages/ParametersPage.tsx], wf: [2099:74632]}
+SCR-57: {name: Farm Subscription, fe: FE-19, code: [subscription/pages/SubscriptionHomePage.tsx], wf: [2201:12493, 2201:13287, 2201:13401, 2201:13510, 2201:13616]}
+SCR-58: {name: Select Term and Review, fe: FE-19, code: [subscription/pages/FirstSubscriptionPage.tsx, subscription/pages/RenewPage.tsx], wf: [2201:12662, 2198:16289, 2201:13723, 2201:13829]}
+SCR-59: {name: Transfer Instructions, fe: FE-19, code: [subscription/pages/TransferPage.tsx], wf: [2201:12820, 2201:13928]}
+SCR-60: {name: Payment History and Detail, fe: FE-19, code: [subscription/pages/HistoryPage.tsx], wf: [2201:12991, 2201:13145, 2201:14031]}
+SCR-61: {name: Platform Subscriptions, fe: FE-19, code: [platform-service/pages/PlatformSubscriptionRoutes.tsx], wf: [2341:4328, 2341:10822]}
+SCR-62: {name: Payments and Reconciliation, fe: FE-19, code: [platform-service/pages/PaymentReconciliationRoutes.tsx], wf: [2341:4475, 2341:10838, 2341:10853, 2341:10866, 2341:10881, 2341:10893, 2341:10918]}
+SCR-63: {name: Plan Prices, fe: FE-19, code: [platform-service/pages/PlanPriceRoutes.tsx], wf: [2341:4632, 2341:11003, 2341:11016]}
+SCR-64: {name: My Support Tickets, fe: FE-20, code: [support/pages/TicketListPage.tsx], wf: [2202:13520, 2202:14830]}
+SCR-65: {name: Create Support Ticket, fe: FE-20, code: [support/pages/NewTicketPage.tsx], wf: [2202:13681, 2202:14355, 2202:14246]}
+SCR-66: {name: Ticket Detail – Owner, fe: FE-20, code: [support/pages/TicketDetailPage.tsx], wf: [2202:13828, 2202:13998, 2202:14509, 2202:14623]}
+SCR-67: {name: Ticket Queue, fe: FE-20, code: [platform-support/pages/QueuePage.tsx], wf: [2338:8084]}
+SCR-68: {name: Ticket Processing, fe: FE-20, code: [platform-support/pages/TicketPage.tsx], wf: [2338:8278, 2338:8376, 2344:4109, 2344:4121, 2344:4155, 2344:4167, 2344:4269]}
+SCR-69: {name: Assigned Internal Requests, fe: FE-20, code: [platform-support/pages/InternalRequestsPage.tsx], wf: [2341:6516, 2341:9606, 2344:4219]}
+SCR-70: {name: Subscription Receipts, fe: FE-21, code: [platform-finance/pages/ReceiptRoutes.tsx], wf: [2341:6580]}
+SCR-71: {name: Manual Finance Records, fe: FE-21, code: [platform-finance/pages/RecordListPage.tsx], wf: [2341:6716]}
+SCR-72: {name: Manual Finance Record Form, fe: FE-21, code: [platform-finance/pages/RecordFormPage.tsx], wf: [2341:6851]}
+SCR-73: {name: Platform Cash Report, fe: FE-21, code: [platform-finance/pages/CashReportRoutes.tsx], wf: [2341:6920]}
+SCR-74: {name: Technician Home, fe: FE-14, code: [farm-overview/pages/TechnicianHomePage.tsx], wf: [2205:12588]}
+SCR-77: {name: Feed Stock, fe: FE-23, code: [feed-stock/pages/FeedStockPage.tsx], wf: [2275:11951]}
+SCR-78: {name: Feed Receipts, fe: FE-23, code: [feed-stock/pages/FeedReceiptPage.tsx], wf: [2275:12229, 2705:129, 2705:459]}
+SCR-79: {name: Feed Receipt Form, fe: FE-23, code: [feed-stock/pages/FeedReceiptFormPage.tsx], wf: [2277:12103]}
+SCR-80: {name: Stock Adjustment, fe: FE-23, code: [feed-stock/pages/FeedStockAdjustmentPage.tsx, feed-stock/pages/FeedStockAdjustmentFormPage.tsx], wf: [2278:12179]}
+SCR-81: {name: Rations, fe: FE-23, code: [feed-stock/pages/FeedRationPage.tsx], wf: [2279:12255]}
+SCR-82: {name: Ration Editor, fe: FE-23, code: [feed-stock/pages/FeedRationFormPage.tsx], wf: [2280:12331]}
+SCR-83: {name: Feeding Log, fe: FE-23, code: [feed-stock/pages/FeedFeedingPage.tsx], wf: [2281:12407, 2281:26889, 2281:27067]}
+SCR-84: {name: Feed Catalogue and Suppliers, fe: FE-23, code: [feed-stock/pages/FeedCataloguePage.tsx], wf: [2282:12635]}
+SCR-85: {name: Feed Consumption and Cost Report, fe: FE-23, code: [feed-stock/pages/FeedConsumptionReportPage.tsx], wf: [2282:27115]}
+SCR-86: {name: Today's Rations, fe: FE-23, code: [feed-stock/pages/FeedTodayRationsPage.tsx], wf: [2283:12787]}
