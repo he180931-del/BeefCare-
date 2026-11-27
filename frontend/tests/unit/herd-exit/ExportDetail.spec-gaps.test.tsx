@@ -40,7 +40,7 @@ it('shows buyer, creation and confirmation times, cattle links, weight basis and
   expect(screen.getByText('~338 kg · UT')).toBeInTheDocument()
   expect(screen.getByText('Lai Sind · —')).toBeInTheDocument()
   expect(screen.getAllByText('14/10 20:30 · An · Tạo phiếu')).toHaveLength(2)
-  expect(screen.getByText(/Hủy phiếu đưa cả 2 con về ACTIVE\.$/)).toBeInTheDocument()
+  expect(screen.queryByText(/Hủy phiếu đưa cả/)).not.toBeInTheDocument()
   expect(screen.queryByText(/GBR-26/)).not.toBeInTheDocument()
 })
 

@@ -4,6 +4,8 @@ import { dmy, money } from '../lib/format'
 import { toBusinessTime } from '../lib/date/farmTime'
 
 export function VoucherPaymentTable({ payments, onVoid }: { payments: VoucherPayment[]; onVoid?: (payment: VoucherPayment) => void }) {
+  // Chưa có khoản nào: một dòng chữ thay vì bảng chỉ có tiêu đề cột (cả trên màn hình lẫn khi in).
+  if (!payments.length) return <p className="m-0 text-xs text-muted">Chưa ghi khoản thanh toán nào.</p>
   return <Table stack={false}>
     <thead><tr><Th>Ngày · người ghi</Th><Th>Phương thức · tham chiếu</Th><Th>Số tiền (đ)</Th></tr></thead>
     <tbody>{payments.map((payment, index) => {
