@@ -14,9 +14,9 @@ See `../source-inventory.csv` for the file-level inventory, workbook sheets, cas
 
 ## Source files
 
-- The two FE-01/FE-20/FE-21/FE-22 workbooks are retained because they are separate submissions from different revisions. They must be compared during Step 2 before choosing the canonical Lam scope.
+- The newer FE-01/FE-20/FE-21/FE-22 workbook is the selected Lam source. The older 75-case revision was removed from this branch source directory and remains available only in the original Downloads location.
 - The FE-08/FE-12, FE-02/FE-03/FE-17/FE-19, and FE-04/FE-05/FE-06/FE-13/FE-16/FE-18 workbooks are retained as supplied.
-- `Report5_IntegrationTest_Tai.xlsx` and `HUONG_DAN_INTEGRATION_TEST.md` are retained as supplied.
+- `BeefCare_Report5.2_Integration_Test_Tai.xlsx` is the selected latest Tài source. The older Tài workbooks were removed from this branch source directory. `HUONG_DAN_INTEGRATION_TEST.md` is retained as supplied.
 
 ## Change control
 
@@ -24,7 +24,8 @@ Do not edit files in this directory. Corrections, normalized identifiers, fixtur
 
 ## Findings recorded at collection time
 
-- The inventory contains 8 supplied workbooks and 619 detectable case rows before deduplication. This is a raw source count, not the canonical team total.
-- The Lam FE-01/FE-20/FE-21/FE-22 scope has two revisions. The Tài scope has three supplied workbooks with overlapping FE-07/FE-14/FE-15/FE-23 content. Revision and overlap decisions belong to Step 2.
+- The inventory contains 5 supplied workbooks and 447 detectable case IDs before deduplication. This is a raw source count, not the canonical team total.
+- The Lam and Tài sources are now pinned to the newest selected workbook. Overlap within the selected Tài workbook and duplicate FE11 rows remain review findings for Step 2.
 - `BeefCare_Report5.2_Integration_Test_UI_FE04_FE05_FE06_FE13_FE16_FE18.xlsx` has detectable cases but no round-status values in the inspected status columns.
-- `Report5_IntegrationTest_Tai.xlsx` uses a different case-ID format such as `INT-07-01`, while the newer UI workbooks use `FE07-INT-01`. Both forms are preserved in the inventory and will be mapped later.
+- The selected Tài workbook uses `FE07-INT-01` style IDs. Any older `INT-07-01` IDs are outside the selected source set.
+
