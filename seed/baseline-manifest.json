@@ -1,0 +1,134 @@
+{
+  "version": "qa-baseline-v2",
+  "purpose": "Shared QA baseline for the 447-case integration inventory",
+  "source_inventory": {
+    "path": "docs/testing/integration-tests/integration-test-master.csv",
+    "case_count": 447,
+    "mapped_case_count": 445,
+    "unresolved_case_ids": ["FE09-INT-16", "FE09-INT-17"]
+  },
+  "runner": {
+    "command": "python scripts/seed-qa-fixtures.py --isolated-qa-db",
+    "database": "Dedicated QA database only; never production",
+    "write_policy": "Real HTTP API with deterministic Idempotency-Key values; no SQL writes",
+    "reset": "Reset the isolated QA fixture database before destructive scenario cleanup",
+    "isolation": "baseline request keys use baseline-* stable prefixes within the backwards-compatible QA idempotency namespace; scenario fixtures must use their own prefix"
+  },
+  "entities": [
+    {
+      "entity": "farms",
+      "stable_key": "local-profile-farm-a/b/c",
+      "status": "inherited",
+      "count": 3,
+      "test_scopes": ["FE-01", "FE-02", "FE-03", "FE-19", "FE-20", "FE-21"],
+      "source": "LocalDevelopmentSeeder via profile local",
+      "reset": "profile reseed on fresh QA database",
+      "gap": "All local farms are ACTIVE; suspended/expired platform states require a platform fixture."
+    },
+    {
+      "entity": "roles_and_memberships",
+      "stable_key": "owner-manager-technician-support-actors",
+      "status": "inherited",
+      "count": 10,
+      "test_scopes": ["FE-01", "FE-02", "FE-03", "FE-07", "FE-14", "FE-19", "FE-20", "FE-21"],
+      "source": "LocalDevelopmentSeeder accounts and Farm A/B/C memberships",
+      "reset": "profile reseed on fresh QA database",
+      "gap": "No new identity is created by this script; invite/accept and account lifecycle remain scenario work."
+    },
+    {
+      "entity": "pens",
+      "stable_key": "QA-A;QA-B;QA-BL-BREED;QA-BL-SIRE;QA-BL-CALF;QA-BL-QUAR",
+      "status": "seeded",
+      "count": 6,
+      "test_scopes": ["FE-04", "FE-05", "FE-06", "FE-08", "FE-11", "FE-12", "FE-13", "FE-23"],
+      "source": "POST /api/farms/{farmId}/pens",
+      "reset": "Idempotent stable keys; reset QA DB to remove fixtures",
+      "gap": "Pen movement history is intentionally absent until a scenario moves a cattle record."
+    },
+    {
+      "entity": "cattle",
+      "stable_key": "QA-TAG-001..003;QA-BL-F-BREED;QA-BL-F-ADULT;QA-BL-M-SIRE;QA-BL-M-FATTEN;QA-BL-F-FATTEN;QA-BL-YOUNG-M;QA-BL-WEANED-F;QA-BL-CALF-M",
+      "status": "seeded",
+      "count": 10,
+      "test_scopes": ["FE-05", "FE-06", "FE-08", "FE-09", "FE-10", "FE-11", "FE-12", "FE-13", "FE-14", "FE-15", "FE-18", "FE-23"],
+      "source": "POST/POST post /api/farms/{farmId}/entry-vouchers",
+      "reset": "Voucher idempotency keys; scenario cleanup must not use these tags",
+      "gap": "No exit, health, growth, reproduction, calving, or payment result is pre-seeded."
+    },
+    {
+      "entity": "breeds_and_production_purposes",
+      "stable_key": "local-catalogue-available-items",
+      "status": "inherited",
+      "count": "profile-defined",
+      "test_scopes": ["FE-05", "FE-06", "FE-08", "FE-11", "FE-12", "FE-18"],
+      "source": "GET /api/farms/{farmId}/catalogues",
+      "reset": "profile reseed",
+      "gap": "Custom catalogue mutation is left to FE-18 scenario fixtures."
+    },
+    {
+      "entity": "feed_items",
+      "stable_key": "TA-90;TA-91;TA-92",
+      "status": "seeded",
+      "count": 3,
+      "test_scopes": ["FE-14", "FE-15", "FE-18", "FE-23"],
+      "source": "POST /api/farms/{farmId}/feed/catalogue",
+      "reset": "Idempotency key per code",
+      "gap": "Stock adjustments and expiry lots are scenario fixtures."
+    },
+    {
+      "entity": "suppliers",
+      "stable_key": "QA-baseline-supplier-primary;QA-baseline-supplier-secondary",
+      "status": "seeded",
+      "count": 2,
+      "test_scopes": ["FE-06", "FE-13", "FE-18", "FE-23"],
+      "source": "POST /api/farms/{farmId}/trading-partners",
+      "reset": "Idempotency key per name",
+      "gap": "Buyer/seller lifecycle and deletion are scenario fixtures."
+    },
+    {
+      "entity": "feed_receipts_and_outstanding_balance",
+      "stable_key": "QA-baseline-stock",
+      "status": "seeded",
+      "count": 1,
+      "test_scopes": ["FE-06", "FE-14", "FE-15", "FE-23"],
+      "source": "POST /api/farms/{farmId}/feed/receipts with postNow=true and amountPaid=0",
+      "reset": "Invoice identity QA baseline stock",
+      "gap": "Payment creation/evidence/void is intentionally deferred to scenario fixtures."
+    },
+    {
+      "entity": "notifications_and_reminder_sources",
+      "stable_key": "feed-stock-and-local-membership-surfaces",
+      "status": "readback_only",
+      "count": "environment-dependent",
+      "test_scopes": ["FE-07", "FE-14", "FE-15", "FE-23"],
+      "source": "GET /api/notifications/mine, /api/farms/{farmId}/feed/reminders",
+      "reset": "Derived by backend jobs; do not hardcode notification ids",
+      "gap": "Announcement publication, estrus reminders, and read-state transitions belong to scenario fixtures."
+    },
+    {
+      "entity": "reproduction_and_care_records",
+      "stable_key": "scenario-owned",
+      "status": "gap",
+      "count": 0,
+      "test_scopes": ["FE-09", "FE-10", "FE-11", "FE-12", "FE-14"],
+      "source": "No baseline mutation",
+      "reset": "Scenario fixture isolation",
+      "gap": "Create via estrus/breeding/pregnancy/calving and health-case APIs inside each test scenario; pre-seeding results would invalidate create/validation assertions."
+    },
+    {
+      "entity": "unresolved_inventory_cases",
+      "stable_key": "FE09-INT-16;FE09-INT-17",
+      "status": "gap",
+      "count": 2,
+      "test_scopes": ["FE-09"],
+      "source": "Integration master mapping review",
+      "reset": "N/A",
+      "gap": "Unresolved in canonical inventory; no fixture is claimed until source mapping is decided."
+    }
+  ],
+  "coverage": {
+    "baseline_case_families": ["FE-01", "FE-02", "FE-03", "FE-04", "FE-05", "FE-06", "FE-07", "FE-08", "FE-13", "FE-14", "FE-15", "FE-18", "FE-19", "FE-20", "FE-21", "FE-23"],
+    "scenario_only_case_families": ["FE-09", "FE-10", "FE-11", "FE-12", "FE-13 exit mutations", "FE-14 reminder mutations", "FE-19 payment mutations"],
+    "inventory_note": "Coverage is declared by family and source prerequisites; this baseline does not claim to execute all 447 UI cases."
+  }
+}
