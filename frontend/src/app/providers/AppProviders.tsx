@@ -5,7 +5,7 @@ import { AuthGate } from '../../features/authorization'
 import { SessionProvider } from '../session/SessionProvider'
 import { AccountDialogProvider } from '../../features/account'
 
-/** Thứ tự bắt buộc: Router → Auth → AuthGate → Session → Routes (docs/frontend-refactor-guide.md §6.1). */
+/** Thứ tự bắt buộc: Router → Auth → AuthGate → Session → Routes. */
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <BrowserRouter>

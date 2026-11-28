@@ -33,8 +33,7 @@ SRS 28/10 cũ (`SRS_2026-10-28.txt`) đã bỏ theo D90; xem lại bằng `git s
 | File | Ý nghĩa |
 |---|---|
 | [api/openapi.json](api/openapi.json) | Contract API sinh từ code (`OpenApiContractTest`). |
-| [api/README.md](api/README.md) | Cách FE đăng nhập, CSRF, idempotency, mã lỗi, điểm tích hợp chính. |
-| [tools/generate_api_catalog.py](tools/generate_api_catalog.py) | Script sinh bảng tra API. Hiện chưa chạy được: còn đọc SRS 28/10 và cần `api-handoff.html` đã bị xóa (mục còn mở của D90). |
+| [api/README.md](api/README.md) | Cách FE đăng nhập, CSRF, idempotency, mã lỗi, điểm tích hợp chính. Trạng thái bàn giao từng API ghi trong PR (D90). |
 
 ## Chạy máy, dữ liệu mẫu và giao diện
 
@@ -66,5 +65,9 @@ SRS 28/10 cũ (`SRS_2026-10-28.txt`) đã bỏ theo D90; xem lại bằng `git s
 |---|---|
 | `superpowers/specs/2026-11-23-fe01-auth-stability-design.md`, `superpowers/plans/2026-11-23-fe01-auth-stability.md` | Thiết kế và kế hoạch ổn định xác thực FE-01; spec FE-01 dẫn chiếu làm bằng chứng triển khai. |
 | `superpowers/plans/2026-11-24-fe20-decision-gate-wbs.md` | WBS chốt quyết định FE-20; phiếu chốt FE-20 và thiết kế test FE-20 dẫn chiếu. |
+
+## Tài liệu đã gỡ
+
+Phiếu review, ví dụ API, `agent-context/`, bảng tra API HTML và các tài liệu một lần khác đã gỡ khỏi repo. Khi tài liệu còn lại dẫn tới chúng, đường dẫn có dạng `<commit>:<đường dẫn>`, ví dụ `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md` hoặc `cc64a5ba:docs/agent-context/FE-11-12-progress.md`. Mở bằng `git show <commit>:<đường dẫn>` (D90).
 
 Hướng dẫn chung cho agent nằm ở gốc repo: `CLAUDE.md`, `AGENTS.md`, `RTK.md`, `backend/AGENTS.md`.

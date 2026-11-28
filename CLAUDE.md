@@ -15,7 +15,7 @@ service và review. Không bắt buộc phải phân công Luna, Sol hoặc Tera
 ## Trước khi code
 
 1. Xác định feature và phạm vi file cần sửa.
-2. Đọc context tương ứng trong `docs/agent-context/README.md`.
+2. Đọc mục lục `docs/README.md` và chỉ mở các tài liệu liên quan tới feature.
 3. Đối chiếu theo thứ tự:
    - `docs/REQUIREMENT_DECISIONS.md`;
    - SRS đã chốt `docs/requirements/SRS_Report3_v1.2.txt` (Report 3 v1.2) và bộ spec `docs/requirements/specs/` (quyết định D90 thay phần chọn SRS của D12; không dùng bản SRS khác). Code và spec giữ mã UC/BR-D cũ; tra mã mới qua `docs/requirements/UC_ID_MAPPING.md`;
@@ -26,10 +26,8 @@ service và review. Không bắt buộc phải phân công Luna, Sol hoặc Tera
    tên, kiểu, đơn vị, bắt buộc/tùy chọn, điều kiện kích hoạt, validation, API
    và nơi lưu DB.
 5. Với thay đổi backend/API, đọc thêm `backend/AGENTS.md` (quy trình tự kiểm,
-   tầng test, tiêu chí READY_FOR_FE); dùng `docs/api-handoff.html` và
-   `docs/backend-workflow.html` để đối chiếu scope, evidence và trạng thái
-   READY_FOR_FE. Khi DTO hoặc route đổi, cập nhật OpenAPI và API catalog theo
-   hướng dẫn tương ứng.
+   tầng test, tiêu chí READY_FOR_FE, scope 4 người BE). Khi DTO hoặc route
+   đổi, cập nhật `docs/api/openapi.json` theo hướng dẫn trong đó.
 
 ## Quy trình mặc định
 

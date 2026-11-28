@@ -1,6 +1,6 @@
 # Bộ dữ liệu QA riêng
 
-Đã kiểm tra ngày 08/11/2026 với backend từ commit `5acd384`, PostgreSQL 16.15 và DB QA riêng: nạp lần đầu, nạp lặp, reset DB và nạp lại thành công. Chi tiết và giới hạn: `QA_CHECK_2026-11-08.md`. Không dùng cho production hoặc cơ sở dữ liệu chung. Dữ liệu tạo qua API, không chèn trực tiếp vào bảng; nếu API báo lỗi, dừng và ghi nhận lỗi, không sửa dữ liệu bằng SQL để ép thành công.
+Đã kiểm tra ngày 08/11/2026 với backend từ commit `5acd384`, PostgreSQL 16.15 và DB QA riêng: nạp lần đầu, nạp lặp, reset DB và nạp lại thành công. Chi tiết và giới hạn: `879cf0f7^:docs/testing/QA_CHECK_2026-11-08.md`. Không dùng cho production hoặc cơ sở dữ liệu chung. Dữ liệu tạo qua API, không chèn trực tiếp vào bảng; nếu API báo lỗi, dừng và ghi nhận lỗi, không sửa dữ liệu bằng SQL để ép thành công.
 
 ## Dữ liệu dự kiến
 
@@ -25,7 +25,7 @@
 3. Ở PowerShell thứ hai, đặt cùng `BEEFCARE_DEV_PASSWORD`, đứng ở gốc repo và chạy `python .\scripts\seed-qa-fixtures.py --isolated-qa-db`. Script chỉ gọi `127.0.0.1:8080`; tham số này là lời xác nhận của người chạy rằng backend đang nối DB QA, script không tự kiểm chứng được đích JDBC.
 4. Kiểm tra danh sách trại, chuồng, bò và phiếu qua FE/API; đăng nhập tài khoản khác chủ để thử truy cập chéo. Ghi commit, ngày chạy, lệnh, kết quả và lỗi vào bằng chứng test, không lưu mật khẩu/cookie.
 
-Trên máy kiểm tra Windows, `spring-boot:run` không tìm được main class khi repo nằm ở đường dẫn có dấu. Đã dùng jar đã đóng gói trong thư mục đường dẫn không dấu để chạy thử. Lệnh `package` vẫn thất bại tại Modernizer, nên việc sinh được jar không có nghĩa toàn bộ build đạt; xem `QA_CHECK_2026-11-08.md`.
+Trên máy kiểm tra Windows, `spring-boot:run` không tìm được main class khi repo nằm ở đường dẫn có dấu. Đã dùng jar đã đóng gói trong thư mục đường dẫn không dấu để chạy thử. Lệnh `package` vẫn thất bại tại Modernizer, nên việc sinh được jar không có nghĩa toàn bộ build đạt; xem `879cf0f7^:docs/testing/QA_CHECK_2026-11-08.md`.
 
 ## Reset
 
