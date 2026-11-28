@@ -90,3 +90,37 @@ passing by assumption.
 6. Read back farms, pens, cattle, and vouchers through the API/FE, then rerun
    the same seeder and compare stable-key counts. Record both runs and the
    actual readback counts in a follow-up evidence revision.
+
+## Follow-up runtime check for baseline seed
+
+- Timestamp: 2026-11-28 22:03:45 +07:00
+- Branch: `qa/integration-seed-standardization`
+- Commit checked: `67c00dd2abb6c7c41a2283aa441251604f1dc148`
+
+The runtime prerequisites were checked again after the scope review. Secret
+values were not printed. The check only reported whether each variable was set.
+
+| Check | Result |
+| --- | --- |
+| `BEEFCARE_DB_PASSWORD` | Unset in the current PowerShell session |
+| `BEEFCARE_DEV_PASSWORD` | Unset in the current PowerShell session |
+| `BEEFCARE_LINK_SECRET` | Unset in the current PowerShell session |
+| `BEEFCARE_DB_URL` / `BEEFCARE_DB_USERNAME` | Unset in the current PowerShell session |
+| `docker info` / `docker ps` | Blocked: permission denied opening `dockerDesktopLinuxEngine` |
+| Listener on `15433` | Closed |
+| Listener on `8080` | Closed |
+| `.\scripts\qa-fixture-db.ps1 start` | Blocked before Docker: `Set BEEFCARE_DB_PASSWORD in this terminal first.` |
+| `seed-qa-fixtures.py --isolated-qa-db` | Safely stopped before HTTP: `Set BEEFCARE_DEV_PASSWORD to the same local password used by the backend.` |
+| `py_compile scripts/seed-qa-fixtures.py` | Passed |
+| Baseline manifest validation | Passed: `qa-baseline-v2`, 447 cases, 11 entities |
+| `git diff --check` | Passed |
+
+The database and backend were not started, so the seeder made no HTTP, SQL or
+production writes. API readback, the second seed run and idempotency comparison
+remain unverified.
+
+To rerun, start Docker Desktop and use a private PowerShell session with the
+local `BEEFCARE_DB_PASSWORD`, `BEEFCARE_DEV_PASSWORD` and
+`BEEFCARE_LINK_SECRET` values. Start the dedicated QA database with
+`qa-fixture-db.ps1 start`, start the backend against `beefcare_qa` on port
+`15433`, then run `seed-qa-fixtures.py --isolated-qa-db` from a second session.
