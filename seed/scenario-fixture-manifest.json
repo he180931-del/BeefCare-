@@ -1,0 +1,159 @@
+{
+  "version": "qa-scenarios-v1",
+  "purpose": "Scenario-owned data plan for the Integration Test inventory",
+  "baseline_manifest": "seed/baseline-manifest.json",
+  "inventory": {
+    "path": "docs/testing/integration-tests/integration-test-master.csv",
+    "canonical_case_count": 447,
+    "official_report_total": 418,
+    "unresolved_case_ids": ["FE09-INT-16", "FE09-INT-17"]
+  },
+  "runner_contract": {
+    "database": "Dedicated QA database only",
+    "write_policy": "Real HTTP API only; no SQL writes",
+    "idempotency_prefix": "scenario-<fixture_id>",
+    "reset": "Reset the disposable QA database before destructive scenario cleanup",
+    "production_write": false,
+    "runtime_status": "designed_offline_unverified"
+  },
+  "feature_coverage": {
+    "baseline_only": ["FE-02", "FE-03", "FE-04", "FE-05", "FE-06", "FE-08", "FE-17", "FE-18", "FE-20", "FE-21", "FE-22"],
+    "scenario_required": ["FE-01", "FE-07", "FE-09", "FE-10", "FE-11", "FE-12", "FE-13", "FE-14", "FE-15", "FE-19", "FE-23"],
+    "owner_confirmation_required": ["FE09-INT-16", "FE09-INT-17"]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "scn-fe01-auth-lifecycle-v1",
+      "feature": "FE-01",
+      "source_case_prefixes": ["FE01-INT-"],
+      "purpose": "Isolate new-account, verification, duplicate-email and password-reset flows.",
+      "baseline_dependencies": ["owner-manager-technician-support-actors"],
+      "planned_entities": ["disposable_test_mailbox", "new_auth_account", "expired_verification_token"],
+      "mutations": ["register", "verify", "resend_verification", "request_password_reset", "complete_password_reset"],
+      "route_contract": "API and mailbox contract must be confirmed before implementation.",
+      "reset": "Delete the disposable account and mailbox state or reset the isolated QA database.",
+      "status": "designed_blocked_on_auth_contract"
+    },
+    {
+      "fixture_id": "scn-fe07-announcement-lifecycle-v1",
+      "feature": "FE-07",
+      "source_case_prefixes": ["FE07-INT-"],
+      "purpose": "Create a named-recipient announcement, publish a correction and verify delivery/read state.",
+      "baseline_dependencies": ["owner-manager-technician-support-actors"],
+      "planned_entities": ["announcement_draft", "published_announcement", "announcement_correction", "recipient_read_state"],
+      "mutations": ["POST /api/farms/{farmId}/announcements/drafts", "POST /api/farms/{farmId}/announcements/{id}/publish", "POST /api/farms/{farmId}/announcements/{id}/corrections", "POST /api/farms/{farmId}/announcements/recipients/{recipientId}/read"],
+      "reset": "Find records by the fixture title prefix and reset the disposable QA database before destructive cleanup.",
+      "existing_helper": "scripts/tools/beefcare-local-demo-seed-v1.ps1",
+      "status": "designed_offline_existing_helper_unverified_runtime"
+    },
+    {
+      "fixture_id": "scn-fe09-care-case-v1",
+      "feature": "FE-09",
+      "source_case_prefixes": ["FE09-INT-"],
+      "purpose": "Provide an animal and isolated health records for vaccination, observation and treatment assertions.",
+      "baseline_dependencies": ["QA-TAG-001", "QA-BL-F-ADULT", "QA-BL-QUAR"],
+      "planned_entities": ["health_case", "vaccination_plan", "vaccination_dose", "observation", "treatment"],
+      "mutations": ["create_health_case", "record_vaccination", "record_observation", "record_treatment", "void_care_record"],
+      "route_contract": "Confirm health-case and vaccination endpoints from the running API before adding a writer.",
+      "reset": "Use scenario-prefixed idempotency keys and reset the isolated QA database before destructive cleanup.",
+      "status": "designed_blocked_on_api_contract_and_two_unresolved_cases"
+    },
+    {
+      "fixture_id": "scn-fe10-growth-correction-v1",
+      "feature": "FE-10",
+      "source_case_prefixes": ["FE10-INT-"],
+      "purpose": "Create valid and corrected growth measurements for validation, history and void assertions.",
+      "baseline_dependencies": ["QA-BL-YOUNG-M", "QA-BL-F-FATTEN", "QA-A", "QA-B"],
+      "planned_entities": ["growth_measurement", "corrected_growth_measurement", "voided_growth_measurement"],
+      "mutations": ["record_growth", "correct_growth", "void_growth"],
+      "route_contract": "Confirm the growth-record route and version fields from the running API before adding a writer.",
+      "reset": "Scenario-prefixed records only, followed by isolated QA reset when destructive cleanup is required.",
+      "status": "designed_blocked_on_api_contract"
+    },
+    {
+      "fixture_id": "scn-fe11-reproduction-v1",
+      "feature": "FE-11",
+      "source_case_prefixes": ["FE11-INT-"],
+      "purpose": "Create estrus, breeding and pregnancy-check records for reproduction workflows.",
+      "baseline_dependencies": ["QA-BL-F-BREED", "QA-BL-M-SIRE", "QA-BL-SIRE"],
+      "planned_entities": ["estrus_event", "breeding_event", "pregnancy_check"],
+      "mutations": ["POST /api/farms/{farmId}/cattle/{cattleId}/estrus-events", "create_breeding_event", "create_pregnancy_check"],
+      "route_contract": "Estrus route is present in the existing helper. Breeding and pregnancy routes require API confirmation.",
+      "reset": "Use scenario-prefixed event keys and reset the isolated QA database before destructive cleanup.",
+      "status": "designed_partial_route_contract_and_source_owner_review_required"
+    },
+    {
+      "fixture_id": "scn-fe12-calving-v1",
+      "feature": "FE-12",
+      "source_case_prefixes": ["FE12-INT-"],
+      "purpose": "Create a pregnancy-to-calving snapshot and calf outcome for state-transition assertions.",
+      "baseline_dependencies": ["QA-BL-F-BREED", "QA-BL-M-SIRE", "QA-BL-CALF"],
+      "planned_entities": ["pregnancy_episode", "calving_event", "calf_registration"],
+      "mutations": ["create_pregnancy", "record_calving", "register_calf"],
+      "route_contract": "Confirm reproduction and calving DTOs from the running API before adding a writer.",
+      "reset": "Scenario-prefixed records only, followed by isolated QA reset when destructive cleanup is required.",
+      "status": "designed_blocked_on_api_contract"
+    },
+    {
+      "fixture_id": "scn-fe13-exit-permission-v1",
+      "feature": "FE-13",
+      "source_case_prefixes": ["FE13-INT-"],
+      "purpose": "Exercise exit-voucher creation, posting, permission boundaries and readback.",
+      "baseline_dependencies": ["QA-TAG-001", "QA-TAG-002", "owner-manager-technician-support-actors"],
+      "planned_entities": ["exit_voucher_draft", "posted_exit_voucher", "permission_denied_attempt"],
+      "mutations": ["create_exit_voucher", "post_exit_voucher", "read_exit_voucher_as_manager", "read_exit_voucher_as_technician"],
+      "route_contract": "Confirm exit-voucher endpoints and expected-version fields from the running API before adding a writer.",
+      "reset": "Do not reuse baseline cattle tags after an exit mutation. Reset the isolated QA database for destructive cleanup.",
+      "status": "designed_blocked_on_api_contract"
+    },
+    {
+      "fixture_id": "scn-fe14-reminder-lifecycle-v1",
+      "feature": "FE-14",
+      "source_case_prefixes": ["FE14-INT-"],
+      "purpose": "Produce low-stock, feeding and breeding-window reminder sources and verify resolution/read state.",
+      "baseline_dependencies": ["TA-90", "TA-91", "TA-92", "QA-BL-F-BREED", "QA-BL-CALF"],
+      "planned_entities": ["zero_stock_feed_item", "posted_restock_receipt", "estrus_source", "reminder_read_state"],
+      "mutations": ["create_zero_stock_item", "POST /api/farms/{farmId}/feed/receipts", "POST /api/farms/{farmId}/cattle/{cattleId}/estrus-events", "record_feeding_to_clear_reminder"],
+      "reset": "Use the existing helper's deterministic prefix and reset the isolated QA database before destructive cleanup.",
+      "existing_helper": "scripts/tools/beefcare-local-demo-seed-v1.ps1",
+      "status": "designed_offline_existing_helper_unverified_runtime"
+    },
+    {
+      "fixture_id": "scn-fe15-report-snapshot-v1",
+      "feature": "FE-15",
+      "source_case_prefixes": ["FE15-INT-"],
+      "purpose": "Prepare dated source records for dashboard and report totals, filters, empty periods and permission checks.",
+      "baseline_dependencies": ["QA-A", "QA-B", "QA-TAG-001", "QA-TAG-002", "owner-manager-technician-support-actors"],
+      "planned_entities": ["dated_entry", "dated_pen_move", "dated_weight_history", "dated_exit", "report_permission_scope"],
+      "mutations": ["create_snapshot_source_records", "read_dashboard", "POST /api/farms/{farmId}/dashboard/reports"],
+      "dependencies": ["scn-fe13-exit-permission-v1", "scn-fe09-care-case-v1", "scn-fe11-reproduction-v1", "scn-fe23-feed-lifecycle-v1"],
+      "reset": "Report fixtures are read-only after source creation. Reset the isolated QA database before rebuilding dated records.",
+      "existing_helper": "scripts/tools/beefcare-local-demo-seed-v1.ps1",
+      "status": "designed_offline_existing_helper_partial_runtime_unverified"
+    },
+    {
+      "fixture_id": "scn-fe19-payment-lifecycle-v1",
+      "feature": "FE-19",
+      "source_case_prefixes": ["FE19-INT-"],
+      "purpose": "Prepare payable, payment, bank-transaction and permission variants for subscription and farm billing flows.",
+      "baseline_dependencies": ["QA-baseline-stock", "owner-manager-technician-support-actors", "QA-baseline-supplier-primary"],
+      "planned_entities": ["unpaid_payable", "payment_record", "voided_payment", "bank_transaction", "owner_manager_scope"],
+      "mutations": ["create_payment", "attach_bank_transaction", "void_payment", "read_as_owner", "deny_as_manager_when_required"],
+      "route_contract": "Confirm payment and bank-transaction endpoints from the running API before adding a writer.",
+      "reset": "Use scenario-prefixed payment identities and reset the isolated QA database before destructive cleanup.",
+      "status": "designed_blocked_on_api_contract"
+    },
+    {
+      "fixture_id": "scn-fe23-feed-lifecycle-v1",
+      "feature": "FE-23",
+      "source_case_prefixes": ["FE23-INT-"],
+      "purpose": "Prepare feed receipt, stock, ration and feeding records for the feed and reminder flows.",
+      "baseline_dependencies": ["TA-90", "TA-91", "TA-92", "QA-baseline-supplier-primary", "QA-A"],
+      "planned_entities": ["posted_receipt", "effective_ration", "feeding_record", "out_of_stock_item"],
+      "mutations": ["POST /api/farms/{farmId}/feed/receipts", "POST /api/farms/{farmId}/feed/receipts/{receiptId}/post", "POST /api/farms/{farmId}/feed/rations", "POST /api/farms/{farmId}/feed/feeding-records"],
+      "reset": "Use deterministic sentinels from the existing helper and reset the isolated QA database before destructive cleanup.",
+      "existing_helper": "scripts/tools/beefcare-local-demo-seed-v1.ps1",
+      "status": "designed_offline_existing_helper_unverified_runtime"
+    }
+  ]
+}
