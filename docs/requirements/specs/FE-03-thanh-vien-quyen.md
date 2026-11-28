@@ -6,7 +6,7 @@
 | Use case | UC-FE03-01 → UC-FE03-09 |
 | Người phụ trách | DucNV (BE + FE + test) · Review BE: TaiDX · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Farm Invitation, Farm Membership, Customer Support, Platform Manager, System Admin), §3.3 (BR-D04, 05, 06, 13), Part II §3, Part III §3 (SCR-13 → SCR-16, 3 popup, Table III-2), MSG-FE03, GBR-04, 06, 07, 10, 11, 14, 16, 17, 18, 77, 86; JOB-02 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 02 / 09.
 

@@ -6,7 +6,7 @@
 | Use case | UC-FE10-01 → UC-FE10-05 |
 | Người phụ trách | TuanPQ (BE + FE + test) · Review BE: AnNT · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Health Case, Health Observation, Treatment), §3.3 (BR-D14, 15, 20, 33), §3.4.4 (Table 3.4-4), Part II §10, Part III §10 (SCR-36, SCR-37, 5 popup), MSG-FE10, GBR-08, 26, 34, 45 → 47, 95 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 05.
 > **BeefCare không chẩn đoán, không kê đơn** (GBR-46): chẩn đoán nghi ngờ và cờ truyền nhiễm là đánh giá của người dùng.

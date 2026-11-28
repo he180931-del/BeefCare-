@@ -69,8 +69,9 @@ conditional-field boundaries. For a purely visual or local change, use the
 smallest relevant audit instead of blocking on the full process.
 
 1. Read the routed context first, then inspect the applicable source-of-truth
-   documents: `docs/REQUIREMENT_DECISIONS.md`, the approved SRS `docs/requirements/SRS_2026-10-28.txt`
-   with its feature specs in `docs/requirements/specs/` (decision D12),
+   documents: `docs/REQUIREMENT_DECISIONS.md`, the approved SRS `docs/requirements/SRS_Report3_v1.2.txt`
+   (Report 3 v1.2) with its feature specs in `docs/requirements/specs/` (decision D90,
+   replacing the SRS choice of D12; old UC/BR-D codes map via `docs/requirements/UC_ID_MAPPING.md`),
    the relevant `docs/api/openapi.json` operation, and any linked design or
    implementation document. Record which documents and sections were used.
 2. Trace every field through the complete stack: backend request/response DTOs,

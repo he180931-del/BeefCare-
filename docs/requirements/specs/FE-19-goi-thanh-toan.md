@@ -6,7 +6,7 @@
 | Use case | UC-FE19-01 → UC-FE19-08 |
 | Người phụ trách | DucNV (BE + FE + test, gồm JOB-03 → 06, API-01 → 03) · Review BE: TaiDX · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Plan Price Version, Subscription, Payment Request + Purchased Period, Bank Transfer Evidence + Evidence Review, Subscription Receipt), BR-D23 → 25, 28, Part II §15 (UC-FE19-02, 06, 07, 08), Part III §19 (SCR-57 → SCR-63), MSG-FE19-01 → 16, GBR-07, 13, 15, 66, 69 → 75, 84; API-01 → 03; JOB-03 → 07 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Nguồn nghiệp vụ là SRS 28/10/2026; các điểm làm rõ đã được chủ feature chốt được ghi tại `docs/REQUIREMENT_DECISIONS.md` và `OPEN_QUESTIONS.md`. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. DucNV xác nhận triển khai luồng UC-FE19-01 tại mục 5, gồm backend và nối SCR-57, ngày 09/11/2026; cách tính số ngày còn lại theo D14.
 

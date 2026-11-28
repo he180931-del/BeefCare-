@@ -18,7 +18,7 @@ service và review. Không bắt buộc phải phân công Luna, Sol hoặc Tera
 2. Đọc context tương ứng trong `docs/agent-context/README.md`.
 3. Đối chiếu theo thứ tự:
    - `docs/REQUIREMENT_DECISIONS.md`;
-   - SRS đã chốt `docs/requirements/SRS_2026-10-28.txt` và bộ spec `docs/requirements/specs/` (quyết định D12; không dùng bản SRS khác);
+   - SRS đã chốt `docs/requirements/SRS_Report3_v1.2.txt` (Report 3 v1.2) và bộ spec `docs/requirements/specs/` (quyết định D90 thay phần chọn SRS của D12; không dùng bản SRS khác). Code và spec giữ mã UC/BR-D cũ; tra mã mới qua `docs/requirements/UC_ID_MAPPING.md`;
    - `docs/api/openapi.json` và DTO/backend liên quan;
    - business rules, migration và test hiện có;
    - Figma hoặc ảnh giao diện được duyệt.

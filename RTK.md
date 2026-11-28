@@ -886,9 +886,10 @@ For Entry and Exit, prioritize these flows:
 When requirements differ, use this order:
 
 1. Explicit decisions in `docs/REQUIREMENT_DECISIONS.md`.
-2. The approved SRS `docs/requirements/SRS_2026-10-28.txt` and the feature
-   specs in `docs/requirements/specs/` (decision D12; do not use any other SRS
-   version).
+2. The approved SRS `docs/requirements/SRS_Report3_v1.2.txt` (Report 3 v1.2) and
+   the feature specs in `docs/requirements/specs/` (decision D90, replacing the
+   SRS choice of D12; do not use any other SRS version). Code and specs keep the
+   old UC/BR-D codes; map them with `docs/requirements/UC_ID_MAPPING.md`.
 3. Backend API documentation and `docs/api/openapi.json`.
 4. Existing backend business rules and tests.
 5. Figma for layout and interaction details.

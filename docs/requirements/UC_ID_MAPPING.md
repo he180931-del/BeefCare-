@@ -4,6 +4,8 @@ Report 3 v1.17 (27/11/2026) gộp 136 use case của SRS 28/10 thành 103 (sau k
 
 Code, test và spec `docs/requirements/specs/` vẫn dùng mã cũ. Khi dẫn chiếu sang báo cáo (Report 3, 4, 5) dùng cột **Mã mới**.
 
+Từ 28/11/2026 (D90), SRS là Report 3 v1.2 ([SRS_Report3_v1.2.txt](SRS_Report3_v1.2.txt)). Đây là bản có cùng 103 mã như "Report 3 v1.17" ghi trong file này. Bảng BR-D ở cuối file đối chiếu mã quy tắc dữ liệu, vì v1.2 đánh số lại BR-D.
+
 ## Các use case gộp
 
 | Mã mới | Tên mới | Mã cũ được gộp |
@@ -199,3 +201,39 @@ Code, test và spec `docs/requirements/specs/` vẫn dùng mã cũ. Khi dẫn ch
 | FE-22 | 1 | 1 |
 | FE-23 | 11 | 11 |
 | **Tổng** | **136** | **103** |
+
+## Quy tắc dữ liệu BR-D: SRS 28/10 → Report 3 v1.2
+
+Code, test và spec giữ số cũ (D90). Đối chiếu theo tên và nội dung quy tắc. BR-D01 → BR-D10 giữ nguyên số.
+
+| Mã cũ | Tên cũ | Mã v1.2 | Ghi chú |
+|---|---|---|---|
+| BR-D11 | One active exit | BR-D30 | Gộp với BR-D35 thành "One open exit per cattle". |
+| BR-D12 | Unique codes | BR-D11 |  |
+| BR-D13 | No deletion of referenced data | BR-D12 |  |
+| BR-D14 | Event time integrity | BR-D13 | Tên v1.2: Event time. |
+| BR-D15 | Corrections keep history | BR-D14 |  |
+| BR-D16 | Growth content | BR-D15 |  |
+| BR-D17 | Dose uniqueness | BR-D16 |  |
+| BR-D18 | Single open pregnancy | BR-D17 |  |
+| BR-D19 | Calving content | BR-D18 |  |
+| BR-D20 | Draft and exited cattle locks | BR-D19 | Tên v1.2: Locked cattle. |
+| BR-D21 | Announcement immutability | BR-D20 |  |
+| BR-D22 | Reminder and notice uniqueness | — | Không còn trong v1.2; vẫn áp dụng (D90). |
+| BR-D23 | Subscription per farm | BR-D21 |  |
+| BR-D24 | Evidence uniqueness and allocation | BR-D22 | Tên v1.2: Single use of bank evidence. |
+| BR-D25 | Immutable periods and prices | BR-D23 |  |
+| BR-D26 | Ticket integrity | BR-D24 |  |
+| BR-D27 | Finance record content | BR-D25 |  |
+| BR-D28 | Single recognition of money | BR-D26 |  |
+| BR-D29 | Append-only audit | — | Không còn trong v1.2; vẫn áp dụng (D90). |
+| BR-D30 | Immutable snapshots | — | Không còn trong v1.2; vẫn áp dụng (D90). |
+| BR-D31 | Optimistic version | — | Không còn trong v1.2; vẫn áp dụng (D90, GBR-89). |
+| BR-D32 | Fixed purpose type | BR-D27 |  |
+| BR-D33 | Health case status | BR-D28 | Tên v1.2: Health case outcome. |
+| BR-D34 | Unique voucher codes | BR-D29 |  |
+| BR-D35 | One open exit line per cattle | BR-D30 |  |
+| BR-D36 | Non-negative feed stock | BR-D31 |  |
+| BR-D37 | One feeding record per session | BR-D32 |  |
+| BR-D38 | One effective ration per pen | BR-D33 |  |
+| BR-D39 | Payments within total | BR-D34 |  |
