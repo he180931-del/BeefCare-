@@ -1,0 +1,182 @@
+{
+  "version": "system-test-v1",
+  "purpose": "Cross-feature System Test package built from the QA baseline and Integration fixtures",
+  "branch": "qa/integration-seed-standardization",
+  "source_artifacts": [
+    "seed/baseline-manifest.json",
+    "seed/scenario-fixture-manifest.json",
+    "docs/testing/integration-tests/BeefCare_Integration_Normalized_v1.xlsx",
+    "docs/testing/integration-tests/INTEGRATION_HANDOFF_PACKAGE.md",
+    "docs/testing/integration-tests/step-8-qa-clean-db-check.md"
+  ],
+  "runtime": {
+    "database": "beefcare_qa",
+    "database_url": "jdbc:postgresql://localhost:15433/beefcare_qa",
+    "backend_url": "http://127.0.0.1:8080",
+    "database_scope": "Disposable QA database only",
+    "status": "blocked_until_QA_runtime_is_available"
+  },
+  "run_order": [
+    "ST-01",
+    "ST-02",
+    "ST-03",
+    "ST-04",
+    "ST-05",
+    "ST-06"
+  ],
+  "reset_policy": {
+    "before_suite": "Reset the disposable QA database, then start the backend against beefcare_qa.",
+    "between_flows": "Reset between flows that mutate the same cattle, payment, voucher or role state.",
+    "idempotency": "Baseline writes use baseline-* and scenario writes use scenario-<fixture_id>-*.",
+    "readback": "Record stable keys, IDs, status, version, farm ownership and derived reminders after each mutation.",
+    "production_write": false,
+    "sql_write": false
+  },
+  "flows": [
+    {
+      "id": "ST-01",
+      "name": "Account to farm herd dashboard",
+      "source_case_prefixes": ["FE01-INT-", "FE02-INT-", "FE05-INT-", "FE15-INT-"],
+      "features": ["FE-01", "FE-02", "FE-05", "FE-15"],
+      "fixture_dependencies": ["scn-fe01-auth-lifecycle-v1", "scn-fe15-report-snapshot-v1"],
+      "entry_data": ["disposable test mailbox", "new owner account", "Farm A baseline memberships", "QA-A and QA-B pens"],
+      "steps": [
+        "Create or reuse the disposable verified owner account.",
+        "Register or select the QA farm and confirm the Owner membership.",
+        "Read the baseline cattle and pen context.",
+        "Open the dashboard and a herd report for the selected period."
+      ],
+      "expected_readback": [
+        "Owner sees only the selected farm context.",
+        "Baseline cattle and pen counts match the normalized fixture readback.",
+        "Dashboard and report rows use the same farm and date filters.",
+        "No subscription or payment record is created by farm registration."
+      ],
+      "reset_boundary": "Reset after the account and farm lifecycle because the flow changes identity state.",
+      "status": "planned_blocked_on_auth_runtime"
+    },
+    {
+      "id": "ST-02",
+      "name": "Care event to herd exit",
+      "source_case_prefixes": ["FE09-INT-", "FE10-INT-", "FE13-INT-", "FE15-INT-"],
+      "features": ["FE-09", "FE-10", "FE-13", "FE-15"],
+      "fixture_dependencies": ["scn-fe09-care-case-v1", "scn-fe10-growth-correction-v1", "scn-fe13-exit-permission-v1"],
+      "entry_data": ["QA-TAG-001", "QA-BL-F-ADULT", "QA-BL-QUAR", "Owner and Manager memberships"],
+      "steps": [
+        "Create a health case and treatment for one active animal.",
+        "Record and correct a growth measurement for the same animal.",
+        "Read the recalculated health, withdrawal and growth state.",
+        "Create and confirm an exit voucher as Owner.",
+        "Open the dashboard or report after the exit."
+      ],
+      "expected_readback": [
+        "Only VALID care and growth records affect current indicators.",
+        "The exit closes the open pen assignment and removes the animal from active totals.",
+        "The report reflects the exit date and excludes the animal after that date.",
+        "Manager and Technician access follows the role contract."
+      ],
+      "reset_boundary": "Reset after the flow because exit changes cattle status, pen assignment and derived reports.",
+      "status": "planned_blocked_on_health_and_exit_api_contracts"
+    },
+    {
+      "id": "ST-03",
+      "name": "Reproduction to calving and reminders",
+      "source_case_prefixes": ["FE11-INT-", "FE12-INT-", "FE14-INT-", "FE15-INT-"],
+      "features": ["FE-11", "FE-12", "FE-14", "FE-15"],
+      "fixture_dependencies": ["scn-fe11-reproduction-v1", "scn-fe12-calving-v1", "scn-fe14-reminder-lifecycle-v1", "scn-fe15-report-snapshot-v1"],
+      "entry_data": ["QA-BL-F-BREED", "QA-BL-M-SIRE", "QA-BL-CALF", "breeding parameters"],
+      "steps": [
+        "Record estrus and breeding for the baseline breeding female.",
+        "Record a pregnancy check and confirm the pregnancy episode.",
+        "Record calving with a live calf outcome.",
+        "Read the reminder list and reproduction report."
+      ],
+      "expected_readback": [
+        "Reproductive status transitions follow the valid event order.",
+        "Expected calving and post-calving reminders use the configured dates.",
+        "The registered calf has the expected life stage, dam link and pen.",
+        "The report counts valid breeding, pregnancy and calving events once."
+      ],
+      "reset_boundary": "Reset after the flow because reproduction events and reminders are date-sensitive and stateful.",
+      "status": "planned_blocked_on_source_review_and_reproduction_api_contracts"
+    },
+    {
+      "id": "ST-04",
+      "name": "Feed receipt to feeding reminder and report",
+      "source_case_prefixes": ["FE14-INT-", "FE15-INT-", "FE23-INT-"],
+      "features": ["FE-14", "FE-15", "FE-23"],
+      "fixture_dependencies": ["scn-fe14-reminder-lifecycle-v1", "scn-fe15-report-snapshot-v1", "scn-fe23-feed-lifecycle-v1"],
+      "entry_data": ["TA-90", "TA-91", "TA-92", "QA-baseline-supplier-primary", "QA-A"],
+      "steps": [
+        "Read the baseline stock and low-stock reminder.",
+        "Post a feed receipt and verify stock movement.",
+        "Create an effective ration for QA-A.",
+        "Record a feeding session and refresh reminders.",
+        "Read the feed and management reports."
+      ],
+      "expected_readback": [
+        "Posted receipt increases stock and leaves a traceable supplier and invoice.",
+        "The ration covers the feeding date and session.",
+        "The feeding record is VALID and reduces stock exactly once.",
+        "REM-10 and REM-11 resolve or reappear according to the resulting stock and session state.",
+        "Report totals use the same receipt, ration and feeding records."
+      ],
+      "reset_boundary": "Reset after the flow because receipt, ration and feeding mutations affect stock and reminders.",
+      "status": "planned_existing_helper_runtime_unverified"
+    },
+    {
+      "id": "ST-05",
+      "name": "Role change to announcement and support notification",
+      "source_case_prefixes": ["FE03-INT-", "FE07-INT-", "FE14-INT-", "FE17-INT-", "FE20-INT-"],
+      "features": ["FE-03", "FE-07", "FE-14", "FE-17", "FE-20"],
+      "fixture_dependencies": ["scn-fe07-announcement-lifecycle-v1"],
+      "entry_data": ["Owner, Manager, Technician and support actors", "active Farm A membership", "announcement recipient snapshot"],
+      "steps": [
+        "Change a member role or active state and read the audit record.",
+        "Create and publish a named-recipient announcement.",
+        "Apply a correction and read the original recipient snapshot.",
+        "Open the recipient notification and mark it read.",
+        "Verify support or platform access with the changed role."
+      ],
+      "expected_readback": [
+        "The role change applies from the next request and has an audit record.",
+        "The announcement has one immutable published version per correction.",
+        "Only the original eligible recipients receive the correction.",
+        "Notification read state is isolated per recipient.",
+        "Unauthorized farm or platform access is rejected."
+      ],
+      "reset_boundary": "Reset after the flow because membership and notification state affect later permissions.",
+      "status": "planned_existing_announcement_helper_runtime_unverified"
+    },
+    {
+      "id": "ST-06",
+      "name": "Payment evidence to cash and service reports",
+      "source_case_prefixes": ["FE19-INT-", "FE21-INT-", "FE14-INT-", "FE15-INT-"],
+      "features": ["FE-19", "FE-21", "FE-14", "FE-15"],
+      "fixture_dependencies": ["scn-fe19-payment-lifecycle-v1", "scn-fe14-reminder-lifecycle-v1", "scn-fe15-report-snapshot-v1"],
+      "entry_data": ["QA-baseline-stock outstanding balance", "Owner and Manager actors", "QA-baseline-supplier-primary"],
+      "steps": [
+        "Create a payment request or payable with a deterministic reference.",
+        "Attach or read back the bank transaction evidence.",
+        "Confirm or void the payment according to the selected case.",
+        "Read the service state, notification and cash report."
+      ],
+      "expected_readback": [
+        "A payment evidence row is stored once by its reference.",
+        "Only an eligible payment changes the service state.",
+        "Voided payments remain in history and are excluded from new snapshots.",
+        "Owner and Manager report permissions match the feature contract.",
+        "Notification links target the correct payment or reconciliation record."
+      ],
+      "reset_boundary": "Reset after the flow because payment and subscription state changes report snapshots and access.",
+      "status": "planned_blocked_on_payment_api_contract"
+    }
+  ],
+  "current_blockers": [
+    "Docker API permission denied for dockerDesktopLinuxEngine",
+    "QA database port 15433 and backend port 8080 are closed",
+    "Required private BEEFCARE_* variables were unset in the latest check",
+    "FE09-INT-16 and FE09-INT-17 still need source-owner UC confirmation",
+    "Health, exit and payment fixture writers need current API contract confirmation"
+  ]
+}

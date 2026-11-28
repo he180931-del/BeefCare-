@@ -1,0 +1,6 @@
+﻿file,member_or_scope,format,size_bytes,sheets,sheet_names,integration_case_count,first_case,last_case,status_counts,read_status
+BeefCare_Report5.2_Integration_Test_Tai.xlsx,Tai,.xlsx,62534,10,Cover | Test Cases | Test Statistics | FE07_Announcements | ConditionAnalysis-Publish | TestDesign-Publish | FE14_Reminders | FE15_Reports | FE23_Feed | MessageList,70,FE07-INT-01,FE23-INT-38,Pending=70,readable
+BeefCare_Report5.2_Integration_Test_UI_FE02_FE03_FE17_FE19.xlsx,Team,.xlsx,72555,8,Cover | Test Cases | Test Statistics | FE02_FarmService | FE03_MembersAccess | FE17_PlatformAudit | FE19_Subscription | MessageList,86,FE02-INT-01,FE19-INT-24,Pending=86,readable
+BeefCare_Report5.2_Integration_Test_UI_FE04_FE05_FE06_FE13_FE16_FE18.xlsx,Team,.xlsx,93253,10,Cover | Test Cases | Test Statistics | FE04 | FE05 | FE06 | FE13 | FE16 | FE18 | MessageList,115,FE04-INT-01,FE18-INT-16,,readable
+BeefCare_Report5_2_Integration_Test_UI_FE01_FE20_FE21_FE22.xlsx,Lam,.xlsx,9231969,8,Cover | Test Cases | Test Statistics | FE-01 | FE-20 | FE-21 | FE-22 | MessageList,106,FE01-INT-01,FE22-INT-09,Failed=9 | N/A=5 | Passed=92,readable
+BeefCare_Report5_2_Integration_Test_UI_FE08_FE12.xlsx,Team,.xlsx,689375,9,Cover | Test Cases | Test Statistics | FE-08 | FE-09 | FE-10 | FE-11 | FE-12 | MessageList,70,FE08-INT-01,FE12-INT-14,Pending=70,readable
