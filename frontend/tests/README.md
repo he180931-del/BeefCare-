@@ -17,4 +17,4 @@ Scripts, run from `frontend/`:
   convenience aggregate, not a complete integration gate.
 
 To test one feature, pass its folder: `./node_modules/.bin/vitest run --passWithNoTests tests/unit/<feature>`.
-Test stages and the full integration command are in `docs/agent-context/VERIFICATION.md`.
+Test stages and the full integration command are in `docs/testing/COMMANDS.md`.

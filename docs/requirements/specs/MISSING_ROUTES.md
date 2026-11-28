@@ -29,9 +29,9 @@ Tổng: 18 mục.
 | FE-14 | A4 | Trang chủ Technician | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/technician-home` (hoặc ghép A1 + FE-07 + A3) | TaiDX | Chưa làm |
 | FE-14 | A8 | Số chưa đọc (chuông) | Chưa có riêng – đề xuất `GET /api/notifications/unread-count` | TaiDX | Chưa làm |
 | FE-15 | A3 | Đóng panel Bắt đầu | `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` | TaiDX | Đã có trong code và OpenAPI (D84) |
-| FE-17 | A3 | Danh sách mã hành động | `GET /api/platform/audit/actions` (D34) | DucNV | Đã có (UC-FE17-01, D34); bằng chứng và giới hạn: docs/reviews/FE17_UC01_REVIEW.md; chưa READY_FOR_FE |
+| FE-17 | A3 | Danh sách mã hành động | `GET /api/platform/audit/actions` (D34) | DucNV | Đã có (UC-FE17-01, D34); bằng chứng và giới hạn: 879cf0f7^:docs/reviews/FE17_UC01_REVIEW.md; chưa READY_FOR_FE |
 | FE-18 | A7 | Kiểm trước khi ngưng | Chưa có riêng – trả `referencedCount` trong view A2, A3, A5, A6 | AnNT | Chưa làm |
-| FE-19 | A14 | Rút phiên bản đã lên lịch | `POST /api/platform/plan-prices/{version}/withdraw` (D23) | DucNV | Đã có (UC7, D23); bằng chứng và giới hạn: docs/reviews/FE19_UC07_REVIEW.md; chưa READY_FOR_FE |
+| FE-19 | A14 | Rút phiên bản đã lên lịch | `POST /api/platform/plan-prices/{version}/withdraw` (D23) | DucNV | Đã có (UC7, D23); bằng chứng và giới hạn: 879cf0f7^:docs/reviews/FE19_UC07_REVIEW.md; chưa READY_FOR_FE |
 | FE-23 | A5 | Bỏ nháp phiếu nhập | Chưa có – đề xuất `DELETE …/feed/receipts/{receiptId}` | TaiDX | Chưa làm |
 | FE-23 | A10 | Hủy phiên bản lên lịch / dừng khẩu phần | Chưa có – đề xuất `POST …/feed/rations/{rationId}/versions/{v}/cancel` · `POST …/feed/rations/{rationId}/stop` | TaiDX | Chưa làm |
 | FE-23 | A12 | Dữ liệu mở popup (kế hoạch theo chuồng, bữa) | `GET /api/farms/{farmId}/feed/feeding-records/plan` | TaiDX | Đã có trong code và OpenAPI (D85) |
@@ -58,8 +58,8 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-09 | Tiêm phòng | Lựa chọn cho form, danh sách mũi, xem trước đối tượng và kế hoạch, ngữ cảnh ghi nhận | | TuanPQ |
 | FE-10 | Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server | TuanPQ |
 | FE-18 | Danh mục | Lọc `q`, `status` cho vắc-xin và thuốc | `CatalogueItem` thiếu số lượng đang dùng; `ParameterVersionResult` thiếu `sourceNote`, `savedBy`, nội dung thay đổi; command thiếu `expectedVersion` | AnNT |
-| FE-19 | Gói dịch vụ (Owner) | | UC-02: Request cần `expectedPriceVersionId` (GBR-70); UC-02/03: `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`, danh sách thanh toán thiếu lọc và sắp xếp. UC-01 đã bổ sung đủ dữ liệu SCR-57 trong working tree 09/11/2026; trạng thái kiểm chứng / chưa bàn giao bản tích hợp xem `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
-| FE-19 | PM dịch vụ | | UC7 (D23): bỏ Lưu nháp bảng giá nên không cần route nháp; rút phiên bản đã lên lịch dùng A14 `POST /api/platform/plan-prices/{version}/withdraw`; BE_REVIEWED local, chưa READY_FOR_FE (`docs/reviews/FE19_UC07_REVIEW.md`). UC5 đọc SCR-62 (D18) và UC6 đối soát (D19) đã có backend: quyết định/khóa/ghi hoàn trả/mở khóa có `Idempotency-Key`, tra cứu SePay theo mã và `GET /api/platform/payments/lookup` theo khoảng; BE_REVIEWED local, chưa READY_FOR_FE. Xem `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` | DucNV |
+| FE-19 | Gói dịch vụ (Owner) | | UC-02: Request cần `expectedPriceVersionId` (GBR-70); UC-02/03: `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`, danh sách thanh toán thiếu lọc và sắp xếp. UC-01 đã bổ sung đủ dữ liệu SCR-57 trong working tree 09/11/2026; trạng thái kiểm chứng / chưa bàn giao bản tích hợp xem `879cf0f7^:docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
+| FE-19 | PM dịch vụ | | UC7 (D23): bỏ Lưu nháp bảng giá nên không cần route nháp; rút phiên bản đã lên lịch dùng A14 `POST /api/platform/plan-prices/{version}/withdraw`; BE_REVIEWED local, chưa READY_FOR_FE (`879cf0f7^:docs/reviews/FE19_UC07_REVIEW.md`). UC5 đọc SCR-62 (D18) và UC6 đối soát (D19) đã có backend: quyết định/khóa/ghi hoàn trả/mở khóa có `Idempotency-Key`, tra cứu SePay theo mã và `GET /api/platform/payments/lookup` theo khoảng; BE_REVIEWED local, chưa READY_FOR_FE. Xem `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`, `879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md` | DucNV |
 | FE-20 | Hỗ trợ của Owner | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` | LamKD |
 | FE-20 | CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán | LamKD |
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |
@@ -87,7 +87,7 @@ Từ báo cáo triển khai backend và bàn giao ngày 28–29/10. Mỗi dòng 
 | FE-16 | Fixture luồng kết hợp cho bản ghi sửa đổi của sinh sản, sức khỏe, xuất đàn | AnNT |
 | FE-17 | Xuất dữ liệu bỏ theo D34 (SRS không có). Kết quả lớn: phân trang ≤ 100, index `logged_at,id` / `action,logged_at`, số câu lệnh cố định mỗi trang (H2 + PostgreSQL); chưa đo với dữ liệu lớn trên bản tích hợp. Chưa ghi audit: đổi / đặt lại mật khẩu (FE-01, LamKD), job trả ticket về hàng đợi (FE-20); mục `SUPPORT_PROCESS` ghi trước D34 không hiện trên SCR-51 | DucNV |
 | FE-18 | Lưu tham số (SCR-56) chưa gọi JOB-01 tính lại nhắc việc tương lai | AnNT |
-| FE-19 | UC8 D24 đã kiểm webhook trùng/worker đồng thời, lease/retry/rollback, khóa trại, migration và email trên H2/PostgreSQL local; còn xác minh bản tích hợp và SePay LIVE, chưa READY_FOR_FE. Bằng chứng: docs/reviews/FE19_UC08_REVIEW.md | DucNV |
+| FE-19 | UC8 D24 đã kiểm webhook trùng/worker đồng thời, lease/retry/rollback, khóa trại, migration và email trên H2/PostgreSQL local; còn xác minh bản tích hợp và SePay LIVE, chưa READY_FOR_FE. Bằng chứng: 879cf0f7^:docs/reviews/FE19_UC08_REVIEW.md | DucNV |
 | FE-20 | Ca replay qua REST / security; ánh xạ thông báo theo trường cho yêu cầu nội bộ | LamKD |
 | FE-21 | Test nội dung XLSX; race nhiều transaction | LamKD |
 | FE-22 | Quản trị nội dung trang giới thiệu (đang tĩnh); test API | LamKD |

@@ -1,6 +1,6 @@
 # Chạy BeefCare ở máy local
 
-Tài liệu này gom cách chạy local và cấu hình tích hợp (email, Google, SePay) vào một chỗ; từ 21/11/2026 thay cho `BACKEND_RUN_GUIDE.md` và `FRONTEND_RUN_GUIDE.md`. Lệnh test frontend và backend xem `docs/testing/COMMANDS.md` và `backend/AGENTS.md`; cách kiểm UI xem `docs/agent-context/VERIFICATION.md`. Bản production deploy qua `.github/workflows/production-deploy.yml` khi push lên nhánh `production` (frontend lên Vercel theo `frontend/vercel.json`), không thuộc phạm vi tài liệu này.
+Tài liệu này gom cách chạy local và cấu hình tích hợp (email, Google, SePay) vào một chỗ; từ 21/11/2026 thay cho `BACKEND_RUN_GUIDE.md` và `FRONTEND_RUN_GUIDE.md`. Lệnh test frontend và backend xem `docs/testing/COMMANDS.md` và `backend/AGENTS.md`; cách kiểm UI xem mục "UI và runtime" trong `CLAUDE.md` và "Context and visual evidence" trong `AGENTS.md`. Bản production deploy qua `.github/workflows/production-deploy.yml` khi push lên nhánh `production` (frontend lên Vercel theo `frontend/vercel.json`), không thuộc phạm vi tài liệu này.
 
 ## 1. Chuẩn bị
 
@@ -226,7 +226,7 @@ Mặc định tắt. Bật bằng `BEEFCARE_GOOGLE_ENABLED=true` cùng `SPRING_S
 - **Tài khoản nhận (bắt buộc từ UC-FE19-02):** tạo yêu cầu thanh toán cần đủ `BEEFCARE_SEPAY_BANK_CODE`, `BEEFCARE_SEPAY_ACCOUNT_NUMBER`, `BEEFCARE_SEPAY_ACCOUNT_NAME`; thiếu thì trả MSG-FE19-04 và không tạo gì. Ở local chép ba giá trị giả trong `.env.example` vào `.env` (profile `local` tự nạp `../.env`). Không dùng tài khoản thật khi môi trường là `MOCK`: QR thật có thể nhận tiền thật nhưng webhook không về được localhost. Với giá trị giả, ảnh QR không tải được và SCR-59 hiện thông tin chuyển khoản dạng chữ. Ngoài ra cần một bảng giá đang hiệu lực do PM công bố (`POST /api/platform/plan-prices`). Merchant ID / Secret Key của Cổng thanh toán SePay không dùng trong luồng này.
 - **Tra cứu giao dịch:** dùng `Authorization: Bearer <API_TOKEN>` (`BEEFCARE_SEPAY_API_TOKEN`), giữ token ở server, timeout có giới hạn (`BEEFCARE_SEPAY_API_TIMEOUT`, mặc định 5s). Đổi tài khoản nhận thì đặt namespace mới; báo giá cũ giữ nguyên môi trường, namespace và tài khoản lúc tạo.
 - **Job:** JOB-03 cho yêu cầu thanh toán hết hạn mỗi 5 phút; JOB-04 tính bao phủ mỗi 15 phút, giữ SUSPENDED. Cả xác nhận/JOB-04 khóa trại trước khi đọc subscription. JOB-06 đọc queue mỗi giây (`beefcare.sepay.processing-delay-ms`, test gọi chủ động), lease 2 phút, retry 1/5/15 phút rồi mỗi giờ đến 24h từ lỗi đầu; hết hạn chuyển lỗi kỹ thuật cho PM, không mất chứng từ/ghi đè quyết định. D20 vẫn không báo đối soát chiều ra. Giờ ngân hàng trong cửa sổ gốc vẫn nhận EXPIRED đến muộn. Simulator/API-03 dùng cùng processor và giữ kết quả thành công ngay: job được giữ lease cho chính request ngay trong commit lưu, nên JOB-06 không lấy chen vào; lỗi sau lưu còn job retry. Thanh toán PAID ghi một email intent trong queue hiện có; dispatcher gửi tiếng Việt cho Owner hiện tại, retry độc lập ≤ 24h, không rollback tiền/cấp kỳ và không bật consumer outbox của feature khác.
-- **Cấu hình SePay khi triển khai:** chọn JSON và HMAC; bật gửi lại khi HTTP ngoài 2xx ở phía SePay. Retry giao webhook của nhà cung cấp độc lập với retry JOB-06 sau khi BeefCare đã lưu. Kiểm chứng ở `docs/reviews/FE19_UC08_REVIEW.md` là MOCK/PostgreSQL/Mailpit, không phải LIVE.
+- **Cấu hình SePay khi triển khai:** chọn JSON và HMAC; bật gửi lại khi HTTP ngoài 2xx ở phía SePay. Retry giao webhook của nhà cung cấp độc lập với retry JOB-06 sau khi BeefCare đã lưu. Kiểm chứng ở `879cf0f7^:docs/reviews/FE19_UC08_REVIEW.md` là MOCK/PostgreSQL/Mailpit, không phải LIVE.
 - **VietQR:** ảnh QR tạo từ ảnh chụp tài khoản, số tiền và nội dung của yêu cầu thanh toán, ví dụ `https://qr.sepay.vn/img?acc=...&bank=...&amount=...&des=...` hoặc `https://new.vietqr.app/img`.
 - Đọc tài liệu gốc trước khi bật adapter thật: [xác thực webhook](https://developer.sepay.vn/en/sepay-webhooks/xac-thuc), [payload webhook](https://docs.sepay.vn/tich-hop-webhooks.html), [API giao dịch](https://docs.sepay.vn/api-giao-dich.html), [tạo QR](https://developer.sepay.vn/vi/tien-ich-khac/tao-qr-code). Các link này là tài liệu tham khảo, không phải cho phép gọi tài khoản thật.
 
@@ -256,5 +256,6 @@ Google OIDC, SMTP thật và SePay LIVE chưa được cấu hình và kiểm th
 # Windows agent and 9Router workflow
 
 For Codex agent shell provisioning, 9Router, Agent Follow, GitNexus on the
-Vietnamese Windows path, and focused frontend verification, use
-[Windows agent workflow](agent-context/WINDOWS_AGENT_WORKFLOW.md).
+Vietnamese Windows path, and focused frontend verification, the earlier guide
+was removed with the agent-context folder; read it with
+`git show cc64a5ba:docs/agent-context/WINDOWS_AGENT_WORKFLOW.md`.

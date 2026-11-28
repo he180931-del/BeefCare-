@@ -91,6 +91,7 @@ export default function OverviewTab({ cow, barns = {}, canWrite, onOpenModal, re
   const code = encodeURIComponent(cow.code)
   const backend = localCattleList === null
   const entryCode = typeof cow.entryVoucherCode === 'string' ? cow.entryVoucherCode : ''
+  const entrySourceText = String(cow.source ?? '').replace(` · ${entryCode}`, '')
   const entryId = typeof cow.entryId === 'number' && Number.isInteger(cow.entryId) && cow.entryId > 0 ? cow.entryId : undefined
   const canEditEntry = canWrite && cow.status === 'ACTIVE' && !cow.exitPending && (backend ? Boolean(entryCode && entryId != null) : Boolean(cow.importRecord))
   const quarantine = cow.entrySource === 'EXTERNAL' && typeof cow.quarantineUntil === 'string' && cow.quarantineUntil >= businessDate()
@@ -121,7 +122,11 @@ export default function OverviewTab({ cow, barns = {}, canWrite, onOpenModal, re
     ['Mã hiển thị', cow.code],
     ['Số thẻ tai', cow.tag || 'Gắn tai sau'],
     ['Giới tính', cow.sex],
-    ['Nguồn nhập đàn', cow.source],
+    // FE-05 SCR-22 #10 (DEF-ST-03): the entry voucher code opens the voucher detail (SCR-75).
+    ['Nguồn nhập đàn', entryCode ? <span key="src">
+      {entrySourceText && entrySourceText !== '—' && entrySourceText !== entryCode ? `${entrySourceText} · ` : ''}
+      <Button variant="link" small className="leading-[normal]" onClick={() => nav(`/herd-entry/${encodeURIComponent(entryCode)}`)}>{entryCode}</Button>
+    </span> : cow.source],
     ['Mẹ', cow.damCode ? <Button key="dam" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.damCode))}`)}>{String(cow.damCode)}</Button> : cow.mother],
     ['Bố', cow.sireCode ? <Button key="sire" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.sireCode))}`)}>{String(cow.sireCode)}</Button> : cow.father],
     ['Tên gọi', cow.name],

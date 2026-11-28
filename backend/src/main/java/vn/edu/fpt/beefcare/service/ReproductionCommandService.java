@@ -29,7 +29,7 @@ import vn.edu.fpt.beefcare.service.dto.ReproductionDtos;
 
 /**
  * FE-11 (A3–A6) and FE-12 (A2–A8) commands. Events keep the occurrence and the recording metadata apart (GBR-49);
- * corrections never orphan or contradict later records (MSG-FE11-07, GBR-59). Decisions P1–P7: docs/agent-context/FE-11-12-progress.md.
+ * corrections never orphan or contradict later records (MSG-FE11-07, GBR-59). Decisions P1–P7: D36 in docs/REQUIREMENT_DECISIONS.md.
  */
 @Service
 public class ReproductionCommandService {

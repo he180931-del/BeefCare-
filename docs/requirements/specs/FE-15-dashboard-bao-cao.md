@@ -6,7 +6,7 @@
 | Use case | UC-FE15-01, UC-FE15-02 |
 | Người phụ trách | TaiDX (BE + FE + test) · Review BE: DucNV · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part III §15 (Table III-4 M01 → M09, A01 → A04; Table III-5 RPT-01 → RPT-07; SCR-48, SCR-49), MSG-FE15, GBR-24, 39, 65, 66, 105, 106, 107 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Quy tắc nghiệp vụ theo SRS 28/10 và các quyết định được dẫn trong từng mục. D84 bổ sung hành vi giao diện và in báo cáo.
 > FE-15 **không có đặc tả Part II**; luồng suy từ Part III + GBR (Q1).

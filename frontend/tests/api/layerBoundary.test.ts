@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { buildSourceGraph, routeLoaderViolations, routeTableViolations, type ImportEdge } from './support/importGraph'
 
-// docs/frontend-refactor-guide.md §2: `shared` is neutral infrastructure, `app` composes features through their
+// Layer rule: `shared` is neutral infrastructure, `app` composes features through their
 // public `index.ts`. These checks keep the phase-1 layers from drifting back.
 const srcDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../src')
 

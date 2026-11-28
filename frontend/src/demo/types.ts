@@ -1,6 +1,6 @@
 import type { CattleCode } from '../features/cattle/types'
 
-// Shared by Herd Entry and Herd Exit: owner not decided yet (docs/frontend-refactor-guide.md §6.3, §13 item 2).
+// Shared by Herd Entry and Herd Exit: owner not decided yet.
 export interface CattleDetail {
   code?: CattleCode
   tag?: string

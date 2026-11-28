@@ -3,7 +3,7 @@
 **Date:** 2026-11-23
 
 **Status:** Approved implementation scope derived from the completed FE-01 audit
-**Sources:** `docs/REQUIREMENT_DECISIONS.md` (D05–D07, D12, D34/K12, D49, D56–D57), `docs/requirements/SRS_2026-10-28.txt` (NFR-S04–S06, GBR-01–03), `docs/requirements/specs/FE-01-xac-thuc-tai-khoan.md`, `docs/api/openapi.json`, current backend/frontend implementation and tests.
+**Sources:** `docs/REQUIREMENT_DECISIONS.md` (D05–D07, D12, D34/K12, D49, D56–D57), SRS 28/10 (NFR-S04–S06, GBR-01–03; replaced by `docs/requirements/SRS_Report3_v1.2.txt` under D90, old copy via `git show cc64a5ba:docs/requirements/SRS_2026-10-28.txt`), `docs/requirements/specs/FE-01-xac-thuc-tai-khoan.md`, `docs/api/openapi.json`, current backend/frontend implementation and tests.
 
 ## 1. Goal
 

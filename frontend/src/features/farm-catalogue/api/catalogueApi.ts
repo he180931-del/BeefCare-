@@ -103,10 +103,16 @@ const PARAMETER_LABEL = Object.fromEntries(PARAMETER_FIELDS.map((f) => [f.key, f
  * Backend field errors shown under the field like the local validation (FieldErrors): MSG-FE18-02 duplicate code,
  * MSG-FE18-06 parameter range, MSG-FE18-09 purpose type, MSG-COM-06 / -10 on a named field. Others stay form errors.
  */
-export function fieldErrorsOf(error: unknown): FieldErrors | null {
+export function fieldErrorsOf(error: unknown, codeLabel = 'Mã'): FieldErrors | null {
   if (!(error instanceof BackendError)) return null
   const p = error.params ?? {}
   const fields: FieldErrorMap = {}
+  // DEF-ST-01: bean validation (400 error.validation) names the fields in fieldErrors, not in params.
+  for (const item of error.fieldErrors ?? []) {
+    const field = String(item.field ?? '').replace(/^parameters\./, '')
+    const key: string = FRONT_KEY[field] ?? field
+    if (key && !fields[key]) fields[key] = key === 'code' ? `${codeLabel} gồm 2–20 ký tự: chữ in hoa, số và "-".` : 'Giá trị không hợp lệ.'
+  }
   if (error.code === 'MSG-FE18-02') fields.code = `Mã ${String(p.code ?? '')} đã tồn tại trong danh mục này.`
   else if (error.code === 'MSG-FE18-09') fields.purposeType = `Không thể đổi loại mục đích vì mục đích này đang được ${String(p.count ?? '')} con bò hoặc tiêu chí chuồng sử dụng.`
   else if (error.code === 'MSG-FE18-06') {
@@ -120,8 +126,8 @@ export function fieldErrorsOf(error: unknown): FieldErrors | null {
   return Object.keys(fields).length ? new FieldErrors(fields) : null
 }
 
-const withFieldErrors = async <T>(job: () => Promise<T>): Promise<T> => {
-  try { return await job() } catch (error) { throw fieldErrorsOf(error) ?? error }
+const withFieldErrors = async <T>(job: () => Promise<T>, codeLabel?: string): Promise<T> => {
+  try { return await job() } catch (error) { throw fieldErrorsOf(error, codeLabel) ?? error }
 }
 const query = (filters: CatalogueFilters) => {
   const params = new URLSearchParams()
@@ -164,7 +170,7 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
     async listBreeds(filters: CatalogueFilters = {}) { return asRows(await transport.get(path(`/catalogues/breeds${query(filters)}`))).map(mapBreed) },
     saveBreed: (id: number | null, c: BreedCommand) => withFieldErrors(async () => mapBreed(asRecord(await save('/catalogues/breeds', id, {
       code: c.code.trim(), name: c.name.trim(), group: c.group.trim() || null, description: c.description.trim() || null, available: c.available, expectedVersion: c.expectedVersion,
-    })))),
+    }))), 'Mã giống'),
 
     // A3, A4: GET /vaccines (lọc q/status ở đây) · POST / PUT · DELETE vắc-xin chưa dùng
     async listVaccines(filters: CatalogueFilters = {}) { return filterLocal(asRows(await transport.get(path('/vaccines'))).map(mapVaccine), filters, (v) => v.diseasePrevented) },

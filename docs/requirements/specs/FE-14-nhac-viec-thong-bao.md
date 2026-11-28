@@ -6,7 +6,7 @@
 | Use case | UC-FE14-01 → UC-FE14-04 |
 | Người phụ trách | TaiDX (BE + FE + test, gồm JOB-01, JOB-07) · Review BE: DucNV · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Reminder, Notification), BR-D22, Part III §14 (Table III-3 REM-01 → REM-13, SCR-44, SCR-74, SCR-45 → SCR-47), MSG-FE14, GBR-25, 49, 53, 63, 64, 66, 81, 107; JOB-01, JOB-07 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
 > FE-14 **không có đặc tả Part II**; luồng dưới đây suy từ Part III và GBR (xem Q1).

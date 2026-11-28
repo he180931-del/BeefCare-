@@ -6,7 +6,7 @@
 | Use case | UC-FE13-01 → UC-FE13-04 |
 | Người phụ trách | AnNT (BE + FE + test) · Review BE: TuanPQ · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Herd Exit Voucher, Herd Exit, Voucher Payment), §3.3 (BR-D09, 11, 34, 35, 39), §3.4.6 (Table 3.4-6), Part II §13, Part III §13 (SCR-41 → SCR-43, SCR-76, 2 popup + popup Ghi thanh toán dùng chung), MSG-FE13, GBR-07, 26, 34 → 36, 46, 91, 92, 94, 95, 97; REM-12, REM-13 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 04 (Xuất đàn).
 > Popup **Ghi thanh toán** (ở đây là "Ghi thu tiền") dùng chung, mô tả đầy đủ trong spec FE-06 §6.

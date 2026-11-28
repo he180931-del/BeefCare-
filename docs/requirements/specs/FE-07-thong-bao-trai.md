@@ -6,7 +6,7 @@
 | Use case | UC-FE07-01 → UC-FE07-04 |
 | Người phụ trách | TaiDX (BE + FE + test) · Review BE: DucNV · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Farm Announcement, Announcement Version, Announcement Delivery, Notification), §3.3 (BR-D21), Part II §7, Part III §7 (SCR-26 → SCR-28, popup Xem lại & đăng), MSG-FE07, GBR-60 → 62, 64; JOB-07 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 05.
 

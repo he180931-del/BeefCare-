@@ -14530,6 +14530,9 @@
           "buyer" : {
             "$ref" : "#/components/schemas/Ref"
           },
+          "buyerPhone" : {
+            "type" : "string"
+          },
           "destination" : {
             "type" : "string"
           },

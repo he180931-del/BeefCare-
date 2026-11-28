@@ -17,7 +17,8 @@ type WorkflowArgs<T extends { code: string }> = {
   documents: File[]
   formSnapshot: () => string
   buildDraftRecord: () => Partial<HerdExit>
-  beforeSave?: () => boolean
+  /** 'draft' = Lưu nháp (incomplete data allowed), 'check' = save and review before confirming. */
+  beforeSave?: (mode: 'draft' | 'check') => boolean
 }
 
 export function useExitWorkflow<T extends { code: string }>({ baseId, initialSavedId = '', initialRecord, picked, documents, formSnapshot, buildDraftRecord, beforeSave }: WorkflowArgs<T>) {
@@ -49,7 +50,7 @@ export function useExitWorkflow<T extends { code: string }>({ baseId, initialSav
   const cattleRows = picked.map((cow) => ({ ...cow, barn: (cow as T & { barn?: string }).barn }))
 
   const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current || beforeSave?.()) return
+    if (savingRef.current || beforeSave?.('check')) return
     const revision = formRevision.current
     const savedSnapshot = formSnapshot()
     const current = () => isWorkflowCurrent(revision, savedSnapshot, formRevision.current, formSnapshot())
@@ -77,7 +78,7 @@ export function useExitWorkflow<T extends { code: string }>({ baseId, initialSav
   }
 
   const saveDraft = async () => {
-    if (savingRef.current || beforeSave?.()) return
+    if (savingRef.current || beforeSave?.('draft')) return
     savingRef.current = true
     setConfirmError(null)
     try {

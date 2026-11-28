@@ -7,7 +7,9 @@ import { GrowthTechnicianTab } from '../../growth'
 import { VaccinationTechnicianTab } from '../../vaccination'
 import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
-import { Chip, Fields, Panel, chipIcon } from './parts'
+import { Chip, Collapsible, Fields, Panel, chipIcon } from './parts'
+import BarnsTab, { barnNote } from './BarnsTab'
+import type { Pen } from '../../pen-management'
 import type { CattleViewModel as CowSeed } from '../types'
 import CowPhoto from './CowPhoto'
 
@@ -19,7 +21,7 @@ const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['health', 'Sức khỏe', 'stethoscope'],
   ['repro', 'Sinh sản', 'dna'],
 ]
-function Overview({ cow }: { cow: CowSeed }) {
+function Overview({ cow, barns }: { cow: CowSeed; barns: Record<string, Pen> }) {
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE') || cow.qrHistory[0]
   return (
     <>
@@ -41,6 +43,10 @@ function Overview({ cow }: { cow: CowSeed }) {
           ]}
         />
       </Panel>
+      {/* D79 / SCR-20 (DEF-ST-08): the technician also reads the pen history, without the move action. */}
+      <Collapsible title="Lịch sử chuồng" note={barnNote(cow, barns)}>
+        <BarnsTab cow={cow} barns={barns} canWrite={false} onOpenModal={() => undefined} />
+      </Collapsible>
     </>
   )
 }
@@ -57,7 +63,7 @@ export default function TechnicianProfile() {
   const sub = cow ? [cow.name && `“${cow.name}”`, cow.breed, cow.sex, cow.barn && `Chuồng ${cow.barn}`].filter(Boolean).join(' · ') : undefined
 
   const views: Record<string, JSX.Element | null> = cow ? {
-    '': <Overview cow={cow} />,
+    '': <Overview cow={cow} barns={Object.fromEntries((data?.barns ?? []).map((b) => [b.code, b]))} />,
     timeline: <TimelineTab cow={cow} />,
     growth: <GrowthTechnicianTab cattleCode={cow.code} />,
     vaccine: <VaccinationTechnicianTab cattleCode={cow.code} />,
