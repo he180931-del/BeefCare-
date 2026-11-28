@@ -6,7 +6,7 @@
 | Use case | UC-FE16-01 |
 | Người phụ trách | AnNT (BE + FE + test) · Review BE: TuanPQ · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 J (Record Revision), Part III §16 (SCR-50), MSG-FE16-01, GBR-26, GBR-37; Business flow bước 10 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
 > FE-16 **không có đặc tả Part II**; luồng suy từ Part III + GBR-37 (Q1).

@@ -6,7 +6,7 @@
 | Use case | UC-FE23-01 → UC-FE23-11 |
 | Người phụ trách | TaiDX (BE + FE + test) · Review BE: DucNV · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Feed Item, Feed Receipt + Line, Stock Adjustment + Line, Ration + Component, Feeding Record + Line, Stock Movement), BR-D15, 34, 36 → 39, Part II §18 (UC-FE23-02, 06, 08, 09), Part III §23 (SCR-77 → SCR-86, 2 popup + popup Ghi thanh toán dùng chung), MSG-FE23-01 → 20, GBR-14, 63, 66, 91, 97 → 105, 109; REM-10, REM-11 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
 > Popup **Ghi thanh toán** dùng chung, mô tả đầy đủ trong spec FE-06 §6.

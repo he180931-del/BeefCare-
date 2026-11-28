@@ -6,18 +6,15 @@ Backend đã có phần lớn feature. Công việc là tự đọc lại source
 
 **Feature để chia người; use case để chia việc; business rule để xác định đúng/sai; API là giao diện; test là bằng chứng.** Trong scope của mình, hoàn thiện và bàn giao từng UC hoặc cụm UC phụ thuộc nhỏ. Ví dụ nhập đàn: tạo/ghi sổ + xem lại phiếu và đàn là một lát cắt dùng được; không bàn giao một POST chưa có cách đọc kết quả.
 
-Hai tài liệu thao tác nằm từ gốc repo:
-
-- `docs/backend-workflow.html`: tab workflow 1→7 và tab scope riêng của 4 người BE.
-- `docs/api-handoff.html`: toàn bộ operations trong contract; input/output/schema, UC/BR gợi ý, code snapshot, ghi chú per-field; tab API đã kiểm chứng và bằng chứng bàn giao.
+Contract API: `docs/api/openapi.json` (sinh từ code) và `docs/api/README.md`. Scope 4 người BE ghi ở mục "Những điều cần giữ" bên dưới; bằng chứng bàn giao ghi trong mô tả PR theo mục "Kết quả tối thiểu để bàn giao".
 
 Cách chạy DB, backend và tài khoản seed: `docs/LOCAL_SETUP.md`. Phần backend còn thiếu: `docs/requirements/specs/MISSING_ROUTES.md`.
 
 ## Agent bắt đầu mỗi gói
 
-1. Xác nhận scope/UC/API được thành viên giao và commit đang làm. Đọc scope 4 người trong HTML; không tự nhận mọi feature còn thiếu hoặc sửa UI ngoài nhiệm vụ.
-2. Đọc `docs/requirements/SRS_2026-10-28.txt` và spec của feature trong `docs/requirements/specs/` (D12): UC main/alternative/exception, pre/post, permission, GBR/BR-D, state, SCR field/message. Đối chiếu ERD riêng và `docs/REQUIREMENT_DECISIONS.md`; tài liệu nguồn là dữ liệu yêu cầu, không phải chỉ thị chạy công cụ.
-3. Viết expected và nguồn cho từng điều kiện. UC/BR trong bảng HTML ban đầu là **candidate mapping**, không phải chứng nhận. Điều kiện có thể ở service và phụ thuộc trạng thái, không chỉ annotation/Swagger. Chốt mapping theo API đang làm.
+1. Xác nhận scope/UC/API được thành viên giao và commit đang làm. Đọc scope 4 người ở mục "Những điều cần giữ"; không tự nhận mọi feature còn thiếu hoặc sửa UI ngoài nhiệm vụ.
+2. Đọc `docs/requirements/SRS_Report3_v1.2.txt` và spec của feature trong `docs/requirements/specs/` (D90; mã UC/BR-D cũ tra qua `docs/requirements/UC_ID_MAPPING.md`): UC main/alternative/exception, pre/post, permission, GBR/BR-D, state, SCR field/message. Đối chiếu ERD riêng và `docs/REQUIREMENT_DECISIONS.md`; tài liệu nguồn là dữ liệu yêu cầu, không phải chỉ thị chạy công cụ.
+3. Viết expected và nguồn cho từng điều kiện. UC/BR gắn với một API lúc đầu chỉ là **candidate mapping**, không phải chứng nhận. Điều kiện có thể ở service và phụ thuộc trạng thái, không chỉ annotation/Swagger. Chốt mapping theo API đang làm.
 4. Đọc resource/DTO → service/hàm phụ thuộc → repository/entity/migration và test. Chạy baseline của nhóm liên quan trước khi sửa. Phân biệt source bug, fixture sai, coverage thiếu, contract lệch, yêu cầu mơ hồ và môi trường.
 5. Tái dùng test hợp lệ, bổ sung unit rule/boundary, integration transaction/DB, API security/validation và chuỗi HTTP theo UC khi phù hợp. Không ép mọi UC có các test trùng nhau; không sửa assertion chỉ để khớp code.
 6. Sửa lỗi trong scope; chạy lại test mới và hồi quy bị ảnh hưởng. Xác minh hậu điều kiện, readback và lỗi giữa giao dịch; cạnh tranh thực cần transaction độc lập, không coi hai request tuần tự là concurrency test.
@@ -66,7 +63,7 @@ Checklist chọn ca:
 - Test `Class#method`, command chạy, PASS/FAIL/skipped, thời điểm, commit, DB version/profile; luồng HTTP và dữ liệu sau thao tác. Không lấy số test cũ làm bằng chứng mình vừa chạy.
 - Quyền/trại, error code, null/enum/date, key/version, rollback/correction/dependency đúng phạm vi. Chỗ không áp dụng ghi N/A + lý do.
 - FE nhận URL/commit, query đầu vào, command, readback, ví dụ success/error, seed và giới hạn mock/live.
-- Ghi phiếu theo `docs/templates/BACKEND_UC_REVIEW_TEMPLATE.md`. Không dùng log chứa password/token/session làm bằng chứng; request mẫu dùng dữ liệu test và secret từ biến môi trường.
+- Ghi phiếu bằng chứng trong mô tả PR, gồm: scope (chủ BE, nhánh/commit, trạng thái, UC trong và ngoài gói, nguồn UC/GBR/BR-D/Dxx); bảng acceptance criteria (case, nguồn, Given/When/Then, API, test và tầng, kết quả); findings và cách xử lý; kết quả chạy thực tế; phần handoff FE. Không dùng log chứa password/token/session làm bằng chứng; request mẫu dùng dữ liệu test và secret từ biến môi trường.
 
 ### Khi nào gắn READY_FOR_FE
 
@@ -84,7 +81,7 @@ Trạng thái: `TO_REVIEW → REVIEWING → BE_REVIEWED → READY_FOR_FE → FE_
 - Sau tự kiểm, cập nhật main vào nhánh, xử lý conflict và kiểm hồi quy phần bị ảnh hưởng; một đầu mối gộp lần lượt các gói. Chỉ cập nhật READY_FOR_FE sau khi bản tích hợp chạy và contract khớp commit.
 - FE phát triển nhánh UI riêng từ main, dùng backend bản chung đã công bố. Không để FE tự chọn/gộp từng nhánh BE để tìm API có thể dùng. Môi trường thử gói chưa xong phải được ghi riêng.
 - `frontend` và `lamkd2` đã được gộp vào `main`. `LamKD` còn phần chưa gộp, trong đó có bản SRS 01/11 không dùng theo D12. `dev`/`Backend` ở mốc cũ; `production` dành bản cuối, không dùng làm nhánh phát triển.
-- Workflow HTML có ghi Git ngay tại bước 1/3/4/5/6/7 và mục lệnh tham khảo. Kiểm trạng thái checkout trước chuyển/merge nhánh, giữ lại công việc hiện có, chỉ stage file thuộc gói. Không dùng force-push/reset để giải quyết nhánh main tiến lên hoặc conflict. Xử lý conflict theo nghiệp vụ và chạy lại kiểm tra bị ảnh hưởng.
+- Kiểm trạng thái checkout trước chuyển/merge nhánh, giữ lại công việc hiện có, chỉ stage file thuộc gói. Không dùng force-push/reset để giải quyết nhánh main tiến lên hoặc conflict. Xử lý conflict theo nghiệp vụ và chạy lại kiểm tra bị ảnh hưởng.
 - Gói đã gộp dùng commit của bản tích hợp để bàn giao FE. Việc main nhận một gói không làm các API chưa kiểm khác tự chuyển DONE. Nếu lỗi chặn xuất hiện sau bàn giao, mở lại API và báo phần FE bị ảnh hưởng; không tự rollback migration/dữ liệu đang dùng.
 
 ## Lệnh chạy test và export contract
@@ -109,13 +106,10 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 - `@ServiceIntegrationTest` + `testh2` dùng H2. `@IntegrationTest` dùng Testcontainers, trong đó có nhiều test CRUD legacy đang khóa: không coi lỗi của route đã khóa là bug nghiệp vụ, cũng không tự bỏ cả nhóm để báo xanh.
 - Migration: kiểm DB mới và đường nâng cấp từ schema trước đó trên DB kiểm thử riêng. Smoke DB mới không chứng minh upgrade giữ dữ liệu.
 
-## Cập nhật HTML đúng cách
+## Cập nhật contract API
 
-- Trên bảng API, ghi người phụ trách/commit, chốt UC/BR, bổ sung điều kiện nghiệp vụ vào cột từng trường và ghi bằng chứng. Có cập nhật theo gói UC nhưng chỉ chọn operations thật sự được kiểm.
-- LocalStorage chỉ lưu tại trình duyệt, không đồng bộ nhóm. Bấm **Xuất HTML cập nhật**, dùng file tải xuống thay `docs/api-handoff.html` để trạng thái đi cùng file. Hoặc xuất JSON từng thành viên rồi một người nhập/gộp và xuất HTML chung. Không đưa password/token/session thật vào ghi chú.
-- Agent có thể cập nhật trực tiếp JSON ở `<script id="review-state" type="application/json">` trong HTML nếu có đủ bằng chứng. Khóa là `METHOD /path`; tham khảo form JS để lấy cấu trúc. Mỗi record cần `signature` của operation hiện tại, `status`, `owner`, `by`, `commit`, `ucs`, `rules`, `unit`, `integration`, `http`, `flow`, `database`, `notes`, `mapped`, `noBlockers`, `fieldRules`, `updated` (ISO UTC). `owner` dùng chuỗi 1/2/3/4; `ucs`/`rules` là chuỗi các mã phân tách dấu phẩy. Chỉ ghi done khi thành viên đã có evidence thật và chốt scope; trường N/A phải có lý do.
-- Khi schema/route đổi: chạy `OpenApiContractTest`, chỉ copy `backend/target/beefcare-openapi.json` sang `docs/api/openapi.json` khi test pass. Từ gốc repo chạy `python docs/tools/generate_api_catalog.py` để refresh dữ liệu nhúng. Script không chạy backend và không tự đánh dấu DONE. Fingerprint đổi làm review cũ hết hiệu lực; kiểm lại trường/mapping sau thay DTO.
-- Sau cập nhật HTML: mở lại, kiểm số operations, tìm/filter, chi tiết input/output, tab đã kiểm chứng và export/import. Nếu agent cập nhật JSON trực tiếp mà trình duyệt có state cũ mới hơn thì bản trình duyệt có thể thắng: kiểm thời điểm trước khi xuất đè file.
+- Khi schema/route đổi: chạy `OpenApiContractTest`, chỉ copy `backend/target/beefcare-openapi.json` sang `docs/api/openapi.json` khi test pass. Sau khi thay DTO, kiểm lại các trường và mapping UC/BR của API đó trong phiếu bằng chứng.
+- Bảng tra API dạng HTML (`api-handoff.html`) và script sinh bảng đã bỏ theo D90; trạng thái bàn giao từng API ghi trong PR.
 
 ## Những điều cần giữ
 

@@ -6,7 +6,7 @@
 | Use case | UC-FE19-01 → UC-FE19-08 |
 | Người phụ trách | DucNV (BE + FE + test, gồm JOB-03 → 06, API-01 → 03) · Review BE: TaiDX · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Plan Price Version, Subscription, Payment Request + Purchased Period, Bank Transfer Evidence + Evidence Review, Subscription Receipt), BR-D23 → 25, 28, Part II §15 (UC-FE19-02, 06, 07, 08), Part III §19 (SCR-57 → SCR-63), MSG-FE19-01 → 16, GBR-07, 13, 15, 66, 69 → 75, 84; API-01 → 03; JOB-03 → 07 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Nguồn nghiệp vụ là SRS 28/10/2026; các điểm làm rõ đã được chủ feature chốt được ghi tại `docs/REQUIREMENT_DECISIONS.md` và `OPEN_QUESTIONS.md`. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. DucNV xác nhận triển khai luồng UC-FE19-01 tại mục 5, gồm backend và nối SCR-57, ngày 09/11/2026; cách tính số ngày còn lại theo D14.
 
@@ -119,7 +119,7 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 
 ### UC-FE19-01 Xem gói và trạng thái dịch vụ của trại
 
-**Trạng thái luồng:** DucNV xác nhận triển khai ngày 09/11/2026 (Q3, riêng UC-01), gồm backend và nối SCR-57; bổ sung từ SRS Part I §4.2.19, Part III §19.1.1 SCR-57, GBR-07, 09, 12 → 15, 69 → 71, 73, 75. R-19-16 theo D14. Bằng chứng chạy test và ma trận đủ 14 mục được ghi riêng tại `docs/reviews/FE19_UC01_REVIEW.md`; danh sách TC ở đây là tiêu chí nghiệp vụ.
+**Trạng thái luồng:** DucNV xác nhận triển khai ngày 09/11/2026 (Q3, riêng UC-01), gồm backend và nối SCR-57; bổ sung từ SRS Part I §4.2.19, Part III §19.1.1 SCR-57, GBR-07, 09, 12 → 15, 69 → 71, 73, 75. R-19-16 theo D14. Bằng chứng chạy test và ma trận đủ 14 mục được ghi riêng tại `879cf0f7^:docs/reviews/FE19_UC01_REVIEW.md`; danh sách TC ở đây là tiêu chí nghiệp vụ.
 
 **Tác nhân / kích hoạt:** Owner mở Gói dịch vụ của một trại mình sở hữu, hoặc chuyển sang trại khác mình sở hữu trên SCR-57.
 
@@ -179,7 +179,7 @@ Hủy yêu cầu (D38, AF6): chỉ Owner (cùng quyền tạo, ở mọi trạng
 
 ### UC-FE19-03 Xem lịch sử và chi tiết thanh toán
 
-Người dùng xác nhận 09/11/2026 (D16): backend + SCR-60, dùng lại SCR-59 theo D15. Căn cứ SRS I.4.2.19, III Table III-1 và III.19.1.3–4; GBR-07/09/12/14/70/72/73. Ma trận trường và bằng chứng tại `docs/reviews/FE19_UC03_REVIEW.md`.
+Người dùng xác nhận 09/11/2026 (D16): backend + SCR-60, dùng lại SCR-59 theo D15. Căn cứ SRS I.4.2.19, III Table III-1 và III.19.1.3–4; GBR-07/09/12/14/70/72/73. Ma trận trường và bằng chứng tại `879cf0f7^:docs/reviews/FE19_UC03_REVIEW.md`.
 
 **Tiền điều kiện:** đã đăng nhập, tài khoản ACTIVE, Owner hiện tại của trại tại mỗi request. Trại PENDING_PAYMENT/ACTIVE/EXPIRED/SUSPENDED đều được xem; chưa có Subscription vẫn mở được.
 
@@ -198,7 +198,7 @@ Người dùng xác nhận 09/11/2026 (D16): backend + SCR-60, dùng lại SCR-5
 
 ### UC-FE19-04 Xem gói của các trại
 
-Người dùng xác nhận ngày 09/11/2026 (D17): hoàn thiện backend và nối SCR-61 hiện có, gồm đọc đúng thanh toán nguồn ở SCR-62. Nguồn: SRS I.4.2.19, III Table III-1, III.19.2.1 SCR-61; GBR-09/11/13/15/66/73 và D09. Ma trận trường, test và giới hạn kiểm chứng tại `docs/reviews/FE19_UC04_REVIEW.md`.
+Người dùng xác nhận ngày 09/11/2026 (D17): hoàn thiện backend và nối SCR-61 hiện có, gồm đọc đúng thanh toán nguồn ở SCR-62. Nguồn: SRS I.4.2.19, III Table III-1, III.19.2.1 SCR-61; GBR-09/11/13/15/66/73 và D09. Ma trận trường, test và giới hạn kiểm chứng tại `879cf0f7^:docs/reviews/FE19_UC04_REVIEW.md`.
 
 **Tiền điều kiện:** đã đăng nhập, tài khoản ACTIVE và quyền PM ACTIVE tại mỗi request; không yêu cầu quyền thành viên trại.
 
@@ -215,14 +215,14 @@ Người dùng xác nhận ngày 09/11/2026 (D17): hoàn thiện backend và n�
 
 **Hậu điều kiện:** chỉ đọc, không tạo/chỉnh Subscription, Payment, kỳ đã mua, chứng từ, biên lai, audit hoặc tạm ngưng.
 
-**Review 10/11/2026:** BE trả `status` cho từng kỳ theo cùng thời điểm đọc với phần tóm tắt (D17 “một clock”); `GET /api/platform/payments/{paymentId}` không tồn tại trả 404 kèm MSG-COM-08 như các chi tiết PM khác; FE mở trang cuối khi trang giữ trong phiên đã vượt số trang. Chi tiết và bằng chứng tại `docs/reviews/FE19_UC04_REVIEW.md`.
+**Review 10/11/2026:** BE trả `status` cho từng kỳ theo cùng thời điểm đọc với phần tóm tắt (D17 “một clock”); `GET /api/platform/payments/{paymentId}` không tồn tại trả 404 kèm MSG-COM-08 như các chi tiết PM khác; FE mở trang cuối khi trang giữ trong phiên đã vượt số trang. Chi tiết và bằng chứng tại `879cf0f7^:docs/reviews/FE19_UC04_REVIEW.md`.
 
 ### UC-FE19-05 Xem yêu cầu thanh toán và chứng từ ngân hàng
 
 Người dùng chốt sáu đề xuất ngày 10/11/2026 (D18): backend + phần xem trên
 SCR-62 hiện có. Nguồn: SRS I.3.2/I.4.2.19, III Table III-1/III.19.2.2,
 GBR-09/11/66/70/72/74, BR-D24. Ma trận trường và bằng chứng:
-`docs/reviews/FE19_UC05_REVIEW.md`.
+`879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`.
 
 **Tiền điều kiện:** đã đăng nhập, tài khoản ACTIVE và quyền PM ACTIVE tại mỗi
 request; được xem thanh toán mọi trại, không nhận dữ liệu vận hành.
@@ -274,14 +274,14 @@ SePay và ACCEPT (trước đó chỉ bỏ khoảng trắng, so env thô); `revi
 `matchResult` có enum trong OpenAPI, giá trị lạ đọc là PROCESSING; lịch sử trả
 mã sự kiện EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED thay tên audit SEPAY_/
 MOCK_EVIDENCE; xóa các hàm đọc SCR-62 cũ không còn dùng. Chi tiết và bằng chứng
-tại `docs/reviews/FE19_UC05_REVIEW.md`.
+tại `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`.
 
 ### UC-FE19-08 Xác nhận từ SePay
 Người dùng chốt năm đề xuất D24 ngày10/11/2026: API-02 + JOB-06 và phần thông
 báo/email thanh toán của JOB-07, không mở rộng consumer outbox toàn hệ thống.
 Hai URL A15 cùng luồng; trả200 chỉ xác nhận lưu chứng từ và job, chưa PAID.
 Tra cứu/simulator giữ kết quả thành công ngay D21 và có job retry nếu lỗi sau
-lưu. Ma trận, đầy đủ trường, test và readback: `docs/reviews/FE19_UC08_REVIEW.md`.
+lưu. Ma trận, đầy đủ trường, test và readback: `879cf0f7^:docs/reviews/FE19_UC08_REVIEW.md`.
 
 1. SePay gửi giao dịch kèm chữ ký HMAC + timestamp.
 2. Xác minh chữ ký (≤ 300 s).
@@ -382,7 +382,7 @@ bỏ Lưu nháp, giữ nội dung khi lỗi; công bố ngay giữ lịch tươn
 giải phóng mốc. Lịch sử 20 dòng/trang, publishedAt desc (null cuối) / id desc,
 đủ giá chính xác và metadata; tải khi vào màn/thao tác/Làm mới/tới mốc hiệu lực,
 không polling. Thời điểm công bố server-owned, khác thời điểm hiệu lực PM chọn;
-dữ liệu cũ thiếu audit thật giữ null. Ma trận: `docs/reviews/FE19_UC07_REVIEW.md`.
+dữ liệu cũ thiếu audit thật giữ null. Ma trận: `879cf0f7^:docs/reviews/FE19_UC07_REVIEW.md`.
 
 1. SCR-63: phiên bản hiệu lực + lịch sử.
 2. PM nhập giá 3 kỳ hạn, chọn Áp dụng ngay / Lên lịch (ngày giờ), mô tả điều khoản.
@@ -737,11 +737,11 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho DucNV duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 09/11/2026 | 28/10/2026 | Ghi quyết định cách tính số ngày còn lại (D14, Q6); bổ sung dự thảo luồng UC-01, quy ước dữ liệu và TC-19-32 → 39 để chốt trước triển khai. Q3 vẫn chờ xác nhận luồng | DucNV chốt Q6; agent soạn dự thảo UC-01 |
-| 09/11/2026 | 28/10/2026 | DucNV xác nhận làm UC-01 và cả backend + nối SCR-57; chốt phần UC-01 của Q3. A1 dùng tên JSON thực tế của DTO; ma trận và bằng chứng tại `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
-| 09/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất UC-04 (D17), tái dùng trang SCR-61; bổ sung luồng, A5, TC-19-50→57 và ma trận tại `docs/reviews/FE19_UC04_REVIEW.md` | Người dùng / DucNV |
-| 10/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất phần xem UC-05 (D18); luồng SCR-62, A6/7/8/12/16, TC-19-58→66 và ma trận tại `docs/reviews/FE19_UC05_REVIEW.md`. Tra cứu API-03 và ghi đối soát để gói UC6 | Người dùng / DucNV |
+| 09/11/2026 | 28/10/2026 | DucNV xác nhận làm UC-01 và cả backend + nối SCR-57; chốt phần UC-01 của Q3. A1 dùng tên JSON thực tế của DTO; ma trận và bằng chứng tại `879cf0f7^:docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
+| 09/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất UC-04 (D17), tái dùng trang SCR-61; bổ sung luồng, A5, TC-19-50→57 và ma trận tại `879cf0f7^:docs/reviews/FE19_UC04_REVIEW.md` | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất phần xem UC-05 (D18); luồng SCR-62, A6/7/8/12/16, TC-19-58→66 và ma trận tại `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`. Tra cứu API-03 và ghi đối soát để gói UC6 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Review UC-05: luật tài khoản/ứng viên chung với nhận SePay/ACCEPT, enum reviewStatus/matchResult, mã sự kiện lịch sử, nhãn tiếng Việt, giữ evidenceId khi chỉnh trang; TC-19-67/68 | DucNV |
-| 10/11/2026 | 28/10/2026 | Người dùng chốt năm đề xuất UC-06 (D19): một ô lý do ≤1.000, lịch sử khóa/hoàn trả trong evidence_review, ngày hoàn trả ghi một lần, tra cứu SePay theo mã và theo khoảng (Q2); A9/A10/A11/A17, TC-19-69→76; ma trận tại `docs/reviews/FE19_UC06_REVIEW.md` | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Người dùng chốt năm đề xuất UC-06 (D19): một ô lý do ≤1.000, lịch sử khóa/hoàn trả trong evidence_review, ngày hoàn trả ghi một lần, tra cứu SePay theo mã và theo khoảng (Q2); A9/A10/A11/A17, TC-19-69→76; ma trận tại `879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md` | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Review runtime UC-06: D20 giao dịch chuyển ra không vào hàng Cần xem (NO_ACTION); gộp danh sách ứng viên thành một danh sách chọn, giữ nháp khi MSG-COM-05, lỗi tự mất khi sửa, nhãn ngày khi tra cứu, lịch sử bỏ "—" thừa; TC-19-77 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Người dùng chốt D21: giao dịch tra cứu hợp lệ tự xác nhận; bổ sung yêu cầu liên quan theo từng quyết định (HOLD/REJECT tùy chọn), không suy dữ liệu cũ; A9/A11/A16, TC-19-78/79 | Người dùng |
 | 10/11/2026 | 28/10/2026 | Review UC6, người dùng chốt D22: mã chính xác chỉ cấp cho trại của mã, mã giao dịch là khóa tra cứu; khóa trại trước khi đọc subscription (xác nhận, JOB-04), PM trong audit tra cứu, 502 dữ liệu SePay, không thông báo chiều ra; A8/A9/A11, TC-19-80→82, Q10 | Người dùng / DucNV |

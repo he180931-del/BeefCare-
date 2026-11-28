@@ -6,7 +6,7 @@
 | Use case | UC-FE21-01 → UC-FE21-09 |
 | Người phụ trách | LamKD (BE + FE + test) · Review BE: DucNV · Review FE: AnNT |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Manual Finance Record, Subscription Receipt, Cash Report Snapshot), BR-D27, 28, 30, Part II §17 (UC-FE21-02, 06, 07, 09), Part III §21 (SCR-70 → SCR-73), MSG-FE21-01 → 14, GBR-66, 82 → 86 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
 > Đây là sổ thu chi cơ bản của nền tảng, **không phải** kế toán theo luật định.

@@ -6,7 +6,7 @@
 | Use case | UC-FE09-01 → UC-FE09-08 |
 | Người phụ trách | TuanPQ (BE + FE + test) · Review BE: AnNT · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Vaccination Schedule, Scheduled Dose, Vaccination Record, Record Revision), §3.3 (BR-D14, BR-D15, BR-D17), Part II §9, Part III §9 (SCR-31 → SCR-35, 2 popup), MSG-FE09, GBR-08, 24, 26, 30, 32, 41 → 44, 46, 47; REM-06; JOB-01 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 05 và Layout 17.
 

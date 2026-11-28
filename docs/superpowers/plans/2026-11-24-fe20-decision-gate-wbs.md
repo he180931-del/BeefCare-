@@ -10,7 +10,7 @@ supplement, so implementation can be created safely.
 
 **Tech Stack:** Documentation only — Markdown requirement/specification files, SRS, OpenAPI catalogue, and field/contract matrix.
 
-**Spec:** `docs/requirements/specs/FE-20-ho-tro-khach-hang.md` (§7, §10.1, §12.6, §12.7, §12.11, §12.11.1); `docs/REQUIREMENT_DECISIONS.md` (D40); `docs/requirements/SRS_2026-10-28.txt` (FE-20, SCR-64–69, GBR-76–81).
+**Spec:** `docs/requirements/specs/FE-20-ho-tro-khach-hang.md` (§7, §10.1, §12.6, §12.7, §12.11, §12.11.1); `docs/REQUIREMENT_DECISIONS.md` (D40); SRS 28/10 (FE-20, SCR-64–69, GBR-76–81; từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` theo D90, các mã này giữ nguyên số).
 
 ## Scope gate — mandatory
 

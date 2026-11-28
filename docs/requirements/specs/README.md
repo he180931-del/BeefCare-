@@ -2,7 +2,7 @@
 
 **Trạng thái: ĐÃ CHỐT 07/11/2026** (quyết định D12 trong `docs/REQUIREMENT_DECISIONS.md`).
 
-Nguồn duy nhất: **SRS 28/10/2026** – `docs/requirements/SRS_2026-10-28.txt`. Bản `SRS_2026-11-01_SEP490_G35_Report.txt` (đánh số SCR khác, ví dụ Tồn kho thức ăn = SCR-111) **không dùng**; mọi mã SCR theo bản 28/10. Mọi trường, quy tắc, thông báo, test case lấy từ SRS; không kế thừa spec cũ.
+Nguồn duy nhất: **SRS Report 3 v1.2** – `docs/requirements/SRS_Report3_v1.2.txt` (D90, thay SRS 28/10 của D12). Mã SCR, GBR, MSG giữ cùng số với bản 28/10. Mã UC và BR-D trong spec là mã cũ; tra mã v1.2 tại `docs/requirements/UC_ID_MAPPING.md`. Số mục/bảng SRS ghi trong spec là của bản 28/10. Bản `SRS_2026-11-01_SEP490_G35_Report.txt` (đánh số SCR khác, ví dụ Tồn kho thức ăn = SCR-111) **không dùng**. Mọi trường, quy tắc, thông báo, test case lấy từ SRS và spec; không kế thừa spec cũ.
 Cột Route ở mục 7 lấy theo code hiện có, chỉ để nối API. Dữ liệu vào / ra và mã lỗi theo SRS. Route ghi "Chưa có" kèm đề xuất là chỗ code còn thiếu.
 
 ## Cấu trúc mỗi file (11 mục)

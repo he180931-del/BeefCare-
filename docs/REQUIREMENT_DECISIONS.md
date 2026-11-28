@@ -15,7 +15,7 @@ Các tài liệu nguồn là dữ liệu yêu cầu của dự án. Những ch�
 | D09 | SCR-61 "Search: Farm name or subscription code"; schema không có mã gói (subscription code). | Tìm theo tên trại hoặc mã thanh toán (payment code) của các kỳ đã mua; không tự đặt mã gói mới. | Cần chủ dự án xác nhận nếu SRS muốn một mã riêng. |
 | D10 | SCR-48 "Getting started": hai bước "Review breeds and production purposes", "Check farm parameters" không có dữ liệu chứng minh đã xem. | Bước dữ liệu (chuồng, thuốc, mời thành viên, phiếu nhập đầu tiên) suy ra từ dữ liệu; ba bước xem lại (giống/mục đích, tham số, liều vaccine) xong khi đã sửa dữ liệu tương ứng hoặc người dùng đánh dấu. Trạng thái lưu ở `farm.onboarding_steps_done` / `onboarding_dismissed_at` có sẵn. | Không thêm migration. |
 | D11 | GBR-14, MSG-COM-12, UC-FE02-02 AF1: trại không ACTIVE chỉ còn thông tin trại, gói dịch vụ và hỗ trợ. Test cũ của FE04/06/13 kỳ vọng vẫn đọc được dữ liệu vận hành. | Giữ hành vi của mã: cả đọc lẫn ghi dữ liệu vận hành đều trả `MSG-COM-12`. Test cũ được sửa theo SRS. | Không đổi API. |
-| D12 | Repo có hai bản SRS: `docs/requirements/SRS_2026-10-28.txt` (86 SCR) và `SRS_2026-11-01_SEP490_G35_Report.txt` trên nhánh LamKD (104 SCR, đánh số khác, ví dụ Tồn kho thức ăn SCR-77 ↔ SCR-111). Spec cũ trong `docs/superpowers/specs/` viết trước khi chốt. | Nhóm chốt ngày 07/11/2026: nguồn yêu cầu để triển khai và nghiệm thu là SRS 28/10 cùng 23 spec trong `docs/requirements/specs/`. Mã UC, SCR, MSG, GBR theo bản 28/10. Bản 01/11 không dùng. Spec trong `docs/superpowers/specs/` chỉ để tham khảo lịch sử. | Mọi PR, test case (TC-xx-nn) và báo cáo 5.1–5.5 dẫn theo SRS 28/10 và spec. Checklist dùng số SCR bản 01/11 phải đổi về bản 28/10. Câu hỏi còn mở theo dõi tại `docs/requirements/specs/OPEN_QUESTIONS.md`; route thiếu tại `MISSING_ROUTES.md`. |
+| D12 | Repo có hai bản SRS: `docs/requirements/SRS_2026-10-28.txt` (86 SCR) và `SRS_2026-11-01_SEP490_G35_Report.txt` trên nhánh LamKD (104 SCR, đánh số khác, ví dụ Tồn kho thức ăn SCR-77 ↔ SCR-111). Spec cũ trong `docs/superpowers/specs/` viết trước khi chốt. | Nhóm chốt ngày 07/11/2026: nguồn yêu cầu để triển khai và nghiệm thu là SRS 28/10 cùng 23 spec trong `docs/requirements/specs/`. Mã UC, SCR, MSG, GBR theo bản 28/10. Bản 01/11 không dùng. Spec trong `docs/superpowers/specs/` chỉ để tham khảo lịch sử. | Mọi PR, test case (TC-xx-nn) và báo cáo 5.1–5.5 dẫn theo SRS 28/10 và spec. Checklist dùng số SCR bản 01/11 phải đổi về bản 28/10. Câu hỏi còn mở theo dõi tại `docs/requirements/specs/OPEN_QUESTIONS.md`; route thiếu tại `MISSING_ROUTES.md`. **Từ 28/11/2026, phần chọn SRS 28/10 được thay bằng D90 (Report 3 v1.2).** |
 | D13 | 19 câu hỏi mục 10 của spec FE-08 → FE-12 (`docs/requirements/specs/OPEN_QUESTIONS.md`). | Chủ feature (Tuấn) chốt ngày 07/11/2026 theo đề xuất trong spec. Điểm cần lưu ý: FE-10 Q3 bỏ chức năng sửa việc đóng ca vì SRS không có; FE-08 Q3 thang BCS 1–9 dùng ngưỡng dưới 4,0; FE-11 Q2 kiểm trùng 12 giờ áp cho cả động dục và phối, trừ phối lần hai có chủ ý; FE-12 Q1 sau kết quả KHÔNG CÓ THAI con cái về Chờ phối theo Table 3.4-3. | Không đổi yêu cầu trong SRS. Route sửa đóng ca hiện có trong code được gỡ khi làm FE-10. Test case viết theo quyết định này. |
 | D14 | SRS Part III §19.1.1 SCR-57 yêu cầu số ngày tới cuối kỳ hiện tại nhưng chưa quy định làm tròn. `FarmWorkspaceService.details` dùng `Duration.toDays()`; `subscriptionRules.daysUntil` dùng `Math.floor`. FE-02 Q4 đã chốt không có kỳ hiện tại thì hiện "—", SUSPENDED vẫn đếm theo kỳ. | Văn Đức (DucNV) xác nhận ngày 09/11/2026: giữ số ngày tròn 24 giờ, làm tròn xuống, tối thiểu 0. Còn 23 giờ → 0 ngày nhưng vẫn có bao phủ tới đúng end; không có kỳ hiện tại → null / "—". SUSPENDED không dừng đếm kỳ hiện tại. | Làm rõ hiển thị SCR-57 và thống nhất FE-02 / FE-19; không đổi thời điểm kỳ, bao phủ [start, end), trạng thái dịch vụ hoặc tạm ngưng. Bổ sung R-19-16, FE-19 Q6 và tiêu chí TC-19-36; đây là quyết định yêu cầu, chưa phải bằng chứng API / UI đã được kiểm chứng. |
 
@@ -23,7 +23,7 @@ Các tài liệu nguồn là dữ liệu yêu cầu của dự án. Những ch�
 
 | D16 | UC-FE19-03, SCR-60, Q3: cần xác nhận scope, tìm mã, biên ngày và cách làm mới lịch sử. | Người dùng xác nhận cả bốn đề xuất ngày 09/11/2026: backend + SCR-60, dùng lại SCR-59 của UC2; tìm chứa một phần mã không phân biệt hoa/thường, mặc định mọi trạng thái và ngày, mới nhất theo requestedAt trước; khoảng ngày tạo bao gồm trọn from/to theo Asia/Ho_Chi_Minh, cho nhập riêng từng đầu, from > to báo MSG-COM-11. Tải mới khi vào màn, thay filter/trang, trở lại từ SCR-59 hoặc bấm Làm mới; polling 5 giây áp dụng SCR-59 theo D15. | Chốt phần UC-03 của Q3. Theo Table III-1: 20 dòng/trang, giữ bộ lọc trong phiên; PAID/EXPIRED xem panel chỉ đọc như SCR-60. Bổ sung paging/filter/sort ở API A3, giữ quyền Owner hiện tại và dữ liệu snapshot; không thay logic xác nhận/cấp kỳ. |
 
-| D17 | UC-FE19-04 / SCR-61 thiếu đặc tả Part II (FE-19 Q3); trang hiện có dùng demo, thiếu coverage/paging/sort và liên kết thanh toán cụ thể. D09 chưa diễn giải trường mã subscription trong chi tiết. | Người dùng xác nhận ngày 09/11/2026 thực hiện cả sáu đề xuất: hoàn thiện backend + nối SCR-61 hiện có và phần đọc đúng thanh toán nguồn ở SCR-62. CURRENT = có kỳ bao phủ now; FUTURE_ONLY = không có kỳ hiện tại, có kỳ tương lai; NONE = không có cả hai, gồm chưa mua và đã hết hạn; độc lập với SUSPENDED. Áp dụng D09: nhận diện bằng tên trại, tìm tên trại hoặc mã thanh toán của kỳ PAID, không tạo/hiển thị mã subscription giả. Hiển thị và lọc ngày xác nhận đến theo ngày cuối phục vụ (end trừ một đơn vị thời gian trước khi đổi sang Asia/Ho_Chi_Minh); nhận độc lập hai đầu ngày, khoảng đảo MSG-COM-11. Lần mua mới nhất theo confirmedAt của PAID; phân biệt chưa có subscription với đã đăng ký nhưng chưa có kỳ mua. Tìm contains không phân biệt hoa/thường; mặc định mọi lọc, confirmedUntil giảm dần, null cuối; 20 dòng/trang, giữ lọc trong phiên, làm mới theo thao tác/vào màn/quay lại hoặc nút Làm mới. | Chốt riêng UC-04 của Q3; dùng lại trang và API sẵn có, bổ sung contract/tests theo ma trận tại docs/reviews/FE19_UC04_REVIEW.md. Trạng thái đọc suy ra tại một clock, kỳ vẫn [start,end), max(end) gồm kỳ tương lai, mở gia hạn = end − 90 ngày; không thay nghiệp vụ ghi tiền/cấp kỳ. Đây là quyết định yêu cầu, chưa phải bằng chứng đã kiểm chứng hay READY_FOR_FE. |
+| D17 | UC-FE19-04 / SCR-61 thiếu đặc tả Part II (FE-19 Q3); trang hiện có dùng demo, thiếu coverage/paging/sort và liên kết thanh toán cụ thể. D09 chưa diễn giải trường mã subscription trong chi tiết. | Người dùng xác nhận ngày 09/11/2026 thực hiện cả sáu đề xuất: hoàn thiện backend + nối SCR-61 hiện có và phần đọc đúng thanh toán nguồn ở SCR-62. CURRENT = có kỳ bao phủ now; FUTURE_ONLY = không có kỳ hiện tại, có kỳ tương lai; NONE = không có cả hai, gồm chưa mua và đã hết hạn; độc lập với SUSPENDED. Áp dụng D09: nhận diện bằng tên trại, tìm tên trại hoặc mã thanh toán của kỳ PAID, không tạo/hiển thị mã subscription giả. Hiển thị và lọc ngày xác nhận đến theo ngày cuối phục vụ (end trừ một đơn vị thời gian trước khi đổi sang Asia/Ho_Chi_Minh); nhận độc lập hai đầu ngày, khoảng đảo MSG-COM-11. Lần mua mới nhất theo confirmedAt của PAID; phân biệt chưa có subscription với đã đăng ký nhưng chưa có kỳ mua. Tìm contains không phân biệt hoa/thường; mặc định mọi lọc, confirmedUntil giảm dần, null cuối; 20 dòng/trang, giữ lọc trong phiên, làm mới theo thao tác/vào màn/quay lại hoặc nút Làm mới. | Chốt riêng UC-04 của Q3; dùng lại trang và API sẵn có, bổ sung contract/tests theo ma trận tại 879cf0f7^:docs/reviews/FE19_UC04_REVIEW.md. Trạng thái đọc suy ra tại một clock, kỳ vẫn [start,end), max(end) gồm kỳ tương lai, mở gia hạn = end − 90 ngày; không thay nghiệp vụ ghi tiền/cấp kỳ. Đây là quyết định yêu cầu, chưa phải bằng chứng đã kiểm chứng hay READY_FOR_FE. |
 
 SRS mô tả ERD ở mức khái niệm: các dòng chi tiết, lịch sử và phiên bản nằm trong phần mô tả entity. Việc cần thêm bảng chi tiết so với các ô trên sơ đồ là triển khai quan hệ đó, không tự nó là mâu thuẫn.
 
@@ -42,7 +42,7 @@ che mã chỉ còn bốn số cuối, chi tiết PM xem đầy đủ. Tải khi 
 tab/lọc/trang/quay lại/Làm mới; giữ lọc/trang trong phiên, không polling.
 
 Chốt phần xem UC-05 của Q3; phân trang 20 và ngày VN theo SRS III-1/GBR-66.
-Ma trận, test và giới hạn: `docs/reviews/FE19_UC05_REVIEW.md`. GET không ghi
+Ma trận, test và giới hạn: `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`. GET không ghi
 tiền/cấp kỳ/đổi chứng từ; không suy sai thời gian từ trạng thái EXPIRED. Phần
 tra cứu và ghi UC6 ghi rõ là hoãn, chưa chứng nhận toàn SCR-62/READY_FOR_FE.
 
@@ -68,7 +68,7 @@ Người dùng đồng ý cả năm đề xuất:
 Theo SRS không cần quyết thêm: lỗi theo MSG-FE19-11/COM-05/COM-06/COM-02,
 `Idempotency-Key` cho lệnh ghi, mã chính xác thì không bắt chọn ứng viên,
 không khóa hoàn trả giao dịch chiều ra. Ma trận và bằng chứng:
-`docs/reviews/FE19_UC06_REVIEW.md`.
+`879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md`.
 
 ### D20 — Giao dịch chuyển ra không vào hàng "Cần xem" (10/11/2026)
 
@@ -80,7 +80,7 @@ có trạng thái hiển thị `NO_ACTION` ("Không cần xử lý"), không tí
 "Chứng từ cần xem" và không có trong bộ lọc "Cần xem"; vẫn xem được ở "Tất cả".
 Chứng từ chưa có chiều (dữ liệu cũ) vẫn coi là cần xem. PM vẫn có thể Tạm giữ
 hoặc Từ chối chứng từ chiều ra; khi đó trạng thái theo quyết định. Điều chỉnh
-quy tắc đếm của D18. Bằng chứng: `docs/reviews/FE19_UC06_REVIEW.md`.
+quy tắc đếm của D18. Bằng chứng: `879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md`.
 
 ### D21 — UC-FE19-06: xác nhận từ tra cứu và yêu cầu liên quan trong lịch sử (10/11/2026)
 
@@ -99,7 +99,7 @@ Người dùng xác nhận hai đề xuất trong phiên:
 
 Bổ sung phần `related payment request` từng hoãn trong báo cáo UC6; thay quy
 ước HOLD/REJECT bỏ qua `paymentId` của D19. Không bật SePay LIVE hoặc mở rộng
-JOB-06. Ma trận và bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+JOB-06. Ma trận và bằng chứng tại `879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md`.
 
 ### D22 — UC-FE19-06: mã chính xác chỉ cấp cho trại của mã; mã giao dịch là khóa tra cứu (10/11/2026)
 
@@ -119,7 +119,7 @@ Cùng đợt review (không cần quyết thêm, theo SRS): xác nhận và JOB-
 trước khi đọc subscription (GBR-72/73); tra cứu ghi PM thực hiện vào audit
 (GBR-86), nguồn xác nhận vẫn SEPAY (D21); giao dịch chiều ra không gửi thông báo
 cần đối soát (D20); dữ liệu SePay không lưu được khi tra cứu là 502. Ma trận và
-bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+bằng chứng tại `879cf0f7^:docs/reviews/FE19_UC06_REVIEW.md`.
 
 ### D23 — UC-FE19-07: công bố, rút và lịch sử bảng giá (10/11/2026)
 
@@ -144,7 +144,7 @@ công bố do hệ thống tự ghi và khác thời điểm hiệu lực do PM 
 Giữ mã phiên bản backend hiện có (`PlanVersion.id`, không cam kết liên tiếp);
 frontend không tự dự đoán max+1. Metadata cũ chỉ lấy từ audit công bố thật, thiếu
 thì null / “—”, không suy từ effectiveAt. Ma trận, contract thay đổi và bằng
-chứng tại `docs/reviews/FE19_UC07_REVIEW.md`.
+chứng tại `879cf0f7^:docs/reviews/FE19_UC07_REVIEW.md`.
 
 ### D24 — UC-FE19-08: nhận webhook, xử lý bền vững và email thanh toán (10/11/2026)
 
@@ -174,7 +174,7 @@ Không quyết lại các luật đã rõ: GBR-72/73/84, cửa sổ ngân hàng 
 khóa theo trại, không cấp trùng, không gỡ tạm ngưng. Mốc kỷ niệm 29/02 theo
 GBR-73 suy từ chuỗi kỳ đã mua liên tục, không tạo mốc lịch sử giả. Chỉ kiểm
 MOCK/PostgreSQL/Mailpit local; chưa SePay LIVE hay READY_FOR_FE. Ma trận,
-test, readback và runtime: `docs/reviews/FE19_UC08_REVIEW.md`.
+test, readback và runtime: `879cf0f7^:docs/reviews/FE19_UC08_REVIEW.md`.
 
 Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
 
@@ -214,7 +214,7 @@ Người dùng đồng ý cả bốn đề xuất trong phiên:
 Chốt FE-03 Q1 và riêng phần nhận lời mời của Q4; phần cấp quyền platform của
 Q4 vẫn mở. Giữ tên field API hiện có `validityDays` (3/7/14, mặc định 7), đồng
 bộ spec thay cho tên mô tả `validDays`; không đổi route. Ghi kiểm thử và giới
-hạn tại `docs/reviews/FE03_UC01_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+hạn tại `879cf0f7^:docs/reviews/FE03_UC01_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D26 — UC-FE03-02: xem lời mời của trại (12/11/2026)
 
@@ -243,7 +243,7 @@ Người dùng xác nhận cả sáu đề xuất trong phiên, sau khi đọc s
 Chốt riêng UC2 của FE-03 Q2; UC5 và UC7 vẫn mở. `hasAccount` tiếp tục chỉ báo
 có tài khoản tại lần đọc, không công bố trạng thái tài khoản platform (D25).
 Ngày giờ hiển thị theo múi giờ trại (Table III-1), mặc định Asia/Ho_Chi_Minh.
-Ma trận, kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC02_REVIEW.md`;
+Ma trận, kiểm thử và giới hạn ghi tại `879cf0f7^:docs/reviews/FE03_UC02_REVIEW.md`;
 quyết định yêu cầu không tự tạo bằng chứng READY_FOR_FE.
 
 ### D27 — UC-FE03-03: gửi lại / hủy lời mời đang chờ (14/11/2026)
@@ -276,7 +276,7 @@ thái lưu. Audit Gửi lại ghi lastSentAt/expiresAt trước/sau, audit Hủy
 statusBefore/statusAfter (GBR-86). Frontend hiện MSG-FE03-08 kèm trạng thái và
 tải lại danh sách khi lời mời đã đổi; lỗi lưu giữ hộp thoại và cùng key để thử
 lại. Spec A5/A6 dùng tên field `expectedVersion` như code. Kiểm thử và giới hạn
-ghi tại `docs/reviews/FE03_UC03_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+ghi tại `879cf0f7^:docs/reviews/FE03_UC03_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D28 — UC-FE03-04: chấp nhận lời mời (14/11/2026)
 
@@ -308,7 +308,7 @@ gì vì trạng thái được kiểm. A7 trả `{status, farmId, farmName, time
 role, invitedBy, sentAt, expiresAt, membershipId?}` cho đúng email được mời; lỗi
 MSG-FE03-08 kèm `status` và `expiresAt`. "Gửi lúc" là lần gửi cuối. Vào trại sau
 khi chấp nhận đi qua kiểm tra của SCR-09 (quyền và dịch vụ) rồi tải lại phiên.
-Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC04_REVIEW.md`; quyết định chưa
+Kiểm thử và giới hạn ghi tại `879cf0f7^:docs/reviews/FE03_UC04_REVIEW.md`; quyết định chưa
 phải READY_FOR_FE.
 
 ### D29 — UC-FE03-05: xem thành viên trại (14/11/2026)
@@ -353,7 +353,7 @@ Người dùng đồng ý cả sáu đề xuất trong phiên, sau khi đọc SR
 `VIEW_CATALOGUES`); Manager mở được SCR-13 (trước đây trang gọi API chi tiết trại
 chỉ dành cho Owner); nhãn "Đã ngưng" / "Ngưng" theo spec; tải lại khi vào màn,
 sau thao tác và nút Làm mới, không polling. Kiểm thử và giới hạn ghi tại
-`docs/reviews/FE03_UC05_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+`879cf0f7^:docs/reviews/FE03_UC05_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D30 — UC-FE03-06: đổi vai trò / ngưng / kích hoạt lại thành viên (14/11/2026)
 
@@ -387,7 +387,7 @@ Người dùng đồng ý cả sáu đề xuất trong phiên, sau khi đọc SR
 giả; thông báo nháp của Manager bị ngưng vẫn riêng tư và không sửa được (AF2). Ghi nhận,
 không làm trong UC6: thành viên vừa bị ngưng đang mở trang sẽ nhận MSG-COM-01 ở thao tác
 kế tiếp, chưa tự chuyển về SCR-09 (SRS không quy định). Kiểm thử và giới hạn ghi tại
-`docs/reviews/FE03_UC06_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+`879cf0f7^:docs/reviews/FE03_UC06_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D31 — UC-FE03-07: xem tài khoản người dùng (14/11/2026)
 
@@ -428,7 +428,7 @@ GBR-10/11, Table III-1 (2789–2794) và đối chiếu code. Chốt phần UC7 
 Đi kèm, không cần quyết riêng: nhãn "Tạm khóa / Mở khóa" đổi thành "Tạm ngưng / Khôi phục"
 trên SCR-16 và hộp thoại UC8; bỏ N+1 (fetch join quyền platform, đếm membership và kiểm xác
 minh theo cả trang); lỗi DB khi GET → MSG-COM-03. Kiểm thử và giới hạn ghi tại
-`docs/reviews/FE03_UC07_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+`879cf0f7^:docs/reviews/FE03_UC07_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D32 — UC-FE03-08: tạm ngưng / khôi phục tài khoản (14/11/2026)
 
@@ -473,7 +473,7 @@ làm UC9). Frontend: MSG-FE03-14 / 15 / 16 / 17 theo spec; lỗi FE03-17 / FE03-
 giữ hộp thoại và cùng khóa. Runtime tìm ra lỗi có từ trước: hết hạn phiên dùng `Set.of(login, email)`
 nên tài khoản có login trùng email (mọi tài khoản thật) làm lệnh tạm ngưng trả 500; đã sửa, có test
 hồi quy. Phiên đã đăng ký bị hết hạn khi tạm ngưng nên request kế tiếp là 401, đăng nhập lại là
-MSG-FE01-03. Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC08_REVIEW.md`; quyết định chưa phải
+MSG-FE01-03. Kiểm thử và giới hạn ghi tại `879cf0f7^:docs/reviews/FE03_UC08_REVIEW.md`; quyết định chưa phải
 READY_FOR_FE.
 
 ### D33 — UC-FE03-09: quyền nhân viên nền tảng (14/11/2026)
@@ -516,7 +516,7 @@ lệnh bị từ chối không ghi gì. CS mất quyền (thu hồi, hoặc đ�
 OPEN tự có `needsReassignment=true` (D32). Frontend: popup "Quyền nhân viên nền tảng", lý do là ô chữ dài,
 ghi chú SA cuối cùng cố định, MSG-FE03-18 / 19 / 22 theo spec, hủy khi đã nhập hỏi lại (MSG-COM-14), lỗi
 nghiệp vụ đóng popup và tải lại, lỗi lưu / mạng giữ popup và cùng khóa. Kiểm thử và giới hạn ghi tại
-`docs/reviews/FE03_UC09_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+`879cf0f7^:docs/reviews/FE03_UC09_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
 
 ### D34 — UC-FE17-01: lịch sử audit nền tảng (15/11/2026)
 
@@ -581,7 +581,7 @@ Hợp đồng (thay đổi phá vỡ, FE chưa nối trước đây): A1 `GET /a
 targetType&dir&page&size` → `{items[{id, time, actor{id, name, initials, role}|null, action, targetType,
 targetLabel}], total, page, size}`; A2 `GET /api/platform/audit/{id}` → `{id, time, actor, farm{id, name}|null,
 action, targetType, targetId, targetLabel, before{}, after{}, correlationId}`; A3 như trên. Không có route sửa /
-xóa (405). Kiểm thử và giới hạn ghi tại `docs/reviews/FE17_UC01_REVIEW.md`; quyết định chưa phải
+xóa (405). Kiểm thử và giới hạn ghi tại `879cf0f7^:docs/reviews/FE17_UC01_REVIEW.md`; quyết định chưa phải
 READY_FOR_FE.
 
 ### D35 — FE-10: popup Cập nhật / Đóng ca có ô chọn diễn biến; bắt buộc khi lưu thành lần theo dõi (14/11/2026; mã cũ D30, đổi khi gộp FE-03 / FE-17 vào `dev` vì trùng D30 của UC-FE03-06)
@@ -636,7 +636,7 @@ Các chốt triển khai khi đối chiếu spec FE-11 / FE-12 mục 7 với cod
    có thai OPEN → xác nhận thai đó (AF2), không báo lỗi; diễn biến thai bắt buộc
    chi tiết ≤ 1.000 ký tự.
 
-Chi tiết và bảng lệch: `docs/agent-context/FE-11-12-progress.md`. Test:
+Chi tiết và bảng lệch: `cc64a5ba:docs/agent-context/FE-11-12-progress.md`. Test:
 TC-11-xx, TC-12-xx trong `ReproductionResourceTest`.
 
 ### D37 — FE-18: quyền xem danh mục và tham số (15/11/2026)
@@ -1233,5 +1233,22 @@ TuanPQ chốt trong phiên: 136 use case là quá nhiều cho nhóm 5 người, 
 1. **Gộp, không bỏ chức năng.** Gộp các use case chồng lấn (xem sinh sản FE-11/FE-12, sửa / hủy thai và đẻ, xem thuê bao của PM vào FE-02) và các nhóm thêm / sửa / đổi trạng thái đơn giản thành "Manage …" (danh mục FE-18, chuồng, lời mời, thành viên, tài khoản, phiếu thu chi nháp, thông báo nền tảng, trả lời ticket). Nghiệp vụ lõi (nhập đàn, xuất đàn, ca bệnh, thức ăn, thanh toán) giữ nguyên.
 2. **Mã mới chỉ dùng trong báo cáo.** Report 3 v1.17 dùng mã mới; Report 4 và Report 5.1–5.3 dẫn theo mã mới. Code, test, OpenAPI và spec trong `docs/requirements/specs/` giữ mã cũ, không đổi tên. Đối chiếu tại [UC_ID_MAPPING.md](requirements/UC_ID_MAPPING.md).
 3. Bổ sung cho D12: nguồn nghiệp vụ vẫn là SRS 28/10 và 23 spec; chỉ phần đánh số use case trong báo cáo đổi theo bảng đối chiếu.
+
+Không đổi API, DTO, DB hay hành vi.
+
+### D90 — Nguồn yêu cầu chuyển sang Report 3 v1.2 (28/11/2026)
+
+DucNV chốt trong phiên: bỏ `docs/requirements/SRS_2026-10-28.txt`, dùng Report 3 v1.2 làm SRS. Số D89 đã được dùng trên nhánh `lamkd2` (spec FE-21/FE-22), nên quyết định này lấy số D90.
+
+1. **Nguồn yêu cầu.** Bản gốc là `docs/Reports/BeefCare_Report3_Software Requirement Specification_v1.2.docx`. Bản để tra cứu là [SRS_Report3_v1.2.txt](requirements/SRS_Report3_v1.2.txt), được sinh từ file Word, cùng định dạng `[P…]` / `[TABLE block …]` với bản cũ. Phần chọn SRS của D12 được thay như sau: nguồn để triển khai và nghiệm thu là Report 3 v1.2 cùng 23 spec trong `docs/requirements/specs/`. Thứ tự ưu tiên giữ nguyên: quyết định trong file này → SRS → spec → OpenAPI/code. Khi sửa file Word, phải sinh lại bản `.txt` trong cùng PR bằng `docs/tools/docx_to_srs_txt.py`.
+2. **Mã giữ nguyên số.** SCR, GBR, MSG, REM, JOB, API và BF giữ cùng số với SRS 28/10; câu chữ được viết gọn lại nhưng nghĩa không đổi. Mã mới: SCR-87 Farm Cash Report (D86), MSG-FE08-06, MSG-FE10-14, MSG-FE13-10.
+3. **Mã use case.** v1.2 dùng 103 mã mới theo D88, khớp cột "Mã mới" trong [UC_ID_MAPPING.md](requirements/UC_ID_MAPPING.md). Code, test, OpenAPI và spec vẫn giữ mã cũ. Khi đọc v1.2 cho một UC cũ, tra mã mới qua bảng này.
+4. **BR-D bị đánh số lại.** v1.2 còn 34 BR-D, được đánh số lại từ BR-D11. Code, test và spec giữ số BR-D của SRS 28/10. Bảng đối chiếu số cũ → mới nằm trong [UC_ID_MAPPING.md](requirements/UC_ID_MAPPING.md). Có 4 quy tắc không còn trong danh sách BR-D của v1.2 nhưng vẫn áp dụng vì đã triển khai: BR-D22 (một nhắc việc / thông báo cho mỗi nguồn), BR-D29 (audit chỉ ghi thêm), BR-D30 (snapshot báo cáo bất biến), BR-D31 (optimistic version, GBR-89).
+5. **Mã không còn trong v1.2 nhưng code, test hoặc spec đang dùng.** Gồm NFR-xx (v1.2 mục IV.2 mô tả chất lượng bằng bảng, không gắn mã), RPT-01 → RPT-07, BR-D22 / 29 / 30 / 31 và MSG-FE09-05 / 06 / 11. Các mã này giữ nguyên nghĩa theo SRS 28/10. Xem lại bản cũ bằng `git show cc64a5ba:docs/requirements/SRS_2026-10-28.txt`. Riêng GBR-108, MSG-FE05-13 và MSG-FE22-02 đã ra khỏi phạm vi từ 26/10 (bỏ truy xuất công khai), không cần giữ.
+6. **Số mục, số bảng và số dòng SRS** đã ghi trong spec và các quyết định trước đây (ví dụ "Part III §15, Table III-4", "SRS dòng 2727") là của SRS 28/10, không dò lại theo v1.2.
+7. **Lệch nội dung.** v1.2 là bản rút gọn. Khi v1.2 không có một chi tiết mà spec hoặc quyết định đã chốt có, thì vẫn theo spec / quyết định. Khi v1.2 nói khác spec, ghi vào `docs/requirements/specs/OPEN_QUESTIONS.md` để người phụ trách feature chốt; không tự sửa code theo v1.2.
+
+8. **Bảng tra API.** Bỏ bảng tra API dạng HTML (`api-handoff.html`, `backend-workflow.html`) và script `docs/tools/generate_api_catalog.py` sinh bảng đó; script này đọc SRS 28/10 và gắn API với số UC cũ nên không dùng tiếp được. Contract API là `docs/api/openapi.json`; trạng thái bàn giao từng API ghi trong PR theo `backend/AGENTS.md`.
+9. **Tài liệu đã gỡ.** Khi tài liệu còn lại cần dẫn tới bằng chứng đã gỡ khỏi repo, ghi dạng `<commit>:<đường dẫn>` (ví dụ `879cf0f7^:docs/reviews/FE19_UC05_REVIEW.md`, `cc64a5ba:docs/agent-context/FE-11-12-progress.md`) và mở bằng `git show <commit>:<đường dẫn>`.
 
 Không đổi API, DTO, DB hay hành vi.

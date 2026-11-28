@@ -20,19 +20,16 @@ asks for it. Never include `.env`, credentials, generated `dist/`,
 
 ## Task-context loading policy
 
-Use `docs/agent-context/README.md` as the router for project context. At the
-start of an assignment, confirm the router exists, select only the entries that
+Use `docs/README.md` as the index for project context. At the
+start of an assignment, select only the entries that
 match the feature, role, source-of-truth question, and evidence type, and then
 follow its links as needed. Do not scan the whole repository or read every
 context file by default. Escalate source reads one linked layer at a time when
 the selected context is insufficient or conflicting, and record the additional
 files and reason in the handoff.
 
-When `docs/agent-context/PROMPT_TEMPLATE.md` exists, use it as the reusable
-assignment-context reference together with the compact Luna task template in
-this guide. Link to it; do not copy its full contents into `AGENTS.md`,
-`RTK.md`, or every prompt. Context documents are routing aids, not a higher
-source of truth than requirement decisions, SRS, API/backend contracts, or the
+Use the compact Luna task template in this guide for assignment context.
+Context documents are routing aids, not a higher source of truth than requirement decisions, SRS, API/backend contracts, or the
 approved Figma reference.
 
 ## Visual evidence and regression workflow
@@ -734,7 +731,7 @@ Base: <origin/main or approved integration>, <resolved base SHA>
 Ownership: <writable or read-only>, <owner/task id>, <registry status>
 Preservation state: <clean or exact dirty/untracked files and user decision>
 Read first: AGENTS.md, RTK.md, <relevant sources>
-Context files: <docs/agent-context/README.md routes selected for this task, plus reason>
+Context files: <docs/README.md entries selected for this task, plus reason>
 Role skills: <exact ordered SKILL/reference paths plus reason for each, or None>
 Excluded overlapping skills: <skill names intentionally not loaded and why>
 Runtime target: <service URL, exact routes, viewports, session name, or None>
@@ -886,9 +883,10 @@ For Entry and Exit, prioritize these flows:
 When requirements differ, use this order:
 
 1. Explicit decisions in `docs/REQUIREMENT_DECISIONS.md`.
-2. The approved SRS `docs/requirements/SRS_2026-10-28.txt` and the feature
-   specs in `docs/requirements/specs/` (decision D12; do not use any other SRS
-   version).
+2. The approved SRS `docs/requirements/SRS_Report3_v1.2.txt` (Report 3 v1.2) and
+   the feature specs in `docs/requirements/specs/` (decision D90, replacing the
+   SRS choice of D12; do not use any other SRS version). Code and specs keep the
+   old UC/BR-D codes; map them with `docs/requirements/UC_ID_MAPPING.md`.
 3. Backend API documentation and `docs/api/openapi.json`.
 4. Existing backend business rules and tests.
 5. Figma for layout and interaction details.

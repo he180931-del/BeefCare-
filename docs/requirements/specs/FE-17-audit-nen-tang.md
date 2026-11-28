@@ -6,7 +6,7 @@
 | Use case | UC-FE17-01 |
 | Người phụ trách | DucNV (BE + FE + test) · Review BE: TaiDX · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 J (Audit Log Entry), Part III §17 (SCR-51), GBR-86, GBR-88, NFR-S11; Business flow bước 12 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12); chi tiết triển khai chốt 15/11/2026 (D34) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90); chi tiết triển khai chốt 15/11/2026 (D34) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 là route đã làm theo D34; dữ liệu vào / ra và mã lỗi theo SRS.
 > FE-17 **không có đặc tả Part II và không có MSG riêng** (Q1, D34: dùng MSG-COM).

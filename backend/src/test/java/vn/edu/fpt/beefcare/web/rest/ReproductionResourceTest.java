@@ -47,7 +47,7 @@ import vn.edu.fpt.beefcare.support.HerdEntryTestBase;
 
 /**
  * HTTP contract of FE-11 (A1–A6, TC-11-xx) and FE-12 (A1–A8, TC-12-xx): bodies, statuses and {code, params}.
- * Decisions P1–P7 and Q5: docs/agent-context/FE-11-12-progress.md.
+ * Decisions P1–P7 and Q5: D36 in docs/REQUIREMENT_DECISIONS.md.
  */
 @ServiceIntegrationTest
 @Transactional

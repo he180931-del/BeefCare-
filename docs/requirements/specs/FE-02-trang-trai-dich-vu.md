@@ -6,7 +6,7 @@
 | Use case | UC-FE02-01 → UC-FE02-05 |
 | Người phụ trách | DucNV (BE + FE + test) · Review BE: TaiDX · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Farm, Farm Membership, Farm Service Change, Subscription), §3.3 (BR-D04, BR-D29), Part II §2, Part III §2 (SCR-09 → SCR-12, popup Tạm ngưng / Khôi phục), Table III-6, MSG-FE02, GBR-05, 07, 09, 11 → 15, 64, 66, 86, 88, 109 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có (`main@dec155d`) chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn tiếng Việt đối chiếu Figma tab 02 / 09.
 

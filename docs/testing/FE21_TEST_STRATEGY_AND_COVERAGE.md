@@ -23,7 +23,7 @@ Tài liệu không thay đổi mã nguồn, không sửa dữ liệu và không 
 
 | Nhóm | Nguồn |
 |---|---|
-| Yêu cầu chuẩn | `docs/requirements/SRS_2026-10-28.txt`, phần FE21, GBR-66, GBR-82 đến GBR-89, BR-D27, BR-D28, BR-D30, JOB-08 |
+| Yêu cầu chuẩn | SRS 28/10, phần FE21, GBR-66, GBR-82 đến GBR-89, BR-D27, BR-D28, BR-D30, JOB-08. Từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90); mã BR-D ở đây là số cũ, tra số v1.2 tại `docs/requirements/UC_ID_MAPPING.md`. |
 | Đặc tả feature | `docs/requirements/specs/FE-21-thu-chi-nen-tang.md` |
 | Quyết định | `docs/REQUIREMENT_DECISIONS.md`, đặc biệt D12 |
 | Điểm chưa chốt | `docs/requirements/specs/OPEN_QUESTIONS.md`, mục FE21 |

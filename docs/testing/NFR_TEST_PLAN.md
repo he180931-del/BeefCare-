@@ -9,7 +9,7 @@
 - Một sự kiện tạo thức ăn dưới ngưỡng phát sinh nhắc việc REM-10 trong 150 ms tại Farm A. Mailpit nhận một thư mời khi request được gửi lại với cùng khóa. Chưa đo nhánh cron P07, quét QR P02 và giao dịch SePay sandbox P05.
 - Bằng chứng đã loại thông tin phiên nằm tại [`evidence/tai-2026-11-16/perf-serial.json`](evidence/tai-2026-11-16/perf-serial.json) và [`perf-load-100.json`](evidence/tai-2026-11-16/perf-load-100.json). Các case và trạng thái tương ứng được cập nhật ở Report 5.4.
 
-Nguồn: `docs/requirements/SRS_2026-10-28.txt`, mục IV.2; đối chiếu repo tại `5acd384`. Đây là **kế hoạch**, chưa phải kết quả kiểm thử. Mỗi case ghi ID NFR, dữ liệu và môi trường, bước, kết quả mong đợi/thực tế, Pass/Fail/Blocked, thời điểm, người thực hiện, phiên bản commit và link bằng chứng trong Report 5.4; lỗi ghi ID issue. Tránh lưu mật khẩu/token trong bằng chứng.
+Nguồn: SRS 28/10, mục IV.2 (mã NFR-xx). Report 3 v1.2 (`docs/requirements/SRS_Report3_v1.2.txt`, D90) mô tả chất lượng ở mục IV.2 nhưng không gắn mã, nên mã NFR giữ nghĩa theo bản 28/10: `git show cc64a5ba:docs/requirements/SRS_2026-10-28.txt`; đối chiếu repo tại `5acd384`. Đây là **kế hoạch**, chưa phải kết quả kiểm thử. Mỗi case ghi ID NFR, dữ liệu và môi trường, bước, kết quả mong đợi/thực tế, Pass/Fail/Blocked, thời điểm, người thực hiện, phiên bản commit và link bằng chứng trong Report 5.4; lỗi ghi ID issue. Tránh lưu mật khẩu/token trong bằng chứng.
 
 ## 1. Hiệu năng và tải
 

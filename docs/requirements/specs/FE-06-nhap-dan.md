@@ -6,7 +6,7 @@
 | Use case | UC-FE06-01 → UC-FE06-05 |
 | Người phụ trách | AnNT (BE + FE + test) · Review BE: TuanPQ · Review FE: LamKD |
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Herd Entry Voucher, Herd Entry, Pre-entry History Declaration, Trading Partner, Voucher Payment), §3.3 (BR-D07, 08, 10, 31, 34, 39), Part II §6, Part III §6 (SCR-23 → SCR-25, SCR-75, 5 popup), MSG-FE06, GBR-20, 21, 23, 25, 26, 29 → 33, 58, 90 → 93, 96, 97 |
-| Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
+| Trạng thái | ĐÃ CHỐT 07/11/2026 theo SRS 28/10 (quyết định D12); từ 28/11/2026 đối chiếu `docs/requirements/SRS_Report3_v1.2.txt` (D90) |
 
 > Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. Nhãn VN đối chiếu Figma tab 04 (Nhập đàn) và Layout 16.
 > **Lưu ý:** theo GBR-31 và GBR-93, cha mẹ và dữ liệu sinh của bê sinh tại trại **chỉ đọc** ở phiếu nhập (lấy từ lần đẻ), không được gán lại.
