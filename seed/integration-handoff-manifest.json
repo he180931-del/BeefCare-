@@ -1,0 +1,124 @@
+{
+  "version": "integration-handoff-v1",
+  "branch": "qa/integration-seed-standardization",
+  "purpose": "Package map for members running the normalized Integration Test sources",
+  "official_report_total": 418,
+  "technical_inventory_total": 447,
+  "artifacts": [
+    {
+      "path": "docs/testing/integration-tests/BeefCare_Integration_Normalized_v1.xlsx",
+      "role": "Normalized workbook for member execution and review",
+      "status": "ready_offline_runtime_unverified"
+    },
+    {
+      "path": "docs/testing/integration-tests/integration-test-master.csv",
+      "role": "Canonical one-row-per-case inventory",
+      "status": "source_of_normalized_workbook"
+    },
+    {
+      "path": "seed/baseline-manifest.json",
+      "role": "Shared baseline contract",
+      "status": "ready_offline_runtime_unverified"
+    },
+    {
+      "path": "scripts/seed-qa-fixtures.py",
+      "role": "Baseline API seeder",
+      "status": "ready_offline_runtime_unverified"
+    },
+    {
+      "path": "seed/scenario-fixture-manifest.json",
+      "role": "Scenario-owned fixture contract",
+      "status": "designed_with_runtime_blockers"
+    },
+    {
+      "path": "docs/testing/SCENARIO_FIXTURES.md",
+      "role": "Scenario fixture execution rules",
+      "status": "ready_offline"
+    },
+    {
+      "path": "docs/testing/integration-tests/step-8-qa-clean-db-check.md",
+      "role": "Latest QA runtime and offline verification evidence",
+      "status": "runtime_blocked"
+    }
+  ],
+  "source_scopes": [
+    {
+      "owner": "Lam",
+      "path": "docs/testing/integration-tests/source/BeefCare_Report5_2_Integration_Test_UI_FE01_FE20_FE21_FE22.xlsx",
+      "case_count": 106,
+      "features": ["FE-01", "FE-20", "FE-21", "FE-22"],
+      "status_summary": "Passed 92; Failed 9; N/A 5"
+    },
+    {
+      "owner": "Tai",
+      "path": "docs/testing/integration-tests/source/BeefCare_Report5.2_Integration_Test_Tai.xlsx",
+      "case_count": 70,
+      "features": ["FE-07", "FE-14", "FE-15", "FE-23"],
+      "status_summary": "Pending 70"
+    },
+    {
+      "owner": "Team",
+      "path": "docs/testing/integration-tests/source/BeefCare_Report5.2_Integration_Test_UI_FE02_FE03_FE17_FE19.xlsx",
+      "case_count": 86,
+      "features": ["FE-02", "FE-03", "FE-17", "FE-19"],
+      "status_summary": "Pending 86"
+    },
+    {
+      "owner": "Team",
+      "path": "docs/testing/integration-tests/source/BeefCare_Report5.2_Integration_Test_UI_FE04_FE05_FE06_FE13_FE16_FE18.xlsx",
+      "case_count": 115,
+      "features": ["FE-04", "FE-05", "FE-06", "FE-13", "FE-16", "FE-18"],
+      "status_summary": "Round 1 status unreported in inspected fields"
+    },
+    {
+      "owner": "Team",
+      "path": "docs/testing/integration-tests/source/BeefCare_Report5_2_Integration_Test_UI_FE08_FE12.xlsx",
+      "case_count": 70,
+      "features": ["FE-08", "FE-09", "FE-10", "FE-11", "FE-12"],
+      "status_summary": "Pending 70; Test Statistics declares 72 and needs owner confirmation"
+    }
+  ],
+  "fixture_groups": [
+    "scn-fe01-auth-lifecycle-v1",
+    "scn-fe07-announcement-lifecycle-v1",
+    "scn-fe09-care-case-v1",
+    "scn-fe10-growth-correction-v1",
+    "scn-fe11-reproduction-v1",
+    "scn-fe12-calving-v1",
+    "scn-fe13-exit-permission-v1",
+    "scn-fe14-reminder-lifecycle-v1",
+    "scn-fe15-report-snapshot-v1",
+    "scn-fe19-payment-lifecycle-v1",
+    "scn-fe23-feed-lifecycle-v1"
+  ],
+  "runtime": {
+    "database": "beefcare_qa",
+    "database_url": "jdbc:postgresql://localhost:15433/beefcare_qa",
+    "backend_url": "http://127.0.0.1:8080",
+    "required_tools": ["JDK 21", "Docker Desktop Linux engine", "Python 3"],
+    "required_private_variables": ["BEEFCARE_DB_PASSWORD", "BEEFCARE_DEV_PASSWORD", "BEEFCARE_LINK_SECRET"],
+    "status": "blocked_in_latest_check",
+    "blockers": [
+      "Docker API permission denied for dockerDesktopLinuxEngine",
+      "QA database and backend listeners are absent",
+      "Local secret variables were unset in the checking session"
+    ]
+  },
+  "commands": {
+    "start_database": ".\\scripts\\qa-fixture-db.ps1 start",
+    "start_backend": "cd backend; .\\mvnw.cmd --batch-mode '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dspring-boot.run.profiles=dev,local' spring-boot:run",
+    "seed_baseline": "python .\\scripts\\seed-qa-fixtures.py --isolated-qa-db",
+    "run_existing_demo_helper_dry_run": "pwsh -NoProfile -File scripts/tools/beefcare-local-demo-seed-v1.ps1",
+    "run_existing_demo_helper_apply": "pwsh -NoProfile -File scripts/tools/beefcare-local-demo-seed-v1.ps1 -Apply",
+    "reset_database": ".\\scripts\\qa-fixture-db.ps1 reset"
+  },
+  "safety": {
+    "database_scope": "Disposable QA database only",
+    "sql_writes": false,
+    "production_writes": false,
+    "scenario_idempotency_namespace": "scenario-<fixture_id>-*",
+    "baseline_idempotency_namespace": "baseline-*",
+    "reset_rule": "Stop the backend before reset and reset only the beefcare-qa-fixtures Compose volume",
+    "unresolved_cases": ["FE09-INT-16", "FE09-INT-17"]
+  }
+}
